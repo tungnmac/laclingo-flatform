@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - schema: "schema.sql"
+    queries: "queries/"
+    gen:
+      go:
+        package: "db"
+        out: "../../apps/backend/internal/repository/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_prepared_queries: true
+        emit_interface: true

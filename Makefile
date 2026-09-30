@@ -1,0 +1,36 @@
+DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
+
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen run-backend run-web
+
+# Khởi tạo & kéo thư viện cho Backend (Go)
+init-backend:
+	@echo "📦 Đang khởi tạo và kéo Go modules cho Backend..."
+	@cd apps/backend && go mod tidy
+	@echo "✅ Backend Go modules đã sẵn sàng!"
+
+# Khởi tạo & cài đặt npm packages cho Web (Next.js)
+init-web:
+	@echo "📦 Đang cài đặt npm packages cho Frontend Web..."
+	@cd apps/web && npm install
+	@echo "✅ Frontend Web dependencies đã sẵn sàng!"
+
+# Cài đặt toàn bộ dependencies cho dự án
+install: init-backend init-web
+	@echo "🛠️ Kiểm tra và cài đặt sqlc (nếu chưa có)..."
+	@command -v sqlc >/dev/null 2>&1 || go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	@echo "🎉 Tất cả dependencies đã được cài đặt hoàn tất!"
+
+dev-up:
+	docker-compose up -d
+
+dev-down:
+	docker-compose down
+
+sqlc-gen:
+	sqlc generate -f packages/database/sqlc.yaml
+
+run-backend:
+	go run apps/backend/cmd/server/main.go
+
+run-web:
+	cd apps/web && npm run dev
