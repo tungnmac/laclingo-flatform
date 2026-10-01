@@ -51,6 +51,7 @@ type Language struct {
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
+	Username     string             `json:"username"`
 	PasswordHash string             `json:"password_hash"`
 	FullName     pgtype.Text        `json:"full_name"`
 	AvatarUrl    pgtype.Text        `json:"avatar_url"`

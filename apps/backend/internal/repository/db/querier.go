@@ -11,12 +11,16 @@ import (
 )
 
 type Querier interface {
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }
 

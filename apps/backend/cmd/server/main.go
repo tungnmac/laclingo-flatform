@@ -9,6 +9,7 @@ import (
 	"time"
 
 	_ "laclingo-backend/docs"
+	"laclingo-backend/internal/auth"
 	"laclingo-backend/internal/config"
 	"laclingo-backend/internal/handler"
 	"laclingo-backend/internal/repository"
@@ -23,6 +24,11 @@ import (
 // @version      1.0
 // @description  API học ngôn ngữ với thuật toán SRS (SM-2).
 // @BasePath     /api/v1
+//
+// @securityDefinitions.apikey  BearerAuth
+// @in                          header
+// @name                        Authorization
+// @description                 Nhập "Bearer <access_token>" (lấy từ /auth/login hoặc /auth/register)
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -63,7 +69,7 @@ func main() {
 		app.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
-	handler.RegisterRoutes(app, repo)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL))
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

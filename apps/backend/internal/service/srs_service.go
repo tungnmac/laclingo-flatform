@@ -82,8 +82,8 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 }
 
 // ReviewVocabulary chấm điểm một lần ôn tập theo SM-2 và lưu kết quả
-func (s *SRSService) ReviewVocabulary(ctx context.Context, req domain.VocabularyReviewRequest) (domain.VocabularyReviewResponse, error) {
-	if req.UserID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Quality < 0 || req.Quality > 5 {
+func (s *SRSService) ReviewVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyReviewRequest) (domain.VocabularyReviewResponse, error) {
+	if userID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Quality < 0 || req.Quality > 5 {
 		return domain.VocabularyReviewResponse{}, ErrInvalidInput
 	}
 
@@ -93,7 +93,7 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, req domain.Vocabulary
 	}
 
 	current, err := s.repo.GetVocabularyReview(ctx, db.GetVocabularyReviewParams{
-		UserID:       toPgUUID(req.UserID),
+		UserID:       toPgUUID(userID),
 		VocabularyID: toPgUUID(req.VocabularyID),
 	})
 	switch {
@@ -112,13 +112,17 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, req domain.Vocabulary
 	out := srs.CalculateSM2(input, s.now())
 
 	saved, err := s.repo.UpsertVocabularyReview(ctx, db.UpsertVocabularyReviewParams{
-		UserID:       toPgUUID(req.UserID),
+		UserID:       toPgUUID(userID),
 		VocabularyID: toPgUUID(req.VocabularyID),
 		SrsStage:     pgtype.Int4{Int32: out.NewSRSStage, Valid: true},
 		EaseFactor:   pgtype.Float8{Float64: out.NewEaseFactor, Valid: true},
 		IntervalDays: pgtype.Int4{Int32: out.NewIntervalDays, Valid: true},
 		NextReviewAt: pgtype.Timestamptz{Time: out.NextReviewAt, Valid: true},
 	})
+	if isPgError(err, pgForeignKeyViolation) {
+		// vocabulary_id (hoặc user) không tồn tại
+		return domain.VocabularyReviewResponse{}, ErrNotFound
+	}
 	if err != nil {
 		return domain.VocabularyReviewResponse{}, err
 	}

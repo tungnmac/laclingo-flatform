@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// VocabularyReviewRequest — user được lấy từ access token, không nhận từ body
 type VocabularyReviewRequest struct {
-	UserID       uuid.UUID `json:"user_id" swaggertype:"string" format:"uuid" example:"11111111-1111-1111-1111-111111111111"`
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid" example:"22222222-2222-2222-2222-222222222222"`
 	Quality      int32     `json:"quality" minimum:"0" maximum:"5" example:"4"` // 0 -> 5
 }

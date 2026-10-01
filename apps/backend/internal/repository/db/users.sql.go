@@ -11,8 +11,65 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (email, username, password_hash, full_name)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at
+`
+
+type CreateUserParams struct {
+	Email        string      `json:"email"`
+	Username     string      `json:"username"`
+	PasswordHash string      `json:"password_hash"`
+	FullName     pgtype.Text `json:"full_name"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.Username,
+		arg.PasswordHash,
+		arg.FullName,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -22,6 +79,29 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByIdentifier = `-- name: GetUserByIdentifier :one
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+WHERE email = $1 OR username = $1
+`
+
+func (q *Queries) GetUserByIdentifier(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIdentifier, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
 		&i.PasswordHash,
 		&i.FullName,
 		&i.AvatarUrl,
@@ -33,7 +113,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
 ORDER BY created_at DESC
 `
 
@@ -49,6 +129,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
+			&i.Username,
 			&i.PasswordHash,
 			&i.FullName,
 			&i.AvatarUrl,
@@ -64,4 +145,36 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET full_name  = COALESCE($1, full_name),
+    avatar_url = COALESCE($2, avatar_url),
+    updated_at = NOW()
+WHERE id = $3
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at
+`
+
+type UpdateUserProfileParams struct {
+	FullName  pgtype.Text `json:"full_name"`
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+	ID        pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.FullName, arg.AvatarUrl, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
