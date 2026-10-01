@@ -20,8 +20,8 @@ type UserRepository interface {
 
 // UserResponse là dữ liệu trả ra API — không bao gồm password_hash
 type UserResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
+	ID          uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	Email       string    `json:"email" example:"user@laclingo.vn"`
 	FullName    string    `json:"full_name"`
 	AvatarURL   string    `json:"avatar_url"`
 	StreakCount int32     `json:"streak_count"`

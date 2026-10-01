@@ -1,6 +1,6 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen run-backend build-backend run-web
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen run-backend build-backend swagger run-web
 
 # Khởi tạo & kéo thư viện cho Backend (Go)
 init-backend:
@@ -32,8 +32,13 @@ sqlc-gen:
 run-backend:
 	cd apps/backend && go run ./cmd/server
 
-build-backend:
+build-backend: swagger
 	cd apps/backend && go build -o bin/server ./cmd/server
+
+# Sinh tài liệu Swagger từ annotation trong code (apps/backend/docs)
+swagger:
+	@command -v swag >/dev/null 2>&1 || go install github.com/swaggo/swag/cmd/swag@latest
+	cd apps/backend && swag init -g cmd/server/main.go -o docs --parseInternal
 
 run-web:
 	cd apps/web && npm run dev

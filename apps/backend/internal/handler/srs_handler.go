@@ -26,6 +26,16 @@ func (h *SRSHandler) RegisterRoutes(router fiber.Router) {
 
 // GetDue trả về danh sách từ vựng đến hạn ôn tập.
 // TODO: lấy user_id từ token xác thực thay vì query param.
+//
+// @Summary      Từ vựng đến hạn ôn tập
+// @Tags         srs
+// @Produce      json
+// @Param        user_id  query     string  true   "User ID (UUID)"  format(uuid)
+// @Param        limit    query     int     false  "Số lượng tối đa (mặc định 20, tối đa 100)"
+// @Success      200      {array}   service.DueVocabulary
+// @Failure      400      {object}  ErrorResponse
+// @Failure      500      {object}  ErrorResponse
+// @Router       /srs/due [get]
 func (h *SRSHandler) GetDue(c *fiber.Ctx) error {
 	userID, err := uuid.Parse(c.Query("user_id"))
 	if err != nil {
@@ -42,6 +52,16 @@ func (h *SRSHandler) GetDue(c *fiber.Ctx) error {
 
 // Review ghi nhận kết quả một lần ôn tập (quality 0 -> 5).
 // TODO: lấy user_id từ token xác thực thay vì body.
+//
+// @Summary      Ghi nhận kết quả ôn tập (SM-2)
+// @Tags         srs
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.VocabularyReviewRequest  true  "Kết quả ôn tập"
+// @Success      200   {object}  domain.VocabularyReviewResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      500   {object}  ErrorResponse
+// @Router       /srs/reviews [post]
 func (h *SRSHandler) Review(c *fiber.Ctx) error {
 	var req domain.VocabularyReviewRequest
 	if err := c.BodyParser(&req); err != nil {

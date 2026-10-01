@@ -23,6 +23,16 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	api.Get("/:id", h.GetByID)
 }
 
+// GetByID godoc
+// @Summary      Lấy thông tin user
+// @Tags         users
+// @Produce      json
+// @Param        id   path      string  true  "User ID (UUID)"  format(uuid)
+// @Success      200  {object}  service.UserResponse
+// @Failure      400  {object}  ErrorResponse
+// @Failure      404  {object}  ErrorResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /users/{id} [get]
 func (h *UserHandler) GetByID(c *fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
@@ -37,6 +47,13 @@ func (h *UserHandler) GetByID(c *fiber.Ctx) error {
 	return c.JSON(result)
 }
 
+// List godoc
+// @Summary      Danh sách user
+// @Tags         users
+// @Produce      json
+// @Success      200  {array}   service.UserResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /users [get]
 func (h *UserHandler) List(c *fiber.Ctx) error {
 	results, err := h.svc.List(c.UserContext())
 	if err != nil {

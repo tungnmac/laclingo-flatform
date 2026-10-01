@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "laclingo-backend/docs"
 	"laclingo-backend/internal/config"
 	"laclingo-backend/internal/handler"
 	"laclingo-backend/internal/repository"
@@ -15,8 +16,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/swagger"
 )
 
+// @title        LacLingo API
+// @version      1.0
+// @description  API học ngôn ngữ với thuật toán SRS (SM-2).
+// @BasePath     /api/v1
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -52,6 +58,10 @@ func main() {
 			"mascot":  "🦩 Chim Lạc cất cánh!",
 		})
 	})
+
+	if cfg.AppEnv != "production" {
+		app.Get("/swagger/*", swagger.HandlerDefault)
+	}
 
 	handler.RegisterRoutes(app, repo)
 

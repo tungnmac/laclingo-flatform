@@ -29,8 +29,8 @@ type SRSRepository interface {
 
 // DueVocabulary là một từ vựng đến hạn ôn tập
 type DueVocabulary struct {
-	VocabularyID uuid.UUID `json:"vocabulary_id"`
-	Term         string    `json:"term"`
+	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
+	Term         string    `json:"term" example:"apple"`
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
 	AudioURL     string    `json:"audio_url"`
