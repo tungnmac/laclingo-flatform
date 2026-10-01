@@ -17,6 +17,54 @@ export interface Language {
   created_at: string
 }
 
+export interface GrammarLessonSummary {
+  id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+}
+
+export interface GrammarTopic {
+  id: string
+  code: string
+  title: string
+  description: string
+  order_index: number
+  lessons: GrammarLessonSummary[]
+}
+
+export interface GrammarFormula {
+  type: string // AFFIRMATIVE | NEGATIVE | INTERROGATIVE
+  pattern: string
+  example: string
+}
+
+export interface GrammarLessonContent {
+  summary: string
+  signals: string[]
+  formulas: GrammarFormula[]
+}
+
+export interface GrammarExercise {
+  id: string
+  type: string // MULTIPLE_CHOICE | FILL_BLANK
+  question: string
+  options: string[]
+  correct_answer: string
+  explanation: string
+  order_index: number
+}
+
+export interface GrammarLessonDetail {
+  id: string
+  code: string
+  title: string
+  level: string
+  content: GrammarLessonContent
+  exercises: GrammarExercise[]
+}
+
 export interface DueVocabulary {
   vocabulary_id: string
   term: string
@@ -31,6 +79,22 @@ export interface DueVocabulary {
 export interface VocabularyReviewRequest {
   vocabulary_id: string
   quality: number // 0 -> 5
+}
+
+export interface NewVocabulary {
+  vocabulary_id: string
+  term: string
+  phonetic: string
+  meaning: string
+  example: string
+  topic: string
+  level: string
+  audio_url: string
+}
+
+export interface LearnVocabularyResponse {
+  vocabulary_id: string
+  learned: boolean
 }
 
 export interface RegisterRequest {

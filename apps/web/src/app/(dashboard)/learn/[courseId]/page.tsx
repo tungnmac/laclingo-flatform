@@ -7,10 +7,13 @@ import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
+import { TopicLessonList } from '@/features/grammar/components/TopicLessonList'
+import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 
 export default function CoursePage({ params }: { params: { courseId: string } }) {
   const { data: language, error, loading, reload } = useApi(() => courseService.getById(params.courseId), [params.courseId])
+  const grammar = useApi(() => grammarService.listTopics(params.courseId), [params.courseId])
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -33,18 +36,19 @@ export default function CoursePage({ params }: { params: { courseId: string } })
         </ButtonLink>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
-          <h2 className="mb-2 text-lg font-semibold text-slate-900">🧠 Ôn tập từ vựng (SRS)</h2>
-          <p className="text-sm text-slate-600">
-            Thuật toán SM-2 nhắc bạn ôn đúng lúc sắp quên — mỗi lần trả lời đúng, khoảng cách ôn tập sẽ dài hơn.
-          </p>
-        </Card>
-        <Card>
-          <h2 className="mb-2 text-lg font-semibold text-slate-900">📖 Ngữ pháp</h2>
-          <p className="text-sm text-slate-600">Các bài học ngữ pháp sẽ sớm có mặt khi backend mở API bài học.</p>
-        </Card>
-      </div>
+      <Card>
+        <h2 className="mb-2 text-lg font-semibold text-slate-900">🧠 Ôn tập từ vựng (SRS)</h2>
+        <p className="text-sm text-slate-600">
+          Thuật toán SM-2 nhắc bạn ôn đúng lúc sắp quên — mỗi lần trả lời đúng, khoảng cách ôn tập sẽ dài hơn.
+        </p>
+      </Card>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">📖 Ngữ pháp</h2>
+        {grammar.loading && <Spinner label="Đang tải bài học..." />}
+        {grammar.error && <ErrorState error={grammar.error} onRetry={grammar.reload} />}
+        {grammar.data && <TopicLessonList topics={grammar.data} courseId={params.courseId} />}
+      </section>
 
       <Mascot message={`Cùng chinh phục ${language.name} mỗi ngày nhé!`} />
     </div>
