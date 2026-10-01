@@ -18,6 +18,7 @@
 **/.env*.local
 !.env.example
 *.log
+*.tsbuildinfo
 .vscode/
 .idea/
 .DS_Store
