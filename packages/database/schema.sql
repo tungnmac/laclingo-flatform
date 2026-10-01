@@ -60,9 +60,13 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     term VARCHAR(255) NOT NULL,
     phonetic VARCHAR(255),
     meaning TEXT NOT NULL,
+    example TEXT,
+    topic VARCHAR(50),
+    level VARCHAR(5) DEFAULT 'A1',
     audio_url TEXT,
     image_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (language_id, term)
 );
 
 CREATE TABLE IF NOT EXISTS user_vocabulary_reviews (

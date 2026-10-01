@@ -35,3 +35,20 @@ RETURNING *;
 -- name: GetVocabularyReview :one
 SELECT * FROM user_vocabulary_reviews
 WHERE user_id = $1 AND vocabulary_id = $2;
+
+-- name: ListNewVocabulariesForUser :many
+SELECT v.*
+FROM vocabularies v
+WHERE v.language_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM user_vocabulary_reviews r
+    WHERE r.user_id = $2 AND r.vocabulary_id = v.id
+  )
+ORDER BY v.topic, v.term
+LIMIT $3;
+
+-- name: CreateVocabularyReviewIfAbsent :execrows
+INSERT INTO user_vocabulary_reviews (
+    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at
+) VALUES ($1, $2, 0, 2.5, 0, NOW())
+ON CONFLICT (user_id, vocabulary_id) DO NOTHING;
