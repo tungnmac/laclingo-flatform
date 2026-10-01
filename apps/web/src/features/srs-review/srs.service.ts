@@ -1,9 +1,9 @@
 import { apiFetch } from '@/lib/api'
 import type { DueVocabulary, VocabularyReviewRequest, VocabularyReviewResponse } from '@/types/api'
 
+// User được xác định qua access token — không cần truyền user_id
 export const srsService = {
-  getDue: (userId: string, limit = 20) =>
-    apiFetch<DueVocabulary[]>(`/srs/due?user_id=${encodeURIComponent(userId)}&limit=${limit}`),
+  getDue: (limit = 20) => apiFetch<DueVocabulary[]>(`/srs/due?limit=${limit}`),
 
   review: (body: VocabularyReviewRequest) =>
     apiFetch<VocabularyReviewResponse>('/srs/reviews', {

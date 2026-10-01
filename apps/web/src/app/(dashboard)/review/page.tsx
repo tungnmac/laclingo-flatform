@@ -12,11 +12,9 @@ import { QUALITY_OPTIONS, QualityButtons } from '@/features/srs-review/component
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
 import { useKeypress } from '@/hooks/useKeypress'
 import { formatDate } from '@/lib/utils'
-import { useSession } from '@/store/session'
 
 export default function ReviewPage() {
-  const user = useSession((s) => s.user)
-  const session = useSRSReviewSession(user?.id)
+  const session = useSRSReviewSession()
   const { current, flipped, flip, grade, submitting } = session
 
   const onKey = useCallback(

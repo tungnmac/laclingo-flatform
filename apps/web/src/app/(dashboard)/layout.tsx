@@ -5,18 +5,26 @@ import { useRouter } from 'next/navigation'
 import { BottomNav, MobileHeader, Sidebar } from '@/components/layout/DashboardNav'
 import { Spinner } from '@/components/ui/States'
 import { useHydrated } from '@/hooks/useHydrated'
-import { useSession } from '@/store/session'
+import { isSessionValid, useSession } from '@/store/session'
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const hydrated = useHydrated()
-  const user = useSession((s) => s.user)
   const router = useRouter()
+  const user = useSession((s) => s.user)
+  const token = useSession((s) => s.token)
+  const expiresAt = useSession((s) => s.expiresAt)
+  const logout = useSession((s) => s.logout)
+
+  const valid = isSessionValid({ token, expiresAt }) && !!user
 
   useEffect(() => {
-    if (hydrated && !user) router.replace('/login')
-  }, [hydrated, user, router])
+    if (!hydrated || valid) return
+    // Token hết hạn hoặc chưa đăng nhập → dọn phiên rồi về trang đăng nhập
+    logout()
+    router.replace('/login')
+  }, [hydrated, valid, logout, router])
 
-  if (!hydrated || !user) return <Spinner />
+  if (!hydrated || !valid || !user) return <Spinner />
 
   return (
     <div className="flex min-h-screen">

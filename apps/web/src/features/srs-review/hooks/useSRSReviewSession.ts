@@ -11,7 +11,7 @@ export interface ReviewResult {
 }
 
 /** Quản lý một phiên ôn tập: tải thẻ đến hạn, lật thẻ, chấm điểm, chuyển thẻ */
-export function useSRSReviewSession(userId: string | undefined) {
+export function useSRSReviewSession() {
   const [cards, setCards] = useState<DueVocabulary[]>([])
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -21,11 +21,10 @@ export function useSRSReviewSession(userId: string | undefined) {
   const [error, setError] = useState<Error | null>(null)
 
   const load = useCallback(() => {
-    if (!userId) return
     setLoading(true)
     setError(null)
     srsService
-      .getDue(userId)
+      .getDue()
       .then((data) => {
         setCards(data)
         setIndex(0)
@@ -34,7 +33,7 @@ export function useSRSReviewSession(userId: string | undefined) {
       })
       .catch(setError)
       .finally(() => setLoading(false))
-  }, [userId])
+  }, [])
 
   useEffect(load, [load])
 
@@ -45,11 +44,11 @@ export function useSRSReviewSession(userId: string | undefined) {
 
   const grade = useCallback(
     async (quality: number) => {
-      if (!userId || !current || submitting) return
+      if (!current || submitting) return
       setSubmitting(true)
       setError(null)
       try {
-        const response = await srsService.review({ user_id: userId, vocabulary_id: current.vocabulary_id, quality })
+        const response = await srsService.review({ vocabulary_id: current.vocabulary_id, quality })
         setResults((r) => [...r, { vocab: current, quality, response }])
         setIndex((i) => i + 1)
         setFlipped(false)
@@ -59,7 +58,7 @@ export function useSRSReviewSession(userId: string | undefined) {
         setSubmitting(false)
       }
     },
-    [userId, current, submitting],
+    [current, submitting],
   )
 
   return {

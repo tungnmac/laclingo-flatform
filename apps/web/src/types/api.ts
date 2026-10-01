@@ -3,6 +3,7 @@
 export interface User {
   id: string
   email: string
+  username: string
   full_name: string
   avatar_url: string
   streak_count: number
@@ -26,10 +27,36 @@ export interface DueVocabulary {
   next_review_at: string
 }
 
+// user được backend lấy từ access token, không gửi trong body
 export interface VocabularyReviewRequest {
-  user_id: string
   vocabulary_id: string
   quality: number // 0 -> 5
+}
+
+export interface RegisterRequest {
+  email: string
+  username: string
+  password: string
+  full_name?: string
+}
+
+// identifier nhận email hoặc username
+export interface LoginRequest {
+  identifier: string
+  password: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: 'Bearer'
+  expires_at: string
+  user: User
+}
+
+// Field nào không gửi thì backend giữ nguyên
+export interface UpdateProfileRequest {
+  full_name?: string
+  avatar_url?: string
 }
 
 export interface VocabularyReviewResponse {
