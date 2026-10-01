@@ -50,7 +50,7 @@ func CalculateSM2(input SRSInput, now time.Time) SRSOutput {
 			newInterval = 6
 		default:
 			calculatedInterval := float64(input.IntervalDays) * newEF
-			newInterval = int32(math.Ceiling(calculatedInterval))
+			newInterval = int32(math.Ceil(calculatedInterval))
 		}
 	} else {
 		newStage = 0

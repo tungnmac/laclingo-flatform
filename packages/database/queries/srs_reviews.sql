@@ -31,3 +31,7 @@ DO UPDATE SET
     next_review_at = EXCLUDED.next_review_at,
     last_reviewed_at = NOW()
 RETURNING *;
+
+-- name: GetVocabularyReview :one
+SELECT * FROM user_vocabulary_reviews
+WHERE user_id = $1 AND vocabulary_id = $2;

@@ -12,8 +12,8 @@
 *.dylib
 *.test
 *.out
-main
-server
+/apps/backend/main
+/apps/backend/server
 **/.env
 **/.env*.local
 !.env.example

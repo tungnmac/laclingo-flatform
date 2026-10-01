@@ -1,6 +1,6 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen run-backend run-web
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen run-backend build-backend run-web
 
 # Khởi tạo & kéo thư viện cho Backend (Go)
 init-backend:
@@ -30,7 +30,10 @@ sqlc-gen:
 	sqlc generate -f packages/database/sqlc.yaml
 
 run-backend:
-	go run apps/backend/cmd/server/main.go
+	cd apps/backend && go run ./cmd/server
+
+build-backend:
+	cd apps/backend && go build -o bin/server ./cmd/server
 
 run-web:
 	cd apps/web && npm run dev
