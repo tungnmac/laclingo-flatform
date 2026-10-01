@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	defaultEaseFactor = 2.5
-	defaultDueLimit   = 20
-	maxDueLimit       = 100
+	defaultEaseFactor   = 2.5
+	defaultDueLimit     = 20
+	maxDueLimit         = 100
+	defaultNewBatchSize = 10
 )
 
 // SRSRepository định nghĩa Interface tiếp xúc với cơ sở dữ liệu
@@ -25,6 +26,20 @@ type SRSRepository interface {
 	GetDueVocabulariesForUser(ctx context.Context, arg db.GetDueVocabulariesForUserParams) ([]db.GetDueVocabulariesForUserRow, error)
 	GetVocabularyReview(ctx context.Context, arg db.GetVocabularyReviewParams) (db.UserVocabularyReview, error)
 	UpsertVocabularyReview(ctx context.Context, arg db.UpsertVocabularyReviewParams) (db.UserVocabularyReview, error)
+	ListNewVocabulariesForUser(ctx context.Context, arg db.ListNewVocabulariesForUserParams) ([]db.Vocabulary, error)
+	CreateVocabularyReviewIfAbsent(ctx context.Context, arg db.CreateVocabularyReviewIfAbsentParams) (int64, error)
+}
+
+// NewVocabulary là một từ user chưa học, hiển thị ở flow "Học từ mới"
+type NewVocabulary struct {
+	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
+	Term         string    `json:"term" example:"apple"`
+	Phonetic     string    `json:"phonetic"`
+	Meaning      string    `json:"meaning"`
+	Example      string    `json:"example"`
+	Topic        string    `json:"topic" example:"Đồ ăn & Thức uống"`
+	Level        string    `json:"level" example:"A1"`
+	AudioURL     string    `json:"audio_url"`
 }
 
 // DueVocabulary là một từ vựng đến hạn ôn tập
@@ -133,6 +148,57 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, userID uuid.UUID, req
 		IntervalDays: saved.IntervalDays.Int32,
 		NextReviewAt: saved.NextReviewAt.Time,
 	}, nil
+}
+
+// GetNewVocabularies trả về các từ user chưa học (chưa có review row) để học mới
+func (s *SRSService) GetNewVocabularies(ctx context.Context, userID uuid.UUID, languageID string, limit int32) ([]NewVocabulary, error) {
+	if limit <= 0 {
+		limit = defaultNewBatchSize
+	}
+	if limit > maxDueLimit {
+		limit = maxDueLimit
+	}
+
+	rows, err := s.repo.ListNewVocabulariesForUser(ctx, db.ListNewVocabulariesForUserParams{
+		LanguageID: languageID,
+		UserID:     toPgUUID(userID),
+		Limit:      limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]NewVocabulary, 0, len(rows))
+	for _, v := range rows {
+		results = append(results, NewVocabulary{
+			VocabularyID: uuid.UUID(v.ID.Bytes),
+			Term:         v.Term,
+			Phonetic:     v.Phonetic.String,
+			Meaning:      v.Meaning,
+			Example:      v.Example.String,
+			Topic:        v.Topic.String,
+			Level:        v.Level.String,
+			AudioURL:     v.AudioUrl.String,
+		})
+	}
+	return results, nil
+}
+
+// LearnVocabulary đánh dấu "đã học" một từ mới: tạo review row stage 0, đến hạn
+// ôn ngay. Đã học rồi thì giữ nguyên tiến độ (idempotent).
+func (s *SRSService) LearnVocabulary(ctx context.Context, userID uuid.UUID, vocabularyID uuid.UUID) error {
+	if userID == uuid.Nil || vocabularyID == uuid.Nil {
+		return ErrInvalidInput
+	}
+
+	_, err := s.repo.CreateVocabularyReviewIfAbsent(ctx, db.CreateVocabularyReviewIfAbsentParams{
+		UserID:       toPgUUID(userID),
+		VocabularyID: toPgUUID(vocabularyID),
+	})
+	if isPgError(err, pgForeignKeyViolation) {
+		return ErrNotFound
+	}
+	return err
 }
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {

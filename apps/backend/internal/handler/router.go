@@ -23,6 +23,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// Public
 	NewAuthHandler(service.NewAuthService(repo, tokens)).RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
+	NewGrammarHandler(service.NewGrammarService(repo)).RegisterRoutes(api)
 
 	// Cần đăng nhập
 	protected := api.Group("", RequireAuth(tokens))

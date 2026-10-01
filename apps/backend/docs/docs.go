@@ -118,6 +118,48 @@ const docTemplate = `{
                 }
             }
         },
+        "/grammar/lessons/{code}": {
+            "get": {
+                "description": "Nội dung bài học (summary, công thức, dấu hiệu) và danh sách bài tập.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "grammar"
+                ],
+                "summary": "Chi tiết bài học ngữ pháp",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "present_simple",
+                        "description": "Lesson code",
+                        "name": "code",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GrammarLessonDetail"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/languages": {
             "get": {
                 "produces": [
@@ -187,6 +229,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/languages/{id}/grammar": {
+            "get": {
+                "description": "Mỗi chủ đề kèm danh sách bài học (không gồm nội dung chi tiết).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "grammar"
+                ],
+                "summary": "Danh sách chủ đề ngữ pháp của một ngôn ngữ",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Language ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GrammarTopicResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/srs/due": {
             "get": {
                 "security": [
@@ -216,6 +297,123 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/service.DueVocabulary"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/srs/learn": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Tạo review row stage 0, đến hạn ôn ngay. Gọi lại với từ đã học thì giữ nguyên tiến độ.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "srs"
+                ],
+                "summary": "Đánh dấu đã học từ mới",
+                "parameters": [
+                    {
+                        "description": "Từ vựng đã học",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.LearnVocabularyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.LearnVocabularyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/srs/new": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "srs"
+                ],
+                "summary": "Từ vựng mới chưa học",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Mã ngôn ngữ (mặc định en)",
+                        "name": "language",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Số lượng tối đa (mặc định 10, tối đa 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.NewVocabulary"
                             }
                         }
                     },
@@ -480,6 +678,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.LearnVocabularyRequest": {
+            "type": "object",
+            "properties": {
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "22222222-2222-2222-2222-222222222222"
+                }
+            }
+        },
+        "domain.LearnVocabularyResponse": {
+            "type": "object",
+            "properties": {
+                "learned": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
         "domain.VocabularyReviewRequest": {
             "type": "object",
             "properties": {
@@ -572,6 +793,122 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GrammarExerciseResponse": {
+            "type": "object",
+            "properties": {
+                "correct_answer": {
+                    "type": "string",
+                    "example": "goes"
+                },
+                "explanation": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "question": {
+                    "type": "string",
+                    "example": "She _______ to school every day."
+                },
+                "type": {
+                    "type": "string",
+                    "example": "MULTIPLE_CHOICE"
+                }
+            }
+        },
+        "service.GrammarLessonDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "present_simple"
+                },
+                "content": {
+                    "type": "object"
+                },
+                "exercises": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.GrammarExerciseResponse"
+                    }
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "level": {
+                    "type": "string",
+                    "example": "A1"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Thì Hiện Tại Đơn (Present Simple)"
+                }
+            }
+        },
+        "service.GrammarLessonSummary": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "present_simple"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "level": {
+                    "type": "string",
+                    "example": "A1"
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Thì Hiện Tại Đơn (Present Simple)"
+                }
+            }
+        },
+        "service.GrammarTopicResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "english_12_tenses"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "lessons": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.GrammarLessonSummary"
+                    }
+                },
+                "order_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "12 Thì Trong Tiếng Anh"
+                }
+            }
+        },
         "service.LanguageResponse": {
             "type": "object",
             "properties": {
@@ -602,6 +939,39 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "example": "matkhau123"
+                }
+            }
+        },
+        "service.NewVocabulary": {
+            "type": "object",
+            "properties": {
+                "audio_url": {
+                    "type": "string"
+                },
+                "example": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "string",
+                    "example": "A1"
+                },
+                "meaning": {
+                    "type": "string"
+                },
+                "phonetic": {
+                    "type": "string"
+                },
+                "term": {
+                    "type": "string",
+                    "example": "apple"
+                },
+                "topic": {
+                    "type": "string",
+                    "example": "Đồ ăn \u0026 Thức uống"
+                },
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid"
                 }
             }
         },

@@ -77,6 +77,9 @@ type Vocabulary struct {
 	Term       string             `json:"term"`
 	Phonetic   pgtype.Text        `json:"phonetic"`
 	Meaning    string             `json:"meaning"`
+	Example    pgtype.Text        `json:"example"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
 	AudioUrl   pgtype.Text        `json:"audio_url"`
 	ImageUrl   pgtype.Text        `json:"image_url"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`

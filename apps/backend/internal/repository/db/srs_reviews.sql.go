@@ -11,6 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createVocabularyReviewIfAbsent = `-- name: CreateVocabularyReviewIfAbsent :execrows
+INSERT INTO user_vocabulary_reviews (
+    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at
+) VALUES ($1, $2, 0, 2.5, 0, NOW())
+ON CONFLICT (user_id, vocabulary_id) DO NOTHING
+`
+
+type CreateVocabularyReviewIfAbsentParams struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	VocabularyID pgtype.UUID `json:"vocabulary_id"`
+}
+
+func (q *Queries) CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, createVocabularyReviewIfAbsent, arg.UserID, arg.VocabularyID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getDueVocabulariesForUser = `-- name: GetDueVocabulariesForUser :many
 SELECT 
     v.id AS vocabulary_id,
@@ -104,6 +124,56 @@ func (q *Queries) GetVocabularyReview(ctx context.Context, arg GetVocabularyRevi
 		&i.LastReviewedAt,
 	)
 	return i, err
+}
+
+const listNewVocabulariesForUser = `-- name: ListNewVocabulariesForUser :many
+SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.topic, v.level, v.audio_url, v.image_url, v.created_at
+FROM vocabularies v
+WHERE v.language_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM user_vocabulary_reviews r
+    WHERE r.user_id = $2 AND r.vocabulary_id = v.id
+  )
+ORDER BY v.topic, v.term
+LIMIT $3
+`
+
+type ListNewVocabulariesForUserParams struct {
+	LanguageID string      `json:"language_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+	Limit      int32       `json:"limit"`
+}
+
+func (q *Queries) ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error) {
+	rows, err := q.db.Query(ctx, listNewVocabulariesForUser, arg.LanguageID, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Vocabulary
+	for rows.Next() {
+		var i Vocabulary
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Term,
+			&i.Phonetic,
+			&i.Meaning,
+			&i.Example,
+			&i.Topic,
+			&i.Level,
+			&i.AudioUrl,
+			&i.ImageUrl,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const upsertVocabularyReview = `-- name: UpsertVocabularyReview :one

@@ -1,5 +1,21 @@
 basePath: /api/v1
 definitions:
+  domain.LearnVocabularyRequest:
+    properties:
+      vocabulary_id:
+        example: 22222222-2222-2222-2222-222222222222
+        format: uuid
+        type: string
+    type: object
+  domain.LearnVocabularyResponse:
+    properties:
+      learned:
+        example: true
+        type: boolean
+      vocabulary_id:
+        format: uuid
+        type: string
+    type: object
   domain.VocabularyReviewRequest:
     properties:
       quality:
@@ -64,6 +80,87 @@ definitions:
         format: uuid
         type: string
     type: object
+  service.GrammarExerciseResponse:
+    properties:
+      correct_answer:
+        example: goes
+        type: string
+      explanation:
+        type: string
+      id:
+        format: uuid
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      order_index:
+        type: integer
+      question:
+        example: She _______ to school every day.
+        type: string
+      type:
+        example: MULTIPLE_CHOICE
+        type: string
+    type: object
+  service.GrammarLessonDetail:
+    properties:
+      code:
+        example: present_simple
+        type: string
+      content:
+        type: object
+      exercises:
+        items:
+          $ref: '#/definitions/service.GrammarExerciseResponse'
+        type: array
+      id:
+        format: uuid
+        type: string
+      level:
+        example: A1
+        type: string
+      title:
+        example: Thì Hiện Tại Đơn (Present Simple)
+        type: string
+    type: object
+  service.GrammarLessonSummary:
+    properties:
+      code:
+        example: present_simple
+        type: string
+      id:
+        format: uuid
+        type: string
+      level:
+        example: A1
+        type: string
+      order_index:
+        type: integer
+      title:
+        example: Thì Hiện Tại Đơn (Present Simple)
+        type: string
+    type: object
+  service.GrammarTopicResponse:
+    properties:
+      code:
+        example: english_12_tenses
+        type: string
+      description:
+        type: string
+      id:
+        format: uuid
+        type: string
+      lessons:
+        items:
+          $ref: '#/definitions/service.GrammarLessonSummary'
+        type: array
+      order_index:
+        type: integer
+      title:
+        example: 12 Thì Trong Tiếng Anh
+        type: string
+    type: object
   service.LanguageResponse:
     properties:
       code:
@@ -85,6 +182,29 @@ definitions:
         type: string
       password:
         example: matkhau123
+        type: string
+    type: object
+  service.NewVocabulary:
+    properties:
+      audio_url:
+        type: string
+      example:
+        type: string
+      level:
+        example: A1
+        type: string
+      meaning:
+        type: string
+      phonetic:
+        type: string
+      term:
+        example: apple
+        type: string
+      topic:
+        example: Đồ ăn & Thức uống
+        type: string
+      vocabulary_id:
+        format: uuid
         type: string
     type: object
   service.RegisterRequest:
@@ -210,6 +330,35 @@ paths:
       summary: Đăng ký tài khoản
       tags:
       - auth
+  /grammar/lessons/{code}:
+    get:
+      description: Nội dung bài học (summary, công thức, dấu hiệu) và danh sách bài
+        tập.
+      parameters:
+      - description: Lesson code
+        example: present_simple
+        in: path
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GrammarLessonDetail'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Chi tiết bài học ngữ pháp
+      tags:
+      - grammar
   /languages:
     get:
       produces:
@@ -255,6 +404,32 @@ paths:
       summary: Lấy thông tin ngôn ngữ
       tags:
       - languages
+  /languages/{id}/grammar:
+    get:
+      description: Mỗi chủ đề kèm danh sách bài học (không gồm nội dung chi tiết).
+      parameters:
+      - description: Language ID
+        example: en
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GrammarTopicResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Danh sách chủ đề ngữ pháp của một ngôn ngữ
+      tags:
+      - grammar
   /srs/due:
     get:
       parameters:
@@ -282,6 +457,81 @@ paths:
       security:
       - BearerAuth: []
       summary: Từ vựng đến hạn ôn tập
+      tags:
+      - srs
+  /srs/learn:
+    post:
+      consumes:
+      - application/json
+      description: Tạo review row stage 0, đến hạn ôn ngay. Gọi lại với từ đã học
+        thì giữ nguyên tiến độ.
+      parameters:
+      - description: Từ vựng đã học
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LearnVocabularyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.LearnVocabularyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Đánh dấu đã học từ mới
+      tags:
+      - srs
+  /srs/new:
+    get:
+      parameters:
+      - description: Mã ngôn ngữ (mặc định en)
+        example: en
+        in: query
+        name: language
+        type: string
+      - description: Số lượng tối đa (mặc định 10, tối đa 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.NewVocabulary'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Từ vựng mới chưa học
       tags:
       - srs
   /srs/reviews:
