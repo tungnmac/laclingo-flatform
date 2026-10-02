@@ -5,7 +5,7 @@
 **/out/
 **/build/
 **/dist/
-**/tmp/
+**/tmp/*
 **/bin/
 *.exe
 *.dll
