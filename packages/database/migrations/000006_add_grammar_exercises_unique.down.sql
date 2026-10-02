@@ -1,0 +1,1 @@
+ALTER TABLE grammar_exercises DROP CONSTRAINT IF EXISTS grammar_exercises_lesson_question_key;

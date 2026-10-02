@@ -304,9 +304,15 @@ VALUES
 (
     'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380011', 
     'FILL_BLANK', 
-    'By next month, we (finish) _______ this microservice.', 
-    NULL, 
-    'will have finished', 
-    'Cấu trúc "By next month" đi kèm mốc tương lai yêu cầu thì Tương lai hoàn thành.', 
+    'By next month, we (finish) _______ this microservice.',
+    NULL,
+    'will have finished',
+    'Cấu trúc "By next month" đi kèm mốc tương lai yêu cầu thì Tương lai hoàn thành.',
     1
-);
+)
+ON CONFLICT (lesson_id, question) DO UPDATE SET
+    type = EXCLUDED.type,
+    options = EXCLUDED.options,
+    correct_answer = EXCLUDED.correct_answer,
+    explanation = EXCLUDED.explanation,
+    order_index = EXCLUDED.order_index;

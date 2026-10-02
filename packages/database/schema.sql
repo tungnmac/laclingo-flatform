@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS grammar_exercises (
     order_index INT DEFAULT 0,
     level INT DEFAULT 1 CHECK (level BETWEEN 1 AND 4),
     hint TEXT,
-    xp_reward INT DEFAULT 10
+    xp_reward INT DEFAULT 10,
+    CONSTRAINT grammar_exercises_lesson_question_key UNIQUE (lesson_id, question)
 );
 
 CREATE TABLE IF NOT EXISTS vocabularies (
