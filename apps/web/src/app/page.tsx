@@ -12,7 +12,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <span className="flex items-center gap-2 text-xl font-bold text-indigo-600 sm:text-2xl">
-          <span>🦩</span> LacLingo
+          <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" /> LacLingo
         </span>
         <Link href="/login" className="text-sm font-semibold text-slate-700 hover:text-indigo-600">
           Đăng nhập
@@ -20,7 +20,7 @@ export default function HomePage() {
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-16 pt-10 text-center sm:px-6 sm:pt-20">
-        <div className="mb-4 text-6xl sm:text-7xl">🦩</div>
+        <img src="/logo.svg" alt="Chim Lạc — linh vật LacLingo" className="mb-6 h-24 w-24 rounded-3xl shadow-lg sm:h-28 sm:w-28" />
         <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
           Chào mừng sếp đến với <span className="text-indigo-600">LacLingo</span>
         </h1>

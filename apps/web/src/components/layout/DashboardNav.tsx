@@ -28,7 +28,7 @@ export function Sidebar({ user }: { user: User }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
       <Link href="/learn" className="mb-8 flex items-center gap-2 px-2 text-2xl font-bold text-indigo-600">
-        <span>🦩</span> LacLingo
+        <img src="/logo.svg" alt="" className="h-9 w-9 rounded-xl" /> LacLingo
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -76,7 +76,7 @@ export function MobileHeader({ user }: { user: User }) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:hidden">
       <Link href="/learn" className="flex items-center gap-1.5 text-lg font-bold text-indigo-600">
-        <span>🦩</span> LacLingo
+        <img src="/logo.svg" alt="" className="h-7 w-7 rounded-lg" /> LacLingo
       </Link>
       <div className="flex items-center gap-2">
         <StreakBadge count={user.streak_count} />
