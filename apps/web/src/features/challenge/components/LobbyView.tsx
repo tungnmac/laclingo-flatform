@@ -3,22 +3,37 @@
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { cn } from '@/lib/utils'
 import type { ChallengeRoomDetail } from '@/types/api'
+import { KickButton } from './KickButton'
+import { ReadyToggle } from './ReadyToggle'
 import { participantName } from '../utils'
 
 export function LobbyView({
   room,
   isHost,
+  myUserId,
   connected,
   wsError,
+  readyMap,
   onStart,
+  onSetReady,
+  onKick,
 }: {
   room: ChallengeRoomDetail
   isHost: boolean
+  myUserId?: string
   connected: boolean
   wsError: string | null
+  readyMap: Record<string, boolean>
   onStart: () => void
+  onSetReady: (ready: boolean) => void
+  onKick: (userId: string) => void
 }) {
+  const others = room.participants.filter((p) => p.user_id !== room.host_user_id)
+  const allReady = others.every((p) => readyMap[p.user_id])
+  const iAmReady = myUserId ? !!readyMap[myUserId] : false
+
   return (
     <div className="space-y-6">
       <Card className="text-center">
@@ -27,6 +42,18 @@ export function LobbyView({
         <p className="mt-2 text-xs text-slate-400">
           {!connected ? 'Đang kết nối...' : `${room.question_count} câu · ${room.time_per_question_seconds}s/câu`}
         </p>
+        {(room.is_practice || room.difficulty) && (
+          <div className="mt-3 flex justify-center gap-2">
+            {room.is_practice && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                Luyện tập — không xếp hạng
+              </span>
+            )}
+            {room.difficulty && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">Độ khó {room.difficulty}</span>
+            )}
+          </div>
+        )}
       </Card>
 
       {wsError && (
@@ -38,19 +65,32 @@ export function LobbyView({
       <Card>
         <h3 className="mb-3 text-sm font-semibold text-slate-900">Người tham gia ({room.participants.length})</h3>
         <ul className="space-y-2">
-          {room.participants.map((p) => (
-            <li key={p.user_id} className="flex items-center gap-3">
-              <Avatar name={participantName(p)} src={p.avatar_url || undefined} className="h-9 w-9 text-sm" />
-              <span className="font-medium text-slate-900">{participantName(p)}</span>
-              {p.user_id === room.host_user_id && <span className="text-xs text-indigo-600">(chủ phòng)</span>}
-            </li>
-          ))}
+          {room.participants.map((p) => {
+            const isRoomHost = p.user_id === room.host_user_id
+            const ready = readyMap[p.user_id]
+            return (
+              <li key={p.user_id} className="flex items-center gap-3">
+                <Avatar name={participantName(p)} src={p.avatar_url || undefined} className="h-9 w-9 text-sm" />
+                <span className="flex-1 font-medium text-slate-900">{participantName(p)}</span>
+                {isRoomHost ? (
+                  <span className="text-xs text-indigo-600">Chủ phòng</span>
+                ) : (
+                  <span className={cn('text-xs font-medium', ready ? 'text-emerald-600' : 'text-slate-400')}>
+                    {ready ? '✅ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
+                  </span>
+                )}
+                {isHost && !isRoomHost && <KickButton onKick={() => onKick(p.user_id)} />}
+              </li>
+            )
+          })}
         </ul>
       </Card>
 
+      {!isHost && <ReadyToggle ready={iAmReady} onToggle={onSetReady} />}
+
       {isHost ? (
-        <Button size="lg" className="w-full" disabled={!connected || room.participants.length < 1} onClick={onStart}>
-          Bắt đầu trò chơi
+        <Button size="lg" className="w-full" disabled={!connected || !allReady} onClick={onStart}>
+          {!allReady ? 'Chờ mọi người sẵn sàng...' : 'Bắt đầu trò chơi'}
         </Button>
       ) : (
         <p className="text-center text-sm text-slate-500">Đang chờ chủ phòng bắt đầu...</p>

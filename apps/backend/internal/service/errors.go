@@ -12,4 +12,5 @@ var (
 	ErrRoomFull           = errors.New("phòng đã đủ người")
 	ErrGameAlreadyStarted = errors.New("trò chơi đã bắt đầu")
 	ErrGameFinished       = errors.New("trò chơi đã kết thúc")
+	ErrBanned             = errors.New("bạn đã bị mời ra khỏi phòng này")
 )

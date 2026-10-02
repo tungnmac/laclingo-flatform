@@ -188,12 +188,22 @@ CREATE TABLE IF NOT EXISTS game_rooms (
     question_count INT NOT NULL DEFAULT 10 CHECK (question_count BETWEEN 1 AND 50),
     time_per_question_seconds INT NOT NULL DEFAULT 20 CHECK (time_per_question_seconds BETWEEN 5 AND 120),
     max_participants INT NOT NULL DEFAULT 50 CHECK (max_participants BETWEEN 1 AND 200),
+    is_practice BOOLEAN NOT NULL DEFAULT FALSE,
+    difficulty INT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     finished_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_rooms_host ON game_rooms(host_user_id);
+
+-- Người bị host mời ra khỏi phòng — chặn join lại bằng mã cũ.
+CREATE TABLE IF NOT EXISTS game_room_bans (
+    room_id UUID NOT NULL REFERENCES game_rooms(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    banned_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (room_id, user_id)
+);
 
 -- Snapshot thứ tự câu hỏi đã chọn ngẫu nhiên lúc tạo phòng (ổn định dù bank đổi sau).
 CREATE TABLE IF NOT EXISTS game_room_questions (

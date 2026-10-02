@@ -11,10 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const banGameParticipant = `-- name: BanGameParticipant :exec
+INSERT INTO game_room_bans (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type BanGameParticipantParams struct {
+	RoomID pgtype.UUID `json:"room_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error {
+	_, err := q.db.Exec(ctx, banGameParticipant, arg.RoomID, arg.UserID)
+	return err
+}
+
 const createGameRoom = `-- name: CreateGameRoom :one
-INSERT INTO game_rooms (code, host_user_id, question_count, time_per_question_seconds, max_participants)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, created_at, started_at, finished_at
+INSERT INTO game_rooms (code, host_user_id, question_count, time_per_question_seconds, max_participants, is_practice, difficulty)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, is_practice, difficulty, created_at, started_at, finished_at
 `
 
 type CreateGameRoomParams struct {
@@ -23,6 +37,8 @@ type CreateGameRoomParams struct {
 	QuestionCount          int32       `json:"question_count"`
 	TimePerQuestionSeconds int32       `json:"time_per_question_seconds"`
 	MaxParticipants        int32       `json:"max_participants"`
+	IsPractice             bool        `json:"is_practice"`
+	Difficulty             pgtype.Int4 `json:"difficulty"`
 }
 
 func (q *Queries) CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error) {
@@ -32,6 +48,8 @@ func (q *Queries) CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) 
 		arg.QuestionCount,
 		arg.TimePerQuestionSeconds,
 		arg.MaxParticipants,
+		arg.IsPractice,
+		arg.Difficulty,
 	)
 	var i GameRoom
 	err := row.Scan(
@@ -42,6 +60,8 @@ func (q *Queries) CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) 
 		&i.QuestionCount,
 		&i.TimePerQuestionSeconds,
 		&i.MaxParticipants,
+		&i.IsPractice,
+		&i.Difficulty,
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
@@ -49,11 +69,25 @@ func (q *Queries) CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) 
 	return i, err
 }
 
+const deleteGameParticipant = `-- name: DeleteGameParticipant :exec
+DELETE FROM game_participants WHERE room_id = $1 AND user_id = $2
+`
+
+type DeleteGameParticipantParams struct {
+	RoomID pgtype.UUID `json:"room_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error {
+	_, err := q.db.Exec(ctx, deleteGameParticipant, arg.RoomID, arg.UserID)
+	return err
+}
+
 const finishGameRoom = `-- name: FinishGameRoom :one
 UPDATE game_rooms
 SET status = 'finished', finished_at = NOW()
 WHERE id = $1 AND status = 'in_progress'
-RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, created_at, started_at, finished_at
+RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, is_practice, difficulty, created_at, started_at, finished_at
 `
 
 func (q *Queries) FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error) {
@@ -67,6 +101,8 @@ func (q *Queries) FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom,
 		&i.QuestionCount,
 		&i.TimePerQuestionSeconds,
 		&i.MaxParticipants,
+		&i.IsPractice,
+		&i.Difficulty,
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
@@ -97,7 +133,7 @@ func (q *Queries) GetGameParticipantByUser(ctx context.Context, arg GetGameParti
 }
 
 const getGameRoomByCode = `-- name: GetGameRoomByCode :one
-SELECT id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, created_at, started_at, finished_at FROM game_rooms WHERE code = $1
+SELECT id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, is_practice, difficulty, created_at, started_at, finished_at FROM game_rooms WHERE code = $1
 `
 
 func (q *Queries) GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error) {
@@ -111,6 +147,8 @@ func (q *Queries) GetGameRoomByCode(ctx context.Context, code string) (GameRoom,
 		&i.QuestionCount,
 		&i.TimePerQuestionSeconds,
 		&i.MaxParticipants,
+		&i.IsPractice,
+		&i.Difficulty,
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
@@ -119,7 +157,7 @@ func (q *Queries) GetGameRoomByCode(ctx context.Context, code string) (GameRoom,
 }
 
 const getGameRoomByID = `-- name: GetGameRoomByID :one
-SELECT id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, created_at, started_at, finished_at FROM game_rooms WHERE id = $1
+SELECT id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, is_practice, difficulty, created_at, started_at, finished_at FROM game_rooms WHERE id = $1
 `
 
 func (q *Queries) GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error) {
@@ -133,6 +171,8 @@ func (q *Queries) GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom
 		&i.QuestionCount,
 		&i.TimePerQuestionSeconds,
 		&i.MaxParticipants,
+		&i.IsPractice,
+		&i.Difficulty,
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
@@ -203,6 +243,22 @@ func (q *Queries) InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoom
 	return err
 }
 
+const isGameRoomBanned = `-- name: IsGameRoomBanned :one
+SELECT EXISTS(SELECT 1 FROM game_room_bans WHERE room_id = $1 AND user_id = $2)
+`
+
+type IsGameRoomBannedParams struct {
+	RoomID pgtype.UUID `json:"room_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isGameRoomBanned, arg.RoomID, arg.UserID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const joinGameRoom = `-- name: JoinGameRoom :one
 INSERT INTO game_participants (room_id, user_id)
 SELECT gr.id, $1
@@ -210,6 +266,9 @@ FROM game_rooms gr
 WHERE gr.id = $2
   AND gr.status = 'waiting'
   AND (SELECT COUNT(*) FROM game_participants p WHERE p.room_id = gr.id) < gr.max_participants
+  AND NOT EXISTS (
+      SELECT 1 FROM game_room_bans b WHERE b.room_id = gr.id AND b.user_id = $1
+  )
 ON CONFLICT (room_id, user_id) DO UPDATE SET room_id = EXCLUDED.room_id
 RETURNING id, room_id, user_id, score, joined_at
 `
@@ -219,8 +278,9 @@ type JoinGameRoomParams struct {
 	RoomID pgtype.UUID `json:"room_id"`
 }
 
-// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người trong CÙNG 1 statement với
-// insert, để tránh race khi 2 người join đúng slot cuối cùng cùng lúc.
+// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
+// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
+// cùng lúc.
 func (q *Queries) JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error) {
 	row := q.db.QueryRow(ctx, joinGameRoom, arg.UserID, arg.RoomID)
 	var i GameParticipant
@@ -381,7 +441,7 @@ const startGameRoom = `-- name: StartGameRoom :one
 UPDATE game_rooms
 SET status = 'in_progress', started_at = NOW()
 WHERE id = $1 AND status = 'waiting'
-RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, created_at, started_at, finished_at
+RETURNING id, code, host_user_id, status, question_count, time_per_question_seconds, max_participants, is_practice, difficulty, created_at, started_at, finished_at
 `
 
 func (q *Queries) StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error) {
@@ -395,6 +455,8 @@ func (q *Queries) StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, 
 		&i.QuestionCount,
 		&i.TimePerQuestionSeconds,
 		&i.MaxParticipants,
+		&i.IsPractice,
+		&i.Difficulty,
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,

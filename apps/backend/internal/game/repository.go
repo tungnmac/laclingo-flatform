@@ -19,6 +19,9 @@ type Repository interface {
 	SubmitGameAnswer(ctx context.Context, arg db.SubmitGameAnswerParams) (db.SubmitGameAnswerRow, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]db.GetLeaderboardRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]db.ListGameParticipantsRow, error)
+	DeleteGameParticipant(ctx context.Context, arg db.DeleteGameParticipantParams) error
+	BanGameParticipant(ctx context.Context, arg db.BanGameParticipantParams) error
+	GetGameParticipantByUser(ctx context.Context, arg db.GetGameParticipantByUserParams) (db.GameParticipant, error)
 }
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"laclingo-backend/internal/repository/db"
@@ -14,7 +15,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const idleLobbyTimeout = 10 * time.Minute
+const (
+	idleLobbyTimeout  = 10 * time.Minute
+	maxChatMessageLen = 200
+)
+
+// allowedReactions là whitelist cố định — không broadcast nguyên văn emoji
+// client gửi lên để tránh lạm dụng kênh này gửi nội dung tuỳ ý.
+var allowedReactions = map[string]bool{
+	"👍": true, "🔥": true, "😂": true, "😮": true, "❤️": true, "👏": true,
+}
 
 type roomCommand struct {
 	client *Client
@@ -49,6 +59,10 @@ type Room struct {
 
 	clients      map[uuid.UUID]*Client
 	participants map[uuid.UUID]*participantState
+	// lobbyReady theo dõi ai đã bấm "sẵn sàng" lúc còn waiting — thuần
+	// in-memory (chỉ có nghĩa khi đang kết nối), không cần cột DB, giống
+	// participantState.answeredCurrentQ.
+	lobbyReady map[uuid.UUID]bool
 
 	registerCh   chan *Client
 	unregisterCh chan *Client
@@ -65,6 +79,7 @@ func newRoom(id, hostUserID uuid.UUID, hub *Hub, repo Repository) *Room {
 		status:       "waiting",
 		clients:      make(map[uuid.UUID]*Client),
 		participants: make(map[uuid.UUID]*participantState),
+		lobbyReady:   make(map[uuid.UUID]bool),
 		registerCh:   make(chan *Client),
 		unregisterCh: make(chan *Client),
 		commandCh:    make(chan roomCommand, 32),
@@ -144,9 +159,33 @@ func (r *Room) handleUnregister(c *Client) bool {
 		return false // đã bị thay bởi kết nối mới hơn của cùng user, hoặc đã xử lý rồi
 	}
 	delete(r.clients, c.userID)
+	delete(r.lobbyReady, c.userID) // tránh hiện "sẵn sàng" stale cho người đã mất kết nối
 	close(c.send)
 	r.broadcast(serverMsgParticipantLeft, participantPayload{UserID: c.userID})
+	return r.afterClientRemoved()
+}
 
+// forceDisconnect loại 1 client khỏi phòng do chính Room chủ động quyết định
+// (kick/leave — khác với handleUnregister, nơi ReadPump đã tự phát hiện mất
+// kết nối). CHỈ đóng c.send — không gọi conn.Close() trực tiếp từ đây: quan
+// sát thực tế cho thấy gọi Close() đồng thời/trước khi WritePump kịp xử lý
+// closed-channel của chính nó khiến kết nối "treo" ở trạng thái OPEN nhiều
+// giây dù đã bị kick. WritePump (client.go) đã tự gửi close frame + đóng
+// conn khi thấy c.send bị đóng — tái dùng đúng cơ chế đó, không chen vào.
+func (r *Room) forceDisconnect(userID uuid.UUID, broadcastType string) {
+	c, ok := r.clients[userID]
+	if !ok {
+		return
+	}
+	delete(r.clients, userID)
+	close(c.send)
+	r.broadcast(broadcastType, participantPayload{UserID: userID})
+	r.afterClientRemoved()
+}
+
+// afterClientRemoved chạy bookkeeping chung sau khi 1 client đã bị xoá khỏi
+// r.clients (disconnect/leave/kick) — trả về true nếu room loop nên dừng hẳn.
+func (r *Room) afterClientRemoved() bool {
 	// Người chơi rời giữa lúc đang chơi không được block cả phòng chờ hết giờ.
 	if r.status == "in_progress" && r.allConnectedAnswered() {
 		r.stopQuestionTimer()
@@ -168,6 +207,16 @@ func (r *Room) handleCommand(cmd roomCommand) {
 		r.handleStartGame(cmd)
 	case clientMsgSubmitAnswer:
 		r.handleSubmitAnswer(cmd)
+	case clientMsgLeaveRoom:
+		r.handleLeaveRoom(cmd)
+	case clientMsgKick:
+		r.handleKick(cmd)
+	case clientMsgSetReady:
+		r.handleSetReady(cmd)
+	case clientMsgSendChat:
+		r.handleSendChat(cmd)
+	case clientMsgSendReaction:
+		r.handleSendReaction(cmd)
 	default:
 		cmd.client.sendError("unknown_type", "loại message không hợp lệ")
 	}
@@ -181,6 +230,15 @@ func (r *Room) handleStartGame(cmd roomCommand) {
 	if r.status != "waiting" {
 		cmd.client.sendError("already_started", "trò chơi đã bắt đầu hoặc đã kết thúc")
 		return
+	}
+	for userID := range r.clients {
+		if userID == r.hostUserID {
+			continue
+		}
+		if !r.lobbyReady[userID] {
+			cmd.client.sendError("not_ready", "còn người chơi chưa sẵn sàng")
+			return
+		}
 	}
 
 	ctx := context.Background()
@@ -314,6 +372,98 @@ func (r *Room) recordAnswer(client *Client, p *participantState, questionID pgty
 			TotalScore:    row.NewTotalScore,
 		})
 	}
+}
+
+// handleLeaveRoom xử lý rời phòng chủ động. Chỉ xoá participant khỏi DB khi
+// còn "waiting" — rời được, join lại bằng mã vẫn được (khác kick, không bị
+// ban). Rời giữa lúc đang chơi = coi như disconnect, điểm vẫn đóng băng.
+func (r *Room) handleLeaveRoom(cmd roomCommand) {
+	if r.status == "waiting" {
+		if err := r.repo.DeleteGameParticipant(context.Background(), db.DeleteGameParticipantParams{
+			RoomID: toPgUUID(r.id), UserID: toPgUUID(cmd.userID),
+		}); err != nil {
+			log.Printf("❌ game: DeleteGameParticipant (leave) room=%s user=%s: %v", r.id, cmd.userID, err)
+		}
+		delete(r.lobbyReady, cmd.userID)
+	}
+	r.forceDisconnect(cmd.userID, serverMsgParticipantLeft)
+}
+
+// handleKick: chỉ host, chỉ lúc "waiting". Xoá participant + thêm vào bảng
+// ban (không join lại được bằng mã cũ), báo riêng cho người bị kick rồi đóng
+// kết nối của họ (nếu còn) — ReadPump tự unregister như đường disconnect.
+// Kick phải hoạt động ngay cả khi target đã mất kết nối (không còn trong
+// r.clients, ví dụ đóng tab mà không bấm "rời phòng") — chỉ cần họ còn là
+// participant trong DB; nếu không, lobby sẽ kẹt 1 người "ma" mà host không
+// cách nào dọn được.
+func (r *Room) handleKick(cmd roomCommand) {
+	if cmd.userID != r.hostUserID {
+		cmd.client.sendError("forbidden", "chỉ chủ phòng mới có quyền này")
+		return
+	}
+	if r.status != "waiting" {
+		cmd.client.sendError("not_allowed", "chỉ mời được người ra khỏi phòng lúc đang chờ")
+		return
+	}
+	targetID, err := uuid.Parse(cmd.msg.TargetUserID)
+	if err != nil || targetID == r.hostUserID {
+		cmd.client.sendError("invalid_target", "người chơi không hợp lệ")
+		return
+	}
+
+	ctx := context.Background()
+	if _, err := r.repo.GetGameParticipantByUser(ctx, db.GetGameParticipantByUserParams{RoomID: toPgUUID(r.id), UserID: toPgUUID(targetID)}); err != nil {
+		cmd.client.sendError("not_participant", "người này không ở trong phòng")
+		return
+	}
+
+	if err := r.repo.DeleteGameParticipant(ctx, db.DeleteGameParticipantParams{RoomID: toPgUUID(r.id), UserID: toPgUUID(targetID)}); err != nil {
+		log.Printf("❌ game: DeleteGameParticipant (kick) room=%s user=%s: %v", r.id, targetID, err)
+	}
+	if err := r.repo.BanGameParticipant(ctx, db.BanGameParticipantParams{RoomID: toPgUUID(r.id), UserID: toPgUUID(targetID)}); err != nil {
+		log.Printf("❌ game: BanGameParticipant room=%s user=%s: %v", r.id, targetID, err)
+	}
+	delete(r.lobbyReady, targetID)
+
+	if target, ok := r.clients[targetID]; ok {
+		target.sendJSON(serverMsgKicked, kickedPayload{Reason: "Bạn đã bị chủ phòng mời ra khỏi phòng"})
+		r.forceDisconnect(targetID, serverMsgParticipantKicked)
+	} else {
+		// Target đã mất kết nối từ trước (không có conn để báo/đóng) — chỉ cần
+		// báo cho những người còn lại biết để tự reload danh sách.
+		r.broadcast(serverMsgParticipantKicked, participantPayload{UserID: targetID})
+	}
+}
+
+// handleSetReady: host không cần ready (luôn coi như sẵn sàng), chỉ áp dụng
+// lúc còn "waiting".
+func (r *Room) handleSetReady(cmd roomCommand) {
+	if cmd.userID == r.hostUserID || r.status != "waiting" {
+		return
+	}
+	r.lobbyReady[cmd.userID] = cmd.msg.Ready
+	r.broadcast(serverMsgParticipantReady, participantReadyPayload{UserID: cmd.userID, Ready: cmd.msg.Ready})
+}
+
+// handleSendChat broadcast tin nhắn — ephemeral, không lưu DB.
+func (r *Room) handleSendChat(cmd roomCommand) {
+	msg := strings.TrimSpace(cmd.msg.Message)
+	if msg == "" {
+		return
+	}
+	if len(msg) > maxChatMessageLen {
+		msg = msg[:maxChatMessageLen]
+	}
+	r.broadcast(serverMsgChatMessage, chatMessagePayload{UserID: cmd.userID, Message: msg, SentAt: time.Now()})
+}
+
+// handleSendReaction chỉ nhận emoji trong whitelist cố định — không broadcast
+// nguyên văn nội dung client gửi lên.
+func (r *Room) handleSendReaction(cmd roomCommand) {
+	if !allowedReactions[cmd.msg.Emoji] {
+		return
+	}
+	r.broadcast(serverMsgReaction, reactionPayload{UserID: cmd.userID, Emoji: cmd.msg.Emoji})
 }
 
 func (r *Room) maybeAdvanceEarly() {

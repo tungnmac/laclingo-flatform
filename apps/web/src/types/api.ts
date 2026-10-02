@@ -143,6 +143,7 @@ export interface CreateChallengeRoomRequest {
   time_per_question_seconds: number
   language_id?: string
   difficulty?: number
+  is_practice?: boolean
 }
 
 export interface ChallengeRoom {
@@ -152,6 +153,8 @@ export interface ChallengeRoom {
   question_count: number
   time_per_question_seconds: number
   max_participants: number
+  is_practice: boolean
+  difficulty?: number
 }
 
 // user được backend lấy từ access token, không gửi trong body
@@ -176,6 +179,8 @@ export interface ChallengeRoomDetail {
   host_user_id: string
   question_count: number
   time_per_question_seconds: number
+  is_practice: boolean
+  difficulty?: number
   participants: ChallengeParticipant[]
 }
 
@@ -234,4 +239,24 @@ export interface WsAnswerResultPayload {
 export interface WsErrorPayload {
   code: string
   message: string
+}
+
+export interface WsParticipantReadyPayload {
+  user_id: string
+  ready: boolean
+}
+
+export interface WsChatMessagePayload {
+  user_id: string
+  message: string
+  sent_at: string
+}
+
+export interface WsReactionPayload {
+  user_id: string
+  emoji: string
+}
+
+export interface WsKickedPayload {
+  reason: string
 }

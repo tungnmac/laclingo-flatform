@@ -13,6 +13,7 @@ type CreateRoomRequest struct {
 	TimePerQuestionSeconds int32  `json:"time_per_question_seconds" minimum:"5" maximum:"120" example:"20"`
 	LanguageID             string `json:"language_id,omitempty" example:"en"`
 	Difficulty             int32  `json:"difficulty,omitempty" minimum:"1" maximum:"5" example:"2"`
+	IsPractice             bool   `json:"is_practice,omitempty" example:"false"`
 }
 
 type CreateRoomResponse struct {
@@ -22,6 +23,8 @@ type CreateRoomResponse struct {
 	QuestionCount          int32     `json:"question_count"`
 	TimePerQuestionSeconds int32     `json:"time_per_question_seconds"`
 	MaxParticipants        int32     `json:"max_participants"`
+	IsPractice             bool      `json:"is_practice"`
+	Difficulty             int32     `json:"difficulty,omitempty"`
 }
 
 // JoinRoomRequest tham gia phòng bằng mã — user lấy từ access token
@@ -46,6 +49,8 @@ type RoomDetailResponse struct {
 	HostUserID             uuid.UUID             `json:"host_user_id" swaggertype:"string" format:"uuid"`
 	QuestionCount          int32                 `json:"question_count"`
 	TimePerQuestionSeconds int32                 `json:"time_per_question_seconds"`
+	IsPractice             bool                  `json:"is_practice"`
+	Difficulty             int32                 `json:"difficulty,omitempty"`
 	Participants           []ParticipantResponse `json:"participants"`
 }
 

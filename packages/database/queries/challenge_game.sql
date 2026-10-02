@@ -6,8 +6,8 @@ ORDER BY random()
 LIMIT sqlc.arg('limit');
 
 -- name: CreateGameRoom :one
-INSERT INTO game_rooms (code, host_user_id, question_count, time_per_question_seconds, max_participants)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO game_rooms (code, host_user_id, question_count, time_per_question_seconds, max_participants, is_practice, difficulty)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: InsertGameRoomQuestion :exec
@@ -41,16 +41,29 @@ WHERE id = $1 AND status = 'in_progress'
 RETURNING *;
 
 -- name: JoinGameRoom :one
--- Atomic: kiểm tra phòng còn "waiting" + chưa đủ người trong CÙNG 1 statement với
--- insert, để tránh race khi 2 người join đúng slot cuối cùng cùng lúc.
+-- Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
+-- CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
+-- cùng lúc.
 INSERT INTO game_participants (room_id, user_id)
 SELECT gr.id, sqlc.arg('user_id')
 FROM game_rooms gr
 WHERE gr.id = sqlc.arg('room_id')
   AND gr.status = 'waiting'
   AND (SELECT COUNT(*) FROM game_participants p WHERE p.room_id = gr.id) < gr.max_participants
+  AND NOT EXISTS (
+      SELECT 1 FROM game_room_bans b WHERE b.room_id = gr.id AND b.user_id = sqlc.arg('user_id')
+  )
 ON CONFLICT (room_id, user_id) DO UPDATE SET room_id = EXCLUDED.room_id
 RETURNING *;
+
+-- name: IsGameRoomBanned :one
+SELECT EXISTS(SELECT 1 FROM game_room_bans WHERE room_id = $1 AND user_id = $2);
+
+-- name: DeleteGameParticipant :exec
+DELETE FROM game_participants WHERE room_id = $1 AND user_id = $2;
+
+-- name: BanGameParticipant :exec
+INSERT INTO game_room_bans (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
 -- name: ListGameParticipants :many
 SELECT p.id, p.room_id, p.user_id, p.score, p.joined_at,

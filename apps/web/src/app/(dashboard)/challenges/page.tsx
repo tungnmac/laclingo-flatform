@@ -23,9 +23,12 @@ export default function ChallengesPage() {
     setCreating(true)
     setCreateError(null)
     try {
+      const difficulty = Number(form.get('difficulty'))
       const room = await challengeService.createRoom({
         question_count: Number(form.get('question_count')),
         time_per_question_seconds: Number(form.get('time_per_question_seconds')),
+        difficulty: difficulty || undefined,
+        is_practice: form.get('is_practice') === 'on',
       })
       router.push(`/challenges/${room.id}`)
     } catch (err) {
@@ -73,6 +76,21 @@ export default function ChallengesPage() {
                 required
                 className={inputClass}
               />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Độ khó
+              <select name="difficulty" defaultValue="" className={inputClass}>
+                <option value="">Bất kỳ</option>
+                <option value="1">1 — Dễ</option>
+                <option value="2">2</option>
+                <option value="3">3 — Trung bình</option>
+                <option value="4">4</option>
+                <option value="5">5 — Khó</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input name="is_practice" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600" />
+              Chế độ luyện tập (không xếp hạng)
             </label>
             {createError && (
               <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">

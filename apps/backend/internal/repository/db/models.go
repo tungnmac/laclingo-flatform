@@ -63,9 +63,17 @@ type GameRoom struct {
 	QuestionCount          int32              `json:"question_count"`
 	TimePerQuestionSeconds int32              `json:"time_per_question_seconds"`
 	MaxParticipants        int32              `json:"max_participants"`
+	IsPractice             bool               `json:"is_practice"`
+	Difficulty             pgtype.Int4        `json:"difficulty"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	StartedAt              pgtype.Timestamptz `json:"started_at"`
 	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
+}
+
+type GameRoomBan struct {
+	RoomID   pgtype.UUID        `json:"room_id"`
+	UserID   pgtype.UUID        `json:"user_id"`
+	BannedAt pgtype.Timestamptz `json:"banned_at"`
 }
 
 type GameRoomQuestion struct {

@@ -11,9 +11,11 @@ import (
 )
 
 type Querier interface {
+	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
+	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
 	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
@@ -27,8 +29,10 @@ type Querier interface {
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
-	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người trong CÙNG 1 statement với
-	// insert, để tránh race khi 2 người join đúng slot cuối cùng cùng lúc.
+	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
+	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
+	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
+	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)

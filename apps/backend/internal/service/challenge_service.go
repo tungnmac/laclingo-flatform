@@ -34,6 +34,7 @@ type ChallengeRepository interface {
 	JoinGameRoom(ctx context.Context, arg db.JoinGameRoomParams) (db.GameParticipant, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]db.ListGameParticipantsRow, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]db.GetLeaderboardRow, error)
+	IsGameRoomBanned(ctx context.Context, arg db.IsGameRoomBannedParams) (bool, error)
 }
 
 type ChallengeService struct {
@@ -102,10 +103,16 @@ func (s *ChallengeService) CreateRoom(ctx context.Context, hostID uuid.UUID, req
 		QuestionCount:          room.QuestionCount,
 		TimePerQuestionSeconds: room.TimePerQuestionSeconds,
 		MaxParticipants:        room.MaxParticipants,
+		IsPractice:             room.IsPractice,
+		Difficulty:             room.Difficulty.Int32,
 	}, nil
 }
 
 func (s *ChallengeService) createRoomWithUniqueCode(ctx context.Context, hostID uuid.UUID, req domain.CreateRoomRequest) (db.GameRoom, error) {
+	var difficulty pgtype.Int4
+	if req.Difficulty != 0 {
+		difficulty = pgtype.Int4{Int32: req.Difficulty, Valid: true}
+	}
 	for attempt := 0; attempt < maxCodeGenAttempts; attempt++ {
 		room, err := s.repo.CreateGameRoom(ctx, db.CreateGameRoomParams{
 			Code:                   generateRoomCode(),
@@ -113,6 +120,8 @@ func (s *ChallengeService) createRoomWithUniqueCode(ctx context.Context, hostID 
 			QuestionCount:          req.QuestionCount,
 			TimePerQuestionSeconds: req.TimePerQuestionSeconds,
 			MaxParticipants:        defaultMaxParticipants,
+			IsPractice:             req.IsPractice,
+			Difficulty:             difficulty,
 		})
 		if err == nil {
 			return room, nil
@@ -141,8 +150,14 @@ func (s *ChallengeService) JoinRoom(ctx context.Context, userID uuid.UUID, code 
 
 	participant, err := s.repo.JoinGameRoom(ctx, db.JoinGameRoomParams{RoomID: room.ID, UserID: toPgUUID(userID)})
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Insert bị chặn bởi WHERE (status != waiting hoặc đã đủ người) — phân loại
-		// lỗi theo status hiện tại của phòng để trả message chính xác cho client.
+		// Insert bị chặn bởi WHERE (status != waiting, đã đủ người, hoặc bị ban) —
+		// phân loại lỗi để trả message chính xác cho client. Check ban trước vì
+		// status vẫn có thể là "waiting" trong trường hợp này (phòng không đầy,
+		// chỉ riêng user này bị chặn).
+		banned, banErr := s.repo.IsGameRoomBanned(ctx, db.IsGameRoomBannedParams{RoomID: room.ID, UserID: toPgUUID(userID)})
+		if banErr == nil && banned {
+			return domain.ParticipantResponse{}, ErrBanned
+		}
 		switch room.Status {
 		case "in_progress":
 			return domain.ParticipantResponse{}, ErrGameAlreadyStarted
@@ -201,6 +216,8 @@ func (s *ChallengeService) GetRoom(ctx context.Context, roomID uuid.UUID) (domai
 		HostUserID:             uuid.UUID(room.HostUserID.Bytes),
 		QuestionCount:          room.QuestionCount,
 		TimePerQuestionSeconds: room.TimePerQuestionSeconds,
+		IsPractice:             room.IsPractice,
+		Difficulty:             room.Difficulty.Int32,
 		Participants:           participants,
 	}, nil
 }

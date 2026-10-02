@@ -5,16 +5,36 @@ import { useSession } from '@/store/session'
 import type {
   ChallengeLeaderboardEntry,
   WsAnswerResultPayload,
+  WsChatMessagePayload,
   WsEnvelope,
   WsErrorPayload,
   WsGameFinishedPayload,
   WsGameStartedPayload,
+  WsKickedPayload,
+  WsParticipantReadyPayload,
   WsQuestionEndedPayload,
   WsQuestionPayload,
+  WsReactionPayload,
 } from '@/types/api'
 import { buildChallengeWsUrl } from '../challenge.service'
 
 export type GamePhase = 'lobby' | 'question' | 'reveal' | 'finished'
+
+export interface ChatEntry {
+  userId: string
+  message: string
+  sentAt: string
+}
+
+export interface ReactionEntry {
+  id: string
+  userId: string
+  emoji: string
+  at: number
+}
+
+const maxChatMessages = 50
+const reactionLifetimeMs = 2500
 
 interface State {
   connected: boolean
@@ -28,6 +48,10 @@ interface State {
   reveal: WsQuestionEndedPayload | null
   leaderboard: ChallengeLeaderboardEntry[]
   wsError: string | null
+  readyMap: Record<string, boolean>
+  chatMessages: ChatEntry[]
+  reactions: ReactionEntry[]
+  kicked: { reason: string } | null
 }
 
 const initialState: State = {
@@ -42,6 +66,10 @@ const initialState: State = {
   reveal: null,
   leaderboard: [],
   wsError: null,
+  readyMap: {},
+  chatMessages: [],
+  reactions: [],
+  kicked: null,
 }
 
 type Action =
@@ -50,6 +78,7 @@ type Action =
   | { type: 'tick' }
   | { type: 'submit_local'; selectedIndex: number }
   | { type: 'server_message'; envelope: WsEnvelope }
+  | { type: 'prune_reactions' }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -61,6 +90,10 @@ function reducer(state: State, action: Action): State {
       return { ...state, timeLeft: Math.max(0, state.timeLeft - 1) }
     case 'submit_local':
       return { ...state, myAnswer: action.selectedIndex }
+    case 'prune_reactions': {
+      const cutoff = Date.now() - reactionLifetimeMs
+      return { ...state, reactions: state.reactions.filter((r) => r.at >= cutoff) }
+    }
     case 'server_message':
       return applyServerMessage(state, action.envelope)
     default:
@@ -88,20 +121,38 @@ function applyServerMessage(state: State, envelope: WsEnvelope): State {
       const data = envelope.data as WsGameFinishedPayload
       return { ...state, phase: 'finished', leaderboard: data.leaderboard }
     }
+    case 'participant_ready': {
+      const data = envelope.data as WsParticipantReadyPayload
+      return { ...state, readyMap: { ...state.readyMap, [data.user_id]: data.ready } }
+    }
+    case 'chat_message': {
+      const data = envelope.data as WsChatMessagePayload
+      const entry: ChatEntry = { userId: data.user_id, message: data.message, sentAt: data.sent_at }
+      return { ...state, chatMessages: [...state.chatMessages, entry].slice(-maxChatMessages) }
+    }
+    case 'reaction': {
+      const data = envelope.data as WsReactionPayload
+      const entry: ReactionEntry = { id: `${Date.now()}-${Math.random()}`, userId: data.user_id, emoji: data.emoji, at: Date.now() }
+      return { ...state, reactions: [...state.reactions, entry] }
+    }
+    case 'kicked':
+      return { ...state, kicked: { reason: (envelope.data as WsKickedPayload).reason } }
     case 'error':
       return { ...state, wsError: (envelope.data as WsErrorPayload).message }
     default:
-      // participant_joined/participant_left không đổi state ở đây — hook gọi
-      // onParticipantChange riêng để page tự reload REST (WS chỉ có user_id,
-      // không có tên/avatar).
+      // participant_joined/participant_left/participant_kicked không đổi
+      // state ở đây — hook gọi onParticipantChange riêng để page tự reload
+      // REST (WS chỉ có user_id, không có tên/avatar).
       return state
   }
 }
 
+const membershipChangeTypes = new Set(['participant_joined', 'participant_left', 'participant_kicked'])
+
 /**
  * Quản lý 1 kết nối WebSocket cho phòng thử thách: nhận câu hỏi/kết quả/
- * leaderboard theo thời gian thực, gửi start_game/submit_answer. Không tự
- * reconnect khi mất kết nối — giới hạn đã biết, khớp với backend (Phase 1).
+ * leaderboard/chat/reaction/ready theo thời gian thực, gửi các action tương
+ * ứng. Không tự reconnect khi mất kết nối — giới hạn đã biết từ Phase 1.
  */
 export function useChallengeSocket(roomId: string, onParticipantChange?: () => void) {
   const [state, dispatch] = useReducer(reducer, initialState)
@@ -125,7 +176,7 @@ export function useChallengeSocket(roomId: string, onParticipantChange?: () => v
       } catch {
         return // frame hỏng — bỏ qua
       }
-      if (envelope.type === 'participant_joined' || envelope.type === 'participant_left') {
+      if (membershipChangeTypes.has(envelope.type)) {
         onParticipantChangeRef.current?.()
         return
       }
@@ -144,6 +195,12 @@ export function useChallengeSocket(roomId: string, onParticipantChange?: () => v
     return () => clearInterval(id)
   }, [state.phase, state.question, state.timeLeft])
 
+  useEffect(() => {
+    if (state.reactions.length === 0) return
+    const id = setInterval(() => dispatch({ type: 'prune_reactions' }), 500)
+    return () => clearInterval(id)
+  }, [state.reactions.length])
+
   const send = useCallback((msg: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg))
@@ -161,5 +218,11 @@ export function useChallengeSocket(roomId: string, onParticipantChange?: () => v
     [send, state.question, state.myAnswer],
   )
 
-  return { ...state, startGame, submitAnswer }
+  const leaveRoom = useCallback(() => send({ type: 'leave_room' }), [send])
+  const setReady = useCallback((ready: boolean) => send({ type: 'set_ready', ready }), [send])
+  const kickParticipant = useCallback((userId: string) => send({ type: 'kick', user_id: userId }), [send])
+  const sendChat = useCallback((message: string) => send({ type: 'send_chat', message }), [send])
+  const sendReaction = useCallback((emoji: string) => send({ type: 'send_reaction', emoji }), [send])
+
+  return { ...state, startGame, submitAnswer, leaveRoom, setReady, kickParticipant, sendChat, sendReaction }
 }
