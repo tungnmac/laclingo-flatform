@@ -13,6 +13,36 @@
 - Frontend: review hub UI, exercise components
 - Database: new tables for exercises, decks, progress
 
+### Grammar Exercise System (Phân cấp)
+
+Mỗi bài ngữ pháp có hệ thống bài tập phân cấp từ dễ → khó:
+
+```
+Lesson: "Present Simple Tense"
+├── Level 1 (Easy): Multiple choice - nhận diện
+│   └── Chọn động từ đúng (1 đáp án đúng từ 4)
+├── Level 2 (Medium): Fill in blank - cơ bản
+│   └── Điền động từ vào chỗ trống (có gợi ý)
+├── Level 3 (Hard): Fill in blank - nâng cao
+│   └── Điền động từ vào chỗ trống (không gợi ý)
+└── Level 4 (Expert): Rewrite - áp dụng
+    └── Viết lại câu với động từ khác
+```
+
+**Bài tập Grammar có 4 cấp độ:**
+
+| Level | Name | Description | XP Base | Difficulty |
+|-------|------|-------------|---------|-----------|
+| 1 | Nhận diện | Chọn đáp án đúng | 5 XP | 1 |
+| 2 | Cơ bản | Điền từ có gợi ý | 10 XP | 2 |
+| 3 | Nâng cao | Điền từ không gợi ý | 15 XP | 3 |
+| 4 | Áp dụng | Viết lại/hoàn thành câu | 25 XP | 4 |
+
+**Progression:**
+- User phải pass ≥70% Level N mới mở khóa Level N+1
+- Fail 3 lần liên tiếp → gợi ý học lại lý thuyết
+- Mỗi lesson có 10-20 bài tập mỗi level
+
 ---
 
 ## 2. Kiến Trúc Dữ Liệu
@@ -42,7 +72,28 @@ CREATE TABLE exercise_types (
 | `dictation` | Nghe viết | 🎧 | Nghe và viết từ | `{audio: true}` |
 | `spelling` | Viết chính tả | 📝 | Viết lại từ đúng | `{case_sensitive: false}` |
 
-### 2.2 Bảng `vocabulary_exercises`
+### 2.2 Bảng `grammar_exercises` (Mở rộng)
+
+Mỗi bài học ngữ pháp có nhiều bài tập theo level.
+
+```sql
+CREATE TABLE grammar_exercises (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES grammar_lessons(id) ON DELETE CASCADE,
+    type VARCHAR(30) NOT NULL,           -- multiple_choice, fill_blank, rewrite
+    level INT NOT NULL CHECK (level BETWEEN 1 AND 4),  -- 1=easy, 4=expert
+    question TEXT NOT NULL,
+    options JSONB,                       -- cho multiple_choice
+    correct_answer TEXT NOT NULL,
+    hint TEXT,                           -- gợi ý cho level thấp
+    explanation TEXT,
+    order_index INT DEFAULT 0,
+    xp_reward INT DEFAULT 10,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_grammar_exercises_lesson ON grammar_exercises(lesson_id, level);
+```
 
 Mỗi từ vựng có thể có nhiều exercise items cho mỗi dạng.
 
@@ -63,7 +114,42 @@ CREATE TABLE vocabulary_exercises (
 );
 ```
 
-### 2.3 Bảng `user_decks`
+### 2.3 Bảng `user_grammar_progress`
+
+Theo dõi tiến độ bài tập ngữ pháp của user theo level.
+
+```sql
+CREATE TABLE user_grammar_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    lesson_id UUID NOT NULL REFERENCES grammar_lessons(id) ON DELETE CASCADE,
+    level INT NOT NULL CHECK (level BETWEEN 1 AND 4),
+
+    -- Thống kê
+    attempts INT DEFAULT 0,
+    correct_count INT DEFAULT 0,
+    xp_earned BIGINT DEFAULT 0,
+
+    -- Trạng thái level
+    status VARCHAR(20) DEFAULT 'locked',  -- locked, available, passed, mastered
+    consecutive_fails INT DEFAULT 0,
+
+    -- SRS cho bài tập này
+    srs_stage INT DEFAULT 0,
+    ease_factor FLOAT DEFAULT 2.5,
+    interval_days INT DEFAULT 0,
+    next_review_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT unique_user_lesson_level UNIQUE (user_id, lesson_id, level)
+);
+
+CREATE INDEX idx_grammar_progress_user ON user_grammar_progress(user_id);
+```
+
+### 2.4 Bảng `user_decks`
 
 Deck = bộ sưu tập các từ vựng do user quản lý.
 
@@ -84,7 +170,7 @@ CREATE TABLE user_decks (
 CREATE INDEX idx_user_decks_user ON user_decks(user_id);
 ```
 
-### 2.4 Bảng `deck_vocabularies`
+### 2.5 Bảng `deck_vocabularies`
 
 ```sql
 CREATE TABLE deck_vocabularies (
@@ -96,7 +182,7 @@ CREATE TABLE deck_vocabularies (
 );
 ```
 
-### 2.5 Bảng `user_exercise_progress`
+### 2.6 Bảng `user_exercise_progress`
 
 Theo dõi tiến độ học của user cho mỗi vocabulary-exercise pair.
 
@@ -133,7 +219,7 @@ CREATE INDEX idx_exercise_progress_user ON user_exercise_progress(user_id);
 CREATE INDEX idx_exercise_progress_status ON user_exercise_progress(user_id, status);
 ```
 
-### 2.6 Bảng `user_level_progress`
+### 2.7 Bảng `user_level_progress`
 
 ```sql
 CREATE TABLE user_level_progress (
@@ -168,7 +254,7 @@ CREATE TABLE user_level_progress (
 );
 ```
 
-### 2.7 Bảng `exercise_sessions`
+### 2.8 Bảng `exercise_sessions`
 
 Lưu log mỗi lượt ôn tập.
 
@@ -196,7 +282,7 @@ CREATE INDEX idx_sessions_user ON exercise_sessions(user_id);
 CREATE INDEX idx_sessions_deck ON exercise_sessions(deck_id);
 ```
 
-### 2.8 Cập nhật `users` table
+### 2.9 Cập nhật `users` table
 
 ```sql
 ALTER TABLE users ADD COLUMN IF NOT EXISTS total_xp BIGINT DEFAULT 0;
