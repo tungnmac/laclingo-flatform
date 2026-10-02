@@ -157,6 +157,7 @@ func (s *ChallengeService) JoinRoom(ctx context.Context, userID uuid.UUID, code 
 	}
 
 	return domain.ParticipantResponse{
+		RoomID:   uuid.UUID(room.ID.Bytes),
 		UserID:   userID,
 		Score:    participant.Score,
 		JoinedAt: participant.JoinedAt.Time,
@@ -183,6 +184,7 @@ func (s *ChallengeService) GetRoom(ctx context.Context, roomID uuid.UUID) (domai
 	participants := make([]domain.ParticipantResponse, 0, len(rows))
 	for _, p := range rows {
 		participants = append(participants, domain.ParticipantResponse{
+			RoomID:    roomID,
 			UserID:    uuid.UUID(p.UserID.Bytes),
 			Username:  p.Username,
 			FullName:  p.FullName.String,

@@ -30,6 +30,7 @@ type JoinRoomRequest struct {
 }
 
 type ParticipantResponse struct {
+	RoomID    uuid.UUID `json:"room_id" swaggertype:"string" format:"uuid"`
 	UserID    uuid.UUID `json:"user_id" swaggertype:"string" format:"uuid"`
 	Username  string    `json:"username,omitempty"`
 	FullName  string    `json:"full_name,omitempty"`

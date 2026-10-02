@@ -11,6 +11,7 @@ import type { User } from '@/types/api'
 const NAV_ITEMS = [
   { href: '/learn', label: 'Học', icon: '📚' },
   { href: '/review', label: 'Ôn tập', icon: '🧠' },
+  { href: '/challenges', label: 'Thách đấu', icon: '🎮' },
   { href: '/leaderboard', label: 'Xếp hạng', icon: '🏆' },
   { href: '/profile', label: 'Hồ sơ', icon: '👤' },
 ]
@@ -93,7 +94,7 @@ export function BottomNav() {
   const pathname = usePathname()
   return (
     <nav className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white md:hidden">
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {NAV_ITEMS.map((item) => (
           <li key={item.href}>
             <Link

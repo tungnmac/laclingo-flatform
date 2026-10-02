@@ -133,3 +133,105 @@ export interface VocabularyReviewResponse {
 export interface ErrorResponse {
   error: string
 }
+
+// =============================================================================
+// Challenge game show (phòng thử thách realtime)
+// =============================================================================
+
+export interface CreateChallengeRoomRequest {
+  question_count: number
+  time_per_question_seconds: number
+  language_id?: string
+  difficulty?: number
+}
+
+export interface ChallengeRoom {
+  id: string
+  code: string
+  status: 'waiting' | 'in_progress' | 'finished' | 'cancelled'
+  question_count: number
+  time_per_question_seconds: number
+  max_participants: number
+}
+
+// user được backend lấy từ access token, không gửi trong body
+export interface JoinChallengeRoomRequest {
+  code: string
+}
+
+export interface ChallengeParticipant {
+  room_id: string
+  user_id: string
+  username?: string
+  full_name?: string
+  avatar_url?: string
+  score: number
+  joined_at: string
+}
+
+export interface ChallengeRoomDetail {
+  id: string
+  code: string
+  status: 'waiting' | 'in_progress' | 'finished' | 'cancelled'
+  host_user_id: string
+  question_count: number
+  time_per_question_seconds: number
+  participants: ChallengeParticipant[]
+}
+
+// Dùng chung cho leaderboard qua REST (full_name/avatar_url có) và qua
+// WebSocket (chỉ có username) — 2 field kia optional để 1 type phục vụ cả 2.
+export interface ChallengeLeaderboardEntry {
+  user_id: string
+  username: string
+  full_name?: string
+  avatar_url?: string
+  score: number
+  rank: number
+}
+
+// --- WebSocket message payloads (xem apps/backend/internal/game/messages.go) ---
+
+export interface WsEnvelope<T = unknown> {
+  type: string
+  data?: T
+}
+
+export interface WsParticipantPayload {
+  user_id: string
+}
+
+export interface WsGameStartedPayload {
+  total_questions: number
+  time_per_question_seconds: number
+}
+
+export interface WsQuestionPayload {
+  index: number
+  total: number
+  question: string
+  options: string[]
+  time_limit_seconds: number
+}
+
+export interface WsQuestionEndedPayload {
+  index: number
+  correct_index: number
+  leaderboard: ChallengeLeaderboardEntry[]
+}
+
+export interface WsGameFinishedPayload {
+  leaderboard: ChallengeLeaderboardEntry[]
+}
+
+export interface WsAnswerResultPayload {
+  question_index: number
+  correct: boolean
+  points_earned: number
+  total_score: number
+}
+
+export interface WsErrorPayload {
+  code: string
+  message: string
+}
