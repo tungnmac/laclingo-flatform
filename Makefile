@@ -2,7 +2,7 @@ DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?s
 
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen dev-backend run-backend dev-web run-web build-backend swagger clean
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate dev-backend run-backend dev-web run-web build-backend swagger clean
 
 # ========================
 # SETUP
@@ -39,6 +39,14 @@ dev-down:
 
 sqlc-gen:
 	sqlc generate -f packages/database/sqlc.yaml
+
+# Chạy toàn bộ file SQL trong packages/database/migrations (idempotent, theo thứ tự tên file)
+migrate:
+	@for f in packages/database/migrations/*.sql; do \
+		echo "➡️  Áp dụng migration: $$f"; \
+		docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db < $$f || exit 1; \
+	done
+	@echo "✅ Migrate database hoàn tất!"
 
 # ========================
 # BACKEND
