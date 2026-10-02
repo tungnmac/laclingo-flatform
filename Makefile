@@ -43,14 +43,17 @@ sqlc-gen:
 # Áp các migration CHƯA chạy (golang-migrate track trong bảng schema_migrations,
 # nên chạy nhiều lần vẫn an toàn — chỉ migration mới được áp).
 migrate:
+	@command -v migrate >/dev/null 2>&1 || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	migrate -path packages/database/migrations -database "$(DB_URL)" up
 
 # Rollback N migration gần nhất (mặc định 1). VD: make migrate-down N=2
 migrate-down:
+	@command -v migrate >/dev/null 2>&1 || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	migrate -path packages/database/migrations -database "$(DB_URL)" down $(N)
 
 # Tạo cặp file migration mới (.up.sql/.down.sql). VD: make migrate-create name=add_foo
 migrate-create:
+	@command -v migrate >/dev/null 2>&1 || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	migrate create -ext sql -dir packages/database/migrations -seq $(name)
 
 # Seed dữ liệu mẫu — idempotent (ON CONFLICT), an toàn chạy lại nhiều lần.
