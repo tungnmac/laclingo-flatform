@@ -69,6 +69,9 @@ swagger:
 dev-web:
 	cd apps/web && npm run dev
 
+# Alias cho dev-web
+run-web: dev-web
+
 # ========================
 # CLEANUP
 # ========================
