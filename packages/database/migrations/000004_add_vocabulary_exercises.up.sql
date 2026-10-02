@@ -1,6 +1,4 @@
--- Migration 0005: Vocabulary Exercises
 -- Mỗi từ vựng có thể có nhiều exercise items cho mỗi dạng
-
 CREATE TABLE IF NOT EXISTS vocabulary_exercises (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vocabulary_id UUID NOT NULL REFERENCES vocabularies(id) ON DELETE CASCADE,

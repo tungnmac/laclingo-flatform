@@ -1,6 +1,4 @@
--- Migration 0004: User Decks
 -- Deck = bộ sưu tập từ vựng do user quản lý
-
 CREATE TABLE IF NOT EXISTS user_decks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
