@@ -1,8 +1,7 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
+N ?= 1
 
-DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
-
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate dev-backend run-backend dev-web run-web build-backend swagger clean
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean
 
 # ========================
 # SETUP
@@ -25,6 +24,7 @@ install: init-backend init-web
 	@echo "🛠️ Kiểm tra và cài đặt sqlc (nếu chưa có)..."
 	@command -v sqlc >/dev/null 2>&1 || go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 	@command -v air >/dev/null 2>&1 || go install github.com/air-verse/air@latest
+	@command -v migrate >/dev/null 2>&1 || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	@echo "🎉 Tất cả dependencies đã được cài đặt hoàn tất!"
 
 # ========================
@@ -40,13 +40,26 @@ dev-down:
 sqlc-gen:
 	sqlc generate -f packages/database/sqlc.yaml
 
-# Chạy toàn bộ file SQL trong packages/database/migrations (idempotent, theo thứ tự tên file)
+# Áp các migration CHƯA chạy (golang-migrate track trong bảng schema_migrations,
+# nên chạy nhiều lần vẫn an toàn — chỉ migration mới được áp).
 migrate:
-	@for f in packages/database/migrations/*.sql; do \
-		echo "➡️  Áp dụng migration: $$f"; \
-		docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db < $$f || exit 1; \
-	done
-	@echo "✅ Migrate database hoàn tất!"
+	migrate -path packages/database/migrations -database "$(DB_URL)" up
+
+# Rollback N migration gần nhất (mặc định 1). VD: make migrate-down N=2
+migrate-down:
+	migrate -path packages/database/migrations -database "$(DB_URL)" down $(N)
+
+# Tạo cặp file migration mới (.up.sql/.down.sql). VD: make migrate-create name=add_foo
+migrate-create:
+	migrate create -ext sql -dir packages/database/migrations -seq $(name)
+
+# Seed dữ liệu mẫu — idempotent (ON CONFLICT), an toàn chạy lại nhiều lần.
+# Nhớ cập nhật packages/database/schema.sql khi thêm migration mới (sqlc đọc file này).
+seed:
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds.sql
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds_vocabulary.sql
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0003_exercise_types_seed.sql
+	@echo "✅ Seed dữ liệu hoàn tất!"
 
 # ========================
 # BACKEND
