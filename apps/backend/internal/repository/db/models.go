@@ -8,6 +8,72 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ChallengeQuestion struct {
+	ID           pgtype.UUID        `json:"id"`
+	LanguageID   pgtype.Text        `json:"language_id"`
+	Question     string             `json:"question"`
+	Options      []byte             `json:"options"`
+	CorrectIndex int32              `json:"correct_index"`
+	Explanation  pgtype.Text        `json:"explanation"`
+	Difficulty   int32              `json:"difficulty"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DeckVocabulary struct {
+	DeckID       pgtype.UUID        `json:"deck_id"`
+	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
+	AddedAt      pgtype.Timestamptz `json:"added_at"`
+}
+
+type ExerciseType struct {
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	Icon        pgtype.Text `json:"icon"`
+	Config      []byte      `json:"config"`
+	IsActive    pgtype.Bool `json:"is_active"`
+	OrderIndex  pgtype.Int4 `json:"order_index"`
+}
+
+type GameAnswer struct {
+	ID            pgtype.UUID        `json:"id"`
+	RoomID        pgtype.UUID        `json:"room_id"`
+	ParticipantID pgtype.UUID        `json:"participant_id"`
+	QuestionID    pgtype.UUID        `json:"question_id"`
+	SelectedIndex pgtype.Int4        `json:"selected_index"`
+	IsCorrect     bool               `json:"is_correct"`
+	PointsEarned  int32              `json:"points_earned"`
+	TimeTakenMs   int32              `json:"time_taken_ms"`
+	AnsweredAt    pgtype.Timestamptz `json:"answered_at"`
+}
+
+type GameParticipant struct {
+	ID       pgtype.UUID        `json:"id"`
+	RoomID   pgtype.UUID        `json:"room_id"`
+	UserID   pgtype.UUID        `json:"user_id"`
+	Score    int32              `json:"score"`
+	JoinedAt pgtype.Timestamptz `json:"joined_at"`
+}
+
+type GameRoom struct {
+	ID                     pgtype.UUID        `json:"id"`
+	Code                   string             `json:"code"`
+	HostUserID             pgtype.UUID        `json:"host_user_id"`
+	Status                 string             `json:"status"`
+	QuestionCount          int32              `json:"question_count"`
+	TimePerQuestionSeconds int32              `json:"time_per_question_seconds"`
+	MaxParticipants        int32              `json:"max_participants"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	StartedAt              pgtype.Timestamptz `json:"started_at"`
+	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
+}
+
+type GameRoomQuestion struct {
+	RoomID     pgtype.UUID `json:"room_id"`
+	QuestionID pgtype.UUID `json:"question_id"`
+	OrderIndex int32       `json:"order_index"`
+}
+
 type GrammarExercise struct {
 	ID            pgtype.UUID `json:"id"`
 	LessonID      pgtype.UUID `json:"lesson_id"`
@@ -17,6 +83,9 @@ type GrammarExercise struct {
 	CorrectAnswer string      `json:"correct_answer"`
 	Explanation   pgtype.Text `json:"explanation"`
 	OrderIndex    pgtype.Int4 `json:"order_index"`
+	Level         pgtype.Int4 `json:"level"`
+	Hint          pgtype.Text `json:"hint"`
+	XpReward      pgtype.Int4 `json:"xp_reward"`
 }
 
 type GrammarLesson struct {
@@ -60,6 +129,37 @@ type User struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserDeck struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	Color       pgtype.Text        `json:"color"`
+	Icon        pgtype.Text        `json:"icon"`
+	IsPublic    pgtype.Bool        `json:"is_public"`
+	IsSystem    pgtype.Bool        `json:"is_system"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserGrammarProgress struct {
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	LessonID         pgtype.UUID        `json:"lesson_id"`
+	Level            int32              `json:"level"`
+	Attempts         pgtype.Int4        `json:"attempts"`
+	CorrectCount     pgtype.Int4        `json:"correct_count"`
+	XpEarned         pgtype.Int8        `json:"xp_earned"`
+	Status           pgtype.Text        `json:"status"`
+	ConsecutiveFails pgtype.Int4        `json:"consecutive_fails"`
+	SrsStage         pgtype.Int4        `json:"srs_stage"`
+	EaseFactor       pgtype.Float8      `json:"ease_factor"`
+	IntervalDays     pgtype.Int4        `json:"interval_days"`
+	NextReviewAt     pgtype.Timestamptz `json:"next_review_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type UserVocabularyReview struct {
 	ID             pgtype.UUID        `json:"id"`
 	UserID         pgtype.UUID        `json:"user_id"`
@@ -83,4 +183,17 @@ type Vocabulary struct {
 	AudioUrl   pgtype.Text        `json:"audio_url"`
 	ImageUrl   pgtype.Text        `json:"image_url"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type VocabularyExercise struct {
+	ID              pgtype.UUID        `json:"id"`
+	VocabularyID    pgtype.UUID        `json:"vocabulary_id"`
+	ExerciseType    string             `json:"exercise_type"`
+	Question        string             `json:"question"`
+	Options         []byte             `json:"options"`
+	CorrectAnswer   string             `json:"correct_answer"`
+	DistractorCount pgtype.Int4        `json:"distractor_count"`
+	Difficulty      pgtype.Int4        `json:"difficulty"`
+	Metadata        []byte             `json:"metadata"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }

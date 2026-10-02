@@ -62,6 +62,7 @@ seed:
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds_vocabulary.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0003_exercise_types_seed.sql
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0004_challenge_questions_seed.sql
 	@echo "✅ Seed dữ liệu hoàn tất!"
 
 # ========================

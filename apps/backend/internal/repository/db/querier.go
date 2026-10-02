@@ -11,21 +11,39 @@ import (
 )
 
 type Querier interface {
+	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
+	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
+	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
+	GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error)
+	GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
+	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
+	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
+	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người trong CÙNG 1 statement với
+	// insert, để tránh race khi 2 người join đúng slot cuối cùng cùng lúc.
+	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
+	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
+	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
+	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	// Atomic: insert câu trả lời + cộng điểm participant trong 1 statement (CTE),
+	// tránh cần transaction Go riêng. Nếu đã trả lời câu này rồi (ON CONFLICT DO
+	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
+	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }

@@ -8,4 +8,8 @@ var (
 	ErrEmailTaken         = errors.New("email đã được sử dụng")
 	ErrUsernameTaken      = errors.New("tên đăng nhập đã được sử dụng")
 	ErrInvalidCredentials = errors.New("tài khoản hoặc mật khẩu không đúng")
+	ErrRoomNotFound       = errors.New("không tìm thấy phòng chơi")
+	ErrRoomFull           = errors.New("phòng đã đủ người")
+	ErrGameAlreadyStarted = errors.New("trò chơi đã bắt đầu")
+	ErrGameFinished       = errors.New("trò chơi đã kết thúc")
 )

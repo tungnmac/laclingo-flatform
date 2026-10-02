@@ -11,6 +11,7 @@ import (
 	_ "laclingo-backend/docs"
 	"laclingo-backend/internal/auth"
 	"laclingo-backend/internal/config"
+	"laclingo-backend/internal/game"
 	"laclingo-backend/internal/handler"
 	"laclingo-backend/internal/repository"
 
@@ -69,7 +70,8 @@ func main() {
 		app.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL))
+	hub := game.NewHub(repo)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

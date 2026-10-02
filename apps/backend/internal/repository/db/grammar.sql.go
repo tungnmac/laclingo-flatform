@@ -34,7 +34,7 @@ func (q *Queries) GetGrammarLessonByCode(ctx context.Context, code string) (Gram
 }
 
 const listGrammarExercisesByLesson = `-- name: ListGrammarExercisesByLesson :many
-SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index FROM grammar_exercises
+SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward FROM grammar_exercises
 WHERE lesson_id = $1
 ORDER BY order_index
 `
@@ -57,6 +57,9 @@ func (q *Queries) ListGrammarExercisesByLesson(ctx context.Context, lessonID pgt
 			&i.CorrectAnswer,
 			&i.Explanation,
 			&i.OrderIndex,
+			&i.Level,
+			&i.Hint,
+			&i.XpReward,
 		); err != nil {
 			return nil, err
 		}
