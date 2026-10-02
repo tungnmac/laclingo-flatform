@@ -4,10 +4,11 @@
 root_dir = "."
 tmp_dir = "tmp"
 [build]
+  dir = "."
   bin = "./tmp/main"
   cmd = "go build -o ./tmp/main ./cmd/server"
   delay = 1000
-  exclude_dir = ["assets", "tmp", "vendor", "docs"]
+  exclude_dir = ["assets", "tmp", "vendor", "docs", "bin"]
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
