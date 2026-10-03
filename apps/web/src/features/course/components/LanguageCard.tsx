@@ -16,6 +16,21 @@ export function speechLang(id: string) {
   return speechLangs[id] ?? 'en-US'
 }
 
+// Câu mẫu để "Nghe thử" giọng đã chọn ở trang Hồ sơ.
+const previewPhrases: Record<string, string> = {
+  en: 'Hello, nice to meet you.',
+  ja: 'こんにちは、はじめまして。',
+  ko: '안녕하세요, 반갑습니다.',
+  zh: '你好，很高兴认识你。',
+  fr: 'Bonjour, ravi de vous rencontrer.',
+  de: 'Hallo, schön dich kennenzulernen.',
+  vi: 'Xin chào, rất vui được gặp bạn.',
+}
+
+export function previewPhrase(id: string) {
+  return previewPhrases[id] ?? 'Hello!'
+}
+
 export function LanguageCard({ language }: { language: Language }) {
   return (
     <Link

@@ -7,7 +7,6 @@ import { AudioButton } from '@/components/audio/AudioButton'
 import { Button, ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
-import { speechLang } from '@/features/course/components/LanguageCard'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
 import { srsService } from '@/features/srs-review/srs.service'
@@ -119,7 +118,7 @@ export default function NewWordsPage({ searchParams }: { searchParams: { languag
 
           <h2 className="break-words text-4xl font-bold text-slate-900 sm:text-5xl">{current.term}</h2>
           {current.phonetic && <p className="text-lg text-slate-500">/{current.phonetic}/</p>}
-          <AudioButton src={current.audio_url || undefined} text={current.term} lang={speechLang(current.language_id)} />
+          <AudioButton src={current.audio_url || undefined} text={current.term} languageId={current.language_id} />
 
           <p className="text-xl font-semibold text-indigo-600">{current.meaning}</p>
           {current.example && <p className="max-w-md text-sm italic text-slate-500">“{current.example}”</p>}

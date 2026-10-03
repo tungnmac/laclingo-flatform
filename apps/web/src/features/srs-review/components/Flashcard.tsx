@@ -1,7 +1,6 @@
 'use client'
 
 import { AudioButton } from '@/components/audio/AudioButton'
-import { speechLang } from '@/features/course/components/LanguageCard'
 import { cn } from '@/lib/utils'
 import type { DueVocabulary } from '@/types/api'
 
@@ -27,7 +26,7 @@ export function Flashcard({ vocab, flipped, onFlip }: { vocab: DueVocabulary; fl
           <span className="text-xs font-medium uppercase tracking-widest text-slate-400">Từ vựng</span>
           <h2 className="break-words text-center text-4xl font-bold text-slate-900 sm:text-5xl">{vocab.term}</h2>
           {vocab.phonetic && <p className="text-lg text-slate-500">/{vocab.phonetic}/</p>}
-          <AudioButton src={vocab.audio_url || undefined} text={vocab.term} lang={speechLang(vocab.language_id)} />
+          <AudioButton src={vocab.audio_url || undefined} text={vocab.term} languageId={vocab.language_id} />
           <p className="absolute bottom-4 text-xs text-slate-400">Chạm thẻ hoặc nhấn Space để lật</p>
         </div>
 

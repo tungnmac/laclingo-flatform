@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { courseService } from '@/features/course/course.service'
+import { languageFlag, previewPhrase, speechLang } from '@/features/course/components/LanguageCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
+import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
+import { useVoiceSettings } from '@/store/voiceSettings'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -120,8 +124,66 @@ export default function ProfilePage() {
               </Button>
             </form>
           </Card>
+
+          <VoiceSettingsCard />
         </div>
       </div>
     </>
+  )
+}
+
+/** Chọn giọng đọc Web Speech cho từng ngôn ngữ — lưu local (phụ thuộc giọng có sẵn trên máy/trình duyệt). */
+function VoiceSettingsCard() {
+  const { data: languages } = useApi(courseService.list, [])
+  const voices = useSpeechVoices()
+  const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
+  const setVoice = useVoiceSettings((s) => s.setVoice)
+
+  const preview = (languageId: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    const utterance = new SpeechSynthesisUtterance(previewPhrase(languageId))
+    utterance.lang = speechLang(languageId)
+    const chosen = voices.find((v) => v.voiceURI === voiceByLang[languageId])
+    if (chosen) utterance.voice = chosen
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+  }
+
+  if (!languages || languages.length === 0) return null
+
+  return (
+    <Card>
+      <h3 className="text-lg font-semibold text-slate-900">🔊 Giọng đọc phát âm</h3>
+      <p className="mt-1 text-sm text-slate-500">
+        Chọn giọng Web Speech cho từng ngôn ngữ — danh sách phụ thuộc giọng đã cài trên máy/trình duyệt của bạn.
+      </p>
+      <div className="mt-4 space-y-3">
+        {languages.map((lang) => {
+          const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.id.toLowerCase()))
+          return (
+            <div key={lang.id} className="flex flex-wrap items-center gap-2">
+              <span className="w-28 shrink-0 text-sm font-medium text-slate-700">
+                {languageFlag(lang.id)} {lang.name}
+              </span>
+              <select
+                value={voiceByLang[lang.id] ?? ''}
+                onChange={(e) => setVoice(lang.id, e.target.value)}
+                className={`${inputClass} mt-0 min-w-0 flex-1`}
+              >
+                <option value="">Mặc định hệ thống</option>
+                {matching.map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+              <Button type="button" variant="secondary" size="sm" onClick={() => preview(lang.id)} disabled={matching.length === 0}>
+                Nghe thử
+              </Button>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
   )
 }
