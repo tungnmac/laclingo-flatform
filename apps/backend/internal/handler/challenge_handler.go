@@ -27,6 +27,7 @@ func (h *ChallengeHandler) RegisterRoutes(router fiber.Router) {
 	api.Post("/join", h.JoinRoom)
 	api.Get("/:id", h.GetRoom)
 	api.Get("/:id/leaderboard", h.GetLeaderboard)
+	api.Post("/:id/invite", h.InviteByUsername)
 }
 
 // RegisterWSRoute đăng ký endpoint WebSocket /challenges/rooms/:id/ws. Tách
@@ -86,6 +87,46 @@ func (h *ChallengeHandler) JoinRoom(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	return c.JSON(result)
+}
+
+// InviteByUsername cho host thêm trực tiếp 1 user vào phòng theo username —
+// bỏ qua mã, tự gỡ ban nếu người này từng bị kick khỏi phòng này trước đó.
+//
+// @Summary      Mời người chơi vào phòng theo username (chỉ host)
+// @Tags         challenges
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                true  "Room ID"
+// @Param        body  body      domain.InviteRequest  true  "Username người được mời"
+// @Success      200   {object}  domain.ParticipantResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /challenges/rooms/{id}/invite [post]
+func (h *ChallengeHandler) InviteByUsername(c *fiber.Ctx) error {
+	roomID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "room id không hợp lệ")
+	}
+
+	var req domain.InviteRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+
+	result, err := h.svc.InviteByUsername(c.UserContext(), currentUserID(c), roomID, req.Username)
+	if err != nil {
+		return err
+	}
+
+	// Báo cho những người đang kết nối WS biết ngay qua broadcast — không
+	// bắt buộc phải thành công (no-op nếu chưa ai từng mở WS tới phòng này).
+	h.hub.NotifyParticipantJoined(roomID, result.UserID)
+
 	return c.JSON(result)
 }
 

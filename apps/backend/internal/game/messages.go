@@ -30,6 +30,12 @@ const (
 	clientMsgSendReaction = "send_reaction"
 )
 
+// internalMsgParticipantAdded KHÔNG phải message client gửi lên — do
+// Hub.NotifyParticipantJoined bắn vào khi 1 participant được thêm qua REST
+// (invite bằng username), để Room broadcast participant_joined cho người
+// đang xem mà không cần họ tự reload.
+const internalMsgParticipantAdded = "__participant_added"
+
 // Các loại message server -> client.
 const (
 	serverMsgParticipantJoined = "participant_joined"

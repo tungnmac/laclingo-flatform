@@ -217,6 +217,10 @@ func (r *Room) handleCommand(cmd roomCommand) {
 		r.handleSendChat(cmd)
 	case clientMsgSendReaction:
 		r.handleSendReaction(cmd)
+	case internalMsgParticipantAdded:
+		// Không phải client gửi lên (cmd.client == nil) — do Hub.NotifyParticipantJoined
+		// bắn vào sau khi REST invite thành công, chỉ cần broadcast.
+		r.broadcast(serverMsgParticipantJoined, participantPayload{UserID: cmd.userID})
 	default:
 		cmd.client.sendError("unknown_type", "loại message không hợp lệ")
 	}

@@ -13,4 +13,5 @@ var (
 	ErrGameAlreadyStarted = errors.New("trò chơi đã bắt đầu")
 	ErrGameFinished       = errors.New("trò chơi đã kết thúc")
 	ErrBanned             = errors.New("bạn đã bị mời ra khỏi phòng này")
+	ErrForbidden          = errors.New("bạn không có quyền thực hiện hành động này")
 )

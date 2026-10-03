@@ -18,6 +18,14 @@ export const challengeService = {
 
   getLeaderboard: (roomId: string) =>
     apiFetch<ChallengeLeaderboardEntry[]>(`/challenges/rooms/${encodeURIComponent(roomId)}/leaderboard`),
+
+  // Chỉ host gọi được — thêm trực tiếp 1 user vào phòng theo username, bỏ
+  // qua mã, tự gỡ ban nếu người này từng bị kick khỏi phòng này.
+  inviteByUsername: (roomId: string, username: string) =>
+    apiFetch<ChallengeParticipant>(`/challenges/rooms/${encodeURIComponent(roomId)}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
 }
 
 /** Xây URL WebSocket cho phòng — token qua query vì browser không set được header trên WS handshake. */

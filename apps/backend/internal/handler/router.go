@@ -61,7 +61,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrRoomFull), errors.Is(err, service.ErrGameAlreadyStarted), errors.Is(err, service.ErrGameFinished):
 		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: err.Error()})
-	case errors.Is(err, service.ErrBanned):
+	case errors.Is(err, service.ErrBanned), errors.Is(err, service.ErrForbidden):
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: err.Error()})
 	default:
 		log.Printf("❌ %s %s: %v", c.Method(), c.Path(), err)

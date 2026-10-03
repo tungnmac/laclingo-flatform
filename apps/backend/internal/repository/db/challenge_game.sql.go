@@ -534,3 +534,17 @@ func (q *Queries) SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerPara
 	)
 	return i, err
 }
+
+const unbanGameParticipant = `-- name: UnbanGameParticipant :exec
+DELETE FROM game_room_bans WHERE room_id = $1 AND user_id = $2
+`
+
+type UnbanGameParticipantParams struct {
+	RoomID pgtype.UUID `json:"room_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error {
+	_, err := q.db.Exec(ctx, unbanGameParticipant, arg.RoomID, arg.UserID)
+	return err
+}

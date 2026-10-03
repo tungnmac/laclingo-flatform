@@ -65,6 +65,9 @@ DELETE FROM game_participants WHERE room_id = $1 AND user_id = $2;
 -- name: BanGameParticipant :exec
 INSERT INTO game_room_bans (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
+-- name: UnbanGameParticipant :exec
+DELETE FROM game_room_bans WHERE room_id = $1 AND user_id = $2;
+
 -- name: ListGameParticipants :many
 SELECT p.id, p.room_id, p.user_id, p.score, p.joined_at,
        u.username, u.full_name, u.avatar_url

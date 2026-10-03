@@ -36,6 +36,19 @@ func (h *Hub) GetOrCreateRoom(roomID, hostUserID uuid.UUID) *Room {
 	return r
 }
 
+// NotifyParticipantJoined báo cho Room đang chạy (nếu đã có ai kết nối) biết 1
+// participant mới vừa được thêm qua REST (invite bằng username) — để những
+// người đang xem thấy ngay qua broadcast, không cần tự reload. No-op nếu
+// chưa ai mở WebSocket tới phòng này (Room chưa được tạo trong Hub).
+func (h *Hub) NotifyParticipantJoined(roomID, userID uuid.UUID) {
+	h.mu.Lock()
+	r, ok := h.rooms[roomID]
+	h.mu.Unlock()
+	if ok {
+		r.send(roomCommand{userID: userID, msg: ClientMessage{Type: internalMsgParticipantAdded}})
+	}
+}
+
 // reap xoá room khỏi map khi goroutine run() của nó đã kết thúc (phòng finished
 // hoặc cancelled và không còn ai kết nối) — tránh leak goroutine/map entry cho
 // mọi phòng đã từng chơi.

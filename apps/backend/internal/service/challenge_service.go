@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"strings"
 
 	"laclingo-backend/internal/domain"
 	"laclingo-backend/internal/repository/db"
@@ -35,6 +36,8 @@ type ChallengeRepository interface {
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]db.ListGameParticipantsRow, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]db.GetLeaderboardRow, error)
 	IsGameRoomBanned(ctx context.Context, arg db.IsGameRoomBannedParams) (bool, error)
+	UnbanGameParticipant(ctx context.Context, arg db.UnbanGameParticipantParams) error
+	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 }
 
 type ChallengeService struct {
@@ -150,22 +153,7 @@ func (s *ChallengeService) JoinRoom(ctx context.Context, userID uuid.UUID, code 
 
 	participant, err := s.repo.JoinGameRoom(ctx, db.JoinGameRoomParams{RoomID: room.ID, UserID: toPgUUID(userID)})
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Insert bị chặn bởi WHERE (status != waiting, đã đủ người, hoặc bị ban) —
-		// phân loại lỗi để trả message chính xác cho client. Check ban trước vì
-		// status vẫn có thể là "waiting" trong trường hợp này (phòng không đầy,
-		// chỉ riêng user này bị chặn).
-		banned, banErr := s.repo.IsGameRoomBanned(ctx, db.IsGameRoomBannedParams{RoomID: room.ID, UserID: toPgUUID(userID)})
-		if banErr == nil && banned {
-			return domain.ParticipantResponse{}, ErrBanned
-		}
-		switch room.Status {
-		case "in_progress":
-			return domain.ParticipantResponse{}, ErrGameAlreadyStarted
-		case "finished", "cancelled":
-			return domain.ParticipantResponse{}, ErrGameFinished
-		default:
-			return domain.ParticipantResponse{}, ErrRoomFull
-		}
+		return domain.ParticipantResponse{}, s.classifyJoinRoomFailure(ctx, room, userID)
 	}
 	if err != nil {
 		return domain.ParticipantResponse{}, err
@@ -176,6 +164,83 @@ func (s *ChallengeService) JoinRoom(ctx context.Context, userID uuid.UUID, code 
 		UserID:   userID,
 		Score:    participant.Score,
 		JoinedAt: participant.JoinedAt.Time,
+	}, nil
+}
+
+// classifyJoinRoomFailure suy luận lý do JoinGameRoom trả 0 dòng (bị chặn bởi
+// WHERE: status != waiting, đã đủ người, hoặc bị ban) để trả message chính
+// xác cho client. Check ban trước vì status vẫn có thể là "waiting" trong
+// trường hợp này (phòng không đầy, chỉ riêng user này bị chặn).
+func (s *ChallengeService) classifyJoinRoomFailure(ctx context.Context, room db.GameRoom, userID uuid.UUID) error {
+	banned, err := s.repo.IsGameRoomBanned(ctx, db.IsGameRoomBannedParams{RoomID: room.ID, UserID: toPgUUID(userID)})
+	if err == nil && banned {
+		return ErrBanned
+	}
+	switch room.Status {
+	case "in_progress":
+		return ErrGameAlreadyStarted
+	case "finished", "cancelled":
+		return ErrGameFinished
+	default:
+		return ErrRoomFull
+	}
+}
+
+// InviteByUsername cho host thêm trực tiếp 1 user vào phòng theo username —
+// bỏ qua mã, tự gỡ ban nếu người này từng bị host kick khỏi phòng trước đó.
+// Chưa có hệ thống notification nên người được mời không được báo chủ động —
+// họ chỉ cần vào link/mã phòng là thấy mình đã có sẵn trong participants.
+// Người đang kết nối (host + người khác) thấy ngay qua broadcast realtime do
+// handler gọi hub sau khi hàm này trả về thành công.
+func (s *ChallengeService) InviteByUsername(ctx context.Context, hostID uuid.UUID, roomID uuid.UUID, username string) (domain.ParticipantResponse, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if hostID == uuid.Nil || username == "" {
+		return domain.ParticipantResponse{}, ErrInvalidInput
+	}
+
+	room, err := s.repo.GetGameRoomByID(ctx, toPgUUID(roomID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ParticipantResponse{}, ErrRoomNotFound
+	}
+	if err != nil {
+		return domain.ParticipantResponse{}, err
+	}
+	if uuid.UUID(room.HostUserID.Bytes) != hostID {
+		return domain.ParticipantResponse{}, ErrForbidden
+	}
+
+	target, err := s.repo.GetUserByUsername(ctx, username)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ParticipantResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.ParticipantResponse{}, err
+	}
+	targetID := uuid.UUID(target.ID.Bytes)
+	if targetID == hostID {
+		return domain.ParticipantResponse{}, ErrInvalidInput
+	}
+
+	if err := s.repo.UnbanGameParticipant(ctx, db.UnbanGameParticipantParams{RoomID: room.ID, UserID: target.ID}); err != nil {
+		return domain.ParticipantResponse{}, err
+	}
+
+	participant, err := s.repo.JoinGameRoom(ctx, db.JoinGameRoomParams{RoomID: room.ID, UserID: target.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ParticipantResponse{}, s.classifyJoinRoomFailure(ctx, room, targetID)
+	}
+	if err != nil {
+		return domain.ParticipantResponse{}, err
+	}
+
+	return domain.ParticipantResponse{
+		RoomID:    uuid.UUID(room.ID.Bytes),
+		UserID:    targetID,
+		Username:  target.Username,
+		FullName:  target.FullName.String,
+		AvatarURL: target.AvatarUrl.String,
+		Score:     participant.Score,
+		JoinedAt:  participant.JoinedAt.Time,
 	}, nil
 }
 

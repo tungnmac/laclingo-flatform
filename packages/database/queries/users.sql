@@ -10,6 +10,10 @@ ORDER BY created_at DESC;
 SELECT * FROM users
 WHERE email = $1;
 
+-- name: GetUserByUsername :one
+SELECT * FROM users
+WHERE username = $1;
+
 -- name: GetUserByIdentifier :one
 SELECT * FROM users
 WHERE email = $1 OR username = $1;
