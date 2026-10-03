@@ -15,7 +15,10 @@ import type { NewVocabulary } from '@/types/api'
 const BATCH_SIZE = 10
 
 /** Học từ mới: xem từng từ rồi bấm "Đã học" — từ sẽ vào hàng đợi ôn tập SRS ngay */
-export default function NewWordsPage() {
+export default function NewWordsPage({ searchParams }: { searchParams: { language?: string } }) {
+  const language = searchParams.language
+  const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
+
   const [words, setWords] = useState<NewVocabulary[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -30,11 +33,11 @@ export default function NewWordsPage() {
     setWords([])
     setIndex(0)
     srsService
-      .getNew(BATCH_SIZE)
+      .getNew(BATCH_SIZE, language)
       .then(setWords)
       .catch(setError)
       .finally(() => setLoading(false))
-  }, [])
+  }, [language])
 
   useEffect(load, [load])
 
@@ -66,7 +69,7 @@ export default function NewWordsPage() {
         </EmptyState>
         <div className="mt-6 flex justify-center gap-2">
           <ButtonLink href="/review/vocabulary">Ôn tập ngay</ButtonLink>
-          <ButtonLink href="/review" variant="secondary">
+          <ButtonLink href={reviewHref} variant="secondary">
             Các dạng ôn tập
           </ButtonLink>
         </div>
@@ -86,7 +89,7 @@ export default function NewWordsPage() {
             <Button variant="secondary" onClick={load}>
               Học thêm {BATCH_SIZE} từ
             </Button>
-            <ButtonLink href="/review" variant="secondary">
+            <ButtonLink href={reviewHref} variant="secondary">
               Các dạng ôn tập
             </ButtonLink>
           </div>
@@ -97,7 +100,7 @@ export default function NewWordsPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Link href="/review" className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
+      <Link href={reviewHref} className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
         ← Các dạng ôn tập
       </Link>
 

@@ -17,7 +17,10 @@ export const srsService = {
       body: JSON.stringify(body),
     }),
 
-  getNew: (limit = 10) => apiFetch<NewVocabulary[]>(`/srs/new?limit=${limit}`),
+  // language không truyền thì backend tự mặc định 'en' — giữ hành vi cũ khi
+  // không có context ngôn ngữ (ví dụ vào thẳng /review/new không qua /learn/:id)
+  getNew: (limit = 10, language?: string) =>
+    apiFetch<NewVocabulary[]>(`/srs/new?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
 
   learn: (vocabularyId: string) =>
     apiFetch<LearnVocabularyResponse>('/srs/learn', {

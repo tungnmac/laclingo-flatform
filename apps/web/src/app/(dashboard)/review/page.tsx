@@ -4,19 +4,29 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { courseService } from '@/features/course/course.service'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useApi } from '@/hooks/useApi'
 import { cn } from '@/lib/utils'
 
 /** Hub ôn tập: liệt kê các dạng ôn tập để người học chọn */
-export default function ReviewHubPage() {
+export default function ReviewHubPage({ searchParams }: { searchParams: { language?: string } }) {
+  const language = searchParams.language
   // Chỉ để hiện số từ đến hạn — lỗi thì ẩn badge, không chặn trang
   const { data: due } = useApi(() => srsService.getDue(100), [])
   const dueCount = due?.length ?? null
+  // Chỉ để hiện tên ngôn ngữ đang học trong description — lỗi thì bỏ qua, không chặn trang
+  const { data: currentLanguage } = useApi(() => courseService.getById(language!), [language], !!language)
+
+  const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
+  const grammarHref = language ? `/learn/${encodeURIComponent(language)}` : '/learn'
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Ôn tập" description="Chọn dạng ôn tập phù hợp với bạn hôm nay" />
+      <PageHeader
+        title="Ôn tập"
+        description={currentLanguage ? `Đang học: ${currentLanguage.name} — chọn dạng ôn tập phù hợp với bạn hôm nay` : 'Chọn dạng ôn tập phù hợp với bạn hôm nay'}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="flex flex-col gap-3">
@@ -54,7 +64,7 @@ export default function ReviewHubPage() {
               Mỗi lượt 10 từ A1–A2 theo 12 chủ đề — từ vừa học vào ngay hàng đợi ôn tập.
             </p>
           </div>
-          <ButtonLink href="/review/new" variant="secondary" className="w-full">
+          <ButtonLink href={newWordsHref} variant="secondary" className="w-full">
             Học từ mới
           </ButtonLink>
         </Card>
@@ -67,7 +77,7 @@ export default function ReviewHubPage() {
               Làm bài tập trắc nghiệm và điền từ trong từng bài học 12 thì.
             </p>
           </div>
-          <ButtonLink href="/learn/en" variant="secondary" className="w-full">
+          <ButtonLink href={grammarHref} variant="secondary" className="w-full">
             Chọn bài học
           </ButtonLink>
         </Card>

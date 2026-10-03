@@ -31,7 +31,7 @@ export default function CoursePage({ params }: { params: { courseId: string } })
           <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{language.name}</h1>
           <p className="text-slate-500">Mã ngôn ngữ: {language.code}</p>
         </div>
-        <ButtonLink href="/review" size="lg" className="w-full sm:w-auto">
+        <ButtonLink href={`/review?language=${params.courseId}`} size="lg" className="w-full sm:w-auto">
           Ôn tập ngay
         </ButtonLink>
       </Card>
