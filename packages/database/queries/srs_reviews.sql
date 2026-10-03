@@ -1,6 +1,7 @@
 -- name: GetDueVocabulariesForUser :many
-SELECT 
+SELECT
     v.id AS vocabulary_id,
+    v.language_id,
     v.term,
     v.phonetic,
     v.meaning,

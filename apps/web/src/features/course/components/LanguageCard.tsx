@@ -7,6 +7,15 @@ export function languageFlag(id: string) {
   return flags[id] ?? '🌐'
 }
 
+// Mã BCP-47 cho Web Speech API (SpeechSynthesisUtterance.lang) — khớp cột
+// `code` của từng ngôn ngữ trong DB, liệt kê riêng ở đây để AudioButton dùng
+// được mà không cần fetch thêm.
+const speechLangs: Record<string, string> = { en: 'en-US', ja: 'ja-JP', ko: 'ko-KR', zh: 'zh-CN', fr: 'fr-FR', de: 'de-DE', vi: 'vi-VN' }
+
+export function speechLang(id: string) {
+  return speechLangs[id] ?? 'en-US'
+}
+
 export function LanguageCard({ language }: { language: Language }) {
   return (
     <Link

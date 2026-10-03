@@ -33,6 +33,7 @@ type SRSRepository interface {
 // NewVocabulary là một từ user chưa học, hiển thị ở flow "Học từ mới"
 type NewVocabulary struct {
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
+	LanguageID   string    `json:"language_id" example:"en"`
 	Term         string    `json:"term" example:"apple"`
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
@@ -45,6 +46,7 @@ type NewVocabulary struct {
 // DueVocabulary là một từ vựng đến hạn ôn tập
 type DueVocabulary struct {
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
+	LanguageID   string    `json:"language_id" example:"en"`
 	Term         string    `json:"term" example:"apple"`
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
@@ -85,6 +87,7 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 	for _, r := range rows {
 		results = append(results, DueVocabulary{
 			VocabularyID: uuid.UUID(r.VocabularyID.Bytes),
+			LanguageID:   r.LanguageID,
 			Term:         r.Term,
 			Phonetic:     r.Phonetic.String,
 			Meaning:      r.Meaning,
@@ -172,6 +175,7 @@ func (s *SRSService) GetNewVocabularies(ctx context.Context, userID uuid.UUID, l
 	for _, v := range rows {
 		results = append(results, NewVocabulary{
 			VocabularyID: uuid.UUID(v.ID.Bytes),
+			LanguageID:   v.LanguageID,
 			Term:         v.Term,
 			Phonetic:     v.Phonetic.String,
 			Meaning:      v.Meaning,

@@ -32,8 +32,9 @@ func (q *Queries) CreateVocabularyReviewIfAbsent(ctx context.Context, arg Create
 }
 
 const getDueVocabulariesForUser = `-- name: GetDueVocabulariesForUser :many
-SELECT 
+SELECT
     v.id AS vocabulary_id,
+    v.language_id,
     v.term,
     v.phonetic,
     v.meaning,
@@ -58,6 +59,7 @@ type GetDueVocabulariesForUserParams struct {
 
 type GetDueVocabulariesForUserRow struct {
 	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
+	LanguageID   string             `json:"language_id"`
 	Term         string             `json:"term"`
 	Phonetic     pgtype.Text        `json:"phonetic"`
 	Meaning      string             `json:"meaning"`
@@ -80,6 +82,7 @@ func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocab
 		var i GetDueVocabulariesForUserRow
 		if err := rows.Scan(
 			&i.VocabularyID,
+			&i.LanguageID,
 			&i.Term,
 			&i.Phonetic,
 			&i.Meaning,

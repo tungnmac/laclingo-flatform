@@ -67,6 +67,7 @@ export interface GrammarLessonDetail {
 
 export interface DueVocabulary {
   vocabulary_id: string
+  language_id: string
   term: string
   phonetic: string
   meaning: string
@@ -83,6 +84,7 @@ export interface VocabularyReviewRequest {
 
 export interface NewVocabulary {
   vocabulary_id: string
+  language_id: string
   term: string
   phonetic: string
   meaning: string
