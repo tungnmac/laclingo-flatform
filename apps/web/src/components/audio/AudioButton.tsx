@@ -41,12 +41,19 @@ export function AudioButton({
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = speechLang(languageId)
-      const chosen = voiceURI ? voices.find((v) => v.voiceURI === voiceURI) : undefined
+      // Giọng user tự chọn ở Hồ sơ > giọng đầu tiên khớp ngôn ngữ trên máy —
+      // không để trình duyệt tự đoán theo `lang`, vì 1 số trình duyệt (đặc
+      // biệt Firefox) không tự khớp giọng được và sẽ im lặng hoàn toàn.
+      const chosen =
+        voices.find((v) => v.voiceURI === voiceURI) ?? voices.find((v) => v.lang.toLowerCase().startsWith(languageId.toLowerCase()))
       if (chosen) utterance.voice = chosen
       utterance.onend = () => setPlaying(false)
+      utterance.onerror = () => setPlaying(false)
       setPlaying(true)
       window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(utterance)
+      // Chrome có bug đã biết: gọi speak() ngay sau cancel() đôi khi huỷ luôn
+      // utterance mới, phát ra im lặng hoàn toàn — delay nhỏ để tránh race này.
+      setTimeout(() => window.speechSynthesis.speak(utterance), 50)
     }
   }
 
