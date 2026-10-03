@@ -31,13 +31,14 @@ func (h *SRSHandler) RegisterRoutes(router fiber.Router) {
 // @Tags         srs
 // @Produce      json
 // @Security     BearerAuth
-// @Param        limit    query     int     false  "Số lượng tối đa (mặc định 20, tối đa 100)"
+// @Param        limit     query    int     false  "Số lượng tối đa (mặc định 20, tối đa 100)"
+// @Param        language  query    string  false  "Chỉ lấy đến hạn của 1 ngôn ngữ (bỏ trống = tất cả ngôn ngữ)"  example(en)
 // @Success      200      {array}   service.DueVocabulary
 // @Failure      401      {object}  ErrorResponse
 // @Failure      500      {object}  ErrorResponse
 // @Router       /srs/due [get]
 func (h *SRSHandler) GetDue(c *fiber.Ctx) error {
-	results, err := h.svc.GetDueVocabularies(c.UserContext(), currentUserID(c), int32(c.QueryInt("limit", 0)))
+	results, err := h.svc.GetDueVocabularies(c.UserContext(), currentUserID(c), int32(c.QueryInt("limit", 0)), c.Query("language"))
 	if err != nil {
 		return err
 	}

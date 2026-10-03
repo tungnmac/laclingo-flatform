@@ -14,8 +14,11 @@ import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSes
 import { useKeypress } from '@/hooks/useKeypress'
 import { formatDate } from '@/lib/utils'
 
-export default function VocabularyReviewPage() {
-  const session = useSRSReviewSession()
+export default function VocabularyReviewPage({ searchParams }: { searchParams: { language?: string } }) {
+  const language = searchParams.language
+  const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
+  const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
+  const session = useSRSReviewSession(language)
   const { current, flipped, flip, grade, submitting } = session
 
   const onKey = useCallback(
@@ -46,8 +49,8 @@ export default function VocabularyReviewPage() {
           Học thêm từ mới để có thẻ ôn tập, hoặc quay lại sau nhé.
         </EmptyState>
         <div className="mt-6 flex justify-center gap-2">
-          <ButtonLink href="/review/new">Học từ mới</ButtonLink>
-          <ButtonLink href="/review" variant="secondary">
+          <ButtonLink href={newWordsHref}>Học từ mới</ButtonLink>
+          <ButtonLink href={reviewHref} variant="secondary">
             Các dạng ôn tập
           </ButtonLink>
         </div>
@@ -67,10 +70,10 @@ export default function VocabularyReviewPage() {
           </p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button onClick={session.reload}>Ôn tiếp</Button>
-            <ButtonLink href="/review/new" variant="secondary">
+            <ButtonLink href={newWordsHref} variant="secondary">
               Học từ mới
             </ButtonLink>
-            <ButtonLink href="/review" variant="secondary">
+            <ButtonLink href={reviewHref} variant="secondary">
               Các dạng ôn tập
             </ButtonLink>
           </div>
@@ -99,7 +102,7 @@ export default function VocabularyReviewPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Link href="/review" className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
+      <Link href={reviewHref} className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
         ← Các dạng ôn tập
       </Link>
 

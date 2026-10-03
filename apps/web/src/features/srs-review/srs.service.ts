@@ -9,7 +9,9 @@ import type {
 
 // User được xác định qua access token — không cần truyền user_id
 export const srsService = {
-  getDue: (limit = 20) => apiFetch<DueVocabulary[]>(`/srs/due?limit=${limit}`),
+  // language không truyền thì lấy đến hạn ở MỌI ngôn ngữ (hành vi mặc định)
+  getDue: (limit = 20, language?: string) =>
+    apiFetch<DueVocabulary[]>(`/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
 
   review: (body: VocabularyReviewRequest) =>
     apiFetch<VocabularyReviewResponse>('/srs/reviews', {

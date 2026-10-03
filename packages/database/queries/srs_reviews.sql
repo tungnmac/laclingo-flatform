@@ -1,4 +1,6 @@
 -- name: GetDueVocabulariesForUser :many
+-- language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
+-- truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 SELECT
     v.id AS vocabulary_id,
     v.language_id,
@@ -13,10 +15,11 @@ SELECT
     r.next_review_at
 FROM user_vocabulary_reviews r
 JOIN vocabularies v ON r.vocabulary_id = v.id
-WHERE r.user_id = $1 
+WHERE r.user_id = sqlc.arg('user_id')
   AND r.next_review_at <= NOW()
+  AND (sqlc.narg('language_id')::varchar IS NULL OR v.language_id = sqlc.narg('language_id'))
 ORDER BY r.next_review_at ASC
-LIMIT $2;
+LIMIT sqlc.arg('limit');
 
 -- name: UpsertVocabularyReview :one
 INSERT INTO user_vocabulary_reviews (

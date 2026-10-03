@@ -67,7 +67,9 @@ func NewSRSService(repo SRSRepository) *SRSService {
 	}
 }
 
-func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, limit int32) ([]DueVocabulary, error) {
+// GetDueVocabularies trả về từ đến hạn ôn tập. languageID rỗng thì lấy ở MỌI
+// ngôn ngữ user đang học (hành vi mặc định) — truyền vào để chỉ ôn riêng 1 ngôn ngữ.
+func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, limit int32, languageID string) ([]DueVocabulary, error) {
 	if limit <= 0 {
 		limit = defaultDueLimit
 	}
@@ -75,9 +77,15 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 		limit = maxDueLimit
 	}
 
+	var languageFilter pgtype.Text
+	if languageID != "" {
+		languageFilter = pgtype.Text{String: languageID, Valid: true}
+	}
+
 	rows, err := s.repo.GetDueVocabulariesForUser(ctx, db.GetDueVocabulariesForUserParams{
-		UserID: toPgUUID(userID),
-		Limit:  limit,
+		UserID:     toPgUUID(userID),
+		LanguageID: languageFilter,
+		Limit:      limit,
 	})
 	if err != nil {
 		return nil, err

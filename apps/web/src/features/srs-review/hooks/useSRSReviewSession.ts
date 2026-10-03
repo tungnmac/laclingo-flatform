@@ -11,7 +11,7 @@ export interface ReviewResult {
 }
 
 /** Quản lý một phiên ôn tập: tải thẻ đến hạn, lật thẻ, chấm điểm, chuyển thẻ */
-export function useSRSReviewSession() {
+export function useSRSReviewSession(language?: string) {
   const [cards, setCards] = useState<DueVocabulary[]>([])
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -24,7 +24,7 @@ export function useSRSReviewSession() {
     setLoading(true)
     setError(null)
     srsService
-      .getDue()
+      .getDue(20, language)
       .then((data) => {
         setCards(data)
         setIndex(0)
@@ -33,7 +33,7 @@ export function useSRSReviewSession() {
       })
       .catch(setError)
       .finally(() => setLoading(false))
-  }, [])
+  }, [language])
 
   useEffect(load, [load])
 

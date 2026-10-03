@@ -18,6 +18,7 @@ const BATCH_SIZE = 10
 export default function NewWordsPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
+  const vocabularyHref = language ? `/review/vocabulary?language=${encodeURIComponent(language)}` : '/review/vocabulary'
 
   const [words, setWords] = useState<NewVocabulary[]>([])
   const [index, setIndex] = useState(0)
@@ -68,7 +69,7 @@ export default function NewWordsPage({ searchParams }: { searchParams: { languag
           Quay lại ôn tập để giữ trí nhớ bền lâu nhé.
         </EmptyState>
         <div className="mt-6 flex justify-center gap-2">
-          <ButtonLink href="/review/vocabulary">Ôn tập ngay</ButtonLink>
+          <ButtonLink href={vocabularyHref}>Ôn tập ngay</ButtonLink>
           <ButtonLink href={reviewHref} variant="secondary">
             Các dạng ôn tập
           </ButtonLink>
@@ -85,7 +86,7 @@ export default function NewWordsPage({ searchParams }: { searchParams: { languag
           <h1 className="text-2xl font-bold text-slate-900">Đã học {words.length} từ mới!</h1>
           <p className="text-slate-600">Các từ vừa học đã vào hàng đợi — ôn ngay để nhớ lâu hơn.</p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <ButtonLink href="/review/vocabulary">Ôn tập ngay</ButtonLink>
+            <ButtonLink href={vocabularyHref}>Ôn tập ngay</ButtonLink>
             <Button variant="secondary" onClick={load}>
               Học thêm {BATCH_SIZE} từ
             </Button>

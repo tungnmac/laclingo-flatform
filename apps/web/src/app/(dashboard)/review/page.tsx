@@ -12,12 +12,14 @@ import { cn } from '@/lib/utils'
 /** Hub ôn tập: liệt kê các dạng ôn tập để người học chọn */
 export default function ReviewHubPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
-  // Chỉ để hiện số từ đến hạn — lỗi thì ẩn badge, không chặn trang
-  const { data: due } = useApi(() => srsService.getDue(100), [])
+  // Chỉ để hiện số từ đến hạn — lỗi thì ẩn badge, không chặn trang. Có
+  // language thì đếm riêng ngôn ngữ đó, khớp với nơi "Ôn ngay" sẽ dẫn tới.
+  const { data: due } = useApi(() => srsService.getDue(100, language), [language])
   const dueCount = due?.length ?? null
   // Chỉ để hiện tên ngôn ngữ đang học trong description — lỗi thì bỏ qua, không chặn trang
   const { data: currentLanguage } = useApi(() => courseService.getById(language!), [language], !!language)
 
+  const vocabularyHref = language ? `/review/vocabulary?language=${encodeURIComponent(language)}` : '/review/vocabulary'
   const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
   const grammarHref = language ? `/learn/${encodeURIComponent(language)}` : '/learn'
 
@@ -51,7 +53,7 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
               Flashcard theo thuật toán SM-2 — nhắc bạn ôn đúng lúc sắp quên.
             </p>
           </div>
-          <ButtonLink href="/review/vocabulary" className="w-full">
+          <ButtonLink href={vocabularyHref} className="w-full">
             Ôn ngay
           </ButtonLink>
         </Card>

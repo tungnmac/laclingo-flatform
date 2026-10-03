@@ -46,15 +46,17 @@ SELECT
     r.next_review_at
 FROM user_vocabulary_reviews r
 JOIN vocabularies v ON r.vocabulary_id = v.id
-WHERE r.user_id = $1 
+WHERE r.user_id = $1
   AND r.next_review_at <= NOW()
+  AND ($2::varchar IS NULL OR v.language_id = $2)
 ORDER BY r.next_review_at ASC
-LIMIT $2
+LIMIT $3
 `
 
 type GetDueVocabulariesForUserParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Limit  int32       `json:"limit"`
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID pgtype.Text `json:"language_id"`
+	Limit      int32       `json:"limit"`
 }
 
 type GetDueVocabulariesForUserRow struct {
@@ -71,8 +73,10 @@ type GetDueVocabulariesForUserRow struct {
 	NextReviewAt pgtype.Timestamptz `json:"next_review_at"`
 }
 
+// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
+// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error) {
-	rows, err := q.db.Query(ctx, getDueVocabulariesForUser, arg.UserID, arg.Limit)
+	rows, err := q.db.Query(ctx, getDueVocabulariesForUser, arg.UserID, arg.LanguageID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
