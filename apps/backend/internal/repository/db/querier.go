@@ -11,13 +11,10 @@ import (
 )
 
 type Querier interface {
-<<<<<<< HEAD
-	AddVocabularyToDeck(ctx context.Context, arg AddVocabularyToDeckParams) (int64, error)
-=======
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
->>>>>>> main
+	AddVocabularyToDeck(ctx context.Context, arg AddVocabularyToDeckParams) (int64, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	CompleteExerciseSession(ctx context.Context, arg CompleteExerciseSessionParams) (ExerciseSession, error)
 	CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDeck, error)
@@ -27,12 +24,9 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateVocabularyExercise(ctx context.Context, arg CreateVocabularyExerciseParams) (VocabularyExercise, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
-<<<<<<< HEAD
-	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
-=======
 	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
->>>>>>> main
+	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetActiveExerciseTypes(ctx context.Context) ([]ExerciseType, error)
@@ -55,12 +49,9 @@ type Querier interface {
 	GetGrammarProgress(ctx context.Context, arg GetGrammarProgressParams) (UserGrammarProgress, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
-<<<<<<< HEAD
 	GetLessonProgressAllLevels(ctx context.Context, arg GetLessonProgressAllLevelsParams) ([]UserGrammarProgress, error)
-	GetNextAvailableLevel(ctx context.Context, arg GetNextAvailableLevelParams) (int32, error)
-=======
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
->>>>>>> main
+	GetNextAvailableLevel(ctx context.Context, arg GetNextAvailableLevelParams) (int32, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
@@ -93,16 +84,13 @@ type Querier interface {
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUserDecks(ctx context.Context, userID pgtype.UUID) ([]UserDeck, error)
 	ListUsers(ctx context.Context) ([]User, error)
-<<<<<<< HEAD
-	MarkExerciseMastered(ctx context.Context, arg MarkExerciseMasteredParams) (UserExerciseProgress, error)
-=======
 	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
+	MarkExerciseMastered(ctx context.Context, arg MarkExerciseMasteredParams) (UserExerciseProgress, error)
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
->>>>>>> main
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -111,20 +99,16 @@ type Querier interface {
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
-<<<<<<< HEAD
 	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)
+	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	UpdateUserStreak(ctx context.Context, arg UpdateUserStreakParams) (UserLevelProgress, error)
 	UpsertGrammarProgress(ctx context.Context, arg UpsertGrammarProgressParams) (UserGrammarProgress, error)
-	UpsertUserExerciseProgress(ctx context.Context, arg UpsertUserExerciseProgressParams) (UserExerciseProgress, error)
-	UpsertUserLevelProgress(ctx context.Context, arg UpsertUserLevelProgressParams) (UserLevelProgress, error)
-=======
-	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
-	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
 	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).
 	UpsertMissionProgress(ctx context.Context, arg UpsertMissionProgressParams) (UserMissionProgress, error)
->>>>>>> main
+	UpsertUserExerciseProgress(ctx context.Context, arg UpsertUserExerciseProgressParams) (UserExerciseProgress, error)
+	UpsertUserLevelProgress(ctx context.Context, arg UpsertUserLevelProgressParams) (UserLevelProgress, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }
 

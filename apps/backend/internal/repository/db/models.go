@@ -243,7 +243,6 @@ type UserGrammarProgress struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
-<<<<<<< HEAD
 type UserLevelProgress struct {
 	ID                pgtype.UUID        `json:"id"`
 	UserID            pgtype.UUID        `json:"user_id"`
@@ -260,7 +259,8 @@ type UserLevelProgress struct {
 	LastActivityAt    pgtype.Timestamptz `json:"last_activity_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-=======
+}
+
 type UserMissionProgress struct {
 	ID            pgtype.UUID        `json:"id"`
 	UserID        pgtype.UUID        `json:"user_id"`
@@ -270,7 +270,6 @@ type UserMissionProgress struct {
 	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
->>>>>>> main
 }
 
 type UserVocabularyReview struct {
