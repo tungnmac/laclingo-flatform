@@ -16,6 +16,11 @@ const NAV_ITEMS = [
   { href: '/profile', label: 'Hồ sơ', icon: '👤' },
 ]
 
+// Mục riêng cho Sidebar (desktop) — KHÔNG thêm vào NAV_ITEMS vì BottomNav dùng
+// chung danh sách đó với layout grid-cols-5 cố định cho mobile.
+const MISSIONS_ITEM = { href: '/missions', label: 'Nhiệm vụ', icon: '🎯' }
+const ADMIN_ITEM = { href: '/admin/missions', label: 'Quản trị', icon: '🛠️' }
+
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
@@ -25,6 +30,7 @@ export function Sidebar({ user }: { user: User }) {
   const pathname = usePathname()
   const router = useRouter()
   const logout = useSession((s) => s.logout)
+  const sidebarItems = [...NAV_ITEMS, MISSIONS_ITEM, ...(user.role === 'admin' ? [ADMIN_ITEM] : [])]
 
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
@@ -33,7 +39,7 @@ export function Sidebar({ user }: { user: User }) {
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
+        {sidebarItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

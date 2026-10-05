@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -19,7 +20,10 @@ func TestComputePoints(t *testing.T) {
 		{"correct at deadline scores min", true, limit, minPoints},
 		{"correct past deadline clamps to min", true, 30 * time.Second, minPoints},
 		{"negative elapsed clamps to max", true, -time.Second, basePoints},
-		{"halfway correct scores midpoint", true, 10 * time.Second, (basePoints + minPoints) / 2},
+		// Dùng math.Round như chính hàm thật, tránh lệch do chia nguyên khi
+		// basePoints+minPoints là số lẻ (vd 10+5=15 -> 7.5, chia nguyên ra 7
+		// nhưng math.Round(7.5)=8).
+		{"halfway correct scores midpoint", true, 10 * time.Second, int(math.Round(float64(basePoints+minPoints) / 2))},
 	}
 
 	for _, tc := range cases {

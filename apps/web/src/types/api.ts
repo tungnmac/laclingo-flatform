@@ -7,6 +7,10 @@ export interface User {
   full_name: string
   avatar_url: string
   streak_count: number
+  role: 'user' | 'admin'
+  level: number
+  exp: number
+  points: number
   created_at: string
 }
 
@@ -261,4 +265,69 @@ export interface WsReactionPayload {
 
 export interface WsKickedPayload {
   reason: string
+}
+
+// =============================================================================
+// Missions (nhiệm vụ) + Leaderboard
+// =============================================================================
+
+export type MissionPeriod = 'daily' | 'weekly' | 'monthly' | 'event'
+export type MissionActionType = 'srs_review' | 'learn_word' | 'grammar_exercise' | 'challenge_participate' | 'challenge_win'
+
+// Body chung tạo/sửa nhiệm vụ (admin). starts_at/ends_at chỉ bắt buộc khi period = "event".
+export interface MissionRequest {
+  title: string
+  description?: string
+  period: MissionPeriod
+  action_type: MissionActionType
+  target_count: number
+  reward_exp: number
+  reward_points: number
+  starts_at?: string
+  ends_at?: string
+  is_active?: boolean
+}
+
+// Nhiệm vụ nhìn từ phía admin (không kèm tiến độ user)
+export interface Mission {
+  id: string
+  title: string
+  description?: string
+  period: MissionPeriod
+  action_type: MissionActionType
+  target_count: number
+  reward_exp: number
+  reward_points: number
+  starts_at?: string
+  ends_at?: string
+  is_active: boolean
+  created_at: string
+}
+
+// Nhiệm vụ nhìn từ phía learner, kèm tiến độ của họ trong kỳ hiện tại
+export interface MyMission {
+  id: string
+  title: string
+  description?: string
+  period: MissionPeriod
+  action_type: MissionActionType
+  target_count: number
+  reward_exp: number
+  reward_points: number
+  progress_count: number
+  completed: boolean
+}
+
+export type LeaderboardBy = 'level' | 'points' | 'streak'
+
+export interface LeaderboardEntry {
+  rank: number
+  user_id: string
+  username: string
+  full_name?: string
+  avatar_url?: string
+  level: number
+  exp: number
+  points: number
+  streak_count: number
 }

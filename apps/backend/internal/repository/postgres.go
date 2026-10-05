@@ -6,6 +6,7 @@ import (
 
 	"laclingo-backend/internal/repository/db"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,4 +41,11 @@ func (r *PostgresRepository) Close() {
 	if r.Pool != nil {
 		r.Pool.Close()
 	}
+}
+
+// BeginTx mở 1 transaction thật trên pool — dùng cho các service cần cộng
+// thưởng nhiều bảng atomically (ví dụ MissionService.RecordAction). Kết hợp
+// với *db.Queries.WithTx (sqlc) để chạy query trong tx đó.
+func (r *PostgresRepository) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return r.Pool.Begin(ctx)
 }

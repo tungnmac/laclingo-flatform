@@ -4,17 +4,18 @@ import (
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type GrammarHandler struct {
-	svc         *service.GrammarService
-	dialogueSvc *service.DialogueService
+	svc          *service.GrammarService
+	dialogueSvc  *service.DialogueService
 }
 
 func NewGrammarHandler(svc *service.GrammarService, dialogueSvc *service.DialogueService) *GrammarHandler {
 	return &GrammarHandler{
-		svc:         svc,
-		dialogueSvc: dialogueSvc,
+		svc:          svc,
+		dialogueSvc:  dialogueSvc,
 	}
 }
 
@@ -22,6 +23,12 @@ func (h *GrammarHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/languages/:id/grammar", h.ListTopics)
 	router.Get("/grammar/lessons/:code", h.GetLesson)
 	router.Get("/grammar/:id/dialogues", h.GetDialogues)
+}
+
+// RegisterProtectedRoutes gắn route cần đăng nhập (submit cần biết user để
+// ghi nhận nhiệm vụ) — tách riêng khỏi RegisterRoutes vì phần đọc bài học là public.
+func (h *GrammarHandler) RegisterProtectedRoutes(router fiber.Router) {
+	router.Post("/grammar/exercises/:id/submit", h.SubmitExercise)
 }
 
 // ListTopics godoc
@@ -71,6 +78,43 @@ func (h *GrammarHandler) GetLesson(c *fiber.Ctx) error {
 // @Router       /grammar/{id}/dialogues [get]
 func (h *GrammarHandler) GetDialogues(c *fiber.Ctx) error {
 	result, err := h.dialogueSvc.GetDialoguesByLesson(c.UserContext(), c.Params("id"))
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(result)
+}
+
+// submitExerciseRequest — body cho SubmitExercise
+type submitExerciseRequest struct {
+	Answer string `json:"answer" example:"goes"`
+}
+
+// SubmitExercise godoc
+// @Summary      Chấm 1 bài tập ngữ pháp
+// @Description  Chạy song song với check client-side hiện có — chỉ để ghi nhận tiến độ nhiệm vụ.
+// @Tags         grammar
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                  true  "Exercise ID (UUID)"  format(uuid)
+// @Param        body  body      submitExerciseRequest  true  "Câu trả lời"
+// @Success      200   {object}  service.SubmitExerciseResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /grammar/exercises/{id}/submit [post]
+func (h *GrammarHandler) SubmitExercise(c *fiber.Ctx) error {
+	exerciseID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+
+	var req submitExerciseRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+
+	result, err := h.svc.SubmitExercise(c.UserContext(), currentUserID(c), exerciseID, req.Answer)
 	if err != nil {
 		return err
 	}

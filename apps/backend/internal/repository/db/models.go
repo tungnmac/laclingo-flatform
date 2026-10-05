@@ -160,6 +160,23 @@ type Language struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Mission struct {
+	ID           pgtype.UUID        `json:"id"`
+	Title        string             `json:"title"`
+	Description  pgtype.Text        `json:"description"`
+	Period       string             `json:"period"`
+	ActionType   string             `json:"action_type"`
+	TargetCount  int32              `json:"target_count"`
+	RewardExp    int32              `json:"reward_exp"`
+	RewardPoints int32              `json:"reward_points"`
+	StartsAt     pgtype.Timestamptz `json:"starts_at"`
+	EndsAt       pgtype.Timestamptz `json:"ends_at"`
+	IsActive     bool               `json:"is_active"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
 	Email        string             `json:"email"`
@@ -168,6 +185,10 @@ type User struct {
 	FullName     pgtype.Text        `json:"full_name"`
 	AvatarUrl    pgtype.Text        `json:"avatar_url"`
 	StreakCount  pgtype.Int4        `json:"streak_count"`
+	Role         string             `json:"role"`
+	Exp          int64              `json:"exp"`
+	Level        int32              `json:"level"`
+	Points       int64              `json:"points"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
@@ -222,6 +243,7 @@ type UserGrammarProgress struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+<<<<<<< HEAD
 type UserLevelProgress struct {
 	ID                pgtype.UUID        `json:"id"`
 	UserID            pgtype.UUID        `json:"user_id"`
@@ -238,6 +260,17 @@ type UserLevelProgress struct {
 	LastActivityAt    pgtype.Timestamptz `json:"last_activity_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+=======
+type UserMissionProgress struct {
+	ID            pgtype.UUID        `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	MissionID     pgtype.UUID        `json:"mission_id"`
+	PeriodKey     string             `json:"period_key"`
+	ProgressCount int32              `json:"progress_count"`
+	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+>>>>>>> main
 }
 
 type UserVocabularyReview struct {

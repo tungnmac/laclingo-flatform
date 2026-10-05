@@ -3,6 +3,8 @@ package handler
 import (
 	"strings"
 
+	"laclingo-backend/internal/service"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -37,6 +39,24 @@ func RequireAuth(tokens TokenParser) fiber.Handler {
 func currentUserID(c *fiber.Ctx) uuid.UUID {
 	id, _ := c.Locals(userIDKey).(uuid.UUID)
 	return id
+}
+
+// RequireAdmin chặn request không phải role admin — PHẢI đứng SAU RequireAuth
+// trong chain (cần userID đã có trong context). Tra role qua DB mỗi request
+// (không nhúng role vào JWT claims) — chấp nhận chi phí nhỏ vì route admin
+// không nhiều traffic, và role đổi (nếu có) có hiệu lực ngay, không cần user
+// đăng nhập lại.
+func RequireAdmin(svc *service.UserService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		user, err := svc.GetByID(c.UserContext(), currentUserID(c))
+		if err != nil {
+			return err
+		}
+		if user.Role != "admin" {
+			return fiber.NewError(fiber.StatusForbidden, "yêu cầu quyền admin")
+		}
+		return c.Next()
+	}
 }
 
 // RequireAuthWS xác thực WebSocket qua query param ?token= — browser không set

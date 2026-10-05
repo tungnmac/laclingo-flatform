@@ -30,3 +30,29 @@ SET full_name  = COALESCE(sqlc.narg('full_name'), full_name),
     updated_at = NOW()
 WHERE id = sqlc.arg('id')
 RETURNING *;
+
+-- name: ListUsersByStreak :many
+SELECT * FROM users
+ORDER BY streak_count DESC NULLS LAST, created_at
+LIMIT $1;
+
+-- name: ListUsersByLevel :many
+SELECT * FROM users
+ORDER BY level DESC, exp DESC
+LIMIT $1;
+
+-- name: ListUsersByPoints :many
+SELECT * FROM users
+ORDER BY points DESC
+LIMIT $1;
+
+-- name: AddUserRewards :one
+-- level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
+-- tính lại công thức level trong SQL.
+UPDATE users
+SET exp = exp + sqlc.arg('exp_delta'),
+    points = points + sqlc.arg('points_delta'),
+    level = sqlc.arg('level'),
+    updated_at = NOW()
+WHERE id = sqlc.arg('id')
+RETURNING *;
