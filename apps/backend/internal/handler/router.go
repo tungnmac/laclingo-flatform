@@ -41,6 +41,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	NewUserHandler(service.NewUserService(repo)).RegisterRoutes(protected)
 	NewSRSHandler(service.NewSRSService(repo)).RegisterRoutes(protected)
 	challengeHandler.RegisterRoutes(protected)
+	NewExerciseHandler(service.NewExerciseService(repo)).RegisterRoutes(protected)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client
