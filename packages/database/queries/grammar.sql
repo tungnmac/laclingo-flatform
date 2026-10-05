@@ -18,3 +18,7 @@ WHERE code = $1;
 SELECT * FROM grammar_exercises
 WHERE lesson_id = $1
 ORDER BY order_index;
+
+-- name: GetGrammarExerciseByID :one
+SELECT * FROM grammar_exercises
+WHERE id = $1;

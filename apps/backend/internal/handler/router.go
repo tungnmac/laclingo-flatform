@@ -18,13 +18,14 @@ type ErrorResponse struct {
 }
 
 // RegisterRoutes khởi tạo service/handler và gắn toàn bộ route /api/v1
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService) {
 	api := app.Group("/api/v1")
 
 	// Public
 	NewAuthHandler(service.NewAuthService(repo, tokens)).RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
-	NewGrammarHandler(service.NewGrammarService(repo)).RegisterRoutes(api)
+	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions))
+	grammarHandler.RegisterRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
 	// WS đăng ký trên "api", TRƯỚC khi tạo "protected": Fiber lưu route theo 1
@@ -37,10 +38,17 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	challengeHandler.RegisterWSRoute(api, tokens)
 
 	// Cần đăng nhập
+	userService := service.NewUserService(repo)
 	protected := api.Group("", RequireAuth(tokens))
-	NewUserHandler(service.NewUserService(repo)).RegisterRoutes(protected)
-	NewSRSHandler(service.NewSRSService(repo)).RegisterRoutes(protected)
+	NewUserHandler(userService).RegisterRoutes(protected)
+	NewSRSHandler(service.NewSRSService(repo, missions)).RegisterRoutes(protected)
 	challengeHandler.RegisterRoutes(protected)
+	grammarHandler.RegisterProtectedRoutes(protected)
+	NewMissionHandler(missions).RegisterRoutes(protected)
+
+	// Cần đăng nhập + role admin
+	admin := api.Group("", RequireAuth(tokens), RequireAdmin(userService))
+	NewMissionHandler(missions).RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client

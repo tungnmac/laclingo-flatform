@@ -24,6 +24,7 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	api.Get("/me", h.GetMe)
 	api.Patch("/me", h.UpdateMe)
 	api.Get("/:id", h.GetByID)
+	router.Get("/leaderboard", h.GetLeaderboard)
 }
 
 // GetMe godoc
@@ -107,6 +108,26 @@ func (h *UserHandler) GetByID(c *fiber.Ctx) error {
 // @Router       /users [get]
 func (h *UserHandler) List(c *fiber.Ctx) error {
 	results, err := h.svc.List(c.UserContext())
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(results)
+}
+
+// GetLeaderboard godoc
+// @Summary      Bảng xếp hạng người học
+// @Description  Sort theo level, điểm thách đấu (points), hoặc streak (mặc định).
+// @Tags         users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        by   query     string  false  "level | points | streak"  example(level)
+// @Success      200  {array}   service.LeaderboardEntry
+// @Failure      400  {object}  ErrorResponse
+// @Failure      401  {object}  ErrorResponse
+// @Router       /leaderboard [get]
+func (h *UserHandler) GetLeaderboard(c *fiber.Ctx) error {
+	results, err := h.svc.GetLeaderboard(c.UserContext(), c.Query("by"))
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import { languageFlag, previewPhrase, speechLang } from '@/features/course/compo
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
+import { expForLevel } from '@/lib/leveling'
 import { displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import { useVoiceSettings } from '@/store/voiceSettings'
@@ -52,8 +53,16 @@ export default function ProfilePage() {
 
   const stats = [
     { label: 'Chuỗi ngày học', value: `🔥 ${user.streak_count}` },
+    { label: 'Điểm thách đấu', value: `🏆 ${user.points}` },
     { label: 'Tham gia từ', value: formatDate(user.created_at) },
   ]
+
+  const currentLevelExp = expForLevel(user.level)
+  const nextLevelExp = expForLevel(user.level + 1)
+  const levelPercent =
+    nextLevelExp === currentLevelExp
+      ? 100
+      : Math.min(100, Math.round(((user.exp - currentLevelExp) / (nextLevelExp - currentLevelExp)) * 100))
 
   return (
     <>
@@ -79,7 +88,23 @@ export default function ProfilePage() {
         </Card>
 
         <div className="space-y-4 lg:col-span-2">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Card>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">Cấp độ</p>
+              <p className="text-sm font-semibold text-slate-700">
+                {user.exp}/{nextLevelExp} EXP
+              </p>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-indigo-600">⭐ Level {user.level}</p>
+            <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+                style={{ width: `${levelPercent}%` }}
+              />
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {stats.map((s) => (
               <Card key={s.label}>
                 <p className="text-sm text-slate-500">{s.label}</p>

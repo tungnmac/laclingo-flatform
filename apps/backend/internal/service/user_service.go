@@ -20,6 +20,9 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	ListUsers(ctx context.Context) ([]db.User, error)
 	UpdateUserProfile(ctx context.Context, arg db.UpdateUserProfileParams) (db.User, error)
+	ListUsersByStreak(ctx context.Context, limit int32) ([]db.User, error)
+	ListUsersByLevel(ctx context.Context, limit int32) ([]db.User, error)
+	ListUsersByPoints(ctx context.Context, limit int32) ([]db.User, error)
 }
 
 // UserResponse là dữ liệu trả ra API — không bao gồm password_hash
@@ -30,8 +33,29 @@ type UserResponse struct {
 	FullName    string    `json:"full_name"`
 	AvatarURL   string    `json:"avatar_url"`
 	StreakCount int32     `json:"streak_count"`
+	Role        string    `json:"role" example:"user"`
+	Level       int32     `json:"level"`
+	Exp         int64     `json:"exp"`
+	Points      int64     `json:"points"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+// LeaderboardEntry — 1 dòng trong bảng xếp hạng, đã kèm thứ hạng (rank =
+// vị trí trong danh sách đã sort theo `by`, không cần window function vì luôn
+// LIMIT cố định).
+type LeaderboardEntry struct {
+	Rank        int32     `json:"rank"`
+	UserID      uuid.UUID `json:"user_id" swaggertype:"string" format:"uuid"`
+	Username    string    `json:"username"`
+	FullName    string    `json:"full_name,omitempty"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
+	Level       int32     `json:"level"`
+	Exp         int64     `json:"exp"`
+	Points      int64     `json:"points"`
+	StreakCount int32     `json:"streak_count"`
+}
+
+const defaultLeaderboardLimit = 50
 
 // UpdateProfileRequest — field nào không gửi (null) thì giữ nguyên
 type UpdateProfileRequest struct {
@@ -47,6 +71,10 @@ func toUserResponse(u db.User) UserResponse {
 		FullName:    u.FullName.String,
 		AvatarURL:   u.AvatarUrl.String,
 		StreakCount: u.StreakCount.Int32,
+		Role:        u.Role,
+		Level:       u.Level,
+		Exp:         u.Exp,
+		Points:      u.Points,
 		CreatedAt:   u.CreatedAt.Time,
 	}
 }
@@ -110,6 +138,43 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, req Updat
 		return UserResponse{}, err
 	}
 	return toUserResponse(u), nil
+}
+
+// GetLeaderboard trả về top user theo tiêu chí `by` (level|points|streak,
+// mặc định streak để tương thích hành vi cũ — FE trước đây tự sort client-side
+// theo streak_count). Rank tính theo vị trí trong danh sách (đã LIMIT, sort ở DB).
+func (s *UserService) GetLeaderboard(ctx context.Context, by string) ([]LeaderboardEntry, error) {
+	var users []db.User
+	var err error
+	switch by {
+	case "level":
+		users, err = s.repo.ListUsersByLevel(ctx, defaultLeaderboardLimit)
+	case "points":
+		users, err = s.repo.ListUsersByPoints(ctx, defaultLeaderboardLimit)
+	case "", "streak":
+		users, err = s.repo.ListUsersByStreak(ctx, defaultLeaderboardLimit)
+	default:
+		return nil, ErrInvalidInput
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]LeaderboardEntry, 0, len(users))
+	for i, u := range users {
+		results = append(results, LeaderboardEntry{
+			Rank:        int32(i + 1),
+			UserID:      uuid.UUID(u.ID.Bytes),
+			Username:    u.Username,
+			FullName:    u.FullName.String,
+			AvatarURL:   u.AvatarUrl.String,
+			Level:       u.Level,
+			Exp:         u.Exp,
+			Points:      u.Points,
+			StreakCount: u.StreakCount.Int32,
+		})
+	}
+	return results, nil
 }
 
 func isHTTPURL(raw string) bool {

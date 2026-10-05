@@ -14,6 +14,7 @@ import (
 	"laclingo-backend/internal/game"
 	"laclingo-backend/internal/handler"
 	"laclingo-backend/internal/repository"
+	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -70,8 +71,9 @@ func main() {
 		app.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
-	hub := game.NewHub(repo)
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub)
+	missionService := service.NewMissionService(repo)
+	hub := game.NewHub(repo, missionService)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

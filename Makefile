@@ -66,6 +66,15 @@ seed:
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds_zh.sql
 	@echo "✅ Seed dữ liệu hoàn tất!"
 
+# Cấp quyền admin cho 1 user theo email — không có UI để cấp quyền admin đầu
+# tiên (gà-trứng: cần đã là admin mới vào được trang quản trị), nên phải có
+# cách làm việc này trực tiếp qua DB. VD: make promote-admin email=a@b.com
+promote-admin:
+	@test -n "$(email)" || (echo "❌ Thiếu email. VD: make promote-admin email=a@b.com" && exit 1)
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 \
+		-c "UPDATE users SET role = 'admin' WHERE email = '$(email)';"
+	@echo "✅ Đã cấp quyền admin cho $(email)"
+
 # ========================
 # BACKEND
 # ========================

@@ -11,10 +11,55 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addUserRewards = `-- name: AddUserRewards :one
+UPDATE users
+SET exp = exp + $1,
+    points = points + $2,
+    level = $3,
+    updated_at = NOW()
+WHERE id = $4
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at
+`
+
+type AddUserRewardsParams struct {
+	ExpDelta    int64       `json:"exp_delta"`
+	PointsDelta int64       `json:"points_delta"`
+	Level       int32       `json:"level"`
+	ID          pgtype.UUID `json:"id"`
+}
+
+// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
+// tính lại công thức level trong SQL.
+func (q *Queries) AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error) {
+	row := q.db.QueryRow(ctx, addUserRewards,
+		arg.ExpDelta,
+		arg.PointsDelta,
+		arg.Level,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, username, password_hash, full_name)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -40,6 +85,10 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -47,7 +96,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 WHERE email = $1
 `
 
@@ -62,6 +111,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -69,7 +122,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -84,6 +137,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -91,7 +148,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 WHERE email = $1 OR username = $1
 `
 
@@ -106,6 +163,10 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, email string) (User, 
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -113,7 +174,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, email string) (User, 
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 WHERE username = $1
 `
 
@@ -128,6 +189,10 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -135,7 +200,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 ORDER BY created_at DESC
 `
 
@@ -156,6 +221,130 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.FullName,
 			&i.AvatarUrl,
 			&i.StreakCount,
+			&i.Role,
+			&i.Exp,
+			&i.Level,
+			&i.Points,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersByLevel = `-- name: ListUsersByLevel :many
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
+ORDER BY level DESC, exp DESC
+LIMIT $1
+`
+
+func (q *Queries) ListUsersByLevel(ctx context.Context, limit int32) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByLevel, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Username,
+			&i.PasswordHash,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.StreakCount,
+			&i.Role,
+			&i.Exp,
+			&i.Level,
+			&i.Points,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersByPoints = `-- name: ListUsersByPoints :many
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
+ORDER BY points DESC
+LIMIT $1
+`
+
+func (q *Queries) ListUsersByPoints(ctx context.Context, limit int32) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByPoints, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Username,
+			&i.PasswordHash,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.StreakCount,
+			&i.Role,
+			&i.Exp,
+			&i.Level,
+			&i.Points,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersByStreak = `-- name: ListUsersByStreak :many
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
+ORDER BY streak_count DESC NULLS LAST, created_at
+LIMIT $1
+`
+
+func (q *Queries) ListUsersByStreak(ctx context.Context, limit int32) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsersByStreak, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Username,
+			&i.PasswordHash,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.StreakCount,
+			&i.Role,
+			&i.Exp,
+			&i.Level,
+			&i.Points,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -175,7 +364,7 @@ SET full_name  = COALESCE($1, full_name),
     avatar_url = COALESCE($2, avatar_url),
     updated_at = NOW()
 WHERE id = $3
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at
 `
 
 type UpdateUserProfileParams struct {
@@ -195,6 +384,10 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.FullName,
 		&i.AvatarUrl,
 		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"laclingo-backend/internal/domain"
@@ -56,14 +57,25 @@ type DueVocabulary struct {
 }
 
 type SRSService struct {
-	repo SRSRepository
-	now  func() time.Time
+	repo     SRSRepository
+	missions *MissionService
+	now      func() time.Time
 }
 
-func NewSRSService(repo SRSRepository) *SRSService {
+func NewSRSService(repo SRSRepository, missions *MissionService) *SRSService {
 	return &SRSService{
-		repo: repo,
-		now:  time.Now,
+		repo:     repo,
+		missions: missions,
+		now:      time.Now,
+	}
+}
+
+// recordMissionAction ghi nhận hành động cho hệ thống nhiệm vụ — lỗi ở đây
+// (ví dụ DB tạm trục trặc) KHÔNG được làm fail hành động chính (ôn tập/học từ
+// mới), chỉ log lại để điều tra sau.
+func (s *SRSService) recordMissionAction(ctx context.Context, userID uuid.UUID, actionType string) {
+	if err := s.missions.RecordAction(ctx, userID, actionType, 1); err != nil {
+		log.Printf("❌ mission: RecordAction user=%s action=%s: %v", userID, actionType, err)
 	}
 }
 
@@ -153,6 +165,8 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, userID uuid.UUID, req
 		return domain.VocabularyReviewResponse{}, err
 	}
 
+	s.recordMissionAction(ctx, userID, "srs_review")
+
 	return domain.VocabularyReviewResponse{
 		VocabularyID: uuid.UUID(saved.VocabularyID.Bytes),
 		NewStage:     saved.SrsStage.Int32,
@@ -203,14 +217,24 @@ func (s *SRSService) LearnVocabulary(ctx context.Context, userID uuid.UUID, voca
 		return ErrInvalidInput
 	}
 
-	_, err := s.repo.CreateVocabularyReviewIfAbsent(ctx, db.CreateVocabularyReviewIfAbsentParams{
+	inserted, err := s.repo.CreateVocabularyReviewIfAbsent(ctx, db.CreateVocabularyReviewIfAbsentParams{
 		UserID:       toPgUUID(userID),
 		VocabularyID: toPgUUID(vocabularyID),
 	})
 	if isPgError(err, pgForeignKeyViolation) {
 		return ErrNotFound
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	if inserted > 0 {
+		// Chỉ tính nhiệm vụ khi đây thực sự là lần học đầu (ON CONFLICT DO
+		// NOTHING trả 0 dòng nếu đã học rồi) — gọi lại hàm idempotent này
+		// không được cộng progress nhiều lần cho cùng 1 từ.
+		s.recordMissionAction(ctx, userID, "learn_word")
+	}
+	return nil
 }
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {

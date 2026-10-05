@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
+	"strings"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -19,6 +21,12 @@ type GrammarRepository interface {
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]db.ListGrammarLessonsByLanguageRow, error)
 	GetGrammarLessonByCode(ctx context.Context, code string) (db.GrammarLesson, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]db.GrammarExercise, error)
+	GetGrammarExerciseByID(ctx context.Context, id pgtype.UUID) (db.GrammarExercise, error)
+}
+
+// SubmitExerciseResponse — kết quả chấm 1 bài tập ngữ pháp
+type SubmitExerciseResponse struct {
+	Correct bool `json:"correct"`
 }
 
 // GrammarLessonSummary — bài học trong danh sách, không kèm content
@@ -61,11 +69,12 @@ type GrammarLessonDetail struct {
 }
 
 type GrammarService struct {
-	repo GrammarRepository
+	repo     GrammarRepository
+	missions *MissionService
 }
 
-func NewGrammarService(repo GrammarRepository) *GrammarService {
-	return &GrammarService{repo: repo}
+func NewGrammarService(repo GrammarRepository, missions *MissionService) *GrammarService {
+	return &GrammarService{repo: repo, missions: missions}
 }
 
 // ListTopics trả về các chủ đề ngữ pháp của một ngôn ngữ, kèm bài học đã nhóm theo chủ đề
@@ -151,4 +160,31 @@ func (s *GrammarService) GetLessonByCode(ctx context.Context, code string) (Gram
 		Content:   json.RawMessage(lesson.Content),
 		Exercises: exerciseResponses,
 	}, nil
+}
+
+// SubmitExercise chấm 1 bài tập ngữ pháp — chạy SONG SONG với check client-side
+// hiện có (không thay thế), chỉ để có sự kiện server-side ghi nhận tiến độ
+// nhiệm vụ "grammar_exercise". Trả đúng/sai; không trả lại correct_answer vì
+// client đã có sẵn (tự so sánh ở FE để phản hồi ngay).
+func (s *GrammarService) SubmitExercise(ctx context.Context, userID, exerciseID uuid.UUID, answer string) (SubmitExerciseResponse, error) {
+	if userID == uuid.Nil || exerciseID == uuid.Nil {
+		return SubmitExerciseResponse{}, ErrInvalidInput
+	}
+
+	exercise, err := s.repo.GetGrammarExerciseByID(ctx, toPgUUID(exerciseID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SubmitExerciseResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return SubmitExerciseResponse{}, err
+	}
+
+	correct := strings.EqualFold(strings.TrimSpace(answer), strings.TrimSpace(exercise.CorrectAnswer))
+	if correct {
+		if err := s.missions.RecordAction(ctx, userID, "grammar_exercise", 1); err != nil {
+			log.Printf("❌ mission: RecordAction user=%s action=grammar_exercise: %v", userID, err)
+		}
+	}
+
+	return SubmitExerciseResponse{Correct: correct}, nil
 }
