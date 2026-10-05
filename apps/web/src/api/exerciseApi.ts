@@ -7,6 +7,21 @@ export interface ExerciseType {
   icon: string
 }
 
+export interface UserProgress {
+  totalXp: number
+  level: number
+  streak: number
+  completedLessons: number
+  totalLessons: number
+}
+
+export interface ExerciseStats {
+  totalExercises: number
+  correctAnswers: number
+  averageScore: number
+  timeSpentMinutes: number
+}
+
 export interface Deck {
   id: string
   name: string
@@ -60,4 +75,12 @@ export const addVocabularyToDeck = async (deckId: string, vocabId: string): Prom
 
 export const removeVocabularyFromDeck = async (deckId: string, vocabId: string): Promise<void> => {
   return apiFetch<void>(`/decks/${deckId}/vocabulary/${vocabId}`, { method: 'DELETE' })
+}
+
+export const getUserProgress = async (): Promise<UserProgress> => {
+  return apiFetch<UserProgress>('/progress')
+}
+
+export const getExerciseStats = async (): Promise<ExerciseStats> => {
+  return apiFetch<ExerciseStats>('/progress/stats')
 }
