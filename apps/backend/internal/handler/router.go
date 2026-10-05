@@ -24,7 +24,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// Public
 	NewAuthHandler(service.NewAuthService(repo, tokens)).RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
-	NewGrammarHandler(service.NewGrammarService(repo)).RegisterRoutes(api)
+	NewGrammarHandler(service.NewGrammarService(repo), service.NewDialogueService(repo)).RegisterRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
 	// WS đăng ký trên "api", TRƯỚC khi tạo "protected": Fiber lưu route theo 1

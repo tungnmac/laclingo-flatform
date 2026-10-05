@@ -7,18 +7,21 @@ import (
 )
 
 type GrammarHandler struct {
-	svc *service.GrammarService
+	svc         *service.GrammarService
+	dialogueSvc *service.DialogueService
 }
 
-func NewGrammarHandler(svc *service.GrammarService) *GrammarHandler {
+func NewGrammarHandler(svc *service.GrammarService, dialogueSvc *service.DialogueService) *GrammarHandler {
 	return &GrammarHandler{
-		svc: svc,
+		svc:         svc,
+		dialogueSvc: dialogueSvc,
 	}
 }
 
 func (h *GrammarHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/languages/:id/grammar", h.ListTopics)
 	router.Get("/grammar/lessons/:code", h.GetLesson)
+	router.Get("/grammar/:id/dialogues", h.GetDialogues)
 }
 
 // ListTopics godoc
@@ -51,6 +54,23 @@ func (h *GrammarHandler) ListTopics(c *fiber.Ctx) error {
 // @Router       /grammar/lessons/{code} [get]
 func (h *GrammarHandler) GetLesson(c *fiber.Ctx) error {
 	result, err := h.svc.GetLessonByCode(c.UserContext(), c.Params("code"))
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(result)
+}
+
+// GetDialogues godoc
+// @Summary      Lấy danh sách dialogues của một bài ngữ pháp
+// @Tags         grammar
+// @Produce      json
+// @Param        id   path      string  true  "Lesson ID"
+// @Success      200  {array}   service.DialogueResponse
+// @Failure      500  {object}  ErrorResponse
+// @Router       /grammar/{id}/dialogues [get]
+func (h *GrammarHandler) GetDialogues(c *fiber.Ctx) error {
+	result, err := h.dialogueSvc.GetDialoguesByLesson(c.UserContext(), c.Params("id"))
 	if err != nil {
 		return err
 	}
