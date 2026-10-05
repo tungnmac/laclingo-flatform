@@ -27,6 +27,8 @@ type Querier interface {
 	GetDeck(ctx context.Context, arg GetDeckParams) (UserDeck, error)
 	GetDeckSessionStats(ctx context.Context, deckID pgtype.UUID) (GetDeckSessionStatsRow, error)
 	GetDeckVocabularies(ctx context.Context, deckID pgtype.UUID) ([]Vocabulary, error)
+	GetDialogueById(ctx context.Context, id pgtype.UUID) (GetDialogueByIdRow, error)
+	GetDialoguesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GetDialoguesByLessonRow, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)

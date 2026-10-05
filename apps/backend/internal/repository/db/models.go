@@ -25,6 +25,27 @@ type DeckVocabulary struct {
 	AddedAt      pgtype.Timestamptz `json:"added_at"`
 }
 
+type Dialogue struct {
+	ID          pgtype.UUID        `json:"id"`
+	LessonID    pgtype.UUID        `json:"lesson_id"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	Difficulty  pgtype.Text        `json:"difficulty"`
+	OrderIndex  pgtype.Int4        `json:"order_index"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type DialogueLine struct {
+	ID          pgtype.UUID        `json:"id"`
+	DialogueID  pgtype.UUID        `json:"dialogue_id"`
+	Speaker     string             `json:"speaker"`
+	Text        string             `json:"text"`
+	Translation pgtype.Text        `json:"translation"`
+	AudioUrl    pgtype.Text        `json:"audio_url"`
+	OrderIndex  pgtype.Int4        `json:"order_index"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type ExerciseSession struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`
