@@ -11,25 +11,46 @@ import (
 )
 
 type Querier interface {
+	AddVocabularyToDeck(ctx context.Context, arg AddVocabularyToDeckParams) (int64, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	CompleteExerciseSession(ctx context.Context, arg CompleteExerciseSessionParams) (ExerciseSession, error)
+	CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDeck, error)
+	CreateExerciseSession(ctx context.Context, arg CreateExerciseSessionParams) (ExerciseSession, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateVocabularyExercise(ctx context.Context, arg CreateVocabularyExerciseParams) (VocabularyExercise, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
+	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	GetActiveExerciseTypes(ctx context.Context) ([]ExerciseType, error)
+	GetDeck(ctx context.Context, arg GetDeckParams) (UserDeck, error)
+	GetDeckSessionStats(ctx context.Context, deckID pgtype.UUID) (GetDeckSessionStatsRow, error)
+	GetDeckVocabularies(ctx context.Context, deckID pgtype.UUID) ([]Vocabulary, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
+	GetExerciseByTypeForVocabularies(ctx context.Context, arg GetExerciseByTypeForVocabulariesParams) ([]GetExerciseByTypeForVocabulariesRow, error)
+	GetExerciseSession(ctx context.Context, id pgtype.UUID) (ExerciseSession, error)
+	GetExerciseType(ctx context.Context, id string) (ExerciseType, error)
 	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
 	GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error)
 	GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
+	GetGrammarProgress(ctx context.Context, arg GetGrammarProgressParams) (UserGrammarProgress, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
+	GetLessonProgressAllLevels(ctx context.Context, arg GetLessonProgressAllLevelsParams) ([]UserGrammarProgress, error)
+	GetNextAvailableLevel(ctx context.Context, arg GetNextAvailableLevelParams) (int32, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserExerciseProgress(ctx context.Context, arg GetUserExerciseProgressParams) (UserExerciseProgress, error)
+	GetUserExerciseProgressForDeck(ctx context.Context, arg GetUserExerciseProgressForDeckParams) ([]GetUserExerciseProgressForDeckRow, error)
+	GetUserExerciseSessions(ctx context.Context, arg GetUserExerciseSessionsParams) ([]ExerciseSession, error)
+	GetUserLevelProgress(ctx context.Context, arg GetUserLevelProgressParams) (UserLevelProgress, error)
+	GetVocabularyExercise(ctx context.Context, arg GetVocabularyExerciseParams) (VocabularyExercise, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
@@ -44,15 +65,23 @@ type Querier interface {
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
+	ListUserDecks(ctx context.Context, userID pgtype.UUID) ([]UserDeck, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	MarkExerciseMastered(ctx context.Context, arg MarkExerciseMasteredParams) (UserExerciseProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
+	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// Atomic: insert câu trả lời + cộng điểm participant trong 1 statement (CTE),
 	// tránh cần transaction Go riêng. Nếu đã trả lời câu này rồi (ON CONFLICT DO
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpdateUserStreak(ctx context.Context, arg UpdateUserStreakParams) (UserLevelProgress, error)
+	UpsertGrammarProgress(ctx context.Context, arg UpsertGrammarProgressParams) (UserGrammarProgress, error)
+	UpsertUserExerciseProgress(ctx context.Context, arg UpsertUserExerciseProgressParams) (UserExerciseProgress, error)
+	UpsertUserLevelProgress(ctx context.Context, arg UpsertUserLevelProgressParams) (UserLevelProgress, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }
 

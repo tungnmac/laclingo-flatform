@@ -25,6 +25,20 @@ type DeckVocabulary struct {
 	AddedAt      pgtype.Timestamptz `json:"added_at"`
 }
 
+type ExerciseSession struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	DeckID          pgtype.UUID        `json:"deck_id"`
+	ExerciseType    string             `json:"exercise_type"`
+	TotalQuestions  pgtype.Int4        `json:"total_questions"`
+	CorrectAnswers  pgtype.Int4        `json:"correct_answers"`
+	XpEarned        pgtype.Int8        `json:"xp_earned"`
+	DurationSeconds pgtype.Int4        `json:"duration_seconds"`
+	Details         []byte             `json:"details"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+}
+
 type ExerciseType struct {
 	ID          string      `json:"id"`
 	Name        string      `json:"name"`
@@ -150,6 +164,25 @@ type UserDeck struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserExerciseProgress struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	VocabularyID    pgtype.UUID        `json:"vocabulary_id"`
+	ExerciseType    string             `json:"exercise_type"`
+	Status          pgtype.Text        `json:"status"`
+	Attempts        pgtype.Int4        `json:"attempts"`
+	CorrectCount    pgtype.Int4        `json:"correct_count"`
+	SrsStage        pgtype.Int4        `json:"srs_stage"`
+	EaseFactor      pgtype.Float8      `json:"ease_factor"`
+	IntervalDays    pgtype.Int4        `json:"interval_days"`
+	NextReviewAt    pgtype.Timestamptz `json:"next_review_at"`
+	XpEarned        pgtype.Int8        `json:"xp_earned"`
+	LastAttemptedAt pgtype.Timestamptz `json:"last_attempted_at"`
+	MasteredAt      pgtype.Timestamptz `json:"mastered_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type UserGrammarProgress struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`
@@ -166,6 +199,24 @@ type UserGrammarProgress struct {
 	NextReviewAt     pgtype.Timestamptz `json:"next_review_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserLevelProgress struct {
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	LanguageID        string             `json:"language_id"`
+	TotalXp           pgtype.Int8        `json:"total_xp"`
+	CurrentLevel      pgtype.Int4        `json:"current_level"`
+	XpForCurrentLevel pgtype.Int8        `json:"xp_for_current_level"`
+	XpForNextLevel    pgtype.Int8        `json:"xp_for_next_level"`
+	RetentionScore    pgtype.Float8      `json:"retention_score"`
+	AccuracyScore     pgtype.Float8      `json:"accuracy_score"`
+	ProficiencyScore  pgtype.Float8      `json:"proficiency_score"`
+	CurrentStreak     pgtype.Int4        `json:"current_streak"`
+	LongestStreak     pgtype.Int4        `json:"longest_streak"`
+	LastActivityAt    pgtype.Timestamptz `json:"last_activity_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserVocabularyReview struct {

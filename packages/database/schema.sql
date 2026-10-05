@@ -240,3 +240,80 @@ CREATE TABLE IF NOT EXISTS game_answers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_game_answers_room_question ON game_answers(room_id, question_id);
+
+-- User Level Progress - XP, level tracking per language
+CREATE TABLE IF NOT EXISTS user_level_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id),
+
+    total_xp BIGINT DEFAULT 0,
+    current_level INT DEFAULT 1,
+    xp_for_current_level BIGINT DEFAULT 0,
+    xp_for_next_level BIGINT DEFAULT 100,
+
+    retention_score FLOAT DEFAULT 0,
+    accuracy_score FLOAT DEFAULT 0,
+    proficiency_score FLOAT DEFAULT 0,
+
+    current_streak INT DEFAULT 0,
+    longest_streak INT DEFAULT 0,
+    last_activity_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT unique_user_language UNIQUE (user_id, language_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_level_progress_user ON user_level_progress(user_id);
+
+-- User Exercise Progress - tracking vocabulary-exercise pair progress
+CREATE TABLE IF NOT EXISTS user_exercise_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vocabulary_id UUID NOT NULL REFERENCES vocabularies(id) ON DELETE CASCADE,
+    exercise_type VARCHAR(30) NOT NULL REFERENCES exercise_types(id),
+
+    status VARCHAR(20) DEFAULT 'not_started',
+    attempts INT DEFAULT 0,
+    correct_count INT DEFAULT 0,
+
+    srs_stage INT DEFAULT 0,
+    ease_factor FLOAT DEFAULT 2.5,
+    interval_days INT DEFAULT 0,
+    next_review_at TIMESTAMPTZ,
+
+    xp_earned BIGINT DEFAULT 0,
+    last_attempted_at TIMESTAMPTZ,
+    mastered_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT unique_user_vocab_exercise UNIQUE (user_id, vocabulary_id, exercise_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercise_progress_user ON user_exercise_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_exercise_progress_status ON user_exercise_progress(user_id, status);
+
+-- Exercise Sessions - track practice sessions
+CREATE TABLE IF NOT EXISTS exercise_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    deck_id UUID REFERENCES user_decks(id),
+    exercise_type VARCHAR(30) NOT NULL REFERENCES exercise_types(id),
+
+    total_questions INT DEFAULT 0,
+    correct_answers INT DEFAULT 0,
+    xp_earned BIGINT DEFAULT 0,
+    duration_seconds INT DEFAULT 0,
+
+    details JSONB,
+
+    started_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON exercise_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_deck ON exercise_sessions(deck_id);
