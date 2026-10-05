@@ -11,10 +11,16 @@ import (
 )
 
 type Querier interface {
+	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
+	// tính lại công thức level trong SQL.
+	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
+	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
+	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
+	DeactivateMission(ctx context.Context, id pgtype.UUID) error
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
@@ -23,9 +29,11 @@ type Querier interface {
 	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
 	GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error)
 	GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	GetGrammarExerciseByID(ctx context.Context, id pgtype.UUID) (GrammarExercise, error)
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
+	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
@@ -37,14 +45,27 @@ type Querier interface {
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
 	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
+	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
+	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]Mission, error)
+	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
+	ListAllMissions(ctx context.Context) ([]Mission, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
+	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
+	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
+	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
+	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
+	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
+	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
+	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
+	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// Atomic: insert câu trả lời + cộng điểm participant trong 1 statement (CTE),
@@ -52,7 +73,11 @@ type Querier interface {
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
+	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).
+	UpsertMissionProgress(ctx context.Context, arg UpsertMissionProgressParams) (UserMissionProgress, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }
 

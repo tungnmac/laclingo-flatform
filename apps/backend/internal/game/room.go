@@ -529,7 +529,29 @@ func (r *Room) finishGame() {
 	if err != nil {
 		log.Printf("❌ game: GetLeaderboard (finish) room=%s: %v", r.id, err)
 	}
+	r.recordMissionActions(leaderboard)
 	r.broadcast(serverMsgGameFinished, gameFinishedPayload{Leaderboard: toLeaderboardPayload(leaderboard)})
+}
+
+// recordMissionActions báo hệ thống nhiệm vụ: mọi participant được +1
+// challenge_participate, riêng người xếp hạng 1 (Rank từ GetLeaderboard, đã
+// ORDER BY score DESC) được thêm +1 challenge_win. Lỗi chỉ log — không được
+// làm hỏng việc broadcast kết quả trận đấu cho người chơi.
+func (r *Room) recordMissionActions(leaderboard []db.GetLeaderboardRow) {
+	if r.hub.missions == nil {
+		return
+	}
+	for _, entry := range leaderboard {
+		userID := uuid.UUID(entry.UserID.Bytes)
+		if err := r.hub.missions.RecordAction(context.Background(), userID, "challenge_participate", 1); err != nil {
+			log.Printf("❌ mission: RecordAction user=%s action=challenge_participate: %v", userID, err)
+		}
+		if entry.Rank == 1 {
+			if err := r.hub.missions.RecordAction(context.Background(), userID, "challenge_win", 1); err != nil {
+				log.Printf("❌ mission: RecordAction user=%s action=challenge_win: %v", userID, err)
+			}
+		}
+	}
 }
 
 func (r *Room) broadcast(msgType string, data any) {

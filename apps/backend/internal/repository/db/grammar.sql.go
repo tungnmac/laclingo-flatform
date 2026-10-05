@@ -11,6 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getGrammarExerciseByID = `-- name: GetGrammarExerciseByID :one
+SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward FROM grammar_exercises
+WHERE id = $1
+`
+
+func (q *Queries) GetGrammarExerciseByID(ctx context.Context, id pgtype.UUID) (GrammarExercise, error) {
+	row := q.db.QueryRow(ctx, getGrammarExerciseByID, id)
+	var i GrammarExercise
+	err := row.Scan(
+		&i.ID,
+		&i.LessonID,
+		&i.Type,
+		&i.Question,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Explanation,
+		&i.OrderIndex,
+		&i.Level,
+		&i.Hint,
+		&i.XpReward,
+	)
+	return i, err
+}
+
 const getGrammarLessonByCode = `-- name: GetGrammarLessonByCode :one
 SELECT id, topic_id, code, title, level, order_index, content, created_at, updated_at FROM grammar_lessons
 WHERE code = $1
