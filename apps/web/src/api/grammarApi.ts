@@ -34,3 +34,27 @@ export const submitExercise = async (data: SubmitExerciseData): Promise<SubmitEx
     body: JSON.stringify(data),
   })
 }
+
+// Dialogue types
+export interface DialogueLine {
+  id: string
+  speaker: string
+  text: string
+  translation?: string
+  audioUrl?: string
+  orderIndex: number
+}
+
+export interface Dialogue {
+  id: string
+  lessonId: string
+  title: string
+  description?: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  orderIndex: number
+  lines: DialogueLine[]
+}
+
+export const getDialogues = async (lessonId: string): Promise<Dialogue[]> => {
+  return apiFetch<Dialogue[]>(`/grammar/${lessonId}/dialogues`)
+}
