@@ -1,1 +1,7 @@
+-- Rollback missions system
+DROP TABLE IF EXISTS user_mission_progress;
 DROP TABLE IF EXISTS missions;
+ALTER TABLE users DROP COLUMN IF EXISTS role;
+ALTER TABLE users DROP COLUMN IF EXISTS exp;
+ALTER TABLE users DROP COLUMN IF EXISTS level;
+ALTER TABLE users DROP COLUMN IF EXISTS points;
