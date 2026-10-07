@@ -38,6 +38,8 @@ SELECT
     v.term,
     v.phonetic,
     v.meaning,
+    v.example,
+    v.image_url,
     v.audio_url,
     r.id AS review_id,
     r.srs_stage,
@@ -65,6 +67,8 @@ type GetDueVocabulariesForUserRow struct {
 	Term         string             `json:"term"`
 	Phonetic     pgtype.Text        `json:"phonetic"`
 	Meaning      string             `json:"meaning"`
+	Example      pgtype.Text        `json:"example"`
+	ImageUrl     pgtype.Text        `json:"image_url"`
 	AudioUrl     pgtype.Text        `json:"audio_url"`
 	ReviewID     pgtype.UUID        `json:"review_id"`
 	SrsStage     pgtype.Int4        `json:"srs_stage"`
@@ -90,6 +94,8 @@ func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocab
 			&i.Term,
 			&i.Phonetic,
 			&i.Meaning,
+			&i.Example,
+			&i.ImageUrl,
 			&i.AudioUrl,
 			&i.ReviewID,
 			&i.SrsStage,

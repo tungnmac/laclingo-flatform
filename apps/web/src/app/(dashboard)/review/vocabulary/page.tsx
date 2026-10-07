@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
 import { Button, ButtonLink } from '@/components/ui/Button'
@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { Flashcard } from '@/features/srs-review/components/Flashcard'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
-import { QUALITY_OPTIONS, QualityButtons } from '@/features/srs-review/components/QualityButtons'
+import { QualityButtons } from '@/features/srs-review/components/QualityButtons'
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
 import { useKeypress } from '@/hooks/useKeypress'
 import { formatDate } from '@/lib/utils'
@@ -19,24 +19,78 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
   const session = useSRSReviewSession(language)
-  const { current, flipped, flip, grade, submitting } = session
 
+  // Local state for card navigation
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [localFlipped, setLocalFlipped] = useState(false)
+  const [localSubmitted, setLocalSubmitted] = useState(false)
+
+  // Get current card
+  const currentCard = session.cards[currentIndex]
+  const isCurrentCardGraded = currentIndex < session.index
+
+  // Reset local state when card changes
+  useEffect(() => {
+    setLocalFlipped(false)
+    setLocalSubmitted(false)
+  }, [currentIndex])
+
+  // Flip handler
+  const handleFlip = useCallback(() => {
+    if (!currentCard || localSubmitted) return
+    setLocalFlipped(true)
+  }, [currentCard, localSubmitted])
+
+  // Grade handler - session.grade handles index increment
+  const handleGrade = useCallback((quality: number) => {
+    if (!currentCard || localSubmitted) return
+    setLocalSubmitted(true)
+    grade(quality)
+  }, [currentCard, localSubmitted, grade])
+
+  // Keypress handler
   const onKey = useCallback(
     (key: string) => {
-      if (!current) return false
+      if (!currentCard) return false
       if (key === ' ') {
-        flip()
+        handleFlip()
         return true
       }
-      if (!flipped) return false
-      const opt = QUALITY_OPTIONS.find((o) => o.hint === key)
-      if (!opt) return false
-      grade(opt.quality)
-      return true
+      if (!localFlipped || localSubmitted) return false
+      if (key === '1') { handleGrade(0); return true }
+      if (key === '2') { handleGrade(1); return true }
+      if (key === '3') { handleGrade(3); return true }
+      if (key === '4') { handleGrade(4); return true }
+      if (key === '5') { handleGrade(5); return true }
+      return false
     },
-    [current, flipped, flip, grade],
+    [currentCard, localFlipped, localSubmitted, handleFlip, handleGrade],
   )
-  useKeypress(onKey, !!current && !submitting)
+  useKeypress(onKey, !!currentCard && !localSubmitted)
+
+  // Navigation handlers - sync with session.index after grading
+  const handlePrevious = () => {
+    // Can only go back to cards that haven't been graded yet
+    if (currentIndex > session.index) {
+      setCurrentIndex((prev) => prev - 1)
+    }
+  }
+
+  const handleNext = () => {
+    if (currentIndex < session.cards.length - 1) {
+      setCurrentIndex((prev) => prev + 1)
+    }
+  }
+
+  // Auto advance when session.index increases (after grading)
+  useEffect(() => {
+    if (session.index > currentIndex) {
+      setCurrentIndex(session.index)
+    }
+  }, [session.index])
+
+  // Expose grade from session
+  const { grade } = session
 
   if (session.loading) return <Spinner label="Đang lấy thẻ ôn tập..." />
   if (session.error && session.cards.length === 0) return <ErrorState error={session.error} onRetry={session.reload} />
@@ -109,20 +163,53 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
       <div className="flex flex-col items-center gap-6">
         <ProgressHeader done={session.index} total={session.cards.length} />
 
-        {current && <Flashcard vocab={current} flipped={flipped} onFlip={flip} />}
+        {currentCard && (
+          <Flashcard
+            vocab={currentCard}
+            flipped={localFlipped}
+            onFlip={handleFlip}
+          />
+        )}
 
         {session.error && <p className="text-sm text-rose-600">{session.error.message}</p>}
 
-        {flipped ? (
+        {localFlipped ? (
           <div className="w-full space-y-2">
-            <p className="text-center text-sm text-slate-500">Bạn nhớ từ này thế nào?</p>
-            <QualityButtons onGrade={grade} disabled={submitting} />
+            <p className="text-center text-sm text-slate-500">
+              {isCurrentCardGraded ? '✅ Đã chấm điểm' : 'Bạn nhớ từ này thế nào?'}
+            </p>
+            {!isCurrentCardGraded && (
+              <QualityButtons onGrade={handleGrade} disabled={localSubmitted} />
+            )}
           </div>
         ) : (
-          <Button size="lg" className="w-full sm:w-auto sm:min-w-48" onClick={flip}>
+          <Button size="lg" className="w-full sm:w-auto sm:min-w-48" onClick={handleFlip}>
             Xem nghĩa
           </Button>
         )}
+
+        {/* Previous / Next buttons */}
+        <div className="mt-4 flex w-full items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={handlePrevious}
+            disabled={currentIndex <= session.index}
+          >
+            ← Previous
+          </Button>
+
+          <span className="text-sm text-slate-500">
+            {Math.min(currentIndex + 1, session.cards.length)} / {session.cards.length}
+          </span>
+
+          <Button
+            variant="ghost"
+            onClick={handleNext}
+            disabled={currentIndex >= session.cards.length - 1}
+          >
+            Next →
+          </Button>
+        </div>
       </div>
     </div>
   )

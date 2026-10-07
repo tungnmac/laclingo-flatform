@@ -75,6 +75,8 @@ export interface DueVocabulary {
   term: string
   phonetic: string
   meaning: string
+  example: string
+  image_url: string
   audio_url: string
   srs_stage: number
   next_review_at: string
@@ -95,6 +97,7 @@ export interface NewVocabulary {
   example: string
   topic: string
   level: string
+  image_url: string
   audio_url: string
 }
 

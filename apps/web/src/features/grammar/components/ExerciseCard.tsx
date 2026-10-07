@@ -10,8 +10,17 @@ function isCorrectAnswer(answer: string, exercise: GrammarExercise) {
   return answer.trim().toLowerCase() === exercise.correct_answer.trim().toLowerCase()
 }
 
+interface ExerciseCardProps {
+  exercise: GrammarExercise
+  index: number
+  total: number
+  onPrevious?: () => void
+  onNext?: () => void
+  onComplete?: () => void
+}
+
 /** Một bài tập: chọn đáp án (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK), chấm tại chỗ */
-export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; index: number }) {
+export function ExerciseCard({ exercise, index, total, onPrevious, onNext, onComplete }: ExerciseCardProps) {
   const [answer, setAnswer] = useState('')
   const [checked, setChecked] = useState(false)
   const correct = checked && isCorrectAnswer(answer, exercise)
@@ -19,6 +28,14 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
   const onCheck = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (answer.trim()) setChecked(true)
+  }
+
+  const handleNext = () => {
+    if (index === total - 1 && onComplete) {
+      onComplete()
+    } else if (onNext) {
+      onNext()
+    }
   }
 
   return (
@@ -30,8 +47,16 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
         checked && (correct ? 'ring-2 ring-emerald-400' : 'ring-2 ring-rose-400'),
       )}
     >
-      <p className="text-sm font-medium text-slate-900">
-        <span className="mr-2 text-slate-400">Câu {index + 1}.</span>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-900">
+          <span className="mr-2 text-slate-400">Câu {index + 1}/{total}.</span>
+        </p>
+        <span className="text-xs text-slate-400">
+          {index + 1} / {total}
+        </span>
+      </div>
+
+      <p className="text-base font-medium text-slate-900">
         {exercise.question}
       </p>
 
@@ -86,6 +111,28 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
             {correct ? '✅ Chính xác!' : `❌ Chưa đúng — đáp án: ${exercise.correct_answer}`}
           </p>
           {exercise.explanation && <p className="mt-1">{exercise.explanation}</p>}
+        </div>
+      )}
+
+      {checked && (
+        <div className="mt-4 flex items-center justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onPrevious}
+            disabled={index === 0}
+          >
+            ← Previous
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleNext}
+          >
+            {index === total - 1 ? 'Hoàn thành' : 'Next →'}
+          </Button>
         </div>
       )}
     </form>

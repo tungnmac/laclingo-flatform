@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ExerciseCard } from '@/features/grammar/components/ExerciseCard'
@@ -21,6 +23,48 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
     () => grammarService.getLesson(params.lessonCode),
     [params.lessonCode],
   )
+
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
+  const [completedCount, setCompletedCount] = useState(0)
+  const [showCompletion, setShowCompletion] = useState(false)
+
+  const handlePrevious = () => {
+    setCurrentExerciseIndex((prev) => Math.max(0, prev - 1))
+  }
+
+  const handleNext = () => {
+    if (lesson) {
+      if (currentExerciseIndex < lesson.exercises.length - 1) {
+        setCurrentExerciseIndex((prev) => prev + 1)
+      }
+    }
+  }
+
+  const handleComplete = () => {
+    setShowCompletion(true)
+  }
+
+  if (showCompletion) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Card className="flex flex-col items-center gap-4 text-center">
+          <Mascot mood="cheer" />
+          <h1 className="text-2xl font-bold text-slate-900">Hoàn thành bài tập!</h1>
+          <p className="text-slate-600">
+            Bạn đã làm <span className="font-semibold text-emerald-600">{completedCount}</span> bài tập.
+          </p>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button onClick={() => { setCurrentExerciseIndex(0); setCompletedCount(0); setShowCompletion(false); }}>
+              Làm lại
+            </Button>
+            <Link href={`/learn/${encodeURIComponent(params.courseId)}`}>
+              <Button variant="secondary">Danh sách bài học</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    )
+  }
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -88,13 +132,31 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
       {lesson.exercises.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-slate-900">✏️ Luyện tập</h2>
-          {lesson.exercises.map((exercise, index) => (
-            <ExerciseCard key={exercise.id} exercise={exercise} index={index} />
-          ))}
+          {lesson.exercises.length === 1 ? (
+            <ExerciseCard
+              key={lesson.exercises[0].id}
+              exercise={lesson.exercises[0]}
+              index={0}
+              total={1}
+              onComplete={handleComplete}
+            />
+          ) : (
+            <ExerciseCard
+              key={lesson.exercises[currentExerciseIndex].id}
+              exercise={lesson.exercises[currentExerciseIndex]}
+              index={currentExerciseIndex}
+              total={lesson.exercises.length}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              onComplete={handleComplete}
+            />
+          )}
         </section>
       )}
 
-      <Mascot message="Làm hết bài tập rồi hẵng lướt tiếp nha! 🦩" />
+      {!showCompletion && lesson.exercises.length > 0 && (
+        <Mascot message="Làm hết bài tập rồi hẵng lướt tiếp nha! 🦩" />
+      )}
     </div>
   )
 }

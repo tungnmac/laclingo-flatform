@@ -41,6 +41,7 @@ type NewVocabulary struct {
 	Example      string    `json:"example"`
 	Topic        string    `json:"topic" example:"Đồ ăn & Thức uống"`
 	Level        string    `json:"level" example:"A1"`
+	ImageURL     string    `json:"image_url"`
 	AudioURL     string    `json:"audio_url"`
 }
 
@@ -51,6 +52,8 @@ type DueVocabulary struct {
 	Term         string    `json:"term" example:"apple"`
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
+	Example      string    `json:"example"`
+	ImageURL     string    `json:"image_url"`
 	AudioURL     string    `json:"audio_url"`
 	SRSStage     int32     `json:"srs_stage"`
 	NextReviewAt time.Time `json:"next_review_at"`
@@ -111,6 +114,8 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 			Term:         r.Term,
 			Phonetic:     r.Phonetic.String,
 			Meaning:      r.Meaning,
+			Example:      r.Example.String,
+			ImageURL:     r.ImageUrl.String,
 			AudioURL:     r.AudioUrl.String,
 			SRSStage:     r.SrsStage.Int32,
 			NextReviewAt: r.NextReviewAt.Time,
@@ -204,6 +209,7 @@ func (s *SRSService) GetNewVocabularies(ctx context.Context, userID uuid.UUID, l
 			Example:      v.Example.String,
 			Topic:        v.Topic.String,
 			Level:        v.Level.String,
+			ImageURL:     v.ImageUrl.String,
 			AudioURL:     v.AudioUrl.String,
 		})
 	}

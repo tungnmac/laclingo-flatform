@@ -7,6 +7,8 @@ SELECT
     v.term,
     v.phonetic,
     v.meaning,
+    v.example,
+    v.image_url,
     v.audio_url,
     r.id AS review_id,
     r.srs_stage,
