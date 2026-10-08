@@ -143,15 +143,25 @@ export default function AdminUsersPage() {
                       </p>
                       <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
                     </div>
-                    <RoleBadge user={u} />
-                    <ActiveBadge user={u} />
-                    {canExpand && (
-                      <span className={cn('shrink-0 text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
-                        ▾
-                      </span>
-                    )}
-                    <RoleToggleButton user={u} onChanged={reload} />
-                    <ActiveToggleButton user={u} onChanged={reload} />
+                    <div className="flex w-16 shrink-0 justify-center">
+                      <RoleBadge user={u} />
+                    </div>
+                    <div className="flex w-20 shrink-0 justify-center">
+                      <ActiveBadge user={u} />
+                    </div>
+                    <div className="flex w-4 shrink-0 justify-center">
+                      {canExpand && (
+                        <span className={cn('text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
+                          ▾
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex w-40 shrink-0 justify-end">
+                      <RoleToggleButton user={u} onChanged={reload} />
+                    </div>
+                    <div className="flex w-48 shrink-0 justify-end">
+                      <ActiveToggleButton user={u} onChanged={reload} />
+                    </div>
                   </div>
 
                   {isOpen && (

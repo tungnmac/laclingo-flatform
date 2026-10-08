@@ -113,6 +113,8 @@ type Querier interface {
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
+	// Owner luôn nổi lên đầu (role='owner' DESC) — chỉ có 1-vài tài khoản owner
+	// nên không ảnh hưởng phân trang của phần còn lại.
 	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
 	ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error)
 	ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error)

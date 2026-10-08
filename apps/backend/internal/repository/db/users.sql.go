@@ -260,7 +260,7 @@ WHERE ($1::text IS NULL
     OR full_name ILIKE '%' || $1::text || '%')
   AND ($2::text IS NULL OR role = $2::text)
   AND ($3::text IS NULL OR $3::text = ANY(admin_modules))
-ORDER BY created_at DESC
+ORDER BY (role = 'owner') DESC, created_at DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -293,6 +293,8 @@ type ListUsersAdminPagedRow struct {
 
 // Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 // role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
+// Owner luôn nổi lên đầu (role='owner' DESC) — chỉ có 1-vài tài khoản owner
+// nên không ảnh hưởng phân trang của phần còn lại.
 func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error) {
 	rows, err := q.db.Query(ctx, listUsersAdminPaged,
 		arg.Search,
