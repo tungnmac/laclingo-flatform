@@ -13,7 +13,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
-import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { fetchAllPages } from '@/lib/fetchAllPages'
@@ -367,16 +367,21 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
         </label>
         <label className="block text-sm font-medium text-slate-700">
           Cấp độ
-          <input
-            type="text"
+          <select
             value={levelFilter}
             onChange={(e) => {
               setLevelFilter(e.target.value)
               setPage(1)
             }}
-            placeholder="A1, A2, ..."
             className={cn(inputClass, 'max-w-[8rem]')}
-          />
+          >
+            <option value="">Tất cả</option>
+            {CEFR_LEVELS.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                {lvl}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
