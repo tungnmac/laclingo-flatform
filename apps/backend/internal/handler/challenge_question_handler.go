@@ -57,7 +57,9 @@ func (h *ChallengeQuestionHandler) Create(c *fiber.Ctx) error {
 // @Success      200          {array}   service.ChallengeQuestionResponse
 // @Router       /admin/challenge-questions [get]
 func (h *ChallengeQuestionHandler) List(c *fiber.Ctx) error {
-	results, err := h.svc.ListQuestions(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	difficulty := int32(c.QueryInt("difficulty", 0))
+	results, err := h.svc.ListQuestions(c.UserContext(), c.Query("language_id"), c.Query("q"), difficulty, page, pageSize)
 	if err != nil {
 		return err
 	}

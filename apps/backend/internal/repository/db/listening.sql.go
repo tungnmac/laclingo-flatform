@@ -149,6 +149,75 @@ func (q *Queries) GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const listListeningPassagesAdminPaged = `-- name: ListListeningPassagesAdminPaged :many
+SELECT id, language_id, title, script, topic, level, order_index, created_at, updated_at, COUNT(*) OVER() AS total_count FROM listening_passages
+WHERE language_id = $1
+  AND ($2::text IS NULL OR title ILIKE '%' || $2::text || '%' OR topic ILIKE '%' || $2::text || '%')
+  AND ($3::text IS NULL OR level = $3::text)
+ORDER BY order_index, created_at
+LIMIT $5 OFFSET $4
+`
+
+type ListListeningPassagesAdminPagedParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Level      pgtype.Text `json:"level"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListListeningPassagesAdminPagedRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	LanguageID string             `json:"language_id"`
+	Title      string             `json:"title"`
+	Script     string             `json:"script"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
+	OrderIndex pgtype.Int4        `json:"order_index"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	TotalCount int64              `json:"total_count"`
+}
+
+// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
+// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
+func (q *Queries) ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listListeningPassagesAdminPaged,
+		arg.LanguageID,
+		arg.Search,
+		arg.Level,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListeningPassagesAdminPagedRow
+	for rows.Next() {
+		var i ListListeningPassagesAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Title,
+			&i.Script,
+			&i.Topic,
+			&i.Level,
+			&i.OrderIndex,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listListeningPassagesByLanguage = `-- name: ListListeningPassagesByLanguage :many
 SELECT id, language_id, title, topic, level, order_index
 FROM listening_passages
@@ -236,21 +305,46 @@ func (q *Queries) ListListeningQuestionsByPassage(ctx context.Context, passageID
 }
 
 const listListeningQuestionsByPassageAdmin = `-- name: ListListeningQuestionsByPassageAdmin :many
-SELECT id, passage_id, question, options, correct_answer, explanation, order_index FROM listening_questions
+SELECT id, passage_id, question, options, correct_answer, explanation, order_index, COUNT(*) OVER() AS total_count FROM listening_questions
 WHERE passage_id = $1
+  AND ($2::text IS NULL OR question ILIKE '%' || $2::text || '%')
 ORDER BY order_index
+LIMIT $4 OFFSET $3
 `
 
+type ListListeningQuestionsByPassageAdminParams struct {
+	PassageID pgtype.UUID `json:"passage_id"`
+	Search    pgtype.Text `json:"search"`
+	Offset    int32       `json:"offset"`
+	Limit     int32       `json:"limit"`
+}
+
+type ListListeningQuestionsByPassageAdminRow struct {
+	ID            pgtype.UUID `json:"id"`
+	PassageID     pgtype.UUID `json:"passage_id"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+	TotalCount    int64       `json:"total_count"`
+}
+
 // Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
-func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error) {
-	rows, err := q.db.Query(ctx, listListeningQuestionsByPassageAdmin, passageID)
+func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listListeningQuestionsByPassageAdmin,
+		arg.PassageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListeningQuestion
+	var items []ListListeningQuestionsByPassageAdminRow
 	for rows.Next() {
-		var i ListeningQuestion
+		var i ListListeningQuestionsByPassageAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PassageID,
@@ -259,6 +353,7 @@ func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, pass
 			&i.CorrectAnswer,
 			&i.Explanation,
 			&i.OrderIndex,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

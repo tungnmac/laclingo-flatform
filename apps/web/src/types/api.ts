@@ -423,6 +423,13 @@ export interface BulkImportResult {
   error?: string
 }
 
+// Kết quả 1 trang — total tính trên TOÀN BỘ kết quả khớp filter (trước khi
+// phân trang), đủ để FE vẽ UI phân trang mà không cần gọi thêm API đếm riêng.
+export interface PageResult<T> {
+  items: T[]
+  total: number
+}
+
 // --- Ngữ pháp ---
 
 export interface GrammarTopicRequest {

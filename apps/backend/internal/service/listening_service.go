@@ -26,7 +26,8 @@ type ListeningRepository interface {
 	CreateListeningPassage(ctx context.Context, arg db.CreateListeningPassageParams) (db.ListeningPassage, error)
 	UpdateListeningPassage(ctx context.Context, arg db.UpdateListeningPassageParams) (db.ListeningPassage, error)
 	DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error
-	ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]db.ListeningQuestion, error)
+	ListListeningPassagesAdminPaged(ctx context.Context, arg db.ListListeningPassagesAdminPagedParams) ([]db.ListListeningPassagesAdminPagedRow, error)
+	ListListeningQuestionsByPassageAdmin(ctx context.Context, arg db.ListListeningQuestionsByPassageAdminParams) ([]db.ListListeningQuestionsByPassageAdminRow, error)
 	CreateListeningQuestion(ctx context.Context, arg db.CreateListeningQuestionParams) (db.ListeningQuestion, error)
 	UpdateListeningQuestion(ctx context.Context, arg db.UpdateListeningQuestionParams) (db.ListeningQuestion, error)
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
@@ -239,20 +240,28 @@ func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassa
 }
 
 // ListPassagesAdmin trả về toàn bộ bài luyện nghe của 1 ngôn ngữ (có script đầy đủ)
-func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID string) ([]ListeningPassageAdminResponse, error) {
-	rows, err := s.repo.ListListeningPassagesByLanguage(ctx, languageID)
+func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID, search, level string, page, pageSize int32) (PageResult[ListeningPassageAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListListeningPassagesAdminPaged(ctx, db.ListListeningPassagesAdminPagedParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Level:      pgtype.Text{String: level, Valid: level != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[ListeningPassageAdminResponse]{}, err
 	}
 	results := make([]ListeningPassageAdminResponse, 0, len(rows))
+	var total int64
 	for _, r := range rows {
-		full, err := s.repo.GetListeningPassageByID(ctx, r.ID)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, toListeningPassageAdminResponse(full))
+		total = r.TotalCount
+		results = append(results, toListeningPassageAdminResponse(db.ListeningPassage{
+			ID: r.ID, LanguageID: r.LanguageID, Title: r.Title, Script: r.Script,
+			Topic: r.Topic, Level: r.Level, OrderIndex: r.OrderIndex, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		}))
 	}
-	return results, nil
+	return PageResult[ListeningPassageAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdatePassage sửa 1 bài luyện nghe (không đổi language_id)
@@ -330,16 +339,27 @@ func (s *ListeningService) CreateQuestion(ctx context.Context, req ListeningQues
 }
 
 // ListQuestionsAdmin trả về câu hỏi của 1 passage, CÓ correct_answer (chỉ admin dùng)
-func (s *ListeningService) ListQuestionsAdmin(ctx context.Context, passageID uuid.UUID) ([]ListeningQuestionAdminResponse, error) {
-	rows, err := s.repo.ListListeningQuestionsByPassageAdmin(ctx, toPgUUID(passageID))
+func (s *ListeningService) ListQuestionsAdmin(ctx context.Context, passageID uuid.UUID, search string, page, pageSize int32) (PageResult[ListeningQuestionAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListListeningQuestionsByPassageAdmin(ctx, db.ListListeningQuestionsByPassageAdminParams{
+		PassageID: toPgUUID(passageID),
+		Search:    pgtype.Text{String: search, Valid: search != ""},
+		Limit:     limit,
+		Offset:    offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[ListeningQuestionAdminResponse]{}, err
 	}
 	results := make([]ListeningQuestionAdminResponse, 0, len(rows))
+	var total int64
 	for _, q := range rows {
-		results = append(results, toListeningQuestionAdminResponse(q))
+		total = q.TotalCount
+		results = append(results, toListeningQuestionAdminResponse(db.ListeningQuestion{
+			ID: q.ID, PassageID: q.PassageID, Question: q.Question, Options: q.Options,
+			CorrectAnswer: q.CorrectAnswer, Explanation: q.Explanation, OrderIndex: q.OrderIndex,
+		}))
 	}
-	return results, nil
+	return PageResult[ListeningQuestionAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateQuestion sửa 1 câu hỏi nghe hiểu (không đổi passage_id)

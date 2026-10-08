@@ -76,21 +76,31 @@ type Querier interface {
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]Mission, error)
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
 	ListAllMissions(ctx context.Context) ([]Mission, error)
-	ListChallengeQuestionsByLanguage(ctx context.Context, languageID pgtype.Text) ([]ChallengeQuestion, error)
+	ListChallengeQuestionsByLanguage(ctx context.Context, arg ListChallengeQuestionsByLanguageParams) ([]ListChallengeQuestionsByLanguageRow, error)
 	// language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
 	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
+	// Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
+	ListGrammarExercisesAdminPaged(ctx context.Context, arg ListGrammarExercisesAdminPagedParams) ([]ListGrammarExercisesAdminPagedRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
+	// Tách riêng khỏi ListGrammarLessonsByLanguage (learner dùng, không phân trang).
+	ListGrammarLessonsAdminPaged(ctx context.Context, arg ListGrammarLessonsAdminPagedParams) ([]ListGrammarLessonsAdminPagedRow, error)
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
+	// Tách riêng khỏi ListGrammarTopicsByLanguage (learner dùng, không phân trang)
+	// để không đổi hành vi hiện có của learner.
+	ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
+	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
+	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
+	ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error)
 	ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]ListListeningPassagesByLanguageRow, error)
 	// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
 	// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
 	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error)
 	// Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
-	ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error)
+	ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
@@ -99,13 +109,15 @@ type Querier interface {
 	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
-	ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]Vocabulary, error)
+	// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
+	// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
+	ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error)
 	// Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
 	ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error)
 	// Chủ đề lấy từ vocabularies.topic; icon/thứ tự từ vocabulary_topics nếu có.
 	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
 	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)
-	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]VocabularyTopic, error)
+	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)

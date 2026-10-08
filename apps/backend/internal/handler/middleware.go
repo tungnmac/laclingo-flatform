@@ -78,3 +78,9 @@ func RequireAuthWS(tokens TokenParser) fiber.Handler {
 		return c.Next()
 	}
 }
+
+// pageParams đọc page/page_size (query string) dùng chung cho mọi list admin
+// có phân trang — validate/clamp giá trị cụ thể nằm ở service.NormalizePage.
+func pageParams(c *fiber.Ctx) (page, pageSize int32) {
+	return int32(c.QueryInt("page", 1)), int32(c.QueryInt("page_size", 0))
+}

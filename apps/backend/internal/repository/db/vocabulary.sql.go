@@ -247,20 +247,58 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 }
 
 const listVocabulariesByLanguageAdmin = `-- name: ListVocabulariesByLanguageAdmin :many
-SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at FROM vocabularies
+SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at, COUNT(*) OVER() AS total_count FROM vocabularies
 WHERE language_id = $1
+  AND ($2::text IS NULL OR term ILIKE '%' || $2::text || '%' OR meaning ILIKE '%' || $2::text || '%')
+  AND ($3::text IS NULL OR topic = $3::text)
+  AND ($4::text IS NULL OR level = $4::text)
 ORDER BY topic, term
+LIMIT $6 OFFSET $5
 `
 
-func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]Vocabulary, error) {
-	rows, err := q.db.Query(ctx, listVocabulariesByLanguageAdmin, languageID)
+type ListVocabulariesByLanguageAdminParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListVocabulariesByLanguageAdminRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	LanguageID string             `json:"language_id"`
+	Term       string             `json:"term"`
+	Phonetic   pgtype.Text        `json:"phonetic"`
+	Meaning    string             `json:"meaning"`
+	Example    pgtype.Text        `json:"example"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
+	AudioUrl   pgtype.Text        `json:"audio_url"`
+	ImageUrl   pgtype.Text        `json:"image_url"`
+	ImageEmoji pgtype.Text        `json:"image_emoji"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TotalCount int64              `json:"total_count"`
+}
+
+// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
+// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
+func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listVocabulariesByLanguageAdmin,
+		arg.LanguageID,
+		arg.Search,
+		arg.Topic,
+		arg.Level,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Vocabulary
+	var items []ListVocabulariesByLanguageAdminRow
 	for rows.Next() {
-		var i Vocabulary
+		var i ListVocabulariesByLanguageAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.LanguageID,
@@ -274,6 +312,7 @@ func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, languageI
 			&i.ImageUrl,
 			&i.ImageEmoji,
 			&i.CreatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -428,25 +467,48 @@ func (q *Queries) ListVocabularyTopics(ctx context.Context, arg ListVocabularyTo
 }
 
 const listVocabularyTopicsByLanguageAdmin = `-- name: ListVocabularyTopicsByLanguageAdmin :many
-SELECT language_id, name, icon, order_index FROM vocabulary_topics
+SELECT language_id, name, icon, order_index, COUNT(*) OVER() AS total_count FROM vocabulary_topics
 WHERE language_id = $1
+  AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
 ORDER BY order_index, name
+LIMIT $4 OFFSET $3
 `
 
-func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]VocabularyTopic, error) {
-	rows, err := q.db.Query(ctx, listVocabularyTopicsByLanguageAdmin, languageID)
+type ListVocabularyTopicsByLanguageAdminParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListVocabularyTopicsByLanguageAdminRow struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+	TotalCount int64  `json:"total_count"`
+}
+
+func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listVocabularyTopicsByLanguageAdmin,
+		arg.LanguageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VocabularyTopic
+	var items []ListVocabularyTopicsByLanguageAdminRow
 	for rows.Next() {
-		var i VocabularyTopic
+		var i ListVocabularyTopicsByLanguageAdminRow
 		if err := rows.Scan(
 			&i.LanguageID,
 			&i.Name,
 			&i.Icon,
 			&i.OrderIndex,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

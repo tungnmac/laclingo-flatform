@@ -74,7 +74,8 @@ func (h *VocabularyHandler) CreateVocabulary(c *fiber.Ctx) error {
 // @Success      200          {array}   service.VocabularyAdminResponse
 // @Router       /admin/vocabularies [get]
 func (h *VocabularyHandler) ListVocabulariesAdmin(c *fiber.Ctx) error {
-	results, err := h.svc.ListVocabulariesAdmin(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListVocabulariesAdmin(c.UserContext(), c.Query("language_id"), c.Query("q"), c.Query("topic"), c.Query("level"), page, pageSize)
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,8 @@ func (h *VocabularyHandler) CreateOrUpdateTopic(c *fiber.Ctx) error {
 // @Success      200          {array}   service.VocabularyTopicAdminResponse
 // @Router       /admin/vocabulary-topics [get]
 func (h *VocabularyHandler) ListTopicsAdmin(c *fiber.Ctx) error {
-	results, err := h.svc.ListTopicsAdmin(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListTopicsAdmin(c.UserContext(), c.Query("language_id"), c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}

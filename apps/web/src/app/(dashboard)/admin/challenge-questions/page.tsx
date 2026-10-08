@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -10,8 +11,11 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { challengeQuestionService } from '@/features/challenge/challenge-question.service'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import type { ChallengeQuestionAdmin, ChallengeQuestionRequest } from '@/types/api'
+
+const PAGE_SIZE = 20
 
 const bulkPlaceholder = `[
   {
@@ -26,7 +30,14 @@ const bulkPlaceholder = `[
 
 export default function AdminChallengeQuestionsPage() {
   const [languageId, setLanguageId] = useState('en')
-  const { data, error, loading, reload } = useApi(() => challengeQuestionService.list(languageId), [languageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [difficulty, setDifficulty] = useState(0)
+  const { data, error, loading, reload } = useApi(
+    () => challengeQuestionService.list(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, difficulty }),
+    [languageId, page, debouncedSearch, difficulty],
+  )
   const [editing, setEditing] = useState<ChallengeQuestionAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,13 +107,53 @@ export default function AdminChallengeQuestionsPage() {
         action={!showForm && <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>}
       />
 
-      <label className="mb-4 block text-sm font-medium text-slate-700">
-        Ngôn ngữ
-        <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
-        </select>
-      </label>
+      <div className="mb-4 flex flex-wrap gap-4">
+        <label className="block text-sm font-medium text-slate-700">
+          Ngôn ngữ
+          <select
+            value={languageId}
+            onChange={(e) => {
+              setLanguageId(e.target.value)
+              setPage(1)
+            }}
+            className={cn(inputClass, 'max-w-xs')}
+          >
+            <option value="en">🇬🇧 English</option>
+            <option value="zh">🇨🇳 中文</option>
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Tìm kiếm
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Tìm theo nội dung câu hỏi..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Độ khó
+          <select
+            value={difficulty}
+            onChange={(e) => {
+              setDifficulty(Number(e.target.value))
+              setPage(1)
+            }}
+            className={cn(inputClass, 'max-w-xs')}
+          >
+            <option value={0}>Tất cả</option>
+            {[1, 2, 3, 4, 5].map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {showForm && (
         <Card className="mb-6">
@@ -173,12 +224,12 @@ export default function AdminChallengeQuestionsPage() {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có câu hỏi nào" icon="🎮" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có câu hỏi nào" icon="🎮" />}
 
-      {data && data.length > 0 && (
-        <Card className="mb-6 p-0 sm:p-0">
+      {data && data.items.length > 0 && (
+        <Card className="mb-2 p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((q) => (
+            {data.items.map((q) => (
               <li key={q.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{q.question}</p>
@@ -199,6 +250,8 @@ export default function AdminChallengeQuestionsPage() {
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
+      <div className="mb-6" />
 
       <BulkImportPanel<ChallengeQuestionRequest>
         onImport={(items) => challengeQuestionService.bulkImport(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}

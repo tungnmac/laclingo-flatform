@@ -344,20 +344,49 @@ func (q *Queries) JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (Gam
 }
 
 const listChallengeQuestionsByLanguage = `-- name: ListChallengeQuestionsByLanguage :many
-SELECT id, language_id, question, options, correct_index, explanation, difficulty, created_at FROM challenge_questions
+SELECT id, language_id, question, options, correct_index, explanation, difficulty, created_at, COUNT(*) OVER() AS total_count FROM challenge_questions
 WHERE language_id = $1
+  AND ($2::text IS NULL OR question ILIKE '%' || $2::text || '%')
+  AND ($3::int IS NULL OR difficulty = $3::int)
 ORDER BY created_at DESC
+LIMIT $5 OFFSET $4
 `
 
-func (q *Queries) ListChallengeQuestionsByLanguage(ctx context.Context, languageID pgtype.Text) ([]ChallengeQuestion, error) {
-	rows, err := q.db.Query(ctx, listChallengeQuestionsByLanguage, languageID)
+type ListChallengeQuestionsByLanguageParams struct {
+	LanguageID pgtype.Text `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Difficulty pgtype.Int4 `json:"difficulty"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListChallengeQuestionsByLanguageRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	LanguageID   pgtype.Text        `json:"language_id"`
+	Question     string             `json:"question"`
+	Options      []byte             `json:"options"`
+	CorrectIndex int32              `json:"correct_index"`
+	Explanation  pgtype.Text        `json:"explanation"`
+	Difficulty   int32              `json:"difficulty"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TotalCount   int64              `json:"total_count"`
+}
+
+func (q *Queries) ListChallengeQuestionsByLanguage(ctx context.Context, arg ListChallengeQuestionsByLanguageParams) ([]ListChallengeQuestionsByLanguageRow, error) {
+	rows, err := q.db.Query(ctx, listChallengeQuestionsByLanguage,
+		arg.LanguageID,
+		arg.Search,
+		arg.Difficulty,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ChallengeQuestion
+	var items []ListChallengeQuestionsByLanguageRow
 	for rows.Next() {
-		var i ChallengeQuestion
+		var i ListChallengeQuestionsByLanguageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.LanguageID,
@@ -367,6 +396,7 @@ func (q *Queries) ListChallengeQuestionsByLanguage(ctx context.Context, language
 			&i.Explanation,
 			&i.Difficulty,
 			&i.CreatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

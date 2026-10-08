@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -11,8 +12,11 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
+
+const PAGE_SIZE = 20
 
 const vocabBulkPlaceholder = `[
   { "language_id": "en", "term": "apple", "phonetic": "ˈæp.əl", "meaning": "quả táo", "example": "I eat an apple every day.", "topic": "Đồ ăn & Thức uống", "level": "A1" }
@@ -47,7 +51,13 @@ export default function AdminVocabularyPage() {
 }
 
 function TopicsSection({ languageId }: { languageId: string }) {
-  const { data, error, loading, reload } = useApi(() => vocabularyService.listTopicsAdmin(languageId), [languageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const { data, error, loading, reload } = useApi(
+    () => vocabularyService.listTopicsAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch }),
+    [languageId, page, debouncedSearch],
+  )
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -91,6 +101,20 @@ function TopicsSection({ languageId }: { languageId: string }) {
         )}
       </div>
 
+      <label className="block text-sm font-medium text-slate-700">
+        Tìm kiếm
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Tìm theo tên chủ đề..."
+          className={cn(inputClass, 'max-w-xs')}
+        />
+      </label>
+
       {showForm && (
         <Card>
           <p className="mb-3 text-sm text-slate-500">
@@ -130,12 +154,12 @@ function TopicsSection({ languageId }: { languageId: string }) {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
 
-      {data && data.length > 0 && (
+      {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((t) => (
+            {data.items.map((t) => (
               <li key={t.name} className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
                 <span className="text-xl">{t.icon}</span>
                 <span className="flex-1 text-sm font-medium text-slate-700">{t.name}</span>
@@ -148,6 +172,7 @@ function TopicsSection({ languageId }: { languageId: string }) {
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
 
       <BulkImportPanel<VocabularyTopicRequest>
         onImport={(items) => vocabularyService.bulkImportTopics(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
@@ -159,7 +184,22 @@ function TopicsSection({ languageId }: { languageId: string }) {
 }
 
 function VocabularySection({ languageId }: { languageId: string }) {
-  const { data, error, loading, reload } = useApi(() => vocabularyService.listVocabulariesAdmin(languageId), [languageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [topicFilter, setTopicFilter] = useState('')
+  const [levelFilter, setLevelFilter] = useState('')
+  const { data, error, loading, reload } = useApi(
+    () =>
+      vocabularyService.listVocabulariesAdmin(languageId, {
+        page,
+        pageSize: PAGE_SIZE,
+        q: debouncedSearch,
+        topic: topicFilter,
+        level: levelFilter,
+      }),
+    [languageId, page, debouncedSearch, topicFilter, levelFilter],
+  )
   const [editing, setEditing] = useState<VocabularyAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -223,6 +263,48 @@ function VocabularySection({ languageId }: { languageId: string }) {
         )}
       </div>
 
+      <div className="flex flex-wrap gap-4">
+        <label className="block text-sm font-medium text-slate-700">
+          Tìm kiếm
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Tìm theo từ/nghĩa..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Chủ đề
+          <input
+            type="text"
+            value={topicFilter}
+            onChange={(e) => {
+              setTopicFilter(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Lọc theo chủ đề..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Cấp độ
+          <input
+            type="text"
+            value={levelFilter}
+            onChange={(e) => {
+              setLevelFilter(e.target.value)
+              setPage(1)
+            }}
+            placeholder="A1, A2, ..."
+            className={cn(inputClass, 'max-w-[8rem]')}
+          />
+        </label>
+      </div>
+
       {showForm && (
         <Card>
           <h3 className="text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.term}` : 'Thêm từ mới'}</h3>
@@ -276,12 +358,12 @@ function VocabularySection({ languageId }: { languageId: string }) {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có từ vựng nào" icon="📚" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có từ vựng nào" icon="📚" />}
 
-      {data && data.length > 0 && (
+      {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((v) => (
+            {data.items.map((v) => (
               <li key={v.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
                 <span className="text-xl">{v.image_emoji || '📘'}</span>
                 <div className="min-w-0 flex-1">
@@ -307,6 +389,7 @@ function VocabularySection({ languageId }: { languageId: string }) {
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
 
       <BulkImportPanel<VocabularyRequest>
         onImport={(items) => vocabularyService.bulkImportVocabularies(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}

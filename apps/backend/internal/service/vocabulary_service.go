@@ -26,11 +26,11 @@ type VocabularyRepository interface {
 	UnfavoriteVocabulary(ctx context.Context, arg db.UnfavoriteVocabularyParams) error
 
 	CreateVocabulary(ctx context.Context, arg db.CreateVocabularyParams) (db.Vocabulary, error)
-	ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]db.Vocabulary, error)
+	ListVocabulariesByLanguageAdmin(ctx context.Context, arg db.ListVocabulariesByLanguageAdminParams) ([]db.ListVocabulariesByLanguageAdminRow, error)
 	UpdateVocabulary(ctx context.Context, arg db.UpdateVocabularyParams) (db.Vocabulary, error)
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	CreateVocabularyTopic(ctx context.Context, arg db.CreateVocabularyTopicParams) (db.VocabularyTopic, error)
-	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]db.VocabularyTopic, error)
+	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg db.ListVocabularyTopicsByLanguageAdminParams) ([]db.ListVocabularyTopicsByLanguageAdminRow, error)
 	DeleteVocabularyTopic(ctx context.Context, arg db.DeleteVocabularyTopicParams) error
 }
 
@@ -308,17 +308,32 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 	return toVocabularyAdminResponse(v), nil
 }
 
-// ListVocabulariesAdmin trả về toàn bộ từ vựng của 1 ngôn ngữ (admin quản lý)
-func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageID string) ([]VocabularyAdminResponse, error) {
-	rows, err := s.repo.ListVocabulariesByLanguageAdmin(ctx, languageID)
+// ListVocabulariesAdmin trả về 1 trang từ vựng của 1 ngôn ngữ (admin quản lý),
+// lọc theo search (khớp term/meaning)/topic/level, phân trang server-side.
+func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageID, search, topic, level string, page, pageSize int32) (PageResult[VocabularyAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListVocabulariesByLanguageAdmin(ctx, db.ListVocabulariesByLanguageAdminParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Topic:      pgtype.Text{String: topic, Valid: topic != ""},
+		Level:      pgtype.Text{String: level, Valid: level != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[VocabularyAdminResponse]{}, err
 	}
 	results := make([]VocabularyAdminResponse, 0, len(rows))
+	var total int64
 	for _, v := range rows {
-		results = append(results, toVocabularyAdminResponse(v))
+		total = v.TotalCount
+		results = append(results, toVocabularyAdminResponse(db.Vocabulary{
+			ID: v.ID, LanguageID: v.LanguageID, Term: v.Term, Phonetic: v.Phonetic, Meaning: v.Meaning,
+			Example: v.Example, Topic: v.Topic, Level: v.Level, AudioUrl: v.AudioUrl, ImageUrl: v.ImageUrl,
+			ImageEmoji: v.ImageEmoji, CreatedAt: v.CreatedAt,
+		}))
 	}
-	return results, nil
+	return PageResult[VocabularyAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateVocabulary sửa 1 từ vựng (không đổi language_id)
@@ -394,13 +409,21 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 }
 
 // ListTopicsAdmin trả về toàn bộ chủ đề từ vựng của 1 ngôn ngữ (icon/thứ tự hiển thị)
-func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID string) ([]VocabularyTopicAdminResponse, error) {
-	rows, err := s.repo.ListVocabularyTopicsByLanguageAdmin(ctx, languageID)
+func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID, search string, page, pageSize int32) (PageResult[VocabularyTopicAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListVocabularyTopicsByLanguageAdmin(ctx, db.ListVocabularyTopicsByLanguageAdminParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[VocabularyTopicAdminResponse]{}, err
 	}
 	results := make([]VocabularyTopicAdminResponse, 0, len(rows))
+	var total int64
 	for _, t := range rows {
+		total = t.TotalCount
 		results = append(results, VocabularyTopicAdminResponse{
 			LanguageID: t.LanguageID,
 			Name:       t.Name,
@@ -408,7 +431,7 @@ func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID stri
 			OrderIndex: t.OrderIndex,
 		})
 	}
-	return results, nil
+	return PageResult[VocabularyTopicAdminResponse]{Items: results, Total: total}, nil
 }
 
 // DeleteTopic xoá 1 chủ đề (chỉ xoá metadata hiển thị — từ vựng có topic trùng

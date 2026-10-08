@@ -85,7 +85,8 @@ func (h *GrammarHandler) CreateTopic(c *fiber.Ctx) error {
 // @Success      200          {array}   service.GrammarTopicAdminResponse
 // @Router       /admin/grammar/topics [get]
 func (h *GrammarHandler) ListTopicsAdmin(c *fiber.Ctx) error {
-	results, err := h.svc.ListTopicsAdmin(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListTopicsAdmin(c.UserContext(), c.Query("language_id"), c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}
@@ -183,7 +184,8 @@ func (h *GrammarHandler) CreateLesson(c *fiber.Ctx) error {
 // @Success      200          {array}   service.GrammarLessonAdminResponse
 // @Router       /admin/grammar/lessons [get]
 func (h *GrammarHandler) ListLessonsAdmin(c *fiber.Ctx) error {
-	results, err := h.svc.ListLessonsAdmin(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListLessonsAdmin(c.UserContext(), c.Query("language_id"), c.Query("topic_id"), c.Query("level"), c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}
@@ -285,7 +287,8 @@ func (h *GrammarHandler) ListExercisesAdmin(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "lesson_id không hợp lệ")
 	}
-	results, err := h.svc.ListExercisesAdmin(c.UserContext(), lessonID)
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListExercisesAdmin(c.UserContext(), lessonID, c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}

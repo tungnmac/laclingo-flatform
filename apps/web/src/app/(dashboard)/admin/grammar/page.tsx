@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -11,8 +12,15 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
+
+const PAGE_SIZE = 20
+// Dropdown "chọn chủ đề" lúc tạo bài học cần THẤY HẾT chủ đề, không bị cắt bởi
+// phân trang của khối hiển thị — tách riêng 1 call page_size lớn (chủ đề ngữ
+// pháp vốn ít, một ngôn ngữ hiếm khi vượt 100).
+const ALL_TOPICS_PAGE_SIZE = 100
 
 const topicBulkPlaceholder = `[
   { "language_id": "en", "code": "future_tenses", "title": "Các thì tương lai", "description": "...", "order_index": 2 }
@@ -31,7 +39,10 @@ const lessonBulkPlaceholder = `[
 
 export default function AdminGrammarPage() {
   const [languageId, setLanguageId] = useState('en')
-  const topicsApi = useApi(() => grammarService.listTopicsAdmin(languageId), [languageId])
+  const allTopicsApi = useApi(
+    () => grammarService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
+    [languageId],
+  )
 
   return (
     <>
@@ -48,24 +59,29 @@ export default function AdminGrammarPage() {
         </select>
       </label>
 
-      <TopicsSection languageId={languageId} topicsApi={topicsApi} />
-      <LessonsSection languageId={languageId} topics={topicsApi.data ?? []} />
+      <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />
+      <LessonsSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />
     </>
   )
 }
 
-function TopicsSection({
-  languageId,
-  topicsApi,
-}: {
-  languageId: string
-  topicsApi: ReturnType<typeof useApi<GrammarTopicAdmin[]>>
-}) {
-  const { data, error, loading, reload } = topicsApi
+function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const { data, error, loading, reload } = useApi(
+    () => grammarService.listTopicsAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch }),
+    [languageId, page, debouncedSearch],
+  )
   const [editing, setEditing] = useState<GrammarTopicAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const reloadAll = () => {
+    reload()
+    onChanged()
+  }
 
   const onEdit = (t: GrammarTopicAdmin) => {
     setEditing(t)
@@ -80,7 +96,7 @@ function TopicsSection({
   const onDelete = async (t: GrammarTopicAdmin) => {
     if (!confirm(`Xoá chủ đề "${t.title}"? Toàn bộ bài học + bài tập bên trong sẽ bị xoá theo.`)) return
     await grammarService.deleteTopic(t.id)
-    reload()
+    reloadAll()
   }
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -100,7 +116,7 @@ function TopicsSection({
       else await grammarService.createTopic(body)
       setShowForm(false)
       setEditing(null)
-      reload()
+      reloadAll()
     } catch (err) {
       setFormError((err as Error).message)
     } finally {
@@ -118,6 +134,20 @@ function TopicsSection({
           </Button>
         )}
       </div>
+
+      <label className="block text-sm font-medium text-slate-700">
+        Tìm kiếm
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Tìm theo tiêu đề/mã chủ đề..."
+          className={cn(inputClass, 'max-w-xs')}
+        />
+      </label>
 
       {showForm && (
         <Card>
@@ -158,12 +188,12 @@ function TopicsSection({
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
 
-      {data && data.length > 0 && (
+      {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((t) => (
+            {data.items.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-700">{t.title}</p>
@@ -182,18 +212,27 @@ function TopicsSection({
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
 
       <BulkImportPanel<GrammarTopicRequest>
         onImport={(items) => grammarService.bulkImportTopics(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
         placeholder={topicBulkPlaceholder}
-        onDone={reload}
+        onDone={reloadAll}
       />
     </section>
   )
 }
 
 function LessonsSection({ languageId, topics }: { languageId: string; topics: GrammarTopicAdmin[] }) {
-  const { data, error, loading, reload } = useApi(() => grammarService.listLessonsAdmin(languageId), [languageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [topicFilter, setTopicFilter] = useState('')
+  const [levelFilter, setLevelFilter] = useState('')
+  const { data, error, loading, reload } = useApi(
+    () => grammarService.listLessonsAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, topicId: topicFilter, level: levelFilter }),
+    [languageId, page, debouncedSearch, topicFilter, levelFilter],
+  )
   const [editing, setEditing] = useState<GrammarLessonAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -263,6 +302,53 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
       </div>
       {topics.length === 0 && <p className="text-sm text-slate-500">Tạo chủ đề trước khi thêm bài học.</p>}
 
+      <div className="flex flex-wrap gap-4">
+        <label className="block text-sm font-medium text-slate-700">
+          Tìm kiếm
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Tìm theo tiêu đề/mã bài học..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Chủ đề
+          <select
+            value={topicFilter}
+            onChange={(e) => {
+              setTopicFilter(e.target.value)
+              setPage(1)
+            }}
+            className={cn(inputClass, 'max-w-xs')}
+          >
+            <option value="">Tất cả</option>
+            {topics.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Cấp độ
+          <input
+            type="text"
+            value={levelFilter}
+            onChange={(e) => {
+              setLevelFilter(e.target.value)
+              setPage(1)
+            }}
+            placeholder="A1, A2, ..."
+            className={cn(inputClass, 'max-w-[8rem]')}
+          />
+        </label>
+      </div>
+
       {showForm && (
         <Card>
           <h3 className="text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.title}` : 'Tạo bài học mới'}</h3>
@@ -329,12 +415,12 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có bài học nào" icon="📖" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có bài học nào" icon="📖" />}
 
-      {data && data.length > 0 && (
+      {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((l) => (
+            {data.items.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-700">{l.title}</p>
@@ -357,6 +443,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
 
       <BulkImportPanel<GrammarLessonRequest>
         onImport={(items) => grammarService.bulkImportLessons(items)}

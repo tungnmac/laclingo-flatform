@@ -90,9 +90,15 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: ListVocabulariesByLanguageAdmin :many
-SELECT * FROM vocabularies
-WHERE language_id = $1
-ORDER BY topic, term;
+-- total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
+-- khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
+SELECT *, COUNT(*) OVER() AS total_count FROM vocabularies
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('search')::text IS NULL OR term ILIKE '%' || sqlc.narg('search')::text || '%' OR meaning ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('topic')::text IS NULL OR topic = sqlc.narg('topic')::text)
+  AND (sqlc.narg('level')::text IS NULL OR level = sqlc.narg('level')::text)
+ORDER BY topic, term
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: UpdateVocabulary :one
 UPDATE vocabularies
@@ -111,9 +117,11 @@ ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index 
 RETURNING *;
 
 -- name: ListVocabularyTopicsByLanguageAdmin :many
-SELECT * FROM vocabulary_topics
-WHERE language_id = $1
-ORDER BY order_index, name;
+SELECT *, COUNT(*) OVER() AS total_count FROM vocabulary_topics
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('search')::text IS NULL OR name ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY order_index, name
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: DeleteVocabularyTopic :exec
 DELETE FROM vocabulary_topics WHERE language_id = $1 AND name = $2;

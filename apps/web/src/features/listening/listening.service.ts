@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api'
+import { buildQuery } from '@/lib/query'
 import type {
   BulkImportResult,
   ListeningPassageAdmin,
@@ -7,6 +8,7 @@ import type {
   ListeningPassageSummary,
   ListeningQuestionAdmin,
   ListeningQuestionRequest,
+  PageResult,
   SubmitListeningAnswerResponse,
 } from '@/types/api'
 
@@ -22,8 +24,10 @@ export const listeningService = {
   // Admin
   createPassage: (body: ListeningPassageRequest) =>
     apiFetch<ListeningPassageAdmin>('/admin/listening/passages', { method: 'POST', body: JSON.stringify(body) }),
-  listPassagesAdmin: (languageId: string) =>
-    apiFetch<ListeningPassageAdmin[]>(`/admin/listening/passages?language_id=${encodeURIComponent(languageId)}`),
+  listPassagesAdmin: (languageId: string, params: { page?: number; pageSize?: number; q?: string; level?: string } = {}) =>
+    apiFetch<PageResult<ListeningPassageAdmin>>(
+      `/admin/listening/passages${buildQuery({ language_id: languageId, page: params.page, page_size: params.pageSize, q: params.q, level: params.level })}`,
+    ),
   updatePassage: (id: string, body: ListeningPassageRequest) =>
     apiFetch<ListeningPassageAdmin>(`/admin/listening/passages/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deletePassage: (id: string) => apiFetch<void>(`/admin/listening/passages/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -32,8 +36,10 @@ export const listeningService = {
 
   createQuestionAdmin: (body: ListeningQuestionRequest) =>
     apiFetch<ListeningQuestionAdmin>('/admin/listening/questions', { method: 'POST', body: JSON.stringify(body) }),
-  listQuestionsAdmin: (passageId: string) =>
-    apiFetch<ListeningQuestionAdmin[]>(`/admin/listening/questions?passage_id=${encodeURIComponent(passageId)}`),
+  listQuestionsAdmin: (passageId: string, params: { page?: number; pageSize?: number; q?: string } = {}) =>
+    apiFetch<PageResult<ListeningQuestionAdmin>>(
+      `/admin/listening/questions${buildQuery({ passage_id: passageId, page: params.page, page_size: params.pageSize, q: params.q })}`,
+    ),
   updateQuestionAdmin: (id: string, body: ListeningQuestionRequest) =>
     apiFetch<ListeningQuestionAdmin>(`/admin/listening/questions/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteQuestionAdmin: (id: string) => apiFetch<void>(`/admin/listening/questions/${encodeURIComponent(id)}`, { method: 'DELETE' }),

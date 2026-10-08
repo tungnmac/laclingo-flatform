@@ -6,9 +6,12 @@ VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListChallengeQuestionsByLanguage :many
-SELECT * FROM challenge_questions
-WHERE language_id = $1
-ORDER BY created_at DESC;
+SELECT *, COUNT(*) OVER() AS total_count FROM challenge_questions
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('search')::text IS NULL OR question ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('difficulty')::int IS NULL OR difficulty = sqlc.narg('difficulty')::int)
+ORDER BY created_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: UpdateChallengeQuestion :one
 UPDATE challenge_questions

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -11,8 +12,11 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest } from '@/types/api'
+
+const PAGE_SIZE = 20
 
 const bulkPlaceholder = `[
   {
@@ -27,7 +31,14 @@ const bulkPlaceholder = `[
 
 export default function AdminListeningPage() {
   const [languageId, setLanguageId] = useState('en')
-  const { data, error, loading, reload } = useApi(() => listeningService.listPassagesAdmin(languageId), [languageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [level, setLevel] = useState('')
+  const { data, error, loading, reload } = useApi(
+    () => listeningService.listPassagesAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, level }),
+    [languageId, page, debouncedSearch, level],
+  )
   const [editing, setEditing] = useState<ListeningPassageAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -89,13 +100,48 @@ export default function AdminListeningPage() {
         action={!showForm && <Button onClick={onCreateNew}>+ Tạo bài</Button>}
       />
 
-      <label className="mb-4 block text-sm font-medium text-slate-700">
-        Ngôn ngữ
-        <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
-        </select>
-      </label>
+      <div className="mb-4 flex flex-wrap gap-4">
+        <label className="block text-sm font-medium text-slate-700">
+          Ngôn ngữ
+          <select
+            value={languageId}
+            onChange={(e) => {
+              setLanguageId(e.target.value)
+              setPage(1)
+            }}
+            className={cn(inputClass, 'max-w-xs')}
+          >
+            <option value="en">🇬🇧 English</option>
+            <option value="zh">🇨🇳 中文</option>
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Tìm kiếm
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Tìm theo tiêu đề/chủ đề..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Cấp độ
+          <input
+            type="text"
+            value={level}
+            onChange={(e) => {
+              setLevel(e.target.value)
+              setPage(1)
+            }}
+            placeholder="A1, A2, ..."
+            className={cn(inputClass, 'max-w-[8rem]')}
+          />
+        </label>
+      </div>
 
       {showForm && (
         <Card className="mb-6">
@@ -144,12 +190,12 @@ export default function AdminListeningPage() {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có bài luyện nghe nào" icon="🎧" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có bài luyện nghe nào" icon="🎧" />}
 
-      {data && data.length > 0 && (
-        <Card className="mb-6 p-0 sm:p-0">
+      {data && data.items.length > 0 && (
+        <Card className="mb-2 p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((p) => (
+            {data.items.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{p.title}</p>
@@ -174,6 +220,8 @@ export default function AdminListeningPage() {
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
+      <div className="mb-6" />
 
       <BulkImportPanel<ListeningPassageRequest>
         onImport={(items) => listeningService.bulkImportPassages(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}

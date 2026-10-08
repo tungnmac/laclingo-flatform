@@ -73,7 +73,8 @@ func (h *ListeningHandler) CreatePassage(c *fiber.Ctx) error {
 // @Success      200          {array}   service.ListeningPassageAdminResponse
 // @Router       /admin/listening/passages [get]
 func (h *ListeningHandler) ListPassagesAdmin(c *fiber.Ctx) error {
-	results, err := h.svc.ListPassagesAdmin(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListPassagesAdmin(c.UserContext(), c.Query("language_id"), c.Query("q"), c.Query("level"), page, pageSize)
 	if err != nil {
 		return err
 	}
@@ -175,7 +176,8 @@ func (h *ListeningHandler) ListQuestionsAdmin(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "passage_id không hợp lệ")
 	}
-	results, err := h.svc.ListQuestionsAdmin(c.UserContext(), passageID)
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListQuestionsAdmin(c.UserContext(), passageID, c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}

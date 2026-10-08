@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -10,7 +11,10 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { ListeningQuestionAdmin, ListeningQuestionRequest } from '@/types/api'
+
+const PAGE_SIZE = 20
 
 const bulkPlaceholder = `[
   {
@@ -23,7 +27,13 @@ const bulkPlaceholder = `[
 ]`
 
 export default function AdminListeningQuestionsPage({ params }: { params: { passageId: string } }) {
-  const { data, error, loading, reload } = useApi(() => listeningService.listQuestionsAdmin(params.passageId), [params.passageId])
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const { data, error, loading, reload } = useApi(
+    () => listeningService.listQuestionsAdmin(params.passageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch }),
+    [params.passageId, page, debouncedSearch],
+  )
   const [editing, setEditing] = useState<ListeningQuestionAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,6 +103,20 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
         action={!showForm && <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>}
       />
 
+      <label className="mb-4 block text-sm font-medium text-slate-700">
+        Tìm kiếm
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Tìm theo nội dung câu hỏi..."
+          className={`${inputClass} max-w-xs`}
+        />
+      </label>
+
       {showForm && (
         <Card className="mb-6">
           <h3 className="text-lg font-semibold text-slate-900">{editing ? 'Sửa câu hỏi' : 'Tạo câu hỏi mới'}</h3>
@@ -144,12 +168,12 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có câu hỏi nào" icon="❓" />}
+      {data && data.items.length === 0 && <EmptyState title="Chưa có câu hỏi nào" icon="❓" />}
 
-      {data && data.length > 0 && (
-        <Card className="mb-6 p-0 sm:p-0">
+      {data && data.items.length > 0 && (
+        <Card className="mb-2 p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.map((q) => (
+            {data.items.map((q) => (
               <li key={q.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{q.question}</p>
@@ -170,6 +194,8 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
           </ul>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
+      <div className="mb-6" />
 
       <BulkImportPanel<ListeningQuestionRequest>
         onImport={(items) => listeningService.bulkImportQuestions(items.map((i) => ({ ...i, passage_id: params.passageId })))}

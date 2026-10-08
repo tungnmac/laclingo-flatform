@@ -33,6 +33,10 @@ type GrammarRepository interface {
 	CreateGrammarExercise(ctx context.Context, arg db.CreateGrammarExerciseParams) (db.GrammarExercise, error)
 	UpdateGrammarExercise(ctx context.Context, arg db.UpdateGrammarExerciseParams) (db.GrammarExercise, error)
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
+
+	ListGrammarTopicsAdminPaged(ctx context.Context, arg db.ListGrammarTopicsAdminPagedParams) ([]db.ListGrammarTopicsAdminPagedRow, error)
+	ListGrammarLessonsAdminPaged(ctx context.Context, arg db.ListGrammarLessonsAdminPagedParams) ([]db.ListGrammarLessonsAdminPagedRow, error)
+	ListGrammarExercisesAdminPaged(ctx context.Context, arg db.ListGrammarExercisesAdminPagedParams) ([]db.ListGrammarExercisesAdminPagedRow, error)
 }
 
 // SubmitExerciseResponse — kết quả chấm 1 bài tập ngữ pháp
@@ -291,16 +295,27 @@ func (s *GrammarService) CreateTopic(ctx context.Context, req GrammarTopicReques
 }
 
 // ListTopicsAdmin trả về toàn bộ chủ đề của 1 ngôn ngữ (dành cho admin quản lý)
-func (s *GrammarService) ListTopicsAdmin(ctx context.Context, languageID string) ([]GrammarTopicAdminResponse, error) {
-	topics, err := s.repo.ListGrammarTopicsByLanguage(ctx, languageID)
+func (s *GrammarService) ListTopicsAdmin(ctx context.Context, languageID, search string, page, pageSize int32) (PageResult[GrammarTopicAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListGrammarTopicsAdminPaged(ctx, db.ListGrammarTopicsAdminPagedParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[GrammarTopicAdminResponse]{}, err
 	}
-	results := make([]GrammarTopicAdminResponse, 0, len(topics))
-	for _, t := range topics {
-		results = append(results, toGrammarTopicAdminResponse(t))
+	results := make([]GrammarTopicAdminResponse, 0, len(rows))
+	var total int64
+	for _, t := range rows {
+		total = t.TotalCount
+		results = append(results, toGrammarTopicAdminResponse(db.GrammarTopic{
+			ID: t.ID, LanguageID: t.LanguageID, Code: t.Code, Title: t.Title,
+			Description: t.Description, OrderIndex: t.OrderIndex, CreatedAt: t.CreatedAt,
+		}))
 	}
-	return results, nil
+	return PageResult[GrammarTopicAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateTopic sửa tiêu đề/mô tả/thứ tự 1 chủ đề (không đổi language_id/code)
@@ -374,13 +389,29 @@ func (s *GrammarService) CreateLesson(ctx context.Context, req GrammarLessonRequ
 }
 
 // ListLessonsAdmin trả về toàn bộ bài học ngữ pháp của 1 ngôn ngữ (mọi chủ đề)
-func (s *GrammarService) ListLessonsAdmin(ctx context.Context, languageID string) ([]GrammarLessonAdminResponse, error) {
-	rows, err := s.repo.ListGrammarLessonsByLanguage(ctx, languageID)
+func (s *GrammarService) ListLessonsAdmin(ctx context.Context, languageID, topicID, level, search string, page, pageSize int32) (PageResult[GrammarLessonAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	var topicFilter pgtype.UUID
+	if topicID != "" {
+		if parsed, err := uuid.Parse(topicID); err == nil {
+			topicFilter = toPgUUID(parsed)
+		}
+	}
+	rows, err := s.repo.ListGrammarLessonsAdminPaged(ctx, db.ListGrammarLessonsAdminPagedParams{
+		LanguageID: languageID,
+		TopicID:    topicFilter,
+		Level:      pgtype.Text{String: level, Valid: level != ""},
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[GrammarLessonAdminResponse]{}, err
 	}
 	results := make([]GrammarLessonAdminResponse, 0, len(rows))
+	var total int64
 	for _, r := range rows {
+		total = r.TotalCount
 		results = append(results, GrammarLessonAdminResponse{
 			ID:         uuid.UUID(r.ID.Bytes),
 			TopicID:    uuid.UUID(r.TopicID.Bytes),
@@ -390,7 +421,7 @@ func (s *GrammarService) ListLessonsAdmin(ctx context.Context, languageID string
 			OrderIndex: r.OrderIndex.Int32,
 		})
 	}
-	return results, nil
+	return PageResult[GrammarLessonAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateLesson sửa 1 bài học (không đổi topic_id/code)
@@ -485,16 +516,28 @@ func (s *GrammarService) CreateExercise(ctx context.Context, req GrammarExercise
 }
 
 // ListExercisesAdmin trả về bài tập của 1 bài học, CÓ correct_answer (chỉ admin dùng)
-func (s *GrammarService) ListExercisesAdmin(ctx context.Context, lessonID uuid.UUID) ([]GrammarExerciseResponse, error) {
-	rows, err := s.repo.ListGrammarExercisesByLesson(ctx, toPgUUID(lessonID))
+func (s *GrammarService) ListExercisesAdmin(ctx context.Context, lessonID uuid.UUID, search string, page, pageSize int32) (PageResult[GrammarExerciseResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListGrammarExercisesAdminPaged(ctx, db.ListGrammarExercisesAdminPagedParams{
+		LessonID: toPgUUID(lessonID),
+		Search:   pgtype.Text{String: search, Valid: search != ""},
+		Limit:    limit,
+		Offset:   offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[GrammarExerciseResponse]{}, err
 	}
 	results := make([]GrammarExerciseResponse, 0, len(rows))
+	var total int64
 	for _, e := range rows {
-		results = append(results, toGrammarExerciseAdminResponse(e))
+		total = e.TotalCount
+		results = append(results, toGrammarExerciseAdminResponse(db.GrammarExercise{
+			ID: e.ID, LessonID: e.LessonID, Type: e.Type, Question: e.Question, Options: e.Options,
+			CorrectAnswer: e.CorrectAnswer, Explanation: e.Explanation, OrderIndex: e.OrderIndex,
+			Level: e.Level, Hint: e.Hint, XpReward: e.XpReward,
+		}))
 	}
-	return results, nil
+	return PageResult[GrammarExerciseResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateExercise sửa 1 bài tập (không đổi lesson_id)
