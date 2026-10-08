@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
-import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -17,6 +17,9 @@ import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
 
 const PAGE_SIZE = 20
+// Dropdown/datalist "chủ đề" ở filter cần THẤY HẾT chủ đề, không bị cắt bởi
+// phân trang của tab Chủ đề — tách riêng 1 call page_size lớn (giống trang Ngữ pháp).
+const ALL_TOPICS_PAGE_SIZE = 100
 
 const vocabBulkPlaceholder = `[
   { "language_id": "en", "term": "apple", "phonetic": "ˈæp.əl", "meaning": "quả táo", "example": "I eat an apple every day.", "topic": "Đồ ăn & Thức uống", "level": "A1" }
@@ -31,6 +34,10 @@ type VocabTab = 'topics' | 'words'
 export default function AdminVocabularyPage() {
   const [languageId, setLanguageId] = useState('en')
   const [tab, setTab] = useState<VocabTab>('words')
+  const allTopicsApi = useApi(
+    () => vocabularyService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
+    [languageId],
+  )
 
   return (
     <>
@@ -53,13 +60,13 @@ export default function AdminVocabularyPage() {
         onChange={setTab}
       />
 
-      {tab === 'topics' && <TopicsSection languageId={languageId} />}
-      {tab === 'words' && <VocabularySection languageId={languageId} />}
+      {tab === 'topics' && <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />}
+      {tab === 'words' && <VocabularySection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
 
-function TopicsSection({ languageId }: { languageId: string }) {
+function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -71,10 +78,15 @@ function TopicsSection({ languageId }: { languageId: string }) {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const reloadAll = () => {
+    reload()
+    onChanged()
+  }
+
   const onDelete = async (t: VocabularyTopicAdmin) => {
     if (!confirm(`Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`)) return
     await vocabularyService.deleteTopic(t.language_id, t.name)
-    reload()
+    reloadAll()
   }
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -91,7 +103,7 @@ function TopicsSection({ languageId }: { languageId: string }) {
     try {
       await vocabularyService.createOrUpdateTopic(body)
       setShowForm(false)
-      reload()
+      reloadAll()
     } catch (err) {
       setFormError((err as Error).message)
     } finally {
@@ -186,13 +198,13 @@ function TopicsSection({ languageId }: { languageId: string }) {
       <BulkImportPanel<VocabularyTopicRequest>
         onImport={(items) => vocabularyService.bulkImportTopics(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
         placeholder={topicBulkPlaceholder}
-        onDone={reload}
+        onDone={reloadAll}
       />
     </section>
   )
 }
 
-function VocabularySection({ languageId }: { languageId: string }) {
+function VocabularySection({ languageId, topics }: { languageId: string; topics: VocabularyTopicAdmin[] }) {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -290,27 +302,38 @@ function VocabularySection({ languageId }: { languageId: string }) {
           Chủ đề
           <input
             type="text"
+            list="vocab-topic-filter-options"
             value={topicFilter}
             onChange={(e) => {
               setTopicFilter(e.target.value)
               setPage(1)
             }}
-            placeholder="Lọc theo chủ đề..."
+            placeholder="Gõ để tìm hoặc chọn chủ đề..."
             className={cn(inputClass, 'max-w-xs')}
           />
+          <datalist id="vocab-topic-filter-options">
+            {topics.map((t) => (
+              <option key={t.name} value={t.name} />
+            ))}
+          </datalist>
         </label>
         <label className="block text-sm font-medium text-slate-700">
           Cấp độ
-          <input
-            type="text"
+          <select
             value={levelFilter}
             onChange={(e) => {
               setLevelFilter(e.target.value)
               setPage(1)
             }}
-            placeholder="A1, A2, ..."
             className={cn(inputClass, 'max-w-[8rem]')}
-          />
+          >
+            <option value="">Tất cả</option>
+            {CEFR_LEVELS.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                {lvl}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
