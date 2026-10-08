@@ -390,6 +390,12 @@ export interface ListeningPassageSummary {
   order_index: number
 }
 
+export interface ListeningTopic {
+  name: string
+  icon: string
+  total: number
+}
+
 // KHÔNG có correct_answer — chỉ server biết, chấm qua listeningService.submit
 export interface ListeningQuestion {
   id: string
@@ -523,6 +529,20 @@ export interface ListeningPassageAdmin {
   script: string
   topic?: string
   level: string
+  order_index: number
+}
+
+export interface ListeningTopicRequest {
+  language_id: string
+  name: string
+  icon: string
+  order_index: number
+}
+
+export interface ListeningTopicAdmin {
+  language_id: string
+  name: string
+  icon: string
   order_index: number
 }
 

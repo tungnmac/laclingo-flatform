@@ -351,3 +351,13 @@ CREATE TABLE IF NOT EXISTS listening_questions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_listening_questions_passage ON listening_questions(passage_id, order_index);
+
+-- Chủ đề luyện nghe — icon/thứ tự hiển thị cho các giá trị listening_passages.topic
+-- (free-text, không FK) — mirror vocabulary_topics, nhưng chưa có phân cấp cha/con.
+CREATE TABLE IF NOT EXISTS listening_topics (
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    icon VARCHAR(16) NOT NULL DEFAULT '🎧',
+    order_index INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (language_id, name)
+);

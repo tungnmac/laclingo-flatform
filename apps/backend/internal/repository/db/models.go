@@ -147,6 +147,13 @@ type ListeningQuestion struct {
 	OrderIndex    pgtype.Int4 `json:"order_index"`
 }
 
+type ListeningTopic struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
 type Mission struct {
 	ID           pgtype.UUID        `json:"id"`
 	Title        string             `json:"title"`

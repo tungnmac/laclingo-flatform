@@ -1,8 +1,23 @@
 -- name: ListListeningPassagesByLanguage :many
+-- topic để NULL thì lấy mọi chủ đề (trang chọn ngôn ngữ cũ); truyền topic thì
+-- chỉ lấy bài của đúng chủ đề đó (trang chọn chủ đề mới, xem ListTopics).
 SELECT id, language_id, title, topic, level, order_index
 FROM listening_passages
-WHERE language_id = $1
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('topic')::text IS NULL OR topic = sqlc.narg('topic')::text)
 ORDER BY order_index, created_at;
+
+-- name: ListListeningTopics :many
+-- Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
+SELECT
+    p.topic::varchar AS name,
+    COALESCE(t.icon, '🎧')::varchar AS icon,
+    COUNT(*)::int AS total
+FROM listening_passages p
+LEFT JOIN listening_topics t ON t.language_id = p.language_id AND t.name = p.topic
+WHERE p.language_id = sqlc.arg('language_id') AND p.topic IS NOT NULL
+GROUP BY p.topic, t.icon, t.order_index
+ORDER BY COALESCE(t.order_index, 2147483647), p.topic;
 
 -- name: GetListeningPassageByID :one
 SELECT * FROM listening_passages
@@ -42,6 +57,7 @@ DELETE FROM listening_passages WHERE id = $1;
 SELECT *, COUNT(*) OVER() AS total_count FROM listening_passages
 WHERE language_id = sqlc.arg('language_id')
   AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR topic ILIKE '%' || sqlc.narg('search')::text || '%')
+  AND (sqlc.narg('topic')::text IS NULL OR topic = sqlc.narg('topic')::text)
   AND (sqlc.narg('level')::text IS NULL OR level = sqlc.narg('level')::text)
 ORDER BY order_index, created_at
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
@@ -67,3 +83,19 @@ RETURNING *;
 
 -- name: DeleteListeningQuestion :exec
 DELETE FROM listening_questions WHERE id = $1;
+
+-- name: CreateListeningTopic :one
+INSERT INTO listening_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
+RETURNING *;
+
+-- name: ListListeningTopicsByLanguageAdmin :many
+SELECT *, COUNT(*) OVER() AS total_count FROM listening_topics
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('search')::text IS NULL OR name ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY order_index, name
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: DeleteListeningTopic :exec
+DELETE FROM listening_topics WHERE language_id = $1 AND name = $2;

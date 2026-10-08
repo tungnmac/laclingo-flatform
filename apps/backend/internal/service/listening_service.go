@@ -18,10 +18,11 @@ import (
 
 // ListeningRepository định nghĩa Interface tiếp xúc với cơ sở dữ liệu
 type ListeningRepository interface {
-	ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]db.ListListeningPassagesByLanguageRow, error)
+	ListListeningPassagesByLanguage(ctx context.Context, arg db.ListListeningPassagesByLanguageParams) ([]db.ListListeningPassagesByLanguageRow, error)
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (db.ListeningPassage, error)
 	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]db.ListListeningQuestionsByPassageRow, error)
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (db.ListeningQuestion, error)
+	ListListeningTopics(ctx context.Context, languageID string) ([]db.ListListeningTopicsRow, error)
 
 	CreateListeningPassage(ctx context.Context, arg db.CreateListeningPassageParams) (db.ListeningPassage, error)
 	UpdateListeningPassage(ctx context.Context, arg db.UpdateListeningPassageParams) (db.ListeningPassage, error)
@@ -31,6 +32,9 @@ type ListeningRepository interface {
 	CreateListeningQuestion(ctx context.Context, arg db.CreateListeningQuestionParams) (db.ListeningQuestion, error)
 	UpdateListeningQuestion(ctx context.Context, arg db.UpdateListeningQuestionParams) (db.ListeningQuestion, error)
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
+	CreateListeningTopic(ctx context.Context, arg db.CreateListeningTopicParams) (db.ListeningTopic, error)
+	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg db.ListListeningTopicsByLanguageAdminParams) ([]db.ListListeningTopicsByLanguageAdminRow, error)
+	DeleteListeningTopic(ctx context.Context, arg db.DeleteListeningTopicParams) error
 }
 
 // ListeningPassageSummary — 1 bài luyện nghe trong danh sách (không kèm script/câu hỏi)
@@ -40,6 +44,13 @@ type ListeningPassageSummary struct {
 	Topic      string    `json:"topic,omitempty"`
 	Level      string    `json:"level" example:"A1"`
 	OrderIndex int32     `json:"order_index"`
+}
+
+// ListeningTopic là một chủ đề luyện nghe kèm số bài trong chủ đề đó
+type ListeningTopic struct {
+	Name  string `json:"name" example:"Daily life"`
+	Icon  string `json:"icon" example:"🎧"`
+	Total int32  `json:"total" example:"5"`
 }
 
 // ListeningQuestionResponse — câu hỏi hiển thị cho learner, KHÔNG có correct_answer
@@ -76,9 +87,14 @@ func NewListeningService(repo ListeningRepository, missions *MissionService) *Li
 	return &ListeningService{repo: repo, missions: missions}
 }
 
-// ListPassages trả về danh sách bài luyện nghe của 1 ngôn ngữ (không kèm script/câu hỏi)
-func (s *ListeningService) ListPassages(ctx context.Context, languageID string) ([]ListeningPassageSummary, error) {
-	rows, err := s.repo.ListListeningPassagesByLanguage(ctx, languageID)
+// ListPassages trả về danh sách bài luyện nghe của 1 ngôn ngữ (không kèm
+// script/câu hỏi). topic để trống thì lấy mọi chủ đề; truyền topic thì chỉ
+// lấy bài của đúng chủ đề đó (trang chọn chủ đề, sau ListTopics).
+func (s *ListeningService) ListPassages(ctx context.Context, languageID, topic string) ([]ListeningPassageSummary, error) {
+	rows, err := s.repo.ListListeningPassagesByLanguage(ctx, db.ListListeningPassagesByLanguageParams{
+		LanguageID: languageID,
+		Topic:      pgtype.Text{String: topic, Valid: topic != ""},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +107,19 @@ func (s *ListeningService) ListPassages(ctx context.Context, languageID string) 
 			Level:      r.Level.String,
 			OrderIndex: r.OrderIndex.Int32,
 		})
+	}
+	return results, nil
+}
+
+// ListTopics trả về các chủ đề luyện nghe của 1 ngôn ngữ kèm số bài mỗi chủ đề
+func (s *ListeningService) ListTopics(ctx context.Context, languageID string) ([]ListeningTopic, error) {
+	rows, err := s.repo.ListListeningTopics(ctx, languageID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ListeningTopic, 0, len(rows))
+	for _, r := range rows {
+		results = append(results, ListeningTopic{Name: r.Name, Icon: r.Icon, Total: r.Total})
 	}
 	return results, nil
 }
@@ -240,11 +269,12 @@ func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassa
 }
 
 // ListPassagesAdmin trả về toàn bộ bài luyện nghe của 1 ngôn ngữ (có script đầy đủ)
-func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID, search, level string, page, pageSize int32) (PageResult[ListeningPassageAdminResponse], error) {
+func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID, search, topic, level string, page, pageSize int32) (PageResult[ListeningPassageAdminResponse], error) {
 	limit, offset := NormalizePage(page, pageSize)
 	rows, err := s.repo.ListListeningPassagesAdminPaged(ctx, db.ListListeningPassagesAdminPagedParams{
 		LanguageID: languageID,
 		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Topic:      pgtype.Text{String: topic, Valid: topic != ""},
 		Level:      pgtype.Text{String: level, Valid: level != ""},
 		Limit:      limit,
 		Offset:     offset,
@@ -397,6 +427,88 @@ func (s *ListeningService) DeleteQuestion(ctx context.Context, id uuid.UUID) err
 func (s *ListeningService) BulkImportQuestions(ctx context.Context, items []ListeningQuestionRequest) []BulkImportResult {
 	return runBulkImport(items, func(req ListeningQuestionRequest) error {
 		_, err := s.CreateQuestion(ctx, req)
+		return err
+	})
+}
+
+// ===== Admin CRUD chủ đề luyện nghe =====
+
+type ListeningTopicRequest struct {
+	LanguageID string `json:"language_id" example:"en"`
+	Name       string `json:"name" example:"Daily life"`
+	Icon       string `json:"icon" example:"🎧"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+type ListeningTopicAdminResponse struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+func toListeningTopicAdminResponse(t db.ListeningTopic) ListeningTopicAdminResponse {
+	return ListeningTopicAdminResponse{LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex}
+}
+
+// CreateOrUpdateTopic tạo chủ đề mới hoặc cập nhật icon/thứ tự nếu đã tồn tại
+// (natural key là language_id+name, nên create/update dùng chung 1 upsert).
+func (s *ListeningService) CreateOrUpdateTopic(ctx context.Context, req ListeningTopicRequest) (ListeningTopicAdminResponse, error) {
+	if req.LanguageID == "" || req.Name == "" {
+		return ListeningTopicAdminResponse{}, ErrInvalidInput
+	}
+	icon := req.Icon
+	if icon == "" {
+		icon = "🎧"
+	}
+	t, err := s.repo.CreateListeningTopic(ctx, db.CreateListeningTopicParams{
+		LanguageID: req.LanguageID,
+		Name:       req.Name,
+		Icon:       icon,
+		OrderIndex: req.OrderIndex,
+	})
+	if isPgError(err, pgForeignKeyViolation) {
+		return ListeningTopicAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
+	}
+	if err != nil {
+		return ListeningTopicAdminResponse{}, err
+	}
+	return toListeningTopicAdminResponse(t), nil
+}
+
+// ListTopicsAdmin trả về toàn bộ chủ đề luyện nghe của 1 ngôn ngữ (icon/thứ tự hiển thị)
+func (s *ListeningService) ListTopicsAdmin(ctx context.Context, languageID, search string, page, pageSize int32) (PageResult[ListeningTopicAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListListeningTopicsByLanguageAdmin(ctx, db.ListListeningTopicsByLanguageAdminParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		return PageResult[ListeningTopicAdminResponse]{}, err
+	}
+	results := make([]ListeningTopicAdminResponse, 0, len(rows))
+	var total int64
+	for _, t := range rows {
+		total = t.TotalCount
+		results = append(results, toListeningTopicAdminResponse(db.ListeningTopic{
+			LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex,
+		}))
+	}
+	return PageResult[ListeningTopicAdminResponse]{Items: results, Total: total}, nil
+}
+
+// DeleteTopic xoá 1 chủ đề (chỉ xoá metadata hiển thị — bài luyện nghe có topic
+// trùng tên vẫn giữ nguyên, chỉ không còn icon/thứ tự riêng).
+func (s *ListeningService) DeleteTopic(ctx context.Context, languageID, name string) error {
+	return s.repo.DeleteListeningTopic(ctx, db.DeleteListeningTopicParams{LanguageID: languageID, Name: name})
+}
+
+// BulkImportTopics nhập hàng loạt chủ đề luyện nghe
+func (s *ListeningService) BulkImportTopics(ctx context.Context, items []ListeningTopicRequest) []BulkImportResult {
+	return runBulkImport(items, func(req ListeningTopicRequest) error {
+		_, err := s.CreateOrUpdateTopic(ctx, req)
 		return err
 	})
 }

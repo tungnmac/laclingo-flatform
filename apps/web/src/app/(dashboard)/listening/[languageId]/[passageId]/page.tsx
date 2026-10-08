@@ -23,7 +23,7 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
   return (
     <div className="space-y-6">
       <Link
-        href={`/listening/${params.languageId}`}
+        href={passage.topic ? `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` : `/listening/${params.languageId}`}
         className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
       >
         ← Danh sách bài luyện nghe

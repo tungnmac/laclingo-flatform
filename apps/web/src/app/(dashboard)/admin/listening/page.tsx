@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
+import { IconPickerInput } from '@/components/admin/IconPickerInput'
 import { Pagination } from '@/components/admin/Pagination'
+import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -17,9 +19,12 @@ import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
-import type { ListeningPassageAdmin, ListeningPassageRequest } from '@/types/api'
+import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
 
 const PAGE_SIZE = 20
+// Datalist "chủ đề" ở filter cần thấy hết chủ đề, không bị cắt bởi phân trang
+// của tab Chủ đề — tách riêng 1 call page_size lớn (giống trang Từ vựng).
+const ALL_TOPICS_PAGE_SIZE = 100
 
 const bulkPlaceholder = `[
   {
@@ -32,16 +37,221 @@ const bulkPlaceholder = `[
   }
 ]`
 
+const topicBulkPlaceholder = `[
+  { "language_id": "en", "name": "Daily life", "icon": "🎧", "order_index": 0 }
+]`
+
+type ListeningTab = 'passages' | 'topics'
+
 export default function AdminListeningPage() {
-  const confirm = useConfirm()
   const [languageId, setLanguageId] = useState('en')
+  const [tab, setTab] = useState<ListeningTab>('passages')
+  const allTopicsApi = useApi(
+    () => listeningService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
+    [languageId],
+  )
+
+  return (
+    <>
+      <PageHeader title="Luyện nghe" description="Bài luyện nghe (script đọc bằng TTS), câu hỏi hiểu nội dung, và chủ đề." />
+
+      <label className="mb-4 block text-sm font-medium text-slate-700">
+        Ngôn ngữ
+        <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
+          <option value="en">🇬🇧 English</option>
+          <option value="zh">🇨🇳 中文</option>
+        </select>
+      </label>
+
+      <Tabs<ListeningTab>
+        tabs={[
+          { id: 'passages', label: '🎧 Bài luyện nghe' },
+          { id: 'topics', label: '🗂️ Chủ đề' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'topics' && (
+        <TopicsSection languageId={languageId} allTopics={allTopicsApi.data?.items ?? []} onChanged={allTopicsApi.reload} />
+      )}
+      {tab === 'passages' && <PassagesSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
+    </>
+  )
+}
+
+function TopicsSection({
+  languageId,
+  allTopics,
+  onChanged,
+}: {
+  languageId: string
+  allTopics: ListeningTopicAdmin[]
+  onChanged: () => void
+}) {
+  const confirm = useConfirm()
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<ListeningTopicAdmin | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const filtered = allTopics.filter((t) => !debouncedSearch || t.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
+
+  const onCreateNew = () => {
+    setEditing(null)
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  const onEdit = (t: ListeningTopicAdmin) => {
+    setEditing(t)
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  const onDelete = async (t: ListeningTopicAdmin) => {
+    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Bài luyện nghe đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`, danger: true })))
+      return
+    await listeningService.deleteTopic(t.language_id, t.name)
+    onChanged()
+  }
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    const body: ListeningTopicRequest = {
+      language_id: languageId,
+      name: editing ? editing.name : String(form.get('name') ?? '').trim(),
+      icon: String(form.get('icon') ?? '🎧').trim() || '🎧',
+      order_index: editing ? editing.order_index : allTopics.length,
+    }
+    setSaving(true)
+    setFormError(null)
+    try {
+      await listeningService.createOrUpdateTopic(body)
+      setShowForm(false)
+      setEditing(null)
+      onChanged()
+    } catch (err) {
+      setFormError((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="mb-8 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
+        {!showForm && (
+          <div className="flex gap-2">
+            <ExportButton<ListeningTopicAdmin>
+              fetchAll={() => fetchAllPages((p, ps) => listeningService.listTopicsAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch }))}
+              filename={`listening-topics-${languageId}.json`}
+            />
+            <Button size="sm" onClick={onCreateNew}>
+              + Thêm chủ đề
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <label className="block text-sm font-medium text-slate-700">
+        Tìm kiếm
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên chủ đề..."
+          className={cn(inputClass, 'max-w-xs')}
+        />
+      </label>
+
+      {showForm && (
+        <Card>
+          <h3 className="mb-3 text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.name}` : 'Thêm chủ đề mới'}</h3>
+          <form key={editing?.name ?? '__new__'} onSubmit={onSubmit} className="space-y-4">
+            <label className="block text-sm font-medium text-slate-700">
+              Tên chủ đề
+              {editing ? (
+                <p className="mt-1 text-sm text-slate-900">{editing.name} (không thể đổi tên khi sửa)</p>
+              ) : (
+                <input name="name" type="text" required className={inputClass} placeholder="Daily life" />
+              )}
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Icon (emoji)
+              <IconPickerInput name="icon" defaultValue={editing?.icon ?? '🎧'} />
+            </label>
+            {formError && (
+              <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+                {formError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>
+                {saving ? 'Đang lưu...' : 'Lưu'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setShowForm(false)
+                  setEditing(null)
+                }}
+              >
+                Hủy
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {allTopics.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {filtered.length === 0 && allTopics.length > 0 && <EmptyState title="Không tìm thấy chủ đề nào" icon="🔍" />}
+
+      {filtered.length > 0 && (
+        <Card className="p-0 sm:p-0">
+          <ul className="divide-y divide-slate-100">
+            {filtered.map((t) => (
+              <li key={t.name} className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
+                <span className="text-xl">{t.icon}</span>
+                <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{t.name}</p>
+                <div className="flex shrink-0 gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
+                    Sửa
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
+                    Xoá
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <BulkImportPanel<ListeningTopicRequest>
+        onImport={(items) => listeningService.bulkImportTopics(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
+        placeholder={topicBulkPlaceholder}
+        onDone={onChanged}
+      />
+    </section>
+  )
+}
+
+function PassagesSection({ languageId, topics }: { languageId: string; topics: ListeningTopicAdmin[] }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
+  const [topicFilter, setTopicFilter] = useState('')
   const [level, setLevel] = useState('')
   const { data, error, loading, reload } = useApi(
-    () => listeningService.listPassagesAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, level }),
-    [languageId, page, debouncedSearch, level],
+    () => listeningService.listPassagesAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, topic: topicFilter, level }),
+    [languageId, page, debouncedSearch, topicFilter, level],
   )
   const [editing, setEditing] = useState<ListeningPassageAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -94,40 +304,25 @@ export default function AdminListeningPage() {
   }
 
   return (
-    <>
-      <PageHeader
-        title="Luyện nghe"
-        description="Bài luyện nghe (script đọc bằng TTS) + câu hỏi hiểu nội dung."
-        action={
-          !showForm && (
-            <div className="flex gap-2">
-              <ExportButton<ListeningPassageAdmin>
-                fetchAll={() =>
-                  fetchAllPages((p, ps) => listeningService.listPassagesAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch, level }))
-                }
-                filename={`listening-passages-${languageId}.json`}
-              />
-              <Button onClick={onCreateNew}>+ Tạo bài</Button>
-            </div>
-          )
-        }
-      />
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">🎧 Bài luyện nghe</h2>
+        {!showForm && (
+          <div className="flex gap-2">
+            <ExportButton<ListeningPassageAdmin>
+              fetchAll={() =>
+                fetchAllPages((p, ps) =>
+                  listeningService.listPassagesAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch, topic: topicFilter, level }),
+                )
+              }
+              filename={`listening-passages-${languageId}.json`}
+            />
+            <Button onClick={onCreateNew}>+ Tạo bài</Button>
+          </div>
+        )}
+      </div>
 
-      <div className="mb-4 flex flex-wrap gap-4">
-        <label className="block text-sm font-medium text-slate-700">
-          Ngôn ngữ
-          <select
-            value={languageId}
-            onChange={(e) => {
-              setLanguageId(e.target.value)
-              setPage(1)
-            }}
-            className={cn(inputClass, 'max-w-xs')}
-          >
-            <option value="en">🇬🇧 English</option>
-            <option value="zh">🇨🇳 中文</option>
-          </select>
-        </label>
+      <div className="flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
           Tìm kiếm
           <input
@@ -140,6 +335,25 @@ export default function AdminListeningPage() {
             placeholder="Tìm theo tiêu đề/chủ đề..."
             className={cn(inputClass, 'max-w-xs')}
           />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Chủ đề
+          <input
+            type="text"
+            list="listening-topic-filter-options"
+            value={topicFilter}
+            onChange={(e) => {
+              setTopicFilter(e.target.value)
+              setPage(1)
+            }}
+            placeholder="Gõ để tìm hoặc chọn chủ đề..."
+            className={cn(inputClass, 'max-w-xs')}
+          />
+          <datalist id="listening-topic-filter-options">
+            {topics.map((t) => (
+              <option key={t.name} value={t.name} />
+            ))}
+          </datalist>
         </label>
         <label className="block text-sm font-medium text-slate-700">
           Cấp độ
@@ -234,13 +448,12 @@ export default function AdminListeningPage() {
         </Card>
       )}
       {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
-      <div className="mb-6" />
 
       <BulkImportPanel<ListeningPassageRequest>
         onImport={(items) => listeningService.bulkImportPassages(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
         placeholder={bulkPlaceholder}
         onDone={reload}
       />
-    </>
+    </section>
   )
 }

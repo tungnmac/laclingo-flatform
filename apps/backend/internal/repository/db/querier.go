@@ -27,6 +27,7 @@ type Querier interface {
 	// ===== Admin CRUD (quản lý nội dung luyện nghe) =====
 	CreateListeningPassage(ctx context.Context, arg CreateListeningPassageParams) (ListeningPassage, error)
 	CreateListeningQuestion(ctx context.Context, arg CreateListeningQuestionParams) (ListeningQuestion, error)
+	CreateListeningTopic(ctx context.Context, arg CreateListeningTopicParams) (ListeningTopic, error)
 	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// ===== Admin CRUD (quản lý nội dung từ vựng) =====
@@ -42,6 +43,7 @@ type Querier interface {
 	DeleteGrammarTopic(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
+	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
@@ -100,12 +102,17 @@ type Querier interface {
 	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
 	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
 	ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error)
-	ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]ListListeningPassagesByLanguageRow, error)
+	// topic để NULL thì lấy mọi chủ đề (trang chọn ngôn ngữ cũ); truyền topic thì
+	// chỉ lấy bài của đúng chủ đề đó (trang chọn chủ đề mới, xem ListTopics).
+	ListListeningPassagesByLanguage(ctx context.Context, arg ListListeningPassagesByLanguageParams) ([]ListListeningPassagesByLanguageRow, error)
 	// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
 	// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
 	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error)
 	// Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
 	ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error)
+	// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
+	ListListeningTopics(ctx context.Context, languageID string) ([]ListListeningTopicsRow, error)
+	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
