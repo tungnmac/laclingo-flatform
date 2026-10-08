@@ -8,6 +8,8 @@ import { cn, displayName } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import type { User } from '@/types/api'
 
+// Dùng cho BottomNav (mobile, grid-cols-5 cố định) — Hồ sơ vẫn ở đây vì mobile
+// không có khối "thông tin cá nhân" riêng ở sidebar như desktop.
 const NAV_ITEMS = [
   { href: '/learn', label: 'Học', icon: '📚' },
   { href: '/review', label: 'Ôn tập', icon: '🧠' },
@@ -16,8 +18,9 @@ const NAV_ITEMS = [
   { href: '/profile', label: 'Hồ sơ', icon: '👤' },
 ]
 
-// Mục riêng cho Sidebar (desktop) — KHÔNG thêm vào NAV_ITEMS vì BottomNav dùng
-// chung danh sách đó với layout grid-cols-5 cố định cho mobile.
+// Nav chính của Sidebar (desktop) — KHÔNG gồm Hồ sơ, vì trên desktop mục đó
+// đã nằm trong khối thông tin cá nhân ở góc dưới (bấm vào avatar/tên để vào).
+const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter((item) => item.href !== '/profile')
 const MISSIONS_ITEM = { href: '/missions', label: 'Nhiệm vụ', icon: '🎯' }
 const LISTENING_ITEM = { href: '/listening', label: 'Luyện nghe', icon: '🎧' }
 const ADMIN_ITEM = { href: '/admin', label: 'Quản trị', icon: '🛠️' }
@@ -31,7 +34,7 @@ export function Sidebar({ user }: { user: User }) {
   const pathname = usePathname()
   const router = useRouter()
   const logout = useSession((s) => s.logout)
-  const sidebarItems = [...NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, ...(user.role === 'admin' ? [ADMIN_ITEM] : [])]
+  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, ...(user.role === 'admin' ? [ADMIN_ITEM] : [])]
 
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
@@ -57,13 +60,20 @@ export function Sidebar({ user }: { user: User }) {
       </nav>
 
       <div className="border-t border-slate-200 pt-4">
-        <div className="flex items-center gap-3 px-2">
+        <Link
+          href="/profile"
+          aria-current={isActive(pathname, '/profile') ? 'page' : undefined}
+          className={cn(
+            'flex items-center gap-3 rounded-xl px-2 py-2 transition',
+            isActive(pathname, '/profile') ? 'bg-indigo-50' : 'hover:bg-slate-100',
+          )}
+        >
           <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-9 w-9 text-sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
             <p className="truncate text-xs text-slate-500">{user.email}</p>
           </div>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={() => {
