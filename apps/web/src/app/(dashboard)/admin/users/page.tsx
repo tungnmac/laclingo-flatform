@@ -144,7 +144,7 @@ export default function AdminUsersPage() {
                         </p>
                         <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
                       </div>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
+                      <div className="flex items-center gap-2">
                         <RoleBadge user={u} />
                         <ActiveBadge user={u} />
                         {canExpand && (
@@ -152,9 +152,9 @@ export default function AdminUsersPage() {
                             ▾
                           </span>
                         )}
-                        <RoleToggleButton user={u} onChanged={reload} />
-                        <ActiveToggleButton user={u} onChanged={reload} />
                       </div>
+                      <RoleToggleButton user={u} onChanged={reload} />
+                      <ActiveToggleButton user={u} onChanged={reload} />
                     </div>
                   </div>
 
