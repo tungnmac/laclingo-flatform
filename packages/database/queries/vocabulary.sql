@@ -81,3 +81,39 @@ ON CONFLICT (user_id, vocabulary_id) DO NOTHING;
 
 -- name: UnfavoriteVocabulary :exec
 DELETE FROM vocabulary_favorites WHERE user_id = $1 AND vocabulary_id = $2;
+
+-- ===== Admin CRUD (quản lý nội dung từ vựng) =====
+
+-- name: CreateVocabulary :one
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING *;
+
+-- name: ListVocabulariesByLanguageAdmin :many
+SELECT * FROM vocabularies
+WHERE language_id = $1
+ORDER BY topic, term;
+
+-- name: UpdateVocabulary :one
+UPDATE vocabularies
+SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7,
+    audio_url = $8, image_url = $9, image_emoji = $10
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteVocabulary :exec
+DELETE FROM vocabularies WHERE id = $1;
+
+-- name: CreateVocabularyTopic :one
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
+RETURNING *;
+
+-- name: ListVocabularyTopicsByLanguageAdmin :many
+SELECT * FROM vocabulary_topics
+WHERE language_id = $1
+ORDER BY order_index, name;
+
+-- name: DeleteVocabularyTopic :exec
+DELETE FROM vocabulary_topics WHERE language_id = $1 AND name = $2;

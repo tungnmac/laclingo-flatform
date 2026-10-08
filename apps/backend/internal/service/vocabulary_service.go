@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"laclingo-backend/internal/repository/db"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -21,6 +24,14 @@ type VocabularyRepository interface {
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	FavoriteVocabulary(ctx context.Context, arg db.FavoriteVocabularyParams) error
 	UnfavoriteVocabulary(ctx context.Context, arg db.UnfavoriteVocabularyParams) error
+
+	CreateVocabulary(ctx context.Context, arg db.CreateVocabularyParams) (db.Vocabulary, error)
+	ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]db.Vocabulary, error)
+	UpdateVocabulary(ctx context.Context, arg db.UpdateVocabularyParams) (db.Vocabulary, error)
+	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
+	CreateVocabularyTopic(ctx context.Context, arg db.CreateVocabularyTopicParams) (db.VocabularyTopic, error)
+	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]db.VocabularyTopic, error)
+	DeleteVocabularyTopic(ctx context.Context, arg db.DeleteVocabularyTopicParams) error
 }
 
 // VocabularyTopic là một chủ đề từ vựng kèm tiến độ học của user
@@ -206,4 +217,210 @@ func toVocabularyCard(r db.ListVocabulariesByTopicRow) VocabularyCard {
 		Favorited:    r.Favorited,
 		InReview:     r.InReview,
 	}
+}
+
+// ===== Admin CRUD (quản lý nội dung từ vựng) =====
+
+type VocabularyRequest struct {
+	LanguageID string `json:"language_id" example:"en"`
+	Term       string `json:"term" example:"apple"`
+	Phonetic   string `json:"phonetic,omitempty"`
+	Meaning    string `json:"meaning"`
+	Example    string `json:"example,omitempty"`
+	Topic      string `json:"topic,omitempty"`
+	Level      string `json:"level" example:"A1"`
+	AudioURL   string `json:"audio_url,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	ImageEmoji string `json:"image_emoji,omitempty"`
+}
+
+// VocabularyAdminResponse — từ vựng nhìn từ admin (không kèm like/favorite/in_review của user nào cả)
+type VocabularyAdminResponse struct {
+	ID         uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	LanguageID string    `json:"language_id"`
+	Term       string    `json:"term"`
+	Phonetic   string    `json:"phonetic,omitempty"`
+	Meaning    string    `json:"meaning"`
+	Example    string    `json:"example,omitempty"`
+	Topic      string    `json:"topic,omitempty"`
+	Level      string    `json:"level"`
+	AudioURL   string    `json:"audio_url,omitempty"`
+	ImageURL   string    `json:"image_url,omitempty"`
+	ImageEmoji string    `json:"image_emoji,omitempty"`
+}
+
+type VocabularyTopicRequest struct {
+	LanguageID string `json:"language_id" example:"en"`
+	Name       string `json:"name" example:"Đồ ăn & Thức uống"`
+	Icon       string `json:"icon" example:"🍜"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+type VocabularyTopicAdminResponse struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+func toVocabularyAdminResponse(v db.Vocabulary) VocabularyAdminResponse {
+	return VocabularyAdminResponse{
+		ID:         uuid.UUID(v.ID.Bytes),
+		LanguageID: v.LanguageID,
+		Term:       v.Term,
+		Phonetic:   v.Phonetic.String,
+		Meaning:    v.Meaning,
+		Example:    v.Example.String,
+		Topic:      v.Topic.String,
+		Level:      v.Level.String,
+		AudioURL:   v.AudioUrl.String,
+		ImageURL:   v.ImageUrl.String,
+		ImageEmoji: v.ImageEmoji.String,
+	}
+}
+
+// CreateVocabulary thêm 1 từ vựng mới
+func (s *VocabularyService) CreateVocabulary(ctx context.Context, req VocabularyRequest) (VocabularyAdminResponse, error) {
+	if req.LanguageID == "" || req.Term == "" || req.Meaning == "" {
+		return VocabularyAdminResponse{}, ErrInvalidInput
+	}
+	v, err := s.repo.CreateVocabulary(ctx, db.CreateVocabularyParams{
+		LanguageID: req.LanguageID,
+		Term:       req.Term,
+		Phonetic:   pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
+		Meaning:    req.Meaning,
+		Example:    pgtype.Text{String: req.Example, Valid: req.Example != ""},
+		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		AudioUrl:   pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
+		ImageUrl:   pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
+		ImageEmoji: pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
+	})
+	if isPgError(err, pgUniqueViolation) {
+		return VocabularyAdminResponse{}, fmt.Errorf("từ \"%s\" đã tồn tại trong ngôn ngữ này: %w", req.Term, ErrDuplicate)
+	}
+	if isPgError(err, pgForeignKeyViolation) {
+		return VocabularyAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
+	}
+	if err != nil {
+		return VocabularyAdminResponse{}, err
+	}
+	return toVocabularyAdminResponse(v), nil
+}
+
+// ListVocabulariesAdmin trả về toàn bộ từ vựng của 1 ngôn ngữ (admin quản lý)
+func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageID string) ([]VocabularyAdminResponse, error) {
+	rows, err := s.repo.ListVocabulariesByLanguageAdmin(ctx, languageID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]VocabularyAdminResponse, 0, len(rows))
+	for _, v := range rows {
+		results = append(results, toVocabularyAdminResponse(v))
+	}
+	return results, nil
+}
+
+// UpdateVocabulary sửa 1 từ vựng (không đổi language_id)
+func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, req VocabularyRequest) (VocabularyAdminResponse, error) {
+	if req.Term == "" || req.Meaning == "" {
+		return VocabularyAdminResponse{}, ErrInvalidInput
+	}
+	v, err := s.repo.UpdateVocabulary(ctx, db.UpdateVocabularyParams{
+		ID:         toPgUUID(id),
+		Term:       req.Term,
+		Phonetic:   pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
+		Meaning:    req.Meaning,
+		Example:    pgtype.Text{String: req.Example, Valid: req.Example != ""},
+		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		AudioUrl:   pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
+		ImageUrl:   pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
+		ImageEmoji: pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return VocabularyAdminResponse{}, ErrNotFound
+	}
+	if isPgError(err, pgUniqueViolation) {
+		return VocabularyAdminResponse{}, fmt.Errorf("từ \"%s\" đã tồn tại trong ngôn ngữ này: %w", req.Term, ErrDuplicate)
+	}
+	if err != nil {
+		return VocabularyAdminResponse{}, err
+	}
+	return toVocabularyAdminResponse(v), nil
+}
+
+// DeleteVocabulary xoá 1 từ vựng
+func (s *VocabularyService) DeleteVocabulary(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteVocabulary(ctx, toPgUUID(id))
+}
+
+// BulkImportVocabularies nhập hàng loạt từ vựng — lỗi 1 dòng không chặn các dòng khác
+func (s *VocabularyService) BulkImportVocabularies(ctx context.Context, items []VocabularyRequest) []BulkImportResult {
+	return runBulkImport(items, func(req VocabularyRequest) error {
+		_, err := s.CreateVocabulary(ctx, req)
+		return err
+	})
+}
+
+// CreateOrUpdateTopic tạo chủ đề mới hoặc cập nhật icon/thứ tự nếu đã tồn tại
+// (natural key là language_id+name, nên create/update dùng chung 1 upsert).
+func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req VocabularyTopicRequest) (VocabularyTopicAdminResponse, error) {
+	if req.LanguageID == "" || req.Name == "" {
+		return VocabularyTopicAdminResponse{}, ErrInvalidInput
+	}
+	icon := req.Icon
+	if icon == "" {
+		icon = "📘"
+	}
+	t, err := s.repo.CreateVocabularyTopic(ctx, db.CreateVocabularyTopicParams{
+		LanguageID: req.LanguageID,
+		Name:       req.Name,
+		Icon:       icon,
+		OrderIndex: req.OrderIndex,
+	})
+	if isPgError(err, pgForeignKeyViolation) {
+		return VocabularyTopicAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
+	}
+	if err != nil {
+		return VocabularyTopicAdminResponse{}, err
+	}
+	return VocabularyTopicAdminResponse{
+		LanguageID: t.LanguageID,
+		Name:       t.Name,
+		Icon:       t.Icon,
+		OrderIndex: t.OrderIndex,
+	}, nil
+}
+
+// ListTopicsAdmin trả về toàn bộ chủ đề từ vựng của 1 ngôn ngữ (icon/thứ tự hiển thị)
+func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID string) ([]VocabularyTopicAdminResponse, error) {
+	rows, err := s.repo.ListVocabularyTopicsByLanguageAdmin(ctx, languageID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]VocabularyTopicAdminResponse, 0, len(rows))
+	for _, t := range rows {
+		results = append(results, VocabularyTopicAdminResponse{
+			LanguageID: t.LanguageID,
+			Name:       t.Name,
+			Icon:       t.Icon,
+			OrderIndex: t.OrderIndex,
+		})
+	}
+	return results, nil
+}
+
+// DeleteTopic xoá 1 chủ đề (chỉ xoá metadata hiển thị — từ vựng có topic trùng
+// tên vẫn giữ nguyên, chỉ không còn icon/thứ tự riêng).
+func (s *VocabularyService) DeleteTopic(ctx context.Context, languageID, name string) error {
+	return s.repo.DeleteVocabularyTopic(ctx, db.DeleteVocabularyTopicParams{LanguageID: languageID, Name: name})
+}
+
+// BulkImportTopics nhập hàng loạt chủ đề từ vựng
+func (s *VocabularyService) BulkImportTopics(ctx context.Context, items []VocabularyTopicRequest) []BulkImportResult {
+	return runBulkImport(items, func(req VocabularyTopicRequest) error {
+		_, err := s.CreateOrUpdateTopic(ctx, req)
+		return err
+	})
 }

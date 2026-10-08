@@ -25,6 +25,46 @@ func (q *Queries) BanGameParticipant(ctx context.Context, arg BanGameParticipant
 	return err
 }
 
+const createChallengeQuestion = `-- name: CreateChallengeQuestion :one
+
+INSERT INTO challenge_questions (language_id, question, options, correct_index, explanation, difficulty)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, language_id, question, options, correct_index, explanation, difficulty, created_at
+`
+
+type CreateChallengeQuestionParams struct {
+	LanguageID   pgtype.Text `json:"language_id"`
+	Question     string      `json:"question"`
+	Options      []byte      `json:"options"`
+	CorrectIndex int32       `json:"correct_index"`
+	Explanation  pgtype.Text `json:"explanation"`
+	Difficulty   int32       `json:"difficulty"`
+}
+
+// ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
+func (q *Queries) CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error) {
+	row := q.db.QueryRow(ctx, createChallengeQuestion,
+		arg.LanguageID,
+		arg.Question,
+		arg.Options,
+		arg.CorrectIndex,
+		arg.Explanation,
+		arg.Difficulty,
+	)
+	var i ChallengeQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Question,
+		&i.Options,
+		&i.CorrectIndex,
+		&i.Explanation,
+		&i.Difficulty,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createGameRoom = `-- name: CreateGameRoom :one
 INSERT INTO game_rooms (code, host_user_id, question_count, time_per_question_seconds, max_participants, is_practice, difficulty)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -67,6 +107,15 @@ func (q *Queries) CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) 
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const deleteChallengeQuestion = `-- name: DeleteChallengeQuestion :exec
+DELETE FROM challenge_questions WHERE id = $1
+`
+
+func (q *Queries) DeleteChallengeQuestion(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteChallengeQuestion, id)
+	return err
 }
 
 const deleteGameParticipant = `-- name: DeleteGameParticipant :exec
@@ -292,6 +341,41 @@ func (q *Queries) JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (Gam
 		&i.JoinedAt,
 	)
 	return i, err
+}
+
+const listChallengeQuestionsByLanguage = `-- name: ListChallengeQuestionsByLanguage :many
+SELECT id, language_id, question, options, correct_index, explanation, difficulty, created_at FROM challenge_questions
+WHERE language_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListChallengeQuestionsByLanguage(ctx context.Context, languageID pgtype.Text) ([]ChallengeQuestion, error) {
+	rows, err := q.db.Query(ctx, listChallengeQuestionsByLanguage, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChallengeQuestion
+	for rows.Next() {
+		var i ChallengeQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Question,
+			&i.Options,
+			&i.CorrectIndex,
+			&i.Explanation,
+			&i.Difficulty,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listGameParticipants = `-- name: ListGameParticipants :many
@@ -547,4 +631,43 @@ type UnbanGameParticipantParams struct {
 func (q *Queries) UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error {
 	_, err := q.db.Exec(ctx, unbanGameParticipant, arg.RoomID, arg.UserID)
 	return err
+}
+
+const updateChallengeQuestion = `-- name: UpdateChallengeQuestion :one
+UPDATE challenge_questions
+SET question = $2, options = $3, correct_index = $4, explanation = $5, difficulty = $6
+WHERE id = $1
+RETURNING id, language_id, question, options, correct_index, explanation, difficulty, created_at
+`
+
+type UpdateChallengeQuestionParams struct {
+	ID           pgtype.UUID `json:"id"`
+	Question     string      `json:"question"`
+	Options      []byte      `json:"options"`
+	CorrectIndex int32       `json:"correct_index"`
+	Explanation  pgtype.Text `json:"explanation"`
+	Difficulty   int32       `json:"difficulty"`
+}
+
+func (q *Queries) UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error) {
+	row := q.db.QueryRow(ctx, updateChallengeQuestion,
+		arg.ID,
+		arg.Question,
+		arg.Options,
+		arg.CorrectIndex,
+		arg.Explanation,
+		arg.Difficulty,
+	)
+	var i ChallengeQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Question,
+		&i.Options,
+		&i.CorrectIndex,
+		&i.Explanation,
+		&i.Difficulty,
+		&i.CreatedAt,
+	)
+	return i, err
 }

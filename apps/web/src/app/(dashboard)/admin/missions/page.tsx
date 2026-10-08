@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -98,6 +99,9 @@ export default function AdminMissionsPage() {
 
   return (
     <>
+      <Link href="/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
+        ← Quản trị
+      </Link>
       <PageHeader
         title="Quản trị nhiệm vụ"
         description="Tạo, sửa, tắt nhiệm vụ daily/weekly/monthly/event."

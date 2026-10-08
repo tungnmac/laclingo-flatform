@@ -26,6 +26,200 @@ func (h *VocabularyHandler) RegisterRoutes(router fiber.Router) {
 	api.Delete("/:id/favorite", h.Unfavorite)
 }
 
+// RegisterAdminRoutes gắn route quản lý nội dung từ vựng — PHẢI nằm sau
+// RequireAdmin trong chain (đăng ký ở router.go).
+func (h *VocabularyHandler) RegisterAdminRoutes(router fiber.Router) {
+	vocab := router.Group("/admin/vocabularies")
+	vocab.Post("", h.CreateVocabulary)
+	vocab.Get("", h.ListVocabulariesAdmin)
+	vocab.Put("/:id", h.UpdateVocabulary)
+	vocab.Delete("/:id", h.DeleteVocabulary)
+	vocab.Post("/bulk", h.BulkImportVocabularies)
+
+	topics := router.Group("/admin/vocabulary-topics")
+	topics.Post("", h.CreateOrUpdateTopic)
+	topics.Get("", h.ListTopicsAdmin)
+	topics.Delete("", h.DeleteTopic)
+	topics.Post("/bulk", h.BulkImportTopics)
+}
+
+// CreateVocabulary godoc
+// @Summary      Thêm từ vựng mới (admin)
+// @Tags         admin-vocab
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      service.VocabularyRequest  true  "Thông tin từ vựng"
+// @Success      201   {object}  service.VocabularyAdminResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /admin/vocabularies [post]
+func (h *VocabularyHandler) CreateVocabulary(c *fiber.Ctx) error {
+	var req service.VocabularyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.CreateVocabulary(c.UserContext(), req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(result)
+}
+
+// ListVocabulariesAdmin godoc
+// @Summary      Danh sách từ vựng theo ngôn ngữ (admin)
+// @Tags         admin-vocab
+// @Produce      json
+// @Security     BearerAuth
+// @Param        language_id  query     string  true  "Language ID"
+// @Success      200          {array}   service.VocabularyAdminResponse
+// @Router       /admin/vocabularies [get]
+func (h *VocabularyHandler) ListVocabulariesAdmin(c *fiber.Ctx) error {
+	results, err := h.svc.ListVocabulariesAdmin(c.UserContext(), c.Query("language_id"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
+// UpdateVocabulary godoc
+// @Summary      Sửa từ vựng (admin)
+// @Tags         admin-vocab
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                      true  "Vocabulary ID"
+// @Param        body  body      service.VocabularyRequest  true  "Thông tin từ vựng"
+// @Success      200   {object}  service.VocabularyAdminResponse
+// @Router       /admin/vocabularies/{id} [put]
+func (h *VocabularyHandler) UpdateVocabulary(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req service.VocabularyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.UpdateVocabulary(c.UserContext(), id, req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+// DeleteVocabulary godoc
+// @Summary      Xoá từ vựng (admin)
+// @Tags         admin-vocab
+// @Security     BearerAuth
+// @Param        id   path  string  true  "Vocabulary ID"
+// @Success      204
+// @Router       /admin/vocabularies/{id} [delete]
+func (h *VocabularyHandler) DeleteVocabulary(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	if err := h.svc.DeleteVocabulary(c.UserContext(), id); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// BulkImportVocabularies godoc
+// @Summary      Nhập hàng loạt từ vựng (admin)
+// @Tags         admin-vocab
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      []service.VocabularyRequest  true  "Danh sách từ vựng"
+// @Success      200   {array}   service.BulkImportResult
+// @Router       /admin/vocabularies/bulk [post]
+func (h *VocabularyHandler) BulkImportVocabularies(c *fiber.Ctx) error {
+	var items []service.VocabularyRequest
+	if err := c.BodyParser(&items); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	return c.JSON(h.svc.BulkImportVocabularies(c.UserContext(), items))
+}
+
+// CreateOrUpdateTopic godoc
+// @Summary      Tạo/sửa chủ đề từ vựng (admin, upsert theo language_id+name)
+// @Tags         admin-vocab
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      service.VocabularyTopicRequest  true  "Thông tin chủ đề"
+// @Success      200   {object}  service.VocabularyTopicAdminResponse
+// @Router       /admin/vocabulary-topics [post]
+func (h *VocabularyHandler) CreateOrUpdateTopic(c *fiber.Ctx) error {
+	var req service.VocabularyTopicRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.CreateOrUpdateTopic(c.UserContext(), req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+// ListTopicsAdmin godoc
+// @Summary      Danh sách chủ đề từ vựng theo ngôn ngữ (admin)
+// @Tags         admin-vocab
+// @Produce      json
+// @Security     BearerAuth
+// @Param        language_id  query     string  true  "Language ID"
+// @Success      200          {array}   service.VocabularyTopicAdminResponse
+// @Router       /admin/vocabulary-topics [get]
+func (h *VocabularyHandler) ListTopicsAdmin(c *fiber.Ctx) error {
+	results, err := h.svc.ListTopicsAdmin(c.UserContext(), c.Query("language_id"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
+type deleteVocabularyTopicRequest struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+}
+
+// DeleteTopic godoc
+// @Summary      Xoá chủ đề từ vựng (admin, chỉ xoá metadata icon/thứ tự)
+// @Tags         admin-vocab
+// @Accept       json
+// @Security     BearerAuth
+// @Param        body  body  deleteVocabularyTopicRequest  true  "language_id + name"
+// @Success      204
+// @Router       /admin/vocabulary-topics [delete]
+func (h *VocabularyHandler) DeleteTopic(c *fiber.Ctx) error {
+	var req deleteVocabularyTopicRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	if err := h.svc.DeleteTopic(c.UserContext(), req.LanguageID, req.Name); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// BulkImportTopics godoc
+// @Summary      Nhập hàng loạt chủ đề từ vựng (admin)
+// @Tags         admin-vocab
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      []service.VocabularyTopicRequest  true  "Danh sách chủ đề"
+// @Success      200   {array}   service.BulkImportResult
+// @Router       /admin/vocabulary-topics/bulk [post]
+func (h *VocabularyHandler) BulkImportTopics(c *fiber.Ctx) error {
+	var items []service.VocabularyTopicRequest
+	if err := c.BodyParser(&items); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	return c.JSON(h.svc.BulkImportTopics(c.UserContext(), items))
+}
+
 // ListTopics godoc
 // @Summary      Chủ đề từ vựng
 // @Description  Danh sách chủ đề của 1 ngôn ngữ kèm số từ user đã đưa vào ôn tập.

@@ -1,3 +1,24 @@
+-- ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
+
+-- name: CreateChallengeQuestion :one
+INSERT INTO challenge_questions (language_id, question, options, correct_index, explanation, difficulty)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: ListChallengeQuestionsByLanguage :many
+SELECT * FROM challenge_questions
+WHERE language_id = $1
+ORDER BY created_at DESC;
+
+-- name: UpdateChallengeQuestion :one
+UPDATE challenge_questions
+SET question = $2, options = $3, correct_index = $4, explanation = $5, difficulty = $6
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteChallengeQuestion :exec
+DELETE FROM challenge_questions WHERE id = $1;
+
 -- name: PickRandomQuestions :many
 SELECT * FROM challenge_questions
 WHERE (sqlc.narg('language_id')::varchar IS NULL OR language_id = sqlc.narg('language_id'))

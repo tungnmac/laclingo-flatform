@@ -11,6 +11,102 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createListeningPassage = `-- name: CreateListeningPassage :one
+
+INSERT INTO listening_passages (language_id, title, script, topic, level, order_index)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+`
+
+type CreateListeningPassageParams struct {
+	LanguageID string      `json:"language_id"`
+	Title      string      `json:"title"`
+	Script     string      `json:"script"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	OrderIndex pgtype.Int4 `json:"order_index"`
+}
+
+// ===== Admin CRUD (quản lý nội dung luyện nghe) =====
+func (q *Queries) CreateListeningPassage(ctx context.Context, arg CreateListeningPassageParams) (ListeningPassage, error) {
+	row := q.db.QueryRow(ctx, createListeningPassage,
+		arg.LanguageID,
+		arg.Title,
+		arg.Script,
+		arg.Topic,
+		arg.Level,
+		arg.OrderIndex,
+	)
+	var i ListeningPassage
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Title,
+		&i.Script,
+		&i.Topic,
+		&i.Level,
+		&i.OrderIndex,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createListeningQuestion = `-- name: CreateListeningQuestion :one
+INSERT INTO listening_questions (passage_id, question, options, correct_answer, explanation, order_index)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, passage_id, question, options, correct_answer, explanation, order_index
+`
+
+type CreateListeningQuestionParams struct {
+	PassageID     pgtype.UUID `json:"passage_id"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+}
+
+func (q *Queries) CreateListeningQuestion(ctx context.Context, arg CreateListeningQuestionParams) (ListeningQuestion, error) {
+	row := q.db.QueryRow(ctx, createListeningQuestion,
+		arg.PassageID,
+		arg.Question,
+		arg.Options,
+		arg.CorrectAnswer,
+		arg.Explanation,
+		arg.OrderIndex,
+	)
+	var i ListeningQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.PassageID,
+		&i.Question,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Explanation,
+		&i.OrderIndex,
+	)
+	return i, err
+}
+
+const deleteListeningPassage = `-- name: DeleteListeningPassage :exec
+DELETE FROM listening_passages WHERE id = $1
+`
+
+func (q *Queries) DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteListeningPassage, id)
+	return err
+}
+
+const deleteListeningQuestion = `-- name: DeleteListeningQuestion :exec
+DELETE FROM listening_questions WHERE id = $1
+`
+
+func (q *Queries) DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteListeningQuestion, id)
+	return err
+}
+
 const getListeningPassageByID = `-- name: GetListeningPassageByID :one
 SELECT id, language_id, title, script, topic, level, order_index, created_at, updated_at FROM listening_passages
 WHERE id = $1
@@ -137,4 +233,117 @@ func (q *Queries) ListListeningQuestionsByPassage(ctx context.Context, passageID
 		return nil, err
 	}
 	return items, nil
+}
+
+const listListeningQuestionsByPassageAdmin = `-- name: ListListeningQuestionsByPassageAdmin :many
+SELECT id, passage_id, question, options, correct_answer, explanation, order_index FROM listening_questions
+WHERE passage_id = $1
+ORDER BY order_index
+`
+
+// Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
+func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error) {
+	rows, err := q.db.Query(ctx, listListeningQuestionsByPassageAdmin, passageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListeningQuestion
+	for rows.Next() {
+		var i ListeningQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.PassageID,
+			&i.Question,
+			&i.Options,
+			&i.CorrectAnswer,
+			&i.Explanation,
+			&i.OrderIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateListeningPassage = `-- name: UpdateListeningPassage :one
+UPDATE listening_passages
+SET title = $2, script = $3, topic = $4, level = $5, order_index = $6, updated_at = NOW()
+WHERE id = $1
+RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+`
+
+type UpdateListeningPassageParams struct {
+	ID         pgtype.UUID `json:"id"`
+	Title      string      `json:"title"`
+	Script     string      `json:"script"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	OrderIndex pgtype.Int4 `json:"order_index"`
+}
+
+func (q *Queries) UpdateListeningPassage(ctx context.Context, arg UpdateListeningPassageParams) (ListeningPassage, error) {
+	row := q.db.QueryRow(ctx, updateListeningPassage,
+		arg.ID,
+		arg.Title,
+		arg.Script,
+		arg.Topic,
+		arg.Level,
+		arg.OrderIndex,
+	)
+	var i ListeningPassage
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Title,
+		&i.Script,
+		&i.Topic,
+		&i.Level,
+		&i.OrderIndex,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateListeningQuestion = `-- name: UpdateListeningQuestion :one
+UPDATE listening_questions
+SET question = $2, options = $3, correct_answer = $4, explanation = $5, order_index = $6
+WHERE id = $1
+RETURNING id, passage_id, question, options, correct_answer, explanation, order_index
+`
+
+type UpdateListeningQuestionParams struct {
+	ID            pgtype.UUID `json:"id"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+}
+
+func (q *Queries) UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error) {
+	row := q.db.QueryRow(ctx, updateListeningQuestion,
+		arg.ID,
+		arg.Question,
+		arg.Options,
+		arg.CorrectAnswer,
+		arg.Explanation,
+		arg.OrderIndex,
+	)
+	var i ListeningQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.PassageID,
+		&i.Question,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Explanation,
+		&i.OrderIndex,
+	)
+	return i, err
 }
