@@ -20,7 +20,7 @@ export default function AdminUserDetailPage({ params }: { params: { username: st
       </Link>
       <PageHeader title="Chi tiết học viên" description="Thông tin hồ sơ và quyền truy cập." />
 
-      {loading && <Spinner />}
+      {loading && !user && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
 
       {user && (

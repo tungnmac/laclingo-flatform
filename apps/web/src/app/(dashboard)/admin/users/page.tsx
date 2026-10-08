@@ -96,7 +96,7 @@ export default function AdminUsersPage() {
         </label>
       </div>
 
-      {loading && <Spinner />}
+      {loading && !data && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
       {data && data.items.length === 0 && <EmptyState title="Không tìm thấy học viên nào" icon="👤" />}
 
