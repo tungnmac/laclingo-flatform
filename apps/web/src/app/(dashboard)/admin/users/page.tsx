@@ -143,13 +143,13 @@ export default function AdminUsersPage() {
                       </p>
                       <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
                     </div>
-                    <div className="flex w-16 shrink-0 justify-center">
+                    <div className="flex w-16 shrink-0 justify-end">
                       <RoleBadge user={u} />
                     </div>
-                    <div className="flex w-20 shrink-0 justify-center">
+                    <div className="flex w-20 shrink-0 justify-end">
                       <ActiveBadge user={u} />
                     </div>
-                    <div className="flex w-4 shrink-0 justify-center">
+                    <div className="flex w-4 shrink-0 justify-end">
                       {canExpand && (
                         <span className={cn('text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
                           ▾
