@@ -477,26 +477,60 @@ func (s *ListeningService) CreateOrUpdateTopic(ctx context.Context, req Listenin
 }
 
 // ListTopicsAdmin trả về toàn bộ chủ đề luyện nghe của 1 ngôn ngữ (icon/thứ tự hiển thị)
+// ListTopicsAdmin trả về toàn bộ chủ đề luyện nghe của 1 ngôn ngữ — gộp chủ
+// đề ĐÃ ĐĂNG KÝ (có icon/thứ tự riêng, trong listening_topics) với chủ đề
+// ĐANG DÙNG trong bài luyện nghe nhưng CHƯA đăng ký (suy từ
+// listening_passages.topic, icon mặc định 🎧) — nếu chỉ lấy từ
+// listening_topics thì tab Chủ đề (và filter chủ đề) sẽ trống trơn ngay cả
+// khi bài luyện nghe đã có chủ đề (chỉ chưa ai bấm "Thêm chủ đề" cho nó).
 func (s *ListeningService) ListTopicsAdmin(ctx context.Context, languageID, search string, page, pageSize int32) (PageResult[ListeningTopicAdminResponse], error) {
-	limit, offset := NormalizePage(page, pageSize)
-	rows, err := s.repo.ListListeningTopicsByLanguageAdmin(ctx, db.ListListeningTopicsByLanguageAdminParams{
+	registeredRows, err := s.repo.ListListeningTopicsByLanguageAdmin(ctx, db.ListListeningTopicsByLanguageAdminParams{
 		LanguageID: languageID,
-		Search:     pgtype.Text{String: search, Valid: search != ""},
-		Limit:      limit,
-		Offset:     offset,
+		Limit:      1000,
 	})
 	if err != nil {
 		return PageResult[ListeningTopicAdminResponse]{}, err
 	}
-	results := make([]ListeningTopicAdminResponse, 0, len(rows))
-	var total int64
-	for _, t := range rows {
-		total = t.TotalCount
-		results = append(results, toListeningTopicAdminResponse(db.ListeningTopic{
-			LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex,
-		}))
+
+	merged := make(map[string]ListeningTopicAdminResponse, len(registeredRows))
+	order := make([]string, 0, len(registeredRows))
+	for _, t := range registeredRows {
+		merged[t.Name] = ListeningTopicAdminResponse{LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex}
+		order = append(order, t.Name)
 	}
-	return PageResult[ListeningTopicAdminResponse]{Items: results, Total: total}, nil
+
+	derivedRows, err := s.repo.ListListeningTopics(ctx, languageID)
+	if err != nil {
+		return PageResult[ListeningTopicAdminResponse]{}, err
+	}
+	for _, t := range derivedRows {
+		if _, ok := merged[t.Name]; ok {
+			continue
+		}
+		merged[t.Name] = ListeningTopicAdminResponse{LanguageID: languageID, Name: t.Name, Icon: t.Icon, OrderIndex: int32(len(order))}
+		order = append(order, t.Name)
+	}
+
+	q := strings.ToLower(search)
+	results := make([]ListeningTopicAdminResponse, 0, len(order))
+	for _, name := range order {
+		if q != "" && !strings.Contains(strings.ToLower(name), q) {
+			continue
+		}
+		results = append(results, merged[name])
+	}
+
+	total := int64(len(results))
+	limit, offset := NormalizePage(page, pageSize)
+	start := int(offset)
+	if start > len(results) {
+		start = len(results)
+	}
+	end := start + int(limit)
+	if end > len(results) {
+		end = len(results)
+	}
+	return PageResult[ListeningTopicAdminResponse]{Items: results[start:end], Total: total}, nil
 }
 
 // DeleteTopic xoá 1 chủ đề (chỉ xoá metadata hiển thị — bài luyện nghe có topic
