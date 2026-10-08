@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -14,6 +15,7 @@ import { grammarService } from '@/features/grammar/grammar.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
 
@@ -139,9 +141,15 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
         {!showForm && (
-          <Button size="sm" onClick={onCreateNew}>
-            + Tạo chủ đề
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton<GrammarTopicAdmin>
+              fetchAll={() => fetchAllPages((p, ps) => grammarService.listTopicsAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch }))}
+              filename={`grammar-topics-${languageId}.json`}
+            />
+            <Button size="sm" onClick={onCreateNew}>
+              + Tạo chủ đề
+            </Button>
+          </div>
         )}
       </div>
 
@@ -305,9 +313,19 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">📖 Bài học</h2>
         {!showForm && (
-          <Button size="sm" disabled={topics.length === 0} onClick={onCreateNew}>
-            + Tạo bài học
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton<GrammarLessonAdmin>
+              fetchAll={() =>
+                fetchAllPages((p, ps) =>
+                  grammarService.listLessonsAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch, topicId: topicFilter, level: levelFilter }),
+                )
+              }
+              filename={`grammar-lessons-${languageId}.json`}
+            />
+            <Button size="sm" disabled={topics.length === 0} onClick={onCreateNew}>
+              + Tạo bài học
+            </Button>
+          </div>
         )}
       </div>
       {topics.length === 0 && <p className="text-sm text-slate-500">Tạo chủ đề trước khi thêm bài học.</p>}

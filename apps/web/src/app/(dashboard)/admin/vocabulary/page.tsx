@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -13,6 +14,7 @@ import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadg
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
 
@@ -116,9 +118,15 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
         {!showForm && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            + Thêm/sửa chủ đề
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton<VocabularyTopicAdmin>
+              fetchAll={() => fetchAllPages((p, ps) => vocabularyService.listTopicsAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch }))}
+              filename={`vocabulary-topics-${languageId}.json`}
+            />
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              + Thêm/sửa chủ đề
+            </Button>
+          </div>
         )}
       </div>
 
@@ -278,9 +286,25 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-900">📚 Từ vựng</h2>
         {!showForm && (
-          <Button size="sm" onClick={onCreateNew}>
-            + Thêm từ
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton<VocabularyAdmin>
+              fetchAll={() =>
+                fetchAllPages((p, ps) =>
+                  vocabularyService.listVocabulariesAdmin(languageId, {
+                    page: p,
+                    pageSize: ps,
+                    q: debouncedSearch,
+                    topic: topicFilter,
+                    level: levelFilter,
+                  }),
+                )
+              }
+              filename={`vocabulary-${languageId}.json`}
+            />
+            <Button size="sm" onClick={onCreateNew}>
+              + Thêm từ
+            </Button>
+          </div>
         )}
       </div>
 

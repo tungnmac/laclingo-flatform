@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +13,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarExercise, GrammarExerciseRequest } from '@/types/api'
 
@@ -109,7 +111,19 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
       <PageHeader
         title="Bài tập ngữ pháp"
         description="Trắc nghiệm (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK) cho bài học này."
-        action={!showForm && <Button onClick={onCreateNew}>+ Tạo bài tập</Button>}
+        action={
+          !showForm && (
+            <div className="flex gap-2">
+              <ExportButton<GrammarExercise>
+                fetchAll={() =>
+                  fetchAllPages((p, ps) => grammarService.listExercisesAdmin(params.lessonId, { page: p, pageSize: ps, q: debouncedSearch }))
+                }
+                filename="grammar-exercises.json"
+              />
+              <Button onClick={onCreateNew}>+ Tạo bài tập</Button>
+            </div>
+          )
+        }
       />
 
       <label className="mb-4 block text-sm font-medium text-slate-700">

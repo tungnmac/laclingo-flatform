@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -13,6 +14,7 @@ import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest } from '@/types/api'
 
@@ -94,7 +96,19 @@ export default function AdminListeningPage() {
       <PageHeader
         title="Luyện nghe"
         description="Bài luyện nghe (script đọc bằng TTS) + câu hỏi hiểu nội dung."
-        action={!showForm && <Button onClick={onCreateNew}>+ Tạo bài</Button>}
+        action={
+          !showForm && (
+            <div className="flex gap-2">
+              <ExportButton<ListeningPassageAdmin>
+                fetchAll={() =>
+                  fetchAllPages((p, ps) => listeningService.listPassagesAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch, level }))
+                }
+                filename={`listening-passages-${languageId}.json`}
+              />
+              <Button onClick={onCreateNew}>+ Tạo bài</Button>
+            </div>
+          )
+        }
       />
 
       <div className="mb-4 flex flex-wrap gap-4">

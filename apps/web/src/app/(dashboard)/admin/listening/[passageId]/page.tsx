@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +13,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import type { ListeningQuestionAdmin, ListeningQuestionRequest } from '@/types/api'
 
 const PAGE_SIZE = 20
@@ -100,7 +102,19 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
       <PageHeader
         title="Câu hỏi hiểu nội dung"
         description="Trắc nghiệm cho bài luyện nghe này."
-        action={!showForm && <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>}
+        action={
+          !showForm && (
+            <div className="flex gap-2">
+              <ExportButton<ListeningQuestionAdmin>
+                fetchAll={() =>
+                  fetchAllPages((p, ps) => listeningService.listQuestionsAdmin(params.passageId, { page: p, pageSize: ps, q: debouncedSearch }))
+                }
+                filename="listening-questions.json"
+              />
+              <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>
+            </div>
+          )
+        }
       />
 
       <label className="mb-4 block text-sm font-medium text-slate-700">

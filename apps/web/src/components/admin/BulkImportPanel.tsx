@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { inputClass } from '@/features/auth/components/AuthForm'
@@ -22,9 +22,25 @@ export function BulkImportPanel<T>({
   onDone?: () => void
 }) {
   const [text, setText] = useState('')
+  const [fileName, setFileName] = useState<string | null>(null)
   const [results, setResults] = useState<BulkImportResult[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const onFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    try {
+      setText(await file.text())
+      setFileName(file.name)
+    } catch {
+      setError('Không đọc được file.')
+    } finally {
+      // Cho phép chọn lại CÙNG file lần 2 (onChange không bắn nếu value không đổi)
+      e.target.value = ''
+    }
+  }
 
   const onSubmit = async () => {
     let items: T[]
@@ -59,11 +75,24 @@ export function BulkImportPanel<T>({
     <Card>
       <h3 className="text-base font-semibold text-slate-900">📥 Nhập hàng loạt (JSON)</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Dán 1 mảng JSON — mỗi phần tử cùng cấu trúc với form thêm 1 cái phía trên.
+        Dán 1 mảng JSON (hoặc tải lên file .json) — mỗi phần tử cùng cấu trúc với form thêm 1 cái phía trên.
       </p>
+      <label className="mt-3 block text-sm font-medium text-slate-700">
+        Tải lên file .json
+        <input
+          type="file"
+          accept=".json,application/json"
+          onChange={onFileChange}
+          className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+        />
+      </label>
+      {fileName && <p className="mt-1 text-xs text-slate-500">Đã nạp từ file: {fileName}</p>}
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value)
+          setFileName(null)
+        }}
         placeholder={placeholder}
         rows={6}
         className={cn(inputClass, 'mt-3 font-mono text-xs')}

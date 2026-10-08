@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +12,7 @@ import { challengeQuestionService } from '@/features/challenge/challenge-questio
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ChallengeQuestionAdmin, ChallengeQuestionRequest } from '@/types/api'
 
@@ -100,7 +102,19 @@ export default function AdminChallengeQuestionsPage() {
       <PageHeader
         title="Câu hỏi thách đấu"
         description="Ngân hàng câu hỏi trắc nghiệm dùng cho phòng thách đấu realtime."
-        action={!showForm && <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>}
+        action={
+          !showForm && (
+            <div className="flex gap-2">
+              <ExportButton<ChallengeQuestionAdmin>
+                fetchAll={() =>
+                  fetchAllPages((p, ps) => challengeQuestionService.list(languageId, { page: p, pageSize: ps, q: debouncedSearch, difficulty }))
+                }
+                filename={`challenge-questions-${languageId}.json`}
+              />
+              <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>
+            </div>
+          )
+        }
       />
 
       <div className="mb-4 flex flex-wrap gap-4">
