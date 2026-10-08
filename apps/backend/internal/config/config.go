@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // devJWTSecret chỉ dùng cho môi trường development khi chưa set JWT_SECRET
@@ -26,6 +28,11 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	// .env chỉ tồn tại ở local dev — không có file này (production chạy bằng
+	// env var thật do hạ tầng cấp) thì bỏ qua lỗi, KHÔNG được làm Load() fail.
+	// Không set lại biến đã có trong môi trường (ưu tiên env thật hơn .env).
+	_ = godotenv.Load()
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable"
