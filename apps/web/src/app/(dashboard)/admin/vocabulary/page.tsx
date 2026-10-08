@@ -81,28 +81,55 @@ function TopicsSection({
   onChanged: () => void
 }) {
   const confirm = useConfirm()
-  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
-  const { data, error, loading, reload } = useApi(
-    () => vocabularyService.listTopicsAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch }),
-    [languageId, page, debouncedSearch],
-  )
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<VocabularyTopicAdmin | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Chủ đề cha nào đang mở dropdown xem các chủ đề con (theo tên).
+  const [openParents, setOpenParents] = useState<Set<string>>(new Set())
 
   // Chỉ chủ đề CẤP CAO NHẤT mới được chọn làm cha (tối đa lồng 2 cấp — backend
-  // cũng tự chặn lại nếu chọn 1 chủ đề đã có con khác, hoặc đã là con).
-  const parentOptions = allTopics.filter((t) => !t.parent_name)
+  // cũng tự chặn lại nếu chọn 1 chủ đề đã có con khác, hoặc đã là con). Khi
+  // sửa, loại chính nó ra khỏi danh sách (không thể tự làm cha của mình).
+  const parentOptions = allTopics.filter((t) => !t.parent_name && t.name !== editing?.name)
+
+  const childrenOf = (parentName: string) => allTopics.filter((t) => t.parent_name === parentName)
+
+  const toggleOpen = (name: string) => {
+    setOpenParents((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  const query = debouncedSearch.trim().toLowerCase()
+  const matchesQuery = (name: string) => !query || name.toLowerCase().includes(query)
+  const topLevel = allTopics
+    .filter((t) => !t.parent_name)
+    .filter((t) => matchesQuery(t.name) || childrenOf(t.name).some((c) => matchesQuery(c.name)))
 
   const reloadAll = () => {
-    reload()
     onChanged()
   }
 
+  const onCreateNew = () => {
+    setEditing(null)
+    setFormError(null)
+    setShowForm(true)
+  }
+
+  const onEdit = (t: VocabularyTopicAdmin) => {
+    setEditing(t)
+    setFormError(null)
+    setShowForm(true)
+  }
+
   const onDelete = async (t: VocabularyTopicAdmin) => {
-    const hasChildren = allTopics.some((c) => c.parent_name === t.name)
+    const hasChildren = childrenOf(t.name).length > 0
     const warning = hasChildren
       ? ` Chủ đề này đang có chủ đề con — xoá sẽ xoá CẢ metadata của các chủ đề con đó (từ vựng vẫn giữ nguyên).`
       : ''
@@ -117,7 +144,7 @@ function TopicsSection({
     const form = new FormData(e.currentTarget)
     const body: VocabularyTopicRequest = {
       language_id: languageId,
-      name: String(form.get('name') ?? '').trim(),
+      name: editing ? editing.name : String(form.get('name') ?? '').trim(),
       icon: String(form.get('icon') ?? '📘').trim() || '📘',
       order_index: Number(form.get('order_index')),
       parent_name: String(form.get('parent_name') ?? '').trim() || null,
@@ -127,6 +154,7 @@ function TopicsSection({
     try {
       await vocabularyService.createOrUpdateTopic(body)
       setShowForm(false)
+      setEditing(null)
       reloadAll()
     } catch (err) {
       setFormError((err as Error).message)
@@ -134,6 +162,22 @@ function TopicsSection({
       setSaving(false)
     }
   }
+
+  const renderRow = (t: VocabularyTopicAdmin, isChild: boolean) => (
+    <li key={t.name} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-6', isChild && 'bg-slate-50 pl-10 sm:pl-12')}>
+      {isChild && <span className="text-slate-300">↳</span>}
+      <span className="text-xl">{t.icon}</span>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{t.name}</p>
+      <div className="flex shrink-0 gap-2">
+        <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
+          Sửa
+        </Button>
+        <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
+          Xoá
+        </Button>
+      </div>
+    </li>
+  )
 
   return (
     <section className="mb-8 space-y-4">
@@ -145,8 +189,8 @@ function TopicsSection({
               fetchAll={() => fetchAllPages((p, ps) => vocabularyService.listTopicsAdmin(languageId, { page: p, pageSize: ps, q: debouncedSearch }))}
               filename={`vocabulary-topics-${languageId}.json`}
             />
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              + Thêm/sửa chủ đề
+            <Button size="sm" onClick={onCreateNew}>
+              + Thêm chủ đề
             </Button>
           </div>
         )}
@@ -157,28 +201,27 @@ function TopicsSection({
         <input
           type="search"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
-          }}
-          placeholder="Tìm theo tên chủ đề..."
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên chủ đề (cả chủ đề cha và con)..."
           className={cn(inputClass, 'max-w-xs')}
         />
       </label>
 
       {showForm && (
         <Card>
-          <p className="mb-3 text-sm text-slate-500">
-            Nếu đặt tên trùng với chủ đề đã có, icon/thứ tự sẽ được cập nhật (upsert).
-          </p>
-          <form onSubmit={onSubmit} className="space-y-4">
+          <h3 className="mb-3 text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.name}` : 'Thêm chủ đề mới'}</h3>
+          <form key={editing?.name ?? '__new__'} onSubmit={onSubmit} className="space-y-4">
             <label className="block text-sm font-medium text-slate-700">
               Tên chủ đề
-              <input name="name" type="text" required className={inputClass} placeholder="Công nghệ thông tin" />
+              {editing ? (
+                <p className="mt-1 text-sm text-slate-900">{editing.name} (không thể đổi tên khi sửa)</p>
+              ) : (
+                <input name="name" type="text" required className={inputClass} placeholder="Công nghệ thông tin" />
+              )}
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Chủ đề cha (để trống = chủ đề cấp cao nhất)
-              <select name="parent_name" defaultValue="" className={inputClass}>
+              <select name="parent_name" defaultValue={editing?.parent_name ?? ''} className={inputClass}>
                 <option value="">— Không có, đây là chủ đề cấp cao nhất —</option>
                 {parentOptions.map((p) => (
                   <option key={p.name} value={p.name}>
@@ -190,11 +233,11 @@ function TopicsSection({
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
                 Icon (emoji)
-                <input name="icon" type="text" defaultValue="📘" className={inputClass} />
+                <input name="icon" type="text" defaultValue={editing?.icon ?? '📘'} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Thứ tự
-                <input name="order_index" type="number" defaultValue={0} className={inputClass} />
+                Thứ tự hiển thị
+                <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
               </label>
             </div>
             {formError && (
@@ -206,7 +249,14 @@ function TopicsSection({
               <Button type="submit" disabled={saving}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setShowForm(false)
+                  setEditing(null)
+                }}
+              >
                 Hủy
               </Button>
             </div>
@@ -214,31 +264,52 @@ function TopicsSection({
         </Card>
       )}
 
-      {loading && <Spinner />}
-      {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {allTopics.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {topLevel.length === 0 && allTopics.length > 0 && <EmptyState title="Không tìm thấy chủ đề nào" icon="🔍" />}
 
-      {data && data.items.length > 0 && (
+      {topLevel.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.items.map((t) => (
-              <li key={t.name} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-6', t.parent_name && 'pl-10 sm:pl-12')}>
-                {t.parent_name && <span className="text-slate-300">↳</span>}
-                <span className="text-xl">{t.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-700">{t.name}</p>
-                  {t.parent_name && <p className="truncate text-xs text-slate-400">thuộc: {t.parent_name}</p>}
+            {topLevel.map((t) => {
+              const children = childrenOf(t.name)
+              const hasChildren = children.length > 0
+              const isOpen = openParents.has(t.name) || (query !== '' && children.some((c) => matchesQuery(c.name)))
+              return (
+                <div key={t.name}>
+                  <li className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
+                    {hasChildren ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleOpen(t.name)}
+                        className="shrink-0 text-slate-400 transition-transform hover:text-slate-600"
+                        aria-label={isOpen ? 'Thu gọn chủ đề con' : 'Xem chủ đề con'}
+                      >
+                        <span className={cn('inline-block transition-transform', isOpen && 'rotate-90')}>▸</span>
+                      </button>
+                    ) : (
+                      <span className="w-4 shrink-0" />
+                    )}
+                    <span className="text-xl">{t.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-700">{t.name}</p>
+                      {hasChildren && <p className="text-xs text-slate-400">{children.length} chủ đề con</p>}
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
+                        Sửa
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
+                        Xoá
+                      </Button>
+                    </div>
+                  </li>
+                  {hasChildren && isOpen && <ul className="divide-y divide-slate-100">{children.map((c) => renderRow(c, true))}</ul>}
                 </div>
-                <span className="text-xs text-slate-400">#{t.order_index}</span>
-                <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
-                  Xoá
-                </Button>
-              </li>
-            ))}
+              )
+            })}
           </ul>
         </Card>
       )}
-      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
 
       <BulkImportPanel<VocabularyTopicRequest>
         onImport={(items) => vocabularyService.bulkImportTopics(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
