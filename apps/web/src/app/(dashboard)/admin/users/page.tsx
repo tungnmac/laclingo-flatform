@@ -34,7 +34,16 @@ export default function AdminUsersPage() {
   )
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [editingModulesId, setEditingModulesId] = useState<string | null>(null)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+
+  const toggleOpen = (id: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const onToggleRole = async (u: User) => {
     const nextRole = u.role === 'admin' ? 'user' : 'admin'
@@ -124,16 +133,16 @@ export default function AdminUsersPage() {
           <ul className="divide-y divide-slate-100">
             {data.items.map((u) => {
               const isSelf = u.id === me?.id
-              const isOpen = editingModulesId === u.id
+              const isOpen = openIds.has(u.id)
               const canExpand = u.role === 'admin'
               return (
                 <li key={u.id}>
                   <div
                     role={canExpand ? 'button' : undefined}
                     tabIndex={canExpand ? 0 : undefined}
-                    onClick={() => canExpand && setEditingModulesId(isOpen ? null : u.id)}
+                    onClick={() => canExpand && toggleOpen(u.id)}
                     onKeyDown={(e) => {
-                      if (canExpand && (e.key === 'Enter' || e.key === ' ')) setEditingModulesId(isOpen ? null : u.id)
+                      if (canExpand && (e.key === 'Enter' || e.key === ' ')) toggleOpen(u.id)
                     }}
                     className={cn(
                       'flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6',
@@ -190,7 +199,7 @@ export default function AdminUsersPage() {
 
                   {isOpen && (
                     <div className="px-4 pb-4 sm:px-6">
-                      <ModulesEditor user={u} isSelf={isSelf} onClose={() => setEditingModulesId(null)} onSaved={reload} />
+                      <ModulesEditor user={u} isSelf={isSelf} onClose={() => toggleOpen(u.id)} onSaved={reload} />
                     </div>
                   )}
                 </li>
