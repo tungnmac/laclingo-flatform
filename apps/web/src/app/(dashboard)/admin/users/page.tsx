@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { useToast } from '@/components/ui/ToastProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
@@ -225,6 +226,7 @@ function ModulesEditor({
   onClose: () => void
   onSaved: () => void
 }) {
+  const toast = useToast()
   const [selected, setSelected] = useState<string[]>(user.admin_modules ?? [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -239,9 +241,11 @@ function ModulesEditor({
     try {
       await userService.setModules(user.id, selected)
       onSaved()
-      onClose()
+      toast(`Đã lưu quyền module cho "${displayName(user)}"`)
     } catch (err) {
-      setError((err as Error).message)
+      const message = (err as Error).message
+      setError(message)
+      toast(message, 'error')
     } finally {
       setSaving(false)
     }
