@@ -10,10 +10,14 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100),
     avatar_url TEXT,
     streak_count INT DEFAULT 0,
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'owner')),
     -- Module /admin mà user này (khi role='admin') được cấp quyền truy cập —
-    -- role='admin' KHÔNG còn tự động full quyền mọi module.
+    -- role='admin' KHÔNG còn tự động full quyền mọi module. role='owner' luôn
+    -- có mọi module (middleware bypass), không ai thu hồi/vô hiệu hoá được owner.
     admin_modules TEXT[] NOT NULL DEFAULT '{}',
+    -- Vô hiệu hoá tài khoản (owner-only) — khoá đăng nhập, giữ lại dữ liệu liên
+    -- quan để có thể khôi phục, thay cho xoá cứng (cascade phức tạp, khó hồi phục).
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     exp BIGINT NOT NULL DEFAULT 0,
     level INT NOT NULL DEFAULT 1,
     points BIGINT NOT NULL DEFAULT 0,

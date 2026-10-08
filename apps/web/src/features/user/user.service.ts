@@ -21,4 +21,9 @@ export const userService = {
       method: 'PUT',
       body: JSON.stringify({ admin_modules: adminModules }),
     }),
+  setActive: (id: string, isActive: boolean) =>
+    apiFetch<User>(`/admin/users/${encodeURIComponent(id)}/active`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: isActive }),
+    }),
 }

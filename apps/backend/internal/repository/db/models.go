@@ -174,6 +174,7 @@ type User struct {
 	StreakCount  pgtype.Int4        `json:"streak_count"`
 	Role         string             `json:"role"`
 	AdminModules []string           `json:"admin_modules"`
+	IsActive     bool               `json:"is_active"`
 	Exp          int64              `json:"exp"`
 	Level        int32              `json:"level"`
 	Points       int64              `json:"points"`

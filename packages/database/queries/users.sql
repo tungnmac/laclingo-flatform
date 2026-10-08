@@ -77,6 +77,14 @@ SET admin_modules = sqlc.arg('admin_modules'), updated_at = NOW()
 WHERE id = sqlc.arg('id')
 RETURNING *;
 
+-- name: UpdateUserActive :one
+-- Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
+-- xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
+UPDATE users
+SET is_active = sqlc.arg('is_active'), updated_at = NOW()
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
 -- name: AddUserRewards :one
 -- level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 -- tính lại công thức level trong SQL.

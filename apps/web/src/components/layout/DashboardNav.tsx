@@ -34,7 +34,8 @@ export function Sidebar({ user }: { user: User }) {
   const pathname = usePathname()
   const router = useRouter()
   const logout = useSession((s) => s.logout)
-  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, ...(user.role === 'admin' ? [ADMIN_ITEM] : [])]
+  const isAdmin = user.role === 'admin' || user.role === 'owner'
+  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
 
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">

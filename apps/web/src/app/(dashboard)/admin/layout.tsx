@@ -14,7 +14,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const user = useSession((s) => s.user)
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner'
   const requiredModule = moduleForAdminPath(pathname)
   const allowed = isAdmin && (requiredModule === null || hasModule(user, requiredModule))
 

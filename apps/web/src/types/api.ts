@@ -7,8 +7,9 @@ export interface User {
   full_name: string
   avatar_url: string
   streak_count: number
-  role: 'user' | 'admin'
+  role: 'user' | 'admin' | 'owner'
   admin_modules?: string[]
+  is_active: boolean
   level: number
   exp: number
   points: number

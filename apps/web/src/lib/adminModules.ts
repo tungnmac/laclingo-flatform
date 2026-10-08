@@ -24,5 +24,7 @@ export function moduleForAdminPath(pathname: string): string | null {
 }
 
 export function hasModule(user: Pick<User, 'role' | 'admin_modules'> | null | undefined, moduleKey: string): boolean {
-  return !!user && user.role === 'admin' && !!user.admin_modules?.includes(moduleKey)
+  if (!user) return false
+  if (user.role === 'owner') return true // owner luôn có mọi module (khớp RequireModule backend)
+  return user.role === 'admin' && !!user.admin_modules?.includes(moduleKey)
 }

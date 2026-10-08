@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/ui/States'
+import { hasModule } from '@/lib/adminModules'
 import { useSession } from '@/store/session'
 
 const sections = [
@@ -16,7 +17,7 @@ const sections = [
 
 export default function AdminHubPage() {
   const user = useSession((s) => s.user)
-  const visible = sections.filter((s) => user?.admin_modules?.includes(s.key))
+  const visible = sections.filter((s) => hasModule(user, s.key))
 
   return (
     <>

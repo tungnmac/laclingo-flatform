@@ -87,6 +87,10 @@ func RequireModule(svc *service.UserService) fiber.Handler {
 		if err != nil {
 			return err
 		}
+		// owner luôn có mọi module — bỏ qua kiểm tra admin_modules.
+		if user.Role == "owner" {
+			return c.Next()
+		}
 		if user.Role != "admin" {
 			return fiber.NewError(fiber.StatusForbidden, "yêu cầu quyền admin")
 		}

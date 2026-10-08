@@ -140,6 +140,9 @@ type Querier interface {
 	UpdateListeningPassage(ctx context.Context, arg UpdateListeningPassageParams) (ListeningPassage, error)
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
+	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
+	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
+	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)
 	UpdateUserModules(ctx context.Context, arg UpdateUserModulesParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	// Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý

@@ -15,4 +15,5 @@ var (
 	ErrBanned             = errors.New("bạn đã bị mời ra khỏi phòng này")
 	ErrForbidden          = errors.New("bạn không có quyền thực hiện hành động này")
 	ErrDuplicate          = errors.New("dữ liệu đã tồn tại")
+	ErrAccountDeactivated = errors.New("tài khoản của bạn đã bị khoá, vui lòng liên hệ quản trị viên")
 )

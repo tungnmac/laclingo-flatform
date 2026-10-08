@@ -3,13 +3,11 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { Pagination } from '@/components/admin/Pagination'
+import { ActiveBadge, ActiveToggleButton, ModulesEditor, RoleBadge, RoleToggleButton } from '@/components/admin/UserAdminControls'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
-import { useToast } from '@/components/ui/ToastProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
@@ -17,13 +15,10 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { ADMIN_MODULES } from '@/lib/adminModules'
 import { cn, displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
-import type { User } from '@/types/api'
 
 const PAGE_SIZE = 20
 
 export default function AdminUsersPage() {
-  const confirm = useConfirm()
-  const toast = useToast()
   const me = useSession((s) => s.user)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -34,7 +29,6 @@ export default function AdminUsersPage() {
     () => userService.listUsersAdmin({ page, pageSize: PAGE_SIZE, q: debouncedSearch, role, module: moduleFilter }),
     [page, debouncedSearch, role, moduleFilter],
   )
-  const [busyId, setBusyId] = useState<string | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
   const toggleOpen = (id: string) => {
@@ -44,23 +38,6 @@ export default function AdminUsersPage() {
       else next.add(id)
       return next
     })
-  }
-
-  const onToggleRole = async (u: User) => {
-    const nextRole = u.role === 'admin' ? 'user' : 'admin'
-    const verb = nextRole === 'admin' ? 'Cấp quyền admin cho' : 'Thu hồi quyền admin của'
-    if (!(await confirm({ description: `${verb} "${displayName(u)}"?`, danger: nextRole === 'user' }))) return
-
-    setBusyId(u.id)
-    try {
-      await userService.setRole(u.id, nextRole)
-      reload()
-      toast(nextRole === 'admin' ? `Đã cấp quyền admin cho "${displayName(u)}"` : `Đã thu hồi quyền admin của "${displayName(u)}"`)
-    } catch (err) {
-      toast((err as Error).message, 'error')
-    } finally {
-      setBusyId(null)
-    }
   }
 
   return (
@@ -131,7 +108,7 @@ export default function AdminUsersPage() {
               const isOpen = openIds.has(u.id)
               const canExpand = u.role === 'admin'
               return (
-                <li key={u.id}>
+                <li key={u.id} className={cn(!u.is_active && 'opacity-60')}>
                   <div
                     role={canExpand ? 'button' : undefined}
                     tabIndex={canExpand ? 0 : undefined}
@@ -166,35 +143,20 @@ export default function AdminUsersPage() {
                       </p>
                       <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
                     </div>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
-                        u.role === 'admin' ? 'bg-indigo-50 text-indigo-700 ring-indigo-200' : 'bg-slate-50 text-slate-600 ring-slate-200',
-                      )}
-                    >
-                      {u.role}
-                    </span>
+                    <RoleBadge user={u} />
+                    <ActiveBadge user={u} />
                     {canExpand && (
                       <span className={cn('shrink-0 text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
                         ▾
                       </span>
                     )}
-                    <Button
-                      variant={u.role === 'admin' ? 'danger' : 'secondary'}
-                      size="sm"
-                      disabled={isSelf && u.role === 'admin'}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onToggleRole(u)
-                      }}
-                    >
-                      {busyId === u.id ? 'Đang lưu...' : u.role === 'admin' ? 'Thu hồi quyền' : 'Cấp quyền admin'}
-                    </Button>
+                    <RoleToggleButton user={u} onChanged={reload} />
+                    <ActiveToggleButton user={u} onChanged={reload} />
                   </div>
 
                   {isOpen && (
                     <div className="px-4 pb-4 sm:px-6">
-                      <ModulesEditor user={u} isSelf={isSelf} onClose={() => toggleOpen(u.id)} onSaved={reload} />
+                      <ModulesEditor user={u} onClose={() => toggleOpen(u.id)} onSaved={reload} />
                     </div>
                   )}
                 </li>
@@ -205,76 +167,5 @@ export default function AdminUsersPage() {
       )}
       {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
     </>
-  )
-}
-
-/** Panel chọn module /admin mà user này được cấp quyền truy cập */
-function ModulesEditor({
-  user,
-  isSelf,
-  onClose,
-  onSaved,
-}: {
-  user: User
-  isSelf: boolean
-  onClose: () => void
-  onSaved: () => void
-}) {
-  const toast = useToast()
-  const [selected, setSelected] = useState<string[]>(user.admin_modules ?? [])
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const toggle = (key: string) => {
-    setSelected((prev) => (prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]))
-  }
-
-  const onSave = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      await userService.setModules(user.id, selected)
-      onSaved()
-      toast(`Đã lưu quyền module cho "${displayName(user)}"`)
-    } catch (err) {
-      const message = (err as Error).message
-      setError(message)
-      toast(message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="ml-12 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
-      <p className="mb-3 text-sm font-medium text-slate-700">Module được cấp quyền truy cập /admin:</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {ADMIN_MODULES.map((m) => {
-          const lockedSelf = isSelf && m.key === 'users'
-          return (
-            <label key={m.key} className={cn('flex items-center gap-2 text-sm', lockedSelf ? 'text-slate-400' : 'text-slate-700')}>
-              <input
-                type="checkbox"
-                checked={selected.includes(m.key)}
-                disabled={lockedSelf}
-                onChange={() => toggle(m.key)}
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              {m.icon} {m.label}
-            </label>
-          )
-        })}
-      </div>
-      {isSelf && <p className="mt-2 text-xs text-slate-500">Không thể tự rút quyền module &quot;Học viên&quot; của chính mình.</p>}
-      {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
-      <div className="mt-3 flex gap-2">
-        <Button size="sm" disabled={saving} onClick={onSave}>
-          {saving ? 'Đang lưu...' : 'Lưu'}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onClose}>
-          Hủy
-        </Button>
-      </div>
-    </div>
   )
 }

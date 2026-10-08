@@ -35,6 +35,7 @@ func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
 	api.Get("/by-username/:username", h.GetByUsernameAdmin)
 	api.Put("/:id/role", h.SetRole)
 	api.Put("/:id/modules", h.SetModules)
+	api.Put("/:id/active", h.SetActive)
 }
 
 // ListUsersAdmin godoc
@@ -133,6 +134,39 @@ func (h *UserHandler) SetModules(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
 	result, err := h.svc.SetModules(c.UserContext(), currentUserID(c), id, req.AdminModules)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+type setUserActiveRequest struct {
+	IsActive bool `json:"is_active" example:"false"`
+}
+
+// SetActive godoc
+// @Summary      Vô hiệu hoá/khôi phục tài khoản (owner-only)
+// @Description  Soft-delete — is_active=false khoá đăng nhập, giữ lại dữ liệu liên quan. Chỉ owner mới gọi được, không áp dụng lên owner hoặc chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                 true  "User ID (UUID)"
+// @Param        body  body      setUserActiveRequest  true  "Trạng thái mới"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Router       /admin/users/{id}/active [put]
+func (h *UserHandler) SetActive(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserActiveRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetActive(c.UserContext(), currentUserID(c), id, req.IsActive)
 	if err != nil {
 		return err
 	}
