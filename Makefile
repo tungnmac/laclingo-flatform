@@ -63,10 +63,16 @@ seed:
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds_vocabulary.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0003_exercise_types_seed.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0004_challenge_questions_seed.sql
-	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0005_dialogues_seed.sql
+	# 0005_dialogues_seed.sql TẠM BỎ QUA: seed cho bảng dialogues/dialogue_lines
+	# nhưng migration tạo 2 bảng đó chưa có trên main (đang ở nhánh riêng
+	# feature/grammar-dialogues của đồng nghiệp) — chạy sẽ lỗi "relation does
+	# not exist". Bật lại dòng này khi migration dialogues được merge vào main.
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0006_missions_seed.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds_zh.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0007_vocabulary_topics_emoji_seed.sql
+	# 0008 chạy SAU seeds_zh.sql — cần language 'zh' đã tồn tại (listening seed
+	# có 1 bài tiếng Trung, FK vào languages.id).
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0008_listening_seed.sql
 	@echo "✅ Seed dữ liệu hoàn tất!"
 
 # Cấp quyền admin cho 1 user theo email — không có UI để cấp quyền admin đầu

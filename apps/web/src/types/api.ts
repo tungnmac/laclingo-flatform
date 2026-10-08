@@ -309,7 +309,13 @@ export interface WsKickedPayload {
 // =============================================================================
 
 export type MissionPeriod = 'daily' | 'weekly' | 'monthly' | 'event'
-export type MissionActionType = 'srs_review' | 'learn_word' | 'grammar_exercise' | 'challenge_participate' | 'challenge_win'
+export type MissionActionType =
+  | 'srs_review'
+  | 'learn_word'
+  | 'grammar_exercise'
+  | 'challenge_participate'
+  | 'challenge_win'
+  | 'listening_practice'
 
 // Body chung tạo/sửa nhiệm vụ (admin). starts_at/ends_at chỉ bắt buộc khi period = "event".
 export interface MissionRequest {
@@ -367,4 +373,42 @@ export interface LeaderboardEntry {
   exp: number
   points: number
   streak_count: number
+}
+
+// =============================================================================
+// Luyện nghe (listening practice)
+// =============================================================================
+
+export interface ListeningPassageSummary {
+  id: string
+  title: string
+  topic?: string
+  level: string
+  order_index: number
+}
+
+// KHÔNG có correct_answer — chỉ server biết, chấm qua listeningService.submit
+export interface ListeningQuestion {
+  id: string
+  question: string
+  options: string[]
+}
+
+export interface ListeningPassageDetail {
+  id: string
+  title: string
+  script: string
+  topic?: string
+  level: string
+  questions: ListeningQuestion[]
+}
+
+export interface SubmitListeningAnswerRequest {
+  answer: string
+}
+
+export interface SubmitListeningAnswerResponse {
+  correct: boolean
+  correct_answer: string
+  explanation?: string
 }

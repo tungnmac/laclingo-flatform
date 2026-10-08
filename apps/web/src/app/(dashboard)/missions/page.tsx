@@ -23,6 +23,7 @@ const actionIcons: Record<MyMission['action_type'], string> = {
   grammar_exercise: '✍️',
   challenge_participate: '🎮',
   challenge_win: '🏆',
+  listening_practice: '🎧',
 }
 
 export default function MissionsPage() {

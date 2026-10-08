@@ -32,7 +32,7 @@ type MissionRepository interface {
 var validMissionPeriods = map[string]bool{"daily": true, "weekly": true, "monthly": true, "event": true}
 var validMissionActions = map[string]bool{
 	"srs_review": true, "learn_word": true, "grammar_exercise": true,
-	"challenge_participate": true, "challenge_win": true,
+	"challenge_participate": true, "challenge_win": true, "listening_practice": true,
 }
 
 // MissionRequest — body chung cho tạo/sửa nhiệm vụ (admin). StartsAt/EndsAt
@@ -41,7 +41,7 @@ type MissionRequest struct {
 	Title        string     `json:"title" example:"Ôn tập 10 từ hôm nay"`
 	Description  string     `json:"description,omitempty"`
 	Period       string     `json:"period" example:"daily" enums:"daily,weekly,monthly,event"`
-	ActionType   string     `json:"action_type" example:"srs_review" enums:"srs_review,learn_word,grammar_exercise,challenge_participate,challenge_win"`
+	ActionType   string     `json:"action_type" example:"srs_review" enums:"srs_review,learn_word,grammar_exercise,challenge_participate,challenge_win,listening_practice"`
 	TargetCount  int32      `json:"target_count" minimum:"1" example:"10"`
 	RewardExp    int32      `json:"reward_exp" minimum:"0" example:"50"`
 	RewardPoints int32      `json:"reward_points" minimum:"0" example:"10"`

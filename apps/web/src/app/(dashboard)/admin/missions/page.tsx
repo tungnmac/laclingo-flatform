@@ -24,6 +24,7 @@ const actionOptions: { value: MissionActionType; label: string }[] = [
   { value: 'grammar_exercise', label: 'Luyện ngữ pháp' },
   { value: 'challenge_participate', label: 'Tham gia phòng thách đấu' },
   { value: 'challenge_win', label: 'Thắng phòng thách đấu' },
+  { value: 'listening_practice', label: 'Trả lời đúng câu hỏi luyện nghe' },
 ]
 
 function toDateInputValue(iso?: string) {
