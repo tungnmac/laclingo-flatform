@@ -138,9 +138,12 @@ export default function AdminUsersPage() {
                       </p>
                     </div>
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-                      <span className="shrink-0 whitespace-nowrap text-right text-xs text-slate-500">
-                        ⭐ Lv.{u.level} · 🏆 {u.points} · 🔥 {u.streak_count} · Tham gia {formatDate(u.created_at)}
-                      </span>
+                      <div className="shrink-0 text-right text-xs text-slate-500">
+                        <p>
+                          ⭐ Lv.{u.level} · 🏆 {u.points} · 🔥 {u.streak_count}
+                        </p>
+                        <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
+                      </div>
                       <RoleBadge user={u} />
                       <ActiveBadge user={u} />
                       {canExpand && (

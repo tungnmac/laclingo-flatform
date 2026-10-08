@@ -63,8 +63,7 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 -- name: ListUsersAdminPaged :many
 -- Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 -- role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
--- Owner luôn nổi lên đầu (role='owner' DESC) — chỉ có 1-vài tài khoản owner
--- nên không ảnh hưởng phân trang của phần còn lại.
+-- Thứ tự ưu tiên: owner → admin → user, mỗi nhóm sort theo created_at DESC.
 SELECT *, COUNT(*) OVER() AS total_count FROM users
 WHERE (sqlc.narg('search')::text IS NULL
     OR username ILIKE '%' || sqlc.narg('search')::text || '%'
@@ -72,7 +71,7 @@ WHERE (sqlc.narg('search')::text IS NULL
     OR full_name ILIKE '%' || sqlc.narg('search')::text || '%')
   AND (sqlc.narg('role')::text IS NULL OR role = sqlc.narg('role')::text)
   AND (sqlc.narg('module')::text IS NULL OR sqlc.narg('module')::text = ANY(admin_modules))
-ORDER BY (role = 'owner') DESC, created_at DESC
+ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, created_at DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: UpdateUserRole :one
