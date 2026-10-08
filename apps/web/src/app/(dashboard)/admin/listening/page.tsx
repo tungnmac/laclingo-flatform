@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/Card'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
-import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -365,29 +365,25 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
         </label>
         <label className="block text-sm font-medium text-slate-700">
           Chủ đề
-          <input
-            type="text"
-            list="listening-topic-filter-options"
-            value={topicFilter}
-            onChange={(e) => setTopicFilter(e.target.value)}
-            placeholder="Gõ để tìm hoặc chọn chủ đề..."
-            className={cn(inputClass, 'max-w-xs')}
-          />
-          <datalist id="listening-topic-filter-options">
+          <select value={topicFilter} onChange={(e) => setTopicFilter(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
+            <option value="">Tất cả</option>
             {topics.map((t) => (
-              <option key={t.name} value={t.name} />
+              <option key={t.name} value={t.name}>
+                {t.icon} {t.name}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
           Cấp độ
-          <input
-            type="text"
-            value={level}
-            onChange={(e) => setLevel(e.target.value)}
-            placeholder="A1, A2, ..."
-            className={cn(inputClass, 'max-w-[8rem]')}
-          />
+          <select value={level} onChange={(e) => setLevel(e.target.value)} className={cn(inputClass, 'max-w-[8rem]')}>
+            <option value="">Tất cả</option>
+            {CEFR_LEVELS.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                {lvl}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
