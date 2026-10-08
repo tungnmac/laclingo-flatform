@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
+import { IconPickerInput, TOPIC_ICON_OPTIONS, WORD_EMOJI_OPTIONS } from '@/components/admin/IconPickerInput'
 import { Pagination } from '@/components/admin/Pagination'
 import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -233,7 +234,7 @@ function TopicsSection({
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
                 Icon (emoji)
-                <input name="icon" type="text" defaultValue={editing?.icon ?? '📘'} className={inputClass} />
+                <IconPickerInput name="icon" defaultValue={editing?.icon ?? '📘'} options={TOPIC_ICON_OPTIONS} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 Thứ tự hiển thị
@@ -500,7 +501,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Emoji minh họa
-              <input name="image_emoji" type="text" defaultValue={editing?.image_emoji} className={inputClass} placeholder="🍎" />
+              <IconPickerInput name="image_emoji" defaultValue={editing?.image_emoji ?? ''} options={WORD_EMOJI_OPTIONS} />
             </label>
 
             {formError && (
