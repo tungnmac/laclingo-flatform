@@ -66,7 +66,7 @@ export function RoleToggleButton({ user, onChanged }: { user: User; onChanged: (
 
   return (
     <Button variant={isRevoke ? 'danger' : 'secondary'} size="sm" disabled={busy || (isSelf && isRevoke)} onClick={onClick}>
-      {busy ? 'Đang lưu...' : isRevoke ? 'Thu hồi quyền' : 'Cấp quyền admin'}
+      {isRevoke ? 'Thu hồi quyền' : 'Cấp quyền admin'}
     </Button>
   )
 }
@@ -107,7 +107,7 @@ export function ActiveToggleButton({ user, onChanged }: { user: User; onChanged:
 
   return (
     <Button variant={nextActive ? 'secondary' : 'danger'} size="sm" disabled={busy} onClick={onClick}>
-      {busy ? 'Đang lưu...' : nextActive ? 'Khôi phục tài khoản' : 'Khoá tài khoản'}
+      {nextActive ? 'Khôi phục tài khoản' : 'Khoá tài khoản'}
     </Button>
   )
 }
@@ -167,7 +167,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       <div className="mt-3 flex gap-2">
         <Button size="sm" disabled={saving} onClick={onSave}>
-          {saving ? 'Đang lưu...' : 'Lưu'}
+          Lưu
         </Button>
         {onClose && (
           <Button size="sm" variant="secondary" onClick={onClose}>
