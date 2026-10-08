@@ -35,6 +35,8 @@ type Querier interface {
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
+	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (ListeningPassage, error)
+	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
@@ -60,6 +62,10 @@ type Querier interface {
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
+	ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]ListListeningPassagesByLanguageRow, error)
+	// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
+	// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
+	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)

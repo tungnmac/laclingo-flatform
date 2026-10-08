@@ -125,6 +125,28 @@ type Language struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ListeningPassage struct {
+	ID         pgtype.UUID        `json:"id"`
+	LanguageID string             `json:"language_id"`
+	Title      string             `json:"title"`
+	Script     string             `json:"script"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
+	OrderIndex pgtype.Int4        `json:"order_index"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ListeningQuestion struct {
+	ID            pgtype.UUID `json:"id"`
+	PassageID     pgtype.UUID `json:"passage_id"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+}
+
 type Mission struct {
 	ID           pgtype.UUID        `json:"id"`
 	Title        string             `json:"title"`
