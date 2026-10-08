@@ -1,0 +1,16 @@
+[
+  {
+    "question": "What did Tom do on Saturday?",
+    "options": ["Watched a movie", "Finished a mystery novel", "Baked cookies", "Went outside"],
+    "correct_answer": "Finished a mystery novel",
+    "explanation": "\"On Saturday, he finished a mystery novel.\"",
+    "order_index": 0
+  },
+  {
+    "question": "Who did Tom bake cookies with?",
+    "options": ["His mother", "His sister", "His friend", "Alone"],
+    "correct_answer": "His sister",
+    "explanation": "\"On Sunday, he baked cookies with his sister.\"",
+    "order_index": 1
+  }
+]
