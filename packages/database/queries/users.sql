@@ -32,19 +32,33 @@ WHERE id = sqlc.arg('id')
 RETURNING *;
 
 -- name: ListUsersByStreak :many
-SELECT * FROM users
+-- Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
+-- theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
+SELECT *, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND (sqlc.narg('search')::text IS NULL
+    OR username ILIKE '%' || sqlc.narg('search')::text || '%'
+    OR full_name ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY streak_count DESC NULLS LAST, created_at
-LIMIT $1;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: ListUsersByLevel :many
-SELECT * FROM users
+SELECT *, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND (sqlc.narg('search')::text IS NULL
+    OR username ILIKE '%' || sqlc.narg('search')::text || '%'
+    OR full_name ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY level DESC, exp DESC
-LIMIT $1;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: ListUsersByPoints :many
-SELECT * FROM users
+SELECT *, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND (sqlc.narg('search')::text IS NULL
+    OR username ILIKE '%' || sqlc.narg('search')::text || '%'
+    OR full_name ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY points DESC
-LIMIT $1;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: ListUsersAdminPaged :many
 -- Quản lý học viên (admin) — search theo username/email/full_name, lọc theo

@@ -114,9 +114,11 @@ type Querier interface {
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
 	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
-	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
-	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
-	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
+	ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error)
+	ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error)
+	// Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
+	// theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
+	ListUsersByStreak(ctx context.Context, arg ListUsersByStreakParams) ([]ListUsersByStreakRow, error)
 	// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
 	// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
 	ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error)

@@ -263,17 +263,21 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 
 // GetLeaderboard godoc
 // @Summary      Bảng xếp hạng người học
-// @Description  Sort theo level, điểm thách đấu (points), hoặc streak (mặc định).
+// @Description  Sort theo level, điểm thách đấu (points), hoặc streak (mặc định). Search theo username/họ tên, phân trang.
 // @Tags         users
 // @Produce      json
 // @Security     BearerAuth
-// @Param        by   query     string  false  "level | points | streak"  example(level)
-// @Success      200  {array}   service.LeaderboardEntry
-// @Failure      400  {object}  ErrorResponse
-// @Failure      401  {object}  ErrorResponse
+// @Param        by        query     string  false  "level | points | streak"  example(level)
+// @Param        q         query     string  false  "Tìm theo username/họ tên"
+// @Param        page      query     int     false  "Trang (mặc định 1)"
+// @Param        page_size query     int     false  "Số dòng/trang (mặc định 20, tối đa 100)"
+// @Success      200       {array}   service.LeaderboardEntry
+// @Failure      400       {object}  ErrorResponse
+// @Failure      401       {object}  ErrorResponse
 // @Router       /leaderboard [get]
 func (h *UserHandler) GetLeaderboard(c *fiber.Ctx) error {
-	results, err := h.svc.GetLeaderboard(c.UserContext(), c.Query("by"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.GetLeaderboard(c.UserContext(), c.Query("by"), c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}

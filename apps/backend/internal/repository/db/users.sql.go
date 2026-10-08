@@ -337,20 +337,49 @@ func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPag
 }
 
 const listUsersByLevel = `-- name: ListUsersByLevel :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND ($1::text IS NULL
+    OR username ILIKE '%' || $1::text || '%'
+    OR full_name ILIKE '%' || $1::text || '%')
 ORDER BY level DESC, exp DESC
-LIMIT $1
+LIMIT $3 OFFSET $2
 `
 
-func (q *Queries) ListUsersByLevel(ctx context.Context, limit int32) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsersByLevel, limit)
+type ListUsersByLevelParams struct {
+	Search pgtype.Text `json:"search"`
+	Offset int32       `json:"offset"`
+	Limit  int32       `json:"limit"`
+}
+
+type ListUsersByLevelRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	Username     string             `json:"username"`
+	PasswordHash string             `json:"password_hash"`
+	FullName     pgtype.Text        `json:"full_name"`
+	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+	StreakCount  pgtype.Int4        `json:"streak_count"`
+	Role         string             `json:"role"`
+	AdminModules []string           `json:"admin_modules"`
+	IsActive     bool               `json:"is_active"`
+	Exp          int64              `json:"exp"`
+	Level        int32              `json:"level"`
+	Points       int64              `json:"points"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TotalCount   int64              `json:"total_count"`
+}
+
+func (q *Queries) ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByLevel, arg.Search, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []ListUsersByLevelRow
 	for rows.Next() {
-		var i User
+		var i ListUsersByLevelRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
@@ -367,6 +396,7 @@ func (q *Queries) ListUsersByLevel(ctx context.Context, limit int32) ([]User, er
 			&i.Points,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -379,20 +409,49 @@ func (q *Queries) ListUsersByLevel(ctx context.Context, limit int32) ([]User, er
 }
 
 const listUsersByPoints = `-- name: ListUsersByPoints :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND ($1::text IS NULL
+    OR username ILIKE '%' || $1::text || '%'
+    OR full_name ILIKE '%' || $1::text || '%')
 ORDER BY points DESC
-LIMIT $1
+LIMIT $3 OFFSET $2
 `
 
-func (q *Queries) ListUsersByPoints(ctx context.Context, limit int32) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsersByPoints, limit)
+type ListUsersByPointsParams struct {
+	Search pgtype.Text `json:"search"`
+	Offset int32       `json:"offset"`
+	Limit  int32       `json:"limit"`
+}
+
+type ListUsersByPointsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	Username     string             `json:"username"`
+	PasswordHash string             `json:"password_hash"`
+	FullName     pgtype.Text        `json:"full_name"`
+	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+	StreakCount  pgtype.Int4        `json:"streak_count"`
+	Role         string             `json:"role"`
+	AdminModules []string           `json:"admin_modules"`
+	IsActive     bool               `json:"is_active"`
+	Exp          int64              `json:"exp"`
+	Level        int32              `json:"level"`
+	Points       int64              `json:"points"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TotalCount   int64              `json:"total_count"`
+}
+
+func (q *Queries) ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByPoints, arg.Search, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []ListUsersByPointsRow
 	for rows.Next() {
-		var i User
+		var i ListUsersByPointsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
@@ -409,6 +468,7 @@ func (q *Queries) ListUsersByPoints(ctx context.Context, limit int32) ([]User, e
 			&i.Points,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -421,20 +481,51 @@ func (q *Queries) ListUsersByPoints(ctx context.Context, limit int32) ([]User, e
 }
 
 const listUsersByStreak = `-- name: ListUsersByStreak :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+WHERE is_active
+  AND ($1::text IS NULL
+    OR username ILIKE '%' || $1::text || '%'
+    OR full_name ILIKE '%' || $1::text || '%')
 ORDER BY streak_count DESC NULLS LAST, created_at
-LIMIT $1
+LIMIT $3 OFFSET $2
 `
 
-func (q *Queries) ListUsersByStreak(ctx context.Context, limit int32) ([]User, error) {
-	rows, err := q.db.Query(ctx, listUsersByStreak, limit)
+type ListUsersByStreakParams struct {
+	Search pgtype.Text `json:"search"`
+	Offset int32       `json:"offset"`
+	Limit  int32       `json:"limit"`
+}
+
+type ListUsersByStreakRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	Username     string             `json:"username"`
+	PasswordHash string             `json:"password_hash"`
+	FullName     pgtype.Text        `json:"full_name"`
+	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+	StreakCount  pgtype.Int4        `json:"streak_count"`
+	Role         string             `json:"role"`
+	AdminModules []string           `json:"admin_modules"`
+	IsActive     bool               `json:"is_active"`
+	Exp          int64              `json:"exp"`
+	Level        int32              `json:"level"`
+	Points       int64              `json:"points"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TotalCount   int64              `json:"total_count"`
+}
+
+// Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
+// theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
+func (q *Queries) ListUsersByStreak(ctx context.Context, arg ListUsersByStreakParams) ([]ListUsersByStreakRow, error) {
+	rows, err := q.db.Query(ctx, listUsersByStreak, arg.Search, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []ListUsersByStreakRow
 	for rows.Next() {
-		var i User
+		var i ListUsersByStreakRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
@@ -451,6 +542,7 @@ func (q *Queries) ListUsersByStreak(ctx context.Context, limit int32) ([]User, e
 			&i.Points,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

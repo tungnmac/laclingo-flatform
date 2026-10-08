@@ -1,16 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { inputClass } from '@/features/auth/components/AuthForm'
 import { leaderboardService } from '@/features/leaderboard/leaderboard.service'
 import { useApi } from '@/hooks/useApi'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { cn } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import type { LeaderboardBy } from '@/types/api'
 
+const PAGE_SIZE = 20
 const medals = ['🥇', '🥈', '🥉']
 
 const tabs: { by: LeaderboardBy; label: string }[] = [
@@ -22,7 +26,13 @@ const tabs: { by: LeaderboardBy; label: string }[] = [
 export default function LeaderboardPage() {
   const me = useSession((s) => s.user)
   const [by, setBy] = useState<LeaderboardBy>('level')
-  const { data, error, loading, reload } = useApi(() => leaderboardService.get(by), [by])
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
+  const [page, setPage] = useState(1)
+  const { data, error, loading, reload } = useApi(
+    () => leaderboardService.get(by, { q: debouncedSearch, page, pageSize: PAGE_SIZE }),
+    [by, debouncedSearch, page],
+  )
 
   return (
     <>
@@ -33,7 +43,10 @@ export default function LeaderboardPage() {
           <button
             key={t.by}
             type="button"
-            onClick={() => setBy(t.by)}
+            onClick={() => {
+              setBy(t.by)
+              setPage(1)
+            }}
             className={cn(
               'rounded-full px-4 py-2 text-sm font-semibold transition',
               by === t.by ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50',
@@ -44,13 +57,27 @@ export default function LeaderboardPage() {
         ))}
       </div>
 
-      {loading && <Spinner />}
+      <label className="mb-4 block text-sm font-medium text-slate-700">
+        Tìm kiếm
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Tìm theo username/họ tên..."
+          className={cn(inputClass, 'max-w-xs')}
+        />
+      </label>
+
+      {loading && !data && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có người học nào" />}
-      {data && data.length > 0 && (
+      {data && data.items.length === 0 && <EmptyState title="Không tìm thấy người học nào" />}
+      {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ol className="divide-y divide-slate-100">
-            {data.map((entry) => (
+            {data.items.map((entry) => (
               <li
                 key={entry.user_id}
                 className={cn(
@@ -77,6 +104,7 @@ export default function LeaderboardPage() {
           </ol>
         </Card>
       )}
+      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
     </>
   )
 }

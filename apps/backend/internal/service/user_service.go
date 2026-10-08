@@ -22,9 +22,9 @@ type UserRepository interface {
 	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 	ListUsers(ctx context.Context) ([]db.User, error)
 	UpdateUserProfile(ctx context.Context, arg db.UpdateUserProfileParams) (db.User, error)
-	ListUsersByStreak(ctx context.Context, limit int32) ([]db.User, error)
-	ListUsersByLevel(ctx context.Context, limit int32) ([]db.User, error)
-	ListUsersByPoints(ctx context.Context, limit int32) ([]db.User, error)
+	ListUsersByStreak(ctx context.Context, arg db.ListUsersByStreakParams) ([]db.ListUsersByStreakRow, error)
+	ListUsersByLevel(ctx context.Context, arg db.ListUsersByLevelParams) ([]db.ListUsersByLevelRow, error)
+	ListUsersByPoints(ctx context.Context, arg db.ListUsersByPointsParams) ([]db.ListUsersByPointsRow, error)
 	ListUsersAdminPaged(ctx context.Context, arg db.ListUsersAdminPagedParams) ([]db.ListUsersAdminPagedRow, error)
 	UpdateUserRole(ctx context.Context, arg db.UpdateUserRoleParams) (db.User, error)
 	UpdateUserModules(ctx context.Context, arg db.UpdateUserModulesParams) (db.User, error)
@@ -76,8 +76,6 @@ type LeaderboardEntry struct {
 	Points      int64     `json:"points"`
 	StreakCount int32     `json:"streak_count"`
 }
-
-const defaultLeaderboardLimit = 50
 
 // UpdateProfileRequest — field nào không gửi (null) thì giữ nguyên
 type UpdateProfileRequest struct {
@@ -180,38 +178,53 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, req Updat
 // GetLeaderboard trả về top user theo tiêu chí `by` (level|points|streak,
 // mặc định streak để tương thích hành vi cũ — FE trước đây tự sort client-side
 // theo streak_count). Rank tính theo vị trí trong danh sách (đã LIMIT, sort ở DB).
-func (s *UserService) GetLeaderboard(ctx context.Context, by string) ([]LeaderboardEntry, error) {
-	var users []db.User
-	var err error
-	switch by {
-	case "level":
-		users, err = s.repo.ListUsersByLevel(ctx, defaultLeaderboardLimit)
-	case "points":
-		users, err = s.repo.ListUsersByPoints(ctx, defaultLeaderboardLimit)
-	case "", "streak":
-		users, err = s.repo.ListUsersByStreak(ctx, defaultLeaderboardLimit)
-	default:
-		return nil, ErrInvalidInput
-	}
-	if err != nil {
-		return nil, err
+func (s *UserService) GetLeaderboard(ctx context.Context, by, search string, page, pageSize int32) (PageResult[LeaderboardEntry], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	searchArg := pgtype.Text{String: search, Valid: search != ""}
+
+	toEntry := func(rank int32, id pgtype.UUID, username string, fullName, avatarURL pgtype.Text, level int32, exp, points int64, streak pgtype.Int4) LeaderboardEntry {
+		return LeaderboardEntry{
+			Rank: rank, UserID: uuid.UUID(id.Bytes), Username: username, FullName: fullName.String,
+			AvatarURL: avatarURL.String, Level: level, Exp: exp, Points: points, StreakCount: streak.Int32,
+		}
 	}
 
-	results := make([]LeaderboardEntry, 0, len(users))
-	for i, u := range users {
-		results = append(results, LeaderboardEntry{
-			Rank:        int32(i + 1),
-			UserID:      uuid.UUID(u.ID.Bytes),
-			Username:    u.Username,
-			FullName:    u.FullName.String,
-			AvatarURL:   u.AvatarUrl.String,
-			Level:       u.Level,
-			Exp:         u.Exp,
-			Points:      u.Points,
-			StreakCount: u.StreakCount.Int32,
-		})
+	results := make([]LeaderboardEntry, 0, limit)
+	var total int64
+
+	switch by {
+	case "level":
+		rows, err := s.repo.ListUsersByLevel(ctx, db.ListUsersByLevelParams{Search: searchArg, Limit: limit, Offset: offset})
+		if err != nil {
+			return PageResult[LeaderboardEntry]{}, err
+		}
+		for i, r := range rows {
+			total = r.TotalCount
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+		}
+	case "points":
+		rows, err := s.repo.ListUsersByPoints(ctx, db.ListUsersByPointsParams{Search: searchArg, Limit: limit, Offset: offset})
+		if err != nil {
+			return PageResult[LeaderboardEntry]{}, err
+		}
+		for i, r := range rows {
+			total = r.TotalCount
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+		}
+	case "", "streak":
+		rows, err := s.repo.ListUsersByStreak(ctx, db.ListUsersByStreakParams{Search: searchArg, Limit: limit, Offset: offset})
+		if err != nil {
+			return PageResult[LeaderboardEntry]{}, err
+		}
+		for i, r := range rows {
+			total = r.TotalCount
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+		}
+	default:
+		return PageResult[LeaderboardEntry]{}, ErrInvalidInput
 	}
-	return results, nil
+
+	return PageResult[LeaderboardEntry]{Items: results, Total: total}, nil
 }
 
 // ListUsersAdmin trả về 1 trang học viên (admin quản lý) — search theo
