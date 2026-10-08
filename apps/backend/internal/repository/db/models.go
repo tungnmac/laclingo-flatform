@@ -173,6 +173,7 @@ type User struct {
 	AvatarUrl    pgtype.Text        `json:"avatar_url"`
 	StreakCount  pgtype.Int4        `json:"streak_count"`
 	Role         string             `json:"role"`
+	AdminModules []string           `json:"admin_modules"`
 	Exp          int64              `json:"exp"`
 	Level        int32              `json:"level"`
 	Points       int64              `json:"points"`

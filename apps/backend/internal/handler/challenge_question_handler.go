@@ -16,7 +16,7 @@ func NewChallengeQuestionHandler(svc *service.ChallengeQuestionService) *Challen
 }
 
 // RegisterAdminRoutes gắn route quản lý ngân hàng câu hỏi thách đấu — PHẢI nằm
-// sau RequireAdmin trong chain (đăng ký ở router.go).
+// sau RequireModule trong chain (đăng ký ở router.go).
 func (h *ChallengeQuestionHandler) RegisterAdminRoutes(router fiber.Router) {
 	q := router.Group("/admin/challenge-questions")
 	q.Post("", h.Create)

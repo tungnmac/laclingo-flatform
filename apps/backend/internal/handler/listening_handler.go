@@ -26,7 +26,7 @@ func (h *ListeningHandler) RegisterProtectedRoutes(router fiber.Router) {
 }
 
 // RegisterAdminRoutes gắn route quản lý nội dung luyện nghe — PHẢI nằm sau
-// RequireAdmin trong chain (đăng ký ở router.go).
+// RequireModule trong chain (đăng ký ở router.go).
 func (h *ListeningHandler) RegisterAdminRoutes(router fiber.Router) {
 	passages := router.Group("/admin/listening/passages")
 	passages.Post("", h.CreatePassage)

@@ -52,14 +52,17 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	listeningHandler.RegisterProtectedRoutes(protected)
 	NewMissionHandler(missions).RegisterRoutes(protected)
 
-	// Cần đăng nhập + role admin
-	admin := api.Group("", RequireAuth(tokens), RequireAdmin(userService))
-	NewMissionHandler(missions).RegisterAdminRoutes(admin)
-	grammarHandler.RegisterAdminRoutes(admin)
-	listeningHandler.RegisterAdminRoutes(admin)
-	vocabularyHandler.RegisterAdminRoutes(admin)
+	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,
+	// RequireModule tự suy module cần thiết từ path (xem lý do ở
+	// modulePathPrefixes trong middleware.go — tách nhiều group cùng prefix
+	// rỗng sẽ cộng dồn hết các điều kiện module lên nhau).
+	admin := api.Group("", RequireAuth(tokens), RequireModule(userService))
 	userHandler.RegisterAdminRoutes(admin)
+	NewMissionHandler(missions).RegisterAdminRoutes(admin)
+	vocabularyHandler.RegisterAdminRoutes(admin)
+	grammarHandler.RegisterAdminRoutes(admin)
 	NewChallengeQuestionHandler(service.NewChallengeQuestionService(repo)).RegisterAdminRoutes(admin)
+	listeningHandler.RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client

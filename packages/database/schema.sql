@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     streak_count INT DEFAULT 0,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    -- Module /admin mà user này (khi role='admin') được cấp quyền truy cập —
+    -- role='admin' KHÔNG còn tự động full quyền mọi module.
+    admin_modules TEXT[] NOT NULL DEFAULT '{}',
     exp BIGINT NOT NULL DEFAULT 0,
     level INT NOT NULL DEFAULT 1,
     points BIGINT NOT NULL DEFAULT 0,

@@ -2,21 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ADMIN_MODULES } from '@/lib/adminModules'
 import { cn } from '@/lib/utils'
+import { useSession } from '@/store/session'
 
-const items = [
-  { href: '/admin/users', label: 'Học viên', icon: '👤' },
-  { href: '/admin/missions', label: 'Nhiệm vụ', icon: '🎯' },
-  { href: '/admin/vocabulary', label: 'Từ vựng', icon: '📚' },
-  { href: '/admin/grammar', label: 'Ngữ pháp', icon: '📖' },
-  { href: '/admin/challenge-questions', label: 'Câu hỏi thách đấu', icon: '🎮' },
-  { href: '/admin/listening', label: 'Luyện nghe', icon: '🎧' },
-]
-
-/** Tab điều hướng giữa các trang quản trị — luôn hiện trên mọi trang /admin/*
- * (trừ trang tổng quan) để chuyển loại nội dung không cần quay lại hub. */
+/** Tab điều hướng giữa các trang quản trị — chỉ hiện module user ĐƯỢC CẤP,
+ * luôn hiện trên mọi trang /admin/* (trừ trang tổng quan). */
 export function AdminSubNav() {
   const pathname = usePathname()
+  const user = useSession((s) => s.user)
+  const items = ADMIN_MODULES.filter((m) => user?.admin_modules?.includes(m.key))
 
   return (
     <nav className="mb-6 -mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0">

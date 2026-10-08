@@ -58,8 +58,20 @@ ORDER BY created_at DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: UpdateUserRole :one
+-- Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý
+-- nghĩa giữ module cũ (RequireModule chặn từ role trước khi xét module).
+-- ::varchar ở cả 2 chỗ dùng $1 — Postgres cần suy ra CÙNG 1 kiểu cho 1 param
+-- qua extended query protocol, không cast sẽ lỗi 42P08 "inconsistent types".
 UPDATE users
-SET role = sqlc.arg('role'), updated_at = NOW()
+SET role = sqlc.arg('role')::varchar,
+    admin_modules = CASE WHEN sqlc.arg('role')::varchar = 'user' THEN '{}'::text[] ELSE admin_modules END,
+    updated_at = NOW()
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
+-- name: UpdateUserModules :one
+UPDATE users
+SET admin_modules = sqlc.arg('admin_modules'), updated_at = NOW()
 WHERE id = sqlc.arg('id')
 RETURNING *;
 

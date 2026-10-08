@@ -2,23 +2,34 @@
 
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { EmptyState } from '@/components/ui/States'
+import { useSession } from '@/store/session'
 
 const sections = [
-  { href: '/admin/users', icon: '👤', title: 'Học viên', description: 'Tìm kiếm, lọc theo role, cấp/thu hồi quyền admin.' },
-  { href: '/admin/missions', icon: '🎯', title: 'Nhiệm vụ', description: 'Tạo/sửa/tắt nhiệm vụ daily/weekly/monthly/event.' },
-  { href: '/admin/vocabulary', icon: '📚', title: 'Từ vựng', description: 'Quản lý từ vựng + chủ đề từ vựng theo ngôn ngữ.' },
-  { href: '/admin/grammar', icon: '📖', title: 'Ngữ pháp', description: 'Quản lý chủ đề, bài học, bài tập ngữ pháp.' },
-  { href: '/admin/challenge-questions', icon: '🎮', title: 'Câu hỏi thách đấu', description: 'Ngân hàng câu hỏi trắc nghiệm cho phòng thách đấu.' },
-  { href: '/admin/listening', icon: '🎧', title: 'Luyện nghe', description: 'Bài luyện nghe (script) + câu hỏi hiểu nội dung.' },
+  { key: 'users', href: '/admin/users', icon: '👤', title: 'Học viên', description: 'Tìm kiếm, lọc theo role, cấp/thu hồi quyền admin.' },
+  { key: 'missions', href: '/admin/missions', icon: '🎯', title: 'Nhiệm vụ', description: 'Tạo/sửa/tắt nhiệm vụ daily/weekly/monthly/event.' },
+  { key: 'vocabulary', href: '/admin/vocabulary', icon: '📚', title: 'Từ vựng', description: 'Quản lý từ vựng + chủ đề từ vựng theo ngôn ngữ.' },
+  { key: 'grammar', href: '/admin/grammar', icon: '📖', title: 'Ngữ pháp', description: 'Quản lý chủ đề, bài học, bài tập ngữ pháp.' },
+  { key: 'challenge_questions', href: '/admin/challenge-questions', icon: '🎮', title: 'Câu hỏi thách đấu', description: 'Ngân hàng câu hỏi trắc nghiệm cho phòng thách đấu.' },
+  { key: 'listening', href: '/admin/listening', icon: '🎧', title: 'Luyện nghe', description: 'Bài luyện nghe (script) + câu hỏi hiểu nội dung.' },
 ]
 
 export default function AdminHubPage() {
+  const user = useSession((s) => s.user)
+  const visible = sections.filter((s) => user?.admin_modules?.includes(s.key))
+
   return (
     <>
       <PageHeader title="Quản trị nội dung" description="Quản lý nguồn dữ liệu học tập — thay cho việc viết SQL seed tay." />
 
+      {visible.length === 0 && (
+        <EmptyState icon="🔒" title="Bạn chưa được cấp quyền truy cập mục nào">
+          Liên hệ admin đã được cấp module &quot;Học viên&quot; để được cấp quyền.
+        </EmptyState>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        {sections.map((s) => (
+        {visible.map((s) => (
           <Link
             key={s.href}
             href={s.href}

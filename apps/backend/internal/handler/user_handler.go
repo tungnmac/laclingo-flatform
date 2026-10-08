@@ -27,12 +27,13 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/leaderboard", h.GetLeaderboard)
 }
 
-// RegisterAdminRoutes gắn route quản lý học viên — PHẢI nằm sau RequireAdmin
-// trong chain (đăng ký ở router.go).
+// RegisterAdminRoutes gắn route quản lý học viên — PHẢI nằm sau
+// RequireModule(..., "users") trong chain (đăng ký ở router.go).
 func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
 	api := router.Group("/admin/users")
 	api.Get("", h.ListUsersAdmin)
 	api.Put("/:id/role", h.SetRole)
+	api.Put("/:id/modules", h.SetModules)
 }
 
 // ListUsersAdmin godoc
@@ -81,6 +82,38 @@ func (h *UserHandler) SetRole(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
 	result, err := h.svc.SetRole(c.UserContext(), currentUserID(c), id, req.Role)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+type setUserModulesRequest struct {
+	AdminModules []string `json:"admin_modules" example:"vocabulary,grammar"`
+}
+
+// SetModules godoc
+// @Summary      Cấp/thu hồi module /admin cho 1 user (admin)
+// @Description  Thay nguyên danh sách module — gửi mảng rỗng để thu hồi hết. Không cho tự rút module "users" của chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                  true  "User ID (UUID)"
+// @Param        body  body      setUserModulesRequest  true  "Danh sách module"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Router       /admin/users/{id}/modules [put]
+func (h *UserHandler) SetModules(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserModulesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetModules(c.UserContext(), currentUserID(c), id, req.AdminModules)
 	if err != nil {
 		return err
 	}

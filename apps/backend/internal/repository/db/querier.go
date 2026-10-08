@@ -139,7 +139,12 @@ type Querier interface {
 	UpdateListeningPassage(ctx context.Context, arg UpdateListeningPassageParams) (ListeningPassage, error)
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
+	UpdateUserModules(ctx context.Context, arg UpdateUserModulesParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý
+	// nghĩa giữ module cũ (RequireModule chặn từ role trước khi xét module).
+	// ::varchar ở cả 2 chỗ dùng $1 — Postgres cần suy ra CÙNG 1 kiểu cho 1 param
+	// qua extended query protocol, không cast sẽ lỗi 42P08 "inconsistent types".
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 	UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error)
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra

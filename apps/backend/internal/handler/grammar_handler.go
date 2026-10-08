@@ -29,7 +29,7 @@ func (h *GrammarHandler) RegisterProtectedRoutes(router fiber.Router) {
 }
 
 // RegisterAdminRoutes gắn route quản lý nội dung ngữ pháp — PHẢI nằm sau
-// RequireAdmin trong chain (đăng ký ở router.go).
+// RequireModule trong chain (đăng ký ở router.go).
 func (h *GrammarHandler) RegisterAdminRoutes(router fiber.Router) {
 	topics := router.Group("/admin/grammar/topics")
 	topics.Post("", h.CreateTopic)

@@ -8,6 +8,7 @@ export interface User {
   avatar_url: string
   streak_count: number
   role: 'user' | 'admin'
+  admin_modules?: string[]
   level: number
   exp: number
   points: number

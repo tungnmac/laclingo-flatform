@@ -26,23 +26,37 @@ type UserRepository interface {
 	ListUsersByPoints(ctx context.Context, limit int32) ([]db.User, error)
 	ListUsersAdminPaged(ctx context.Context, arg db.ListUsersAdminPagedParams) ([]db.ListUsersAdminPagedRow, error)
 	UpdateUserRole(ctx context.Context, arg db.UpdateUserRoleParams) (db.User, error)
+	UpdateUserModules(ctx context.Context, arg db.UpdateUserModulesParams) (db.User, error)
 }
 
 var validUserRoles = map[string]bool{"user": true, "admin": true}
 
+// AdminModules — toàn bộ module /admin có thể cấp quyền riêng. Khớp 1-1 với
+// các route group gắn RequireModule trong router.go và AdminSubNav/hub ở FE.
+var AdminModules = []string{"users", "missions", "vocabulary", "grammar", "challenge_questions", "listening"}
+
+var validAdminModules = func() map[string]bool {
+	m := make(map[string]bool, len(AdminModules))
+	for _, mod := range AdminModules {
+		m[mod] = true
+	}
+	return m
+}()
+
 // UserResponse là dữ liệu trả ra API — không bao gồm password_hash
 type UserResponse struct {
-	ID          uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
-	Email       string    `json:"email" example:"user@laclingo.vn"`
-	Username    string    `json:"username" example:"nguyenvana"`
-	FullName    string    `json:"full_name"`
-	AvatarURL   string    `json:"avatar_url"`
-	StreakCount int32     `json:"streak_count"`
-	Role        string    `json:"role" example:"user"`
-	Level       int32     `json:"level"`
-	Exp         int64     `json:"exp"`
-	Points      int64     `json:"points"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	Email        string    `json:"email" example:"user@laclingo.vn"`
+	Username     string    `json:"username" example:"nguyenvana"`
+	FullName     string    `json:"full_name"`
+	AvatarURL    string    `json:"avatar_url"`
+	StreakCount  int32     `json:"streak_count"`
+	Role         string    `json:"role" example:"user"`
+	AdminModules []string  `json:"admin_modules,omitempty"`
+	Level        int32     `json:"level"`
+	Exp          int64     `json:"exp"`
+	Points       int64     `json:"points"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // LeaderboardEntry — 1 dòng trong bảng xếp hạng, đã kèm thứ hạng (rank =
@@ -70,17 +84,18 @@ type UpdateProfileRequest struct {
 
 func toUserResponse(u db.User) UserResponse {
 	return UserResponse{
-		ID:          uuid.UUID(u.ID.Bytes),
-		Email:       u.Email,
-		Username:    u.Username,
-		FullName:    u.FullName.String,
-		AvatarURL:   u.AvatarUrl.String,
-		StreakCount: u.StreakCount.Int32,
-		Role:        u.Role,
-		Level:       u.Level,
-		Exp:         u.Exp,
-		Points:      u.Points,
-		CreatedAt:   u.CreatedAt.Time,
+		ID:           uuid.UUID(u.ID.Bytes),
+		Email:        u.Email,
+		Username:     u.Username,
+		FullName:     u.FullName.String,
+		AvatarURL:    u.AvatarUrl.String,
+		StreakCount:  u.StreakCount.Int32,
+		Role:         u.Role,
+		AdminModules: u.AdminModules,
+		Level:        u.Level,
+		Exp:          u.Exp,
+		Points:       u.Points,
+		CreatedAt:    u.CreatedAt.Time,
 	}
 }
 
@@ -201,7 +216,8 @@ func (s *UserService) ListUsersAdmin(ctx context.Context, search, role string, p
 		total = r.TotalCount
 		results = append(results, toUserResponse(db.User{
 			ID: r.ID, Email: r.Email, Username: r.Username, FullName: r.FullName, AvatarUrl: r.AvatarUrl,
-			StreakCount: r.StreakCount, Role: r.Role, Exp: r.Exp, Level: r.Level, Points: r.Points, CreatedAt: r.CreatedAt,
+			StreakCount: r.StreakCount, Role: r.Role, AdminModules: r.AdminModules, Exp: r.Exp, Level: r.Level,
+			Points: r.Points, CreatedAt: r.CreatedAt,
 		}))
 	}
 	return PageResult[UserResponse]{Items: results, Total: total}, nil
@@ -218,6 +234,34 @@ func (s *UserService) SetRole(ctx context.Context, actingAdminID, targetID uuid.
 	}
 
 	u, err := s.repo.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: toPgUUID(targetID), Role: role})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return UserResponse{}, err
+	}
+	return toUserResponse(u), nil
+}
+
+// SetModules cấp/thu hồi module /admin cho 1 user — không cho tự rút module
+// "users" của chính mình (tránh tự khoá khỏi màn cấu hình quyền này).
+func (s *UserService) SetModules(ctx context.Context, actingAdminID, targetID uuid.UUID, modules []string) (UserResponse, error) {
+	seen := make(map[string]bool, len(modules))
+	clean := make([]string, 0, len(modules))
+	for _, m := range modules {
+		if !validAdminModules[m] {
+			return UserResponse{}, fmt.Errorf("module \"%s\" không hợp lệ: %w", m, ErrInvalidInput)
+		}
+		if !seen[m] {
+			seen[m] = true
+			clean = append(clean, m)
+		}
+	}
+	if actingAdminID == targetID && !seen["users"] {
+		return UserResponse{}, fmt.Errorf("không thể tự rút quyền module \"Học viên\" của chính mình: %w", ErrInvalidInput)
+	}
+
+	u, err := s.repo.UpdateUserModules(ctx, db.UpdateUserModulesParams{ID: toPgUUID(targetID), AdminModules: clean})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return UserResponse{}, ErrNotFound
 	}

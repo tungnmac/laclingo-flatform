@@ -27,7 +27,7 @@ func (h *VocabularyHandler) RegisterRoutes(router fiber.Router) {
 }
 
 // RegisterAdminRoutes gắn route quản lý nội dung từ vựng — PHẢI nằm sau
-// RequireAdmin trong chain (đăng ký ở router.go).
+// RequireModule trong chain (đăng ký ở router.go).
 func (h *VocabularyHandler) RegisterAdminRoutes(router fiber.Router) {
 	vocab := router.Group("/admin/vocabularies")
 	vocab.Post("", h.CreateVocabulary)
