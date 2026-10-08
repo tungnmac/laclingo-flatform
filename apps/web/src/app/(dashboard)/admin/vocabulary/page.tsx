@@ -220,27 +220,7 @@ function TopicsSection({
                 <input name="name" type="text" required className={inputClass} placeholder="Công nghệ thông tin" />
               )}
             </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Chủ đề cha (để trống = chủ đề cấp cao nhất)
-              <select name="parent_name" defaultValue={editing?.parent_name ?? ''} className={inputClass}>
-                <option value="">— Không có, đây là chủ đề cấp cao nhất —</option>
-                {parentOptions.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.icon} {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block text-sm font-medium text-slate-700">
-                Icon (emoji)
-                <IconPickerInput name="icon" defaultValue={editing?.icon ?? '📘'} />
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Thứ tự hiển thị
-                <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
-              </label>
-            </div>
+            <TopicParentAndOrderFields editing={editing} parentOptions={parentOptions} allTopics={allTopics} />
             {formError && (
               <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
                 {formError}
@@ -318,6 +298,53 @@ function TopicsSection({
         onDone={reloadAll}
       />
     </section>
+  )
+}
+
+/** Chủ đề cha + icon + thứ tự hiển thị. Thứ tự mặc định khi TẠO MỚI tự tính
+ * = số chủ đề đang có ở CÙNG CẤP (cùng parent_name, hoặc cùng là cấp cao
+ * nhất nếu không chọn cha) — đổi chủ đề cha thì tính lại ngay. Khi SỬA thì
+ * giữ nguyên thứ tự hiện tại của chủ đề đó làm mặc định, không tự tính lại.
+ * Trùng thứ tự với chủ đề khác không phải lỗi — chỉ là gợi ý hiển thị, trùng
+ * thì các chủ đề đó được sắp xen theo tên (ORDER BY order_index, name). */
+function TopicParentAndOrderFields({
+  editing,
+  parentOptions,
+  allTopics,
+}: {
+  editing: VocabularyTopicAdmin | null
+  parentOptions: VocabularyTopicAdmin[]
+  allTopics: VocabularyTopicAdmin[]
+}) {
+  const [parentName, setParentName] = useState(editing?.parent_name ?? '')
+
+  const siblingCount = allTopics.filter((t) => (t.parent_name ?? '') === parentName && t.name !== editing?.name).length
+  const defaultOrder = editing ? editing.order_index : siblingCount
+
+  return (
+    <>
+      <label className="block text-sm font-medium text-slate-700">
+        Chủ đề cha (để trống = chủ đề cấp cao nhất)
+        <select name="parent_name" value={parentName} onChange={(e) => setParentName(e.target.value)} className={inputClass}>
+          <option value="">— Không có, đây là chủ đề cấp cao nhất —</option>
+          {parentOptions.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.icon} {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="grid grid-cols-2 gap-4">
+        <label className="block text-sm font-medium text-slate-700">
+          Icon (emoji)
+          <IconPickerInput name="icon" defaultValue={editing?.icon ?? '📘'} />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Thứ tự hiển thị
+          <input key={parentName} name="order_index" type="number" defaultValue={defaultOrder} className={inputClass} />
+        </label>
+      </div>
+    </>
   )
 }
 
