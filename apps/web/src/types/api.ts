@@ -409,6 +409,7 @@ export interface ListeningPassageDetail {
   script: string
   topic?: string
   level: string
+  audio_url?: string // link tạm (presigned) phát audio thật nếu có — không thì dùng TTS từ script
   questions: ListeningQuestion[]
 }
 
@@ -530,6 +531,7 @@ export interface ListeningPassageAdmin {
   topic?: string
   level: string
   order_index: number
+  audio_url?: string // link tạm (presigned) để admin nghe lại/kiểm tra
 }
 
 export interface ListeningTopicRequest {

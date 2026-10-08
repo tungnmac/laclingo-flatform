@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"strings"
+	"time"
 
 	"laclingo-backend/internal/repository/db"
+	"laclingo-backend/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -35,6 +38,7 @@ type ListeningRepository interface {
 	CreateListeningTopic(ctx context.Context, arg db.CreateListeningTopicParams) (db.ListeningTopic, error)
 	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg db.ListListeningTopicsByLanguageAdminParams) ([]db.ListListeningTopicsByLanguageAdminRow, error)
 	DeleteListeningTopic(ctx context.Context, arg db.DeleteListeningTopicParams) error
+	UpdateListeningPassageAudioKey(ctx context.Context, arg db.UpdateListeningPassageAudioKeyParams) (db.ListeningPassage, error)
 }
 
 // ListeningPassageSummary — 1 bài luyện nghe trong danh sách (không kèm script/câu hỏi)
@@ -68,6 +72,7 @@ type ListeningPassageDetail struct {
 	Script    string                      `json:"script"`
 	Topic     string                      `json:"topic,omitempty"`
 	Level     string                      `json:"level"`
+	AudioURL  string                      `json:"audio_url,omitempty"` // link tạm (presigned) phát audio thật nếu có — không thì FE fallback TTS từ Script
 	Questions []ListeningQuestionResponse `json:"questions"`
 }
 
@@ -81,10 +86,30 @@ type SubmitListeningAnswerResponse struct {
 type ListeningService struct {
 	repo     ListeningRepository
 	missions *MissionService
+	// r2 có thể nil — tính năng audio tắt nếu R2 chưa được cấu hình (xem
+	// config.Config.R2Configured), các hàm liên quan trả ErrInvalidInput rõ ràng.
+	r2 *storage.R2Client
 }
 
-func NewListeningService(repo ListeningRepository, missions *MissionService) *ListeningService {
-	return &ListeningService{repo: repo, missions: missions}
+func NewListeningService(repo ListeningRepository, missions *MissionService, r2 *storage.R2Client) *ListeningService {
+	return &ListeningService{repo: repo, missions: missions, r2: r2}
+}
+
+// audioPresignTTL — đủ dài cho 1 phiên nghe, không cần bucket public.
+const audioPresignTTL = 2 * time.Hour
+
+// presignAudioURL trả về "" nếu bài không có audio hoặc R2 chưa cấu hình —
+// KHÔNG coi là lỗi (audio luôn optional, có script TTS làm fallback).
+func (s *ListeningService) presignAudioURL(ctx context.Context, audioKey pgtype.Text) string {
+	if !audioKey.Valid || audioKey.String == "" || s.r2 == nil {
+		return ""
+	}
+	url, err := s.r2.PresignGet(ctx, audioKey.String, audioPresignTTL)
+	if err != nil {
+		log.Printf("❌ presign audio key=%s: %v", audioKey.String, err)
+		return ""
+	}
+	return url
 }
 
 // ListPassages trả về danh sách bài luyện nghe của 1 ngôn ngữ (không kèm
@@ -159,6 +184,7 @@ func (s *ListeningService) GetPassageDetail(ctx context.Context, id uuid.UUID) (
 		Script:    passage.Script,
 		Topic:     passage.Topic.String,
 		Level:     passage.Level.String,
+		AudioURL:  s.presignAudioURL(ctx, passage.AudioKey),
 		Questions: questionResponses,
 	}, nil
 }
@@ -213,6 +239,7 @@ type ListeningPassageAdminResponse struct {
 	Topic      string    `json:"topic,omitempty"`
 	Level      string    `json:"level"`
 	OrderIndex int32     `json:"order_index"`
+	AudioURL   string    `json:"audio_url,omitempty"` // link tạm (presigned) để admin nghe lại/kiểm tra
 }
 
 type ListeningQuestionRequest struct {
@@ -234,7 +261,7 @@ type ListeningQuestionAdminResponse struct {
 	OrderIndex    int32     `json:"order_index"`
 }
 
-func toListeningPassageAdminResponse(p db.ListeningPassage) ListeningPassageAdminResponse {
+func (s *ListeningService) toListeningPassageAdminResponse(ctx context.Context, p db.ListeningPassage) ListeningPassageAdminResponse {
 	return ListeningPassageAdminResponse{
 		ID:         uuid.UUID(p.ID.Bytes),
 		LanguageID: p.LanguageID,
@@ -243,6 +270,7 @@ func toListeningPassageAdminResponse(p db.ListeningPassage) ListeningPassageAdmi
 		Topic:      p.Topic.String,
 		Level:      p.Level.String,
 		OrderIndex: p.OrderIndex.Int32,
+		AudioURL:   s.presignAudioURL(ctx, p.AudioKey),
 	}
 }
 
@@ -265,7 +293,7 @@ func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassa
 	if err != nil {
 		return ListeningPassageAdminResponse{}, err
 	}
-	return toListeningPassageAdminResponse(p), nil
+	return s.toListeningPassageAdminResponse(ctx, p), nil
 }
 
 // ListPassagesAdmin trả về toàn bộ bài luyện nghe của 1 ngôn ngữ (có script đầy đủ)
@@ -286,9 +314,9 @@ func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID, se
 	var total int64
 	for _, r := range rows {
 		total = r.TotalCount
-		results = append(results, toListeningPassageAdminResponse(db.ListeningPassage{
+		results = append(results, s.toListeningPassageAdminResponse(ctx, db.ListeningPassage{
 			ID: r.ID, LanguageID: r.LanguageID, Title: r.Title, Script: r.Script,
-			Topic: r.Topic, Level: r.Level, OrderIndex: r.OrderIndex, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			Topic: r.Topic, Level: r.Level, OrderIndex: r.OrderIndex, AudioKey: r.AudioKey, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 		}))
 	}
 	return PageResult[ListeningPassageAdminResponse]{Items: results, Total: total}, nil
@@ -313,12 +341,99 @@ func (s *ListeningService) UpdatePassage(ctx context.Context, id uuid.UUID, req 
 	if err != nil {
 		return ListeningPassageAdminResponse{}, err
 	}
-	return toListeningPassageAdminResponse(p), nil
+	return s.toListeningPassageAdminResponse(ctx, p), nil
 }
 
-// DeletePassage xoá 1 bài luyện nghe (CASCADE xoá câu hỏi bên trong)
+// DeletePassage xoá 1 bài luyện nghe (CASCADE xoá câu hỏi bên trong) và dọn
+// luôn file audio trên R2 nếu có — xoá passage trước mà quên dọn R2 sẽ để
+// rác vĩnh viễn trong bucket (không còn passage nào tham chiếu tới key đó
+// để dọn sau).
 func (s *ListeningService) DeletePassage(ctx context.Context, id uuid.UUID) error {
+	if s.r2 != nil {
+		passage, err := s.repo.GetListeningPassageByID(ctx, toPgUUID(id))
+		if err == nil && passage.AudioKey.Valid && passage.AudioKey.String != "" {
+			if err := s.r2.Delete(ctx, passage.AudioKey.String); err != nil {
+				log.Printf("❌ xoá audio key=%s khi xoá passage id=%s: %v", passage.AudioKey.String, id, err)
+			}
+		}
+	}
 	return s.repo.DeleteListeningPassage(ctx, toPgUUID(id))
+}
+
+var allowedAudioContentTypes = map[string]bool{
+	"audio/mpeg": true, "audio/mp3": true, "audio/wav": true, "audio/x-wav": true,
+	"audio/ogg": true, "audio/mp4": true, "audio/x-m4a": true, "audio/webm": true,
+}
+
+const maxAudioBytes = 25 * 1024 * 1024 // 25MB — đủ vài phút audio nén, chặn upload quá khổ
+
+// UploadAudio upload 1 file audio lên R2 và gắn vào passage (thay audio cũ
+// nếu có, dọn luôn object cũ tránh rác bucket). ext nên lấy từ tên file gốc
+// (vd ".mp3") để trình phát nhận diện đúng định dạng.
+func (s *ListeningService) UploadAudio(ctx context.Context, passageID uuid.UUID, content io.Reader, size int64, contentType, ext string) (ListeningPassageAdminResponse, error) {
+	if s.r2 == nil {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("chưa cấu hình lưu trữ audio (R2): %w", ErrInvalidInput)
+	}
+	if !allowedAudioContentTypes[contentType] {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("định dạng audio không hỗ trợ (%s): %w", contentType, ErrInvalidInput)
+	}
+	if size > maxAudioBytes {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("file audio quá lớn (tối đa %dMB): %w", maxAudioBytes/1024/1024, ErrInvalidInput)
+	}
+
+	passage, err := s.repo.GetListeningPassageByID(ctx, toPgUUID(passageID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ListeningPassageAdminResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+
+	key := fmt.Sprintf("listening/%s%s", passageID, ext)
+	if err := s.r2.Upload(ctx, key, content, contentType); err != nil {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("upload audio thất bại: %w", err)
+	}
+	if passage.AudioKey.Valid && passage.AudioKey.String != "" && passage.AudioKey.String != key {
+		if err := s.r2.Delete(ctx, passage.AudioKey.String); err != nil {
+			log.Printf("❌ xoá audio cũ key=%s: %v", passage.AudioKey.String, err)
+		}
+	}
+
+	updated, err := s.repo.UpdateListeningPassageAudioKey(ctx, db.UpdateListeningPassageAudioKeyParams{
+		ID:       toPgUUID(passageID),
+		AudioKey: pgtype.Text{String: key, Valid: true},
+	})
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+	return s.toListeningPassageAdminResponse(ctx, updated), nil
+}
+
+// DeleteAudio gỡ audio khỏi 1 bài luyện nghe (xoá object trên R2 + audio_key).
+func (s *ListeningService) DeleteAudio(ctx context.Context, passageID uuid.UUID) (ListeningPassageAdminResponse, error) {
+	if s.r2 == nil {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("chưa cấu hình lưu trữ audio (R2): %w", ErrInvalidInput)
+	}
+	passage, err := s.repo.GetListeningPassageByID(ctx, toPgUUID(passageID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ListeningPassageAdminResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+	if passage.AudioKey.Valid && passage.AudioKey.String != "" {
+		if err := s.r2.Delete(ctx, passage.AudioKey.String); err != nil {
+			log.Printf("❌ xoá audio key=%s: %v", passage.AudioKey.String, err)
+		}
+	}
+	updated, err := s.repo.UpdateListeningPassageAudioKey(ctx, db.UpdateListeningPassageAudioKeyParams{
+		ID:       toPgUUID(passageID),
+		AudioKey: pgtype.Text{Valid: false},
+	})
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+	return s.toListeningPassageAdminResponse(ctx, updated), nil
 }
 
 // BulkImportPassages nhập hàng loạt bài luyện nghe

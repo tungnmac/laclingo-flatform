@@ -334,6 +334,9 @@ CREATE TABLE IF NOT EXISTS listening_passages (
     topic VARCHAR(100),
     level VARCHAR(5) DEFAULT 'A1',
     order_index INT DEFAULT 0,
+    -- Object key trong bucket R2 (KHÔNG phải URL public) — backend tự tạo
+    -- presigned URL khi trả về cho FE, xem internal/storage/r2.go.
+    audio_key VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -48,6 +48,13 @@ SET title = $2, script = $3, topic = $4, level = $5, order_index = $6, updated_a
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateListeningPassageAudioKey :one
+-- audio_key để NULL thì xoá audio hiện tại (gỡ file khỏi bucket ở service, xem UploadAudio/DeleteAudio).
+UPDATE listening_passages
+SET audio_key = sqlc.narg('audio_key'), updated_at = NOW()
+WHERE id = sqlc.arg('id')
+RETURNING *;
+
 -- name: DeleteListeningPassage :exec
 DELETE FROM listening_passages WHERE id = $1;
 

@@ -35,7 +35,11 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
       </div>
 
       <Card className="flex flex-col items-center gap-4 text-center">
-        <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
+        {passage.audio_url ? (
+          <audio controls src={passage.audio_url} className="w-full max-w-sm" />
+        ) : (
+          <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
+        )}
         <p className="text-sm text-slate-500">Nhấn để nghe đoạn audio. Có thể nghe lại nhiều lần trước khi trả lời.</p>
         <Button variant="ghost" size="sm" onClick={() => setShowTranscript((v) => !v)}>
           {showTranscript ? 'Ẩn văn bản' : 'Hiện văn bản (nếu cần)'}

@@ -8,6 +8,7 @@ import (
 	"laclingo-backend/internal/game"
 	"laclingo-backend/internal/repository"
 	"laclingo-backend/internal/service"
+	"laclingo-backend/internal/storage"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,8 +18,9 @@ type ErrorResponse struct {
 	Error string `json:"error" example:"không tìm thấy dữ liệu"`
 }
 
-// RegisterRoutes khởi tạo service/handler và gắn toàn bộ route /api/v1
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService) {
+// RegisterRoutes khởi tạo service/handler và gắn toàn bộ route /api/v1. r2 có
+// thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -26,7 +28,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
 	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions))
 	grammarHandler.RegisterRoutes(api)
-	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions))
+	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2))
 	listeningHandler.RegisterRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)

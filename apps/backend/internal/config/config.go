@@ -16,6 +16,13 @@ type Config struct {
 	AppEnv      string
 	JWTSecret   string
 	JWTTTL      time.Duration
+
+	// R2* — Cloudflare R2 (lưu audio luyện nghe). Để trống hết thì tính năng
+	// upload audio tắt (handler trả lỗi rõ ràng), không bắt buộc như JWT_SECRET.
+	R2AccountID       string
+	R2Bucket          string
+	R2AccessKeyID     string
+	R2SecretAccessKey string
 }
 
 func Load() (*Config, error) {
@@ -57,5 +64,16 @@ func Load() (*Config, error) {
 		AppEnv:      appEnv,
 		JWTSecret:   jwtSecret,
 		JWTTTL:      jwtTTL,
+
+		R2AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+		R2Bucket:          os.Getenv("R2_BUCKET"),
+		R2AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+		R2SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
 	}, nil
+}
+
+// R2Configured báo R2* đã được điền đủ chưa — dùng để quyết định có khởi tạo
+// storage.R2Client hay không (audio upload là tính năng optional).
+func (c *Config) R2Configured() bool {
+	return c.R2AccountID != "" && c.R2Bucket != "" && c.R2AccessKeyID != "" && c.R2SecretAccessKey != ""
 }

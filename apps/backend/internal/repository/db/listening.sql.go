@@ -15,7 +15,7 @@ const createListeningPassage = `-- name: CreateListeningPassage :one
 
 INSERT INTO listening_passages (language_id, title, script, topic, level, order_index)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
 `
 
 type CreateListeningPassageParams struct {
@@ -46,6 +46,7 @@ func (q *Queries) CreateListeningPassage(ctx context.Context, arg CreateListenin
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -153,7 +154,7 @@ func (q *Queries) DeleteListeningTopic(ctx context.Context, arg DeleteListeningT
 }
 
 const getListeningPassageByID = `-- name: GetListeningPassageByID :one
-SELECT id, language_id, title, script, topic, level, order_index, created_at, updated_at FROM listening_passages
+SELECT id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at FROM listening_passages
 WHERE id = $1
 `
 
@@ -168,6 +169,7 @@ func (q *Queries) GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -195,7 +197,7 @@ func (q *Queries) GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) 
 }
 
 const listListeningPassagesAdminPaged = `-- name: ListListeningPassagesAdminPaged :many
-SELECT id, language_id, title, script, topic, level, order_index, created_at, updated_at, COUNT(*) OVER() AS total_count FROM listening_passages
+SELECT id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at, COUNT(*) OVER() AS total_count FROM listening_passages
 WHERE language_id = $1
   AND ($2::text IS NULL OR title ILIKE '%' || $2::text || '%' OR topic ILIKE '%' || $2::text || '%')
   AND ($3::text IS NULL OR topic = $3::text)
@@ -221,6 +223,7 @@ type ListListeningPassagesAdminPagedRow struct {
 	Topic      pgtype.Text        `json:"topic"`
 	Level      pgtype.Text        `json:"level"`
 	OrderIndex pgtype.Int4        `json:"order_index"`
+	AudioKey   pgtype.Text        `json:"audio_key"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	TotalCount int64              `json:"total_count"`
@@ -252,6 +255,7 @@ func (q *Queries) ListListeningPassagesAdminPaged(ctx context.Context, arg ListL
 			&i.Topic,
 			&i.Level,
 			&i.OrderIndex,
+			&i.AudioKey,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -518,7 +522,7 @@ const updateListeningPassage = `-- name: UpdateListeningPassage :one
 UPDATE listening_passages
 SET title = $2, script = $3, topic = $4, level = $5, order_index = $6, updated_at = NOW()
 WHERE id = $1
-RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
 `
 
 type UpdateListeningPassageParams struct {
@@ -548,6 +552,38 @@ func (q *Queries) UpdateListeningPassage(ctx context.Context, arg UpdateListenin
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateListeningPassageAudioKey = `-- name: UpdateListeningPassageAudioKey :one
+UPDATE listening_passages
+SET audio_key = $1, updated_at = NOW()
+WHERE id = $2
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
+`
+
+type UpdateListeningPassageAudioKeyParams struct {
+	AudioKey pgtype.Text `json:"audio_key"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+// audio_key để NULL thì xoá audio hiện tại (gỡ file khỏi bucket ở service, xem UploadAudio/DeleteAudio).
+func (q *Queries) UpdateListeningPassageAudioKey(ctx context.Context, arg UpdateListeningPassageAudioKeyParams) (ListeningPassage, error) {
+	row := q.db.QueryRow(ctx, updateListeningPassageAudioKey, arg.AudioKey, arg.ID)
+	var i ListeningPassage
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Title,
+		&i.Script,
+		&i.Topic,
+		&i.Level,
+		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"path/filepath"
+	"strings"
+
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,6 +38,8 @@ func (h *ListeningHandler) RegisterAdminRoutes(router fiber.Router) {
 	passages.Put("/:id", h.UpdatePassage)
 	passages.Delete("/:id", h.DeletePassage)
 	passages.Post("/bulk", h.BulkImportPassages)
+	passages.Post("/:id/audio", h.UploadAudio)
+	passages.Delete("/:id/audio", h.DeleteAudio)
 
 	topics := router.Group("/admin/listening/topics")
 	topics.Post("", h.CreateOrUpdateTopic)
@@ -148,6 +153,63 @@ func (h *ListeningHandler) BulkImportPassages(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
 	return c.JSON(h.svc.BulkImportPassages(c.UserContext(), items))
+}
+
+// UploadAudio godoc
+// @Summary      Upload audio cho 1 bài luyện nghe (admin, lưu trên Cloudflare R2)
+// @Description  multipart/form-data, field "audio" — thay audio cũ nếu đã có.
+// @Tags         admin-listening
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id     path      string  true  "Passage ID"
+// @Param        audio  formData  file    true  "File audio (mp3/wav/ogg/m4a/webm, tối đa 25MB)"
+// @Success      200    {object}  service.ListeningPassageAdminResponse
+// @Failure      400    {object}  ErrorResponse
+// @Router       /admin/listening/passages/{id}/audio [post]
+func (h *ListeningHandler) UploadAudio(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	fileHeader, err := c.FormFile("audio")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "thiếu file audio (field \"audio\")")
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "không đọc được file audio")
+	}
+	defer file.Close()
+
+	contentType := fileHeader.Header.Get("Content-Type")
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+
+	result, err := h.svc.UploadAudio(c.UserContext(), id, file, fileHeader.Size, contentType, ext)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+// DeleteAudio godoc
+// @Summary      Gỡ audio khỏi 1 bài luyện nghe (admin)
+// @Tags         admin-listening
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Passage ID"
+// @Success      200  {object}  service.ListeningPassageAdminResponse
+// @Router       /admin/listening/passages/{id}/audio [delete]
+func (h *ListeningHandler) DeleteAudio(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	result, err := h.svc.DeleteAudio(c.UserContext(), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
 }
 
 // CreateQuestionAdmin godoc

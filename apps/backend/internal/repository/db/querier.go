@@ -159,6 +159,8 @@ type Querier interface {
 	UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error)
 	UpdateGrammarTopic(ctx context.Context, arg UpdateGrammarTopicParams) (GrammarTopic, error)
 	UpdateListeningPassage(ctx context.Context, arg UpdateListeningPassageParams) (ListeningPassage, error)
+	// audio_key để NULL thì xoá audio hiện tại (gỡ file khỏi bucket ở service, xem UploadAudio/DeleteAudio).
+	UpdateListeningPassageAudioKey(ctx context.Context, arg UpdateListeningPassageAudioKeyParams) (ListeningPassage, error)
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không

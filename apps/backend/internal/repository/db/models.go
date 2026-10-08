@@ -133,6 +133,7 @@ type ListeningPassage struct {
 	Topic      pgtype.Text        `json:"topic"`
 	Level      pgtype.Text        `json:"level"`
 	OrderIndex pgtype.Int4        `json:"order_index"`
+	AudioKey   pgtype.Text        `json:"audio_key"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }

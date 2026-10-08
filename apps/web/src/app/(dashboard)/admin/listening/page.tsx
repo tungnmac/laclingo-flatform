@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type FormEvent } from 'react'
+import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
 import { IconPickerInput } from '@/components/admin/IconPickerInput'
@@ -245,6 +245,74 @@ function TopicsSection({
 
 const NO_TOPIC_GROUP = '__no_topic__'
 
+const ACCEPTED_AUDIO_TYPES = '.mp3,.wav,.ogg,.m4a,.webm,audio/*'
+
+/** Upload/gỡ audio thật cho 1 bài (lưu trên Cloudflare R2) — tách riêng khỏi
+ * form JSON chính vì multipart khác hẳn cách submit, chỉ hiện khi đang SỬA
+ * (cần passage.id có sẵn để gắn audio vào, bài mới tạo phải lưu trước). */
+function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageAdmin; onChanged: () => void }) {
+  const confirm = useConfirm()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputId = `audio-upload-${passage.id}`
+
+  const onFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    setError(null)
+    try {
+      await listeningService.uploadAudio(passage.id, file)
+      onChanged()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onDelete = async () => {
+    if (!(await confirm({ description: `Gỡ audio khỏi "${passage.title}"? Bài sẽ quay lại dùng TTS từ script.`, danger: true }))) return
+    setBusy(true)
+    setError(null)
+    try {
+      await listeningService.deleteAudio(passage.id)
+      onChanged()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-6 border-t border-slate-100 pt-4">
+      <p className="mb-2 text-sm font-medium text-slate-700">Audio thật (tuỳ chọn, thay cho TTS)</p>
+      {passage.audio_url ? (
+        <div className="space-y-2">
+          <audio controls src={passage.audio_url} className="w-full max-w-sm" />
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => document.getElementById(inputId)?.click()}>
+              {busy ? 'Đang xử lý...' : 'Thay file khác'}
+            </Button>
+            <Button type="button" variant="danger" size="sm" disabled={busy} onClick={onDelete}>
+              Gỡ audio
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => document.getElementById(inputId)?.click()}>
+          {busy ? 'Đang upload...' : '📤 Upload audio'}
+        </Button>
+      )}
+      <input id={inputId} type="file" accept={ACCEPTED_AUDIO_TYPES} onChange={onFileChange} className="sr-only" />
+      <p className="mt-1 text-xs text-slate-400">mp3/wav/ogg/m4a/webm, tối đa 25MB. Không chọn thì bài dùng giọng đọc TTS từ script.</p>
+      {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+    </div>
+  )
+}
+
 function PassagesSection({ languageId, topics }: { languageId: string; topics: ListeningTopicAdmin[] }) {
   const confirm = useConfirm()
   const [search, setSearch] = useState('')
@@ -429,6 +497,8 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
               </Button>
             </div>
           </form>
+
+          {editing && <AudioUploadControl key={editing.id} passage={editing} onChanged={reload} />}
         </Card>
       )}
 

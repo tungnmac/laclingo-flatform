@@ -41,6 +41,16 @@ export const listeningService = {
   deletePassage: (id: string) => apiFetch<void>(`/admin/listening/passages/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   bulkImportPassages: (items: ListeningPassageRequest[]) =>
     apiFetch<BulkImportResult[]>('/admin/listening/passages/bulk', { method: 'POST', body: JSON.stringify(items) }),
+  uploadAudio: (passageId: string, file: File) => {
+    const form = new FormData()
+    form.append('audio', file)
+    return apiFetch<ListeningPassageAdmin>(`/admin/listening/passages/${encodeURIComponent(passageId)}/audio`, {
+      method: 'POST',
+      body: form,
+    })
+  },
+  deleteAudio: (passageId: string) =>
+    apiFetch<ListeningPassageAdmin>(`/admin/listening/passages/${encodeURIComponent(passageId)}/audio`, { method: 'DELETE' }),
 
   createOrUpdateTopic: (body: ListeningTopicRequest) =>
     apiFetch<ListeningTopicAdmin>('/admin/listening/topics', { method: 'POST', body: JSON.stringify(body) }),
