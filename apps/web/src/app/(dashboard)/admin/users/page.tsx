@@ -23,6 +23,7 @@ const PAGE_SIZE = 20
 
 export default function AdminUsersPage() {
   const confirm = useConfirm()
+  const toast = useToast()
   const me = useSession((s) => s.user)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -34,7 +35,6 @@ export default function AdminUsersPage() {
     [page, debouncedSearch, role, moduleFilter],
   )
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
   const toggleOpen = (id: string) => {
@@ -52,12 +52,12 @@ export default function AdminUsersPage() {
     if (!(await confirm({ description: `${verb} "${displayName(u)}"?`, danger: nextRole === 'user' }))) return
 
     setBusyId(u.id)
-    setActionError(null)
     try {
       await userService.setRole(u.id, nextRole)
       reload()
+      toast(nextRole === 'admin' ? `Đã cấp quyền admin cho "${displayName(u)}"` : `Đã thu hồi quyền admin của "${displayName(u)}"`)
     } catch (err) {
-      setActionError((err as Error).message)
+      toast((err as Error).message, 'error')
     } finally {
       setBusyId(null)
     }
@@ -118,12 +118,6 @@ export default function AdminUsersPage() {
           </select>
         </label>
       </div>
-
-      {actionError && (
-        <p role="alert" className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-          {actionError}
-        </p>
-      )}
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
