@@ -7,6 +7,7 @@ import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { challengeQuestionService } from '@/features/challenge/challenge-question.service'
 import { inputClass } from '@/features/auth/components/AuthForm'
@@ -30,6 +31,7 @@ const bulkPlaceholder = `[
 ]`
 
 export default function AdminChallengeQuestionsPage() {
+  const confirm = useConfirm()
   const [languageId, setLanguageId] = useState('en')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -57,7 +59,7 @@ export default function AdminChallengeQuestionsPage() {
   }
 
   const onDelete = async (q: ChallengeQuestionAdmin) => {
-    if (!confirm(`Xoá câu hỏi "${q.question}"?`)) return
+    if (!(await confirm({ description: `Xoá câu hỏi "${q.question}"?`, danger: true }))) return
     await challengeQuestionService.delete(q.id)
     reload()
   }

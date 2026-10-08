@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { missionService } from '@/features/mission/mission.service'
@@ -32,6 +33,7 @@ function toDateInputValue(iso?: string) {
 }
 
 export default function AdminMissionsPage() {
+  const confirm = useConfirm()
   const { data, error, loading, reload } = useApi(missionService.listAll, [])
   const [editing, setEditing] = useState<Mission | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -51,7 +53,7 @@ export default function AdminMissionsPage() {
   }
 
   const onDeactivate = async (m: Mission) => {
-    if (!confirm(`Tắt nhiệm vụ "${m.title}"? Lịch sử tiến độ sẽ được giữ lại.`)) return
+    if (!(await confirm(`Tắt nhiệm vụ "${m.title}"? Lịch sử tiến độ sẽ được giữ lại.`))) return
     await missionService.deactivate(m.id)
     reload()
   }

@@ -8,6 +8,7 @@ import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
@@ -34,6 +35,7 @@ const bulkPlaceholder = `[
 ]`
 
 export default function AdminGrammarExercisesPage({ params }: { params: { lessonId: string } }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -57,7 +59,7 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
     setFormError(null)
   }
   const onDelete = async (ex: GrammarExercise) => {
-    if (!confirm(`Xoá bài tập "${ex.question}"?`)) return
+    if (!(await confirm({ description: `Xoá bài tập "${ex.question}"?`, danger: true }))) return
     await grammarService.deleteExercise(ex.id)
     reload()
   }

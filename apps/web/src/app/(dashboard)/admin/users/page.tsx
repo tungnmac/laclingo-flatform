@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { userService } from '@/features/user/user.service'
@@ -18,6 +19,7 @@ import type { User } from '@/types/api'
 const PAGE_SIZE = 20
 
 export default function AdminUsersPage() {
+  const confirm = useConfirm()
   const me = useSession((s) => s.user)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -33,7 +35,7 @@ export default function AdminUsersPage() {
   const onToggleRole = async (u: User) => {
     const nextRole = u.role === 'admin' ? 'user' : 'admin'
     const verb = nextRole === 'admin' ? 'Cấp quyền admin cho' : 'Thu hồi quyền admin của'
-    if (!confirm(`${verb} "${displayName(u)}"?`)) return
+    if (!(await confirm({ description: `${verb} "${displayName(u)}"?`, danger: nextRole === 'user' }))) return
 
     setBusyId(u.id)
     setActionError(null)

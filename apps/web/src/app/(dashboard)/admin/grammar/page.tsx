@@ -9,6 +9,7 @@ import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
@@ -78,6 +79,7 @@ export default function AdminGrammarPage() {
 }
 
 function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -106,7 +108,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
     setFormError(null)
   }
   const onDelete = async (t: GrammarTopicAdmin) => {
-    if (!confirm(`Xoá chủ đề "${t.title}"? Toàn bộ bài học + bài tập bên trong sẽ bị xoá theo.`)) return
+    if (!(await confirm({ description: `Xoá chủ đề "${t.title}"? Toàn bộ bài học + bài tập bên trong sẽ bị xoá theo.`, danger: true }))) return
     await grammarService.deleteTopic(t.id)
     reloadAll()
   }
@@ -242,6 +244,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
 }
 
 function LessonsSection({ languageId, topics }: { languageId: string; topics: GrammarTopicAdmin[] }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -269,7 +272,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
     setFormError(null)
   }
   const onDelete = async (l: GrammarLessonAdmin) => {
-    if (!confirm(`Xoá bài học "${l.title}"? Toàn bộ bài tập bên trong sẽ bị xoá theo.`)) return
+    if (!(await confirm({ description: `Xoá bài học "${l.title}"? Toàn bộ bài tập bên trong sẽ bị xoá theo.`, danger: true }))) return
     await grammarService.deleteLesson(l.id)
     reload()
   }

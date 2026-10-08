@@ -8,6 +8,7 @@ import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { listeningService } from '@/features/listening/listening.service'
@@ -29,6 +30,7 @@ const bulkPlaceholder = `[
 ]`
 
 export default function AdminListeningQuestionsPage({ params }: { params: { passageId: string } }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -54,7 +56,7 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
   }
 
   const onDelete = async (q: ListeningQuestionAdmin) => {
-    if (!confirm(`Xoá câu hỏi "${q.question}"?`)) return
+    if (!(await confirm({ description: `Xoá câu hỏi "${q.question}"?`, danger: true }))) return
     await listeningService.deleteQuestionAdmin(q.id)
     reload()
   }

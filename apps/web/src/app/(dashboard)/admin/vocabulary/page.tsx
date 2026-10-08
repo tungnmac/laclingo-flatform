@@ -8,6 +8,7 @@ import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
@@ -69,6 +70,7 @@ export default function AdminVocabularyPage() {
 }
 
 function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -86,7 +88,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
   }
 
   const onDelete = async (t: VocabularyTopicAdmin) => {
-    if (!confirm(`Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`)) return
+    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`, danger: true }))) return
     await vocabularyService.deleteTopic(t.language_id, t.name)
     reloadAll()
   }
@@ -213,6 +215,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
 }
 
 function VocabularySection({ languageId, topics }: { languageId: string; topics: VocabularyTopicAdmin[] }) {
+  const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -247,7 +250,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   }
 
   const onDelete = async (v: VocabularyAdmin) => {
-    if (!confirm(`Xoá từ "${v.term}"?`)) return
+    if (!(await confirm({ description: `Xoá từ "${v.term}"?`, danger: true }))) return
     await vocabularyService.deleteVocabulary(v.id)
     reload()
   }

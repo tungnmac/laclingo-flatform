@@ -8,6 +8,7 @@ import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
@@ -32,6 +33,7 @@ const bulkPlaceholder = `[
 ]`
 
 export default function AdminListeningPage() {
+  const confirm = useConfirm()
   const [languageId, setLanguageId] = useState('en')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -59,7 +61,7 @@ export default function AdminListeningPage() {
   }
 
   const onDelete = async (p: ListeningPassageAdmin) => {
-    if (!confirm(`Xoá bài "${p.title}"? Toàn bộ câu hỏi bên trong sẽ bị xoá theo.`)) return
+    if (!(await confirm({ description: `Xoá bài "${p.title}"? Toàn bộ câu hỏi bên trong sẽ bị xoá theo.`, danger: true }))) return
     await listeningService.deletePassage(p.id)
     reload()
   }
