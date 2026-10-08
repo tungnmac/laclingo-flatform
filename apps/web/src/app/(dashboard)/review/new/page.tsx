@@ -42,19 +42,28 @@ export default function NewWordsTopicsPage({ searchParams }: { searchParams: { l
           {topics.map((topic) => {
             const percent = topic.total === 0 ? 0 : Math.round((topic.learned / topic.total) * 100)
             const done = topic.total > 0 && topic.learned >= topic.total
+            const href = topic.has_children
+              ? `/review/new/subtopics?parent=${encodeURIComponent(topic.name)}${languageQuery}`
+              : `/review/new/topic?name=${encodeURIComponent(topic.name)}${languageQuery}`
             return (
               <Link
                 key={topic.name}
-                href={`/review/new/topic?name=${encodeURIComponent(topic.name)}${languageQuery}`}
+                href={href}
                 className="group rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
                 <Card className="flex h-full flex-col gap-3 transition group-hover:ring-indigo-300">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-4xl">{topic.icon}</span>
-                    {done && (
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                        Hoàn thành
+                    {topic.has_children ? (
+                      <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                        Có mục con
                       </span>
+                    ) : (
+                      done && (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                          Hoàn thành
+                        </span>
+                      )
                     )}
                   </div>
                   <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>

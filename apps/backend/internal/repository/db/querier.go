@@ -16,6 +16,7 @@ type Querier interface {
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
+	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
 	// ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
 	CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
@@ -65,6 +66,10 @@ type Querier interface {
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
+	GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopicParams) (VocabularyTopic, error)
+	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
+	// chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
+	GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabularyTopicOwnStatsParams) (GetVocabularyTopicOwnStatsRow, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
@@ -117,6 +122,12 @@ type Querier interface {
 	ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error)
 	// Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
 	ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error)
+	// Chủ đề con của 1 chủ đề cha (learner drill-down, GET /vocab/topics/children)
+	// — total/learned chỉ tính từ gắn trực tiếp vào từng chủ đề con.
+	ListVocabularyChildTopics(ctx context.Context, arg ListVocabularyChildTopicsParams) ([]ListVocabularyChildTopicsRow, error)
+	// Toàn bộ quan hệ cha/con của 1 ngôn ngữ (không phân trang — chỉ vài chục
+	// dòng) — dùng để dựng cây 2 cấp cho learner, xem VocabularyService.ListTopics.
+	ListVocabularyTopicRelations(ctx context.Context, languageID string) ([]ListVocabularyTopicRelationsRow, error)
 	// Chủ đề lấy từ vocabularies.topic; icon/thứ tự từ vocabulary_topics nếu có.
 	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
 	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)

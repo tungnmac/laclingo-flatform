@@ -63,13 +63,23 @@ export default function AdminVocabularyPage() {
         onChange={setTab}
       />
 
-      {tab === 'topics' && <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />}
+      {tab === 'topics' && (
+        <TopicsSection languageId={languageId} allTopics={allTopicsApi.data?.items ?? []} onChanged={allTopicsApi.reload} />
+      )}
       {tab === 'words' && <VocabularySection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
 
-function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
+function TopicsSection({
+  languageId,
+  allTopics,
+  onChanged,
+}: {
+  languageId: string
+  allTopics: VocabularyTopicAdmin[]
+  onChanged: () => void
+}) {
   const confirm = useConfirm()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -82,13 +92,22 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  // Chỉ chủ đề CẤP CAO NHẤT mới được chọn làm cha (tối đa lồng 2 cấp — backend
+  // cũng tự chặn lại nếu chọn 1 chủ đề đã có con khác, hoặc đã là con).
+  const parentOptions = allTopics.filter((t) => !t.parent_name)
+
   const reloadAll = () => {
     reload()
     onChanged()
   }
 
   const onDelete = async (t: VocabularyTopicAdmin) => {
-    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`, danger: true }))) return
+    const hasChildren = allTopics.some((c) => c.parent_name === t.name)
+    const warning = hasChildren
+      ? ` Chủ đề này đang có chủ đề con — xoá sẽ xoá CẢ metadata của các chủ đề con đó (từ vựng vẫn giữ nguyên).`
+      : ''
+    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.${warning}`, danger: true })))
+      return
     await vocabularyService.deleteTopic(t.language_id, t.name)
     reloadAll()
   }
@@ -101,6 +120,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
       name: String(form.get('name') ?? '').trim(),
       icon: String(form.get('icon') ?? '📘').trim() || '📘',
       order_index: Number(form.get('order_index')),
+      parent_name: String(form.get('parent_name') ?? '').trim() || null,
     }
     setSaving(true)
     setFormError(null)
@@ -154,7 +174,18 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
           <form onSubmit={onSubmit} className="space-y-4">
             <label className="block text-sm font-medium text-slate-700">
               Tên chủ đề
-              <input name="name" type="text" required className={inputClass} placeholder="Đồ ăn & Thức uống" />
+              <input name="name" type="text" required className={inputClass} placeholder="Công nghệ thông tin" />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Chủ đề cha (để trống = chủ đề cấp cao nhất)
+              <select name="parent_name" defaultValue="" className={inputClass}>
+                <option value="">— Không có, đây là chủ đề cấp cao nhất —</option>
+                {parentOptions.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.icon} {p.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
@@ -191,9 +222,13 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
             {data.items.map((t) => (
-              <li key={t.name} className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
+              <li key={t.name} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-6', t.parent_name && 'pl-10 sm:pl-12')}>
+                {t.parent_name && <span className="text-slate-300">↳</span>}
                 <span className="text-xl">{t.icon}</span>
-                <span className="flex-1 text-sm font-medium text-slate-700">{t.name}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-700">{t.name}</p>
+                  {t.parent_name && <p className="truncate text-xs text-slate-400">thuộc: {t.parent_name}</p>}
+                </div>
                 <span className="text-xs text-slate-400">#{t.order_index}</span>
                 <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
                   Xoá

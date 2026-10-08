@@ -298,8 +298,15 @@ CREATE TABLE IF NOT EXISTS vocabulary_topics (
     name VARCHAR(50) NOT NULL,
     icon VARCHAR(16) NOT NULL DEFAULT '📘',
     order_index INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (language_id, name)
+    -- Chủ đề cha (tối đa 2 cấp, không lồng sâu hơn — ép ở service layer).
+    -- NULL = chủ đề cấp cao nhất. Vocabularies.topic có thể gắn vào chủ đề
+    -- cha (từ chung) HOẶC vào 1 chủ đề con (mục con cụ thể) — xem ListTopics.
+    parent_name VARCHAR(50),
+    PRIMARY KEY (language_id, name),
+    FOREIGN KEY (language_id, parent_name) REFERENCES vocabulary_topics(language_id, name) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_vocabulary_topics_parent ON vocabulary_topics(language_id, parent_name);
 
 CREATE TABLE IF NOT EXISTS vocabulary_likes (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

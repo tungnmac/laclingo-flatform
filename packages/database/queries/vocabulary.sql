@@ -111,9 +111,9 @@ RETURNING *;
 DELETE FROM vocabularies WHERE id = $1;
 
 -- name: CreateVocabularyTopic :one
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name
 RETURNING *;
 
 -- name: ListVocabularyTopicsByLanguageAdmin :many
@@ -125,3 +125,39 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: DeleteVocabularyTopic :exec
 DELETE FROM vocabulary_topics WHERE language_id = $1 AND name = $2;
+
+-- name: GetVocabularyTopic :one
+SELECT * FROM vocabulary_topics WHERE language_id = $1 AND name = $2;
+
+-- name: CountVocabularyTopicChildren :one
+SELECT COUNT(*) FROM vocabulary_topics WHERE language_id = sqlc.arg('language_id') AND parent_name = sqlc.arg('parent_name');
+
+-- name: ListVocabularyTopicRelations :many
+-- Toàn bộ quan hệ cha/con của 1 ngôn ngữ (không phân trang — chỉ vài chục
+-- dòng) — dùng để dựng cây 2 cấp cho learner, xem VocabularyService.ListTopics.
+SELECT name, parent_name, icon FROM vocabulary_topics WHERE language_id = $1;
+
+-- name: GetVocabularyTopicOwnStats :one
+-- Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
+-- chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
+SELECT
+    COUNT(v.id)::int AS total,
+    COUNT(r.id)::int AS learned
+FROM vocabularies v
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')
+WHERE v.language_id = sqlc.arg('language_id') AND v.topic = sqlc.arg('topic');
+
+-- name: ListVocabularyChildTopics :many
+-- Chủ đề con của 1 chủ đề cha (learner drill-down, GET /vocab/topics/children)
+-- — total/learned chỉ tính từ gắn trực tiếp vào từng chủ đề con.
+SELECT
+    t.name::varchar AS name,
+    COALESCE(t.icon, '📘')::varchar AS icon,
+    COUNT(v.id)::int AS total,
+    COUNT(r.id)::int AS learned
+FROM vocabulary_topics t
+LEFT JOIN vocabularies v ON v.language_id = t.language_id AND v.topic = t.name
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')
+WHERE t.language_id = sqlc.arg('language_id') AND t.parent_name = sqlc.arg('parent_name')
+GROUP BY t.name, t.icon, t.order_index
+ORDER BY t.order_index, t.name;

@@ -276,8 +276,9 @@ type VocabularyLike struct {
 }
 
 type VocabularyTopic struct {
-	LanguageID string `json:"language_id"`
-	Name       string `json:"name"`
-	Icon       string `json:"icon"`
-	OrderIndex int32  `json:"order_index"`
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	ParentName pgtype.Text `json:"parent_name"`
 }

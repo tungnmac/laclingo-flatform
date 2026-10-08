@@ -18,6 +18,7 @@ func NewVocabularyHandler(svc *service.VocabularyService) *VocabularyHandler {
 func (h *VocabularyHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/vocab")
 	api.Get("/topics", h.ListTopics)
+	api.Get("/topics/children", h.ListChildTopics)
 	api.Get("/words", h.ListWords)
 	api.Get("/favorites", h.ListFavorites)
 	api.Put("/:id/like", h.Like)
@@ -234,6 +235,25 @@ func (h *VocabularyHandler) BulkImportTopics(c *fiber.Ctx) error {
 // @Router       /vocab/topics [get]
 func (h *VocabularyHandler) ListTopics(c *fiber.Ctx) error {
 	results, err := h.svc.ListTopics(c.UserContext(), currentUserID(c), c.Query("language"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
+// ListChildTopics godoc
+// @Summary      Chủ đề con của 1 chủ đề cha
+// @Description  Dùng cho bước drill-down sau khi chọn 1 chủ đề có has_children=true ở GET /vocab/topics.
+// @Tags         vocab
+// @Produce      json
+// @Security     BearerAuth
+// @Param        language  query     string  false  "Mã ngôn ngữ (mặc định en)"  example(en)
+// @Param        parent    query     string  true   "Tên chủ đề cha"  example(Công việc & Nghề nghiệp)
+// @Success      200       {array}   service.VocabularyTopic
+// @Failure      401       {object}  ErrorResponse
+// @Router       /vocab/topics/children [get]
+func (h *VocabularyHandler) ListChildTopics(c *fiber.Ctx) error {
+	results, err := h.svc.ListChildTopics(c.UserContext(), currentUserID(c), c.Query("language"), c.Query("parent"))
 	if err != nil {
 		return err
 	}

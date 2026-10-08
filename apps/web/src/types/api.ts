@@ -110,6 +110,7 @@ export interface VocabularyTopic {
   icon: string
   total: number
   learned: number // số từ đã vào hàng đợi ôn tập SRS
+  has_children: boolean // có chủ đề con hay không — xem GET /vocab/topics/children
 }
 
 // Một từ ở trang học theo chủ đề / trang yêu thích
@@ -577,6 +578,7 @@ export interface VocabularyTopicRequest {
   name: string
   icon: string
   order_index: number
+  parent_name?: string | null
 }
 
 export interface VocabularyTopicAdmin {
@@ -584,4 +586,5 @@ export interface VocabularyTopicAdmin {
   name: string
   icon: string
   order_index: number
+  parent_name?: string | null
 }

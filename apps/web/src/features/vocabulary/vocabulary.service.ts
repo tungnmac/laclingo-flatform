@@ -21,6 +21,9 @@ function languageQuery(language?: string) {
 export const vocabularyService = {
   listTopics: (language?: string) => apiFetch<VocabularyTopic[]>(`/vocab/topics?${languageQuery(language)}`),
 
+  listChildTopics: (parent: string, language?: string) =>
+    apiFetch<VocabularyTopic[]>(`/vocab/topics/children?parent=${encodeURIComponent(parent)}&${languageQuery(language)}`),
+
   listWords: (topic: string, language?: string) =>
     apiFetch<VocabularyCard[]>(`/vocab/words?topic=${encodeURIComponent(topic)}&${languageQuery(language)}`),
 
