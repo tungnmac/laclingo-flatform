@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { Pagination } from '@/components/admin/Pagination'
+import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -26,14 +26,14 @@ const topicBulkPlaceholder = `[
   { "language_id": "en", "name": "Đồ ăn & Thức uống", "icon": "🍜", "order_index": 0 }
 ]`
 
+type VocabTab = 'topics' | 'words'
+
 export default function AdminVocabularyPage() {
   const [languageId, setLanguageId] = useState('en')
+  const [tab, setTab] = useState<VocabTab>('words')
 
   return (
     <>
-      <Link href="/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Quản trị
-      </Link>
       <PageHeader title="Từ vựng" description="Quản lý từ vựng và chủ đề từ vựng theo ngôn ngữ." />
 
       <label className="mb-6 block text-sm font-medium text-slate-700">
@@ -44,8 +44,17 @@ export default function AdminVocabularyPage() {
         </select>
       </label>
 
-      <TopicsSection languageId={languageId} />
-      <VocabularySection languageId={languageId} />
+      <Tabs<VocabTab>
+        tabs={[
+          { id: 'words', label: '📚 Từ vựng' },
+          { id: 'topics', label: '🗂️ Chủ đề' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'topics' && <TopicsSection languageId={languageId} />}
+      {tab === 'words' && <VocabularySection languageId={languageId} />}
     </>
   )
 }

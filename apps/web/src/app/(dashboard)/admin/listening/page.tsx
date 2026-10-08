@@ -91,9 +91,6 @@ export default function AdminListeningPage() {
 
   return (
     <>
-      <Link href="/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Quản trị
-      </Link>
       <PageHeader
         title="Luyện nghe"
         description="Bài luyện nghe (script đọc bằng TTS) + câu hỏi hiểu nội dung."

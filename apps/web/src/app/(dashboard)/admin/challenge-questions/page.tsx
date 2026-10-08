@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { Pagination } from '@/components/admin/Pagination'
@@ -98,9 +97,6 @@ export default function AdminChallengeQuestionsPage() {
 
   return (
     <>
-      <Link href="/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Quản trị
-      </Link>
       <PageHeader
         title="Câu hỏi thách đấu"
         description="Ngân hàng câu hỏi trắc nghiệm dùng cho phòng thách đấu realtime."

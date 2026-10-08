@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { Pagination } from '@/components/admin/Pagination'
+import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -37,8 +38,11 @@ const lessonBulkPlaceholder = `[
   }
 ]`
 
+type GrammarTab = 'topics' | 'lessons'
+
 export default function AdminGrammarPage() {
   const [languageId, setLanguageId] = useState('en')
+  const [tab, setTab] = useState<GrammarTab>('lessons')
   const allTopicsApi = useApi(
     () => grammarService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
     [languageId],
@@ -46,9 +50,6 @@ export default function AdminGrammarPage() {
 
   return (
     <>
-      <Link href="/admin" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Quản trị
-      </Link>
       <PageHeader title="Ngữ pháp" description="Quản lý chủ đề, bài học, bài tập ngữ pháp." />
 
       <label className="mb-6 block text-sm font-medium text-slate-700">
@@ -59,8 +60,17 @@ export default function AdminGrammarPage() {
         </select>
       </label>
 
-      <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />
-      <LessonsSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />
+      <Tabs<GrammarTab>
+        tabs={[
+          { id: 'lessons', label: '📖 Bài học' },
+          { id: 'topics', label: '🗂️ Chủ đề' },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === 'topics' && <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />}
+      {tab === 'lessons' && <LessonsSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
