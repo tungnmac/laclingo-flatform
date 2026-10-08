@@ -5,7 +5,6 @@ import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
 import { IconPickerInput } from '@/components/admin/IconPickerInput'
-import { Pagination } from '@/components/admin/Pagination'
 import { Tabs } from '@/components/admin/Tabs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -21,10 +20,12 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
 
-const PAGE_SIZE = 20
 // Datalist "chủ đề" ở filter cần thấy hết chủ đề, không bị cắt bởi phân trang
 // của tab Chủ đề — tách riêng 1 call page_size lớn (giống trang Từ vựng).
 const ALL_TOPICS_PAGE_SIZE = 100
+// Tab Bài luyện nghe hiện NHÓM theo chủ đề (cần thấy hết để nhóm đúng), nên
+// bỏ phân trang thật — lấy 1 lần với page_size lớn, giống cách tab Chủ đề làm.
+const ALL_PASSAGES_PAGE_SIZE = 200
 
 const bulkPlaceholder = `[
   {
@@ -242,21 +243,50 @@ function TopicsSection({
   )
 }
 
+const NO_TOPIC_GROUP = '__no_topic__'
+
 function PassagesSection({ languageId, topics }: { languageId: string; topics: ListeningTopicAdmin[] }) {
   const confirm = useConfirm()
-  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [topicFilter, setTopicFilter] = useState('')
   const [level, setLevel] = useState('')
   const { data, error, loading, reload } = useApi(
-    () => listeningService.listPassagesAdmin(languageId, { page, pageSize: PAGE_SIZE, q: debouncedSearch, topic: topicFilter, level }),
-    [languageId, page, debouncedSearch, topicFilter, level],
+    () => listeningService.listPassagesAdmin(languageId, { page: 1, pageSize: ALL_PASSAGES_PAGE_SIZE, q: debouncedSearch, topic: topicFilter, level }),
+    [languageId, debouncedSearch, topicFilter, level],
   )
   const [editing, setEditing] = useState<ListeningPassageAdmin | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  // Nhóm nào đang đóng (mặc định mọi nhóm MỞ — đang quản lý nội dung nên cần
+  // thấy hết, khác với trang Users mặc định đóng để gọn danh sách dài).
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (key: string) => {
+    setClosedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Nhóm bài theo chủ đề — thứ tự nhóm theo order_index của topics (chủ đề
+  // chưa khai báo icon/thứ tự riêng thì xếp theo tên); nhóm "chưa có chủ đề" luôn ở cuối.
+  const topicOrder = new Map(topics.map((t, i) => [t.name, t.order_index ?? i]))
+  const groups = new Map<string, ListeningPassageAdmin[]>()
+  for (const p of data?.items ?? []) {
+    const key = p.topic || NO_TOPIC_GROUP
+    const list = groups.get(key) ?? []
+    list.push(p)
+    groups.set(key, list)
+  }
+  const groupKeys = [...groups.keys()].sort((a, b) => {
+    if (a === NO_TOPIC_GROUP) return 1
+    if (b === NO_TOPIC_GROUP) return -1
+    return (topicOrder.get(a) ?? 999) - (topicOrder.get(b) ?? 999) || a.localeCompare(b)
+  })
 
   const onEdit = (p: ListeningPassageAdmin) => {
     setEditing(p)
@@ -328,10 +358,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
           <input
             type="search"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm theo tiêu đề/chủ đề..."
             className={cn(inputClass, 'max-w-xs')}
           />
@@ -342,10 +369,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
             type="text"
             list="listening-topic-filter-options"
             value={topicFilter}
-            onChange={(e) => {
-              setTopicFilter(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => setTopicFilter(e.target.value)}
             placeholder="Gõ để tìm hoặc chọn chủ đề..."
             className={cn(inputClass, 'max-w-xs')}
           />
@@ -360,10 +384,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
           <input
             type="text"
             value={level}
-            onChange={(e) => {
-              setLevel(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => setLevel(e.target.value)}
             placeholder="A1, A2, ..."
             className={cn(inputClass, 'max-w-[8rem]')}
           />
@@ -419,35 +440,56 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
       {error && <ErrorState error={error} onRetry={reload} />}
       {data && data.items.length === 0 && <EmptyState title="Chưa có bài luyện nghe nào" icon="🎧" />}
 
-      {data && data.items.length > 0 && (
-        <Card className="mb-2 p-0 sm:p-0">
-          <ul className="divide-y divide-slate-100">
-            {data.items.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-slate-900">{p.title}</p>
-                  {p.topic && <p className="truncate text-sm text-slate-500">{p.topic}</p>}
-                </div>
-                <LevelBadge level={p.level} />
-                <div className="flex gap-2">
-                  <Link href={`/admin/listening/${p.id}`}>
-                    <Button variant="secondary" size="sm">
-                      Câu hỏi
-                    </Button>
-                  </Link>
-                  <Button variant="secondary" size="sm" onClick={() => onEdit(p)}>
-                    Sửa
-                  </Button>
-                  <Button variant="danger" size="sm" onClick={() => onDelete(p)}>
-                    Xoá
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-      {data && <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPageChange={setPage} />}
+      {data &&
+        data.items.length > 0 &&
+        groupKeys.map((key) => {
+          const passages = groups.get(key) ?? []
+          const isNoTopic = key === NO_TOPIC_GROUP
+          const topicMeta = isNoTopic ? undefined : topics.find((t) => t.name === key)
+          const isOpen = !closedGroups.has(key)
+          return (
+            <div key={key} className="space-y-2">
+              <button
+                type="button"
+                onClick={() => toggleGroup(key)}
+                className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50"
+              >
+                <span className={cn('text-slate-400 transition-transform', isOpen && 'rotate-90')} aria-hidden>
+                  ▸
+                </span>
+                <span className="text-lg">{isNoTopic ? '📄' : topicMeta?.icon ?? '🎧'}</span>
+                <h3 className="font-semibold text-slate-800">{isNoTopic ? 'Chưa có chủ đề' : key}</h3>
+                <span className="text-sm text-slate-400">{passages.length} bài</span>
+              </button>
+
+              {isOpen && (
+                <Card className="p-0 sm:p-0">
+                  <ul className="divide-y divide-slate-100">
+                    {passages.map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+                        <p className="min-w-0 flex-1 truncate font-semibold text-slate-900">{p.title}</p>
+                        <LevelBadge level={p.level} />
+                        <div className="flex gap-2">
+                          <Link href={`/admin/listening/${p.id}`}>
+                            <Button variant="secondary" size="sm">
+                              Câu hỏi
+                            </Button>
+                          </Link>
+                          <Button variant="secondary" size="sm" onClick={() => onEdit(p)}>
+                            Sửa
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => onDelete(p)}>
+                            Xoá
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+            </div>
+          )
+        })}
 
       <BulkImportPanel<ListeningPassageRequest>
         onImport={(items) => listeningService.bulkImportPassages(items.map((i) => ({ ...i, language_id: i.language_id || languageId })))}
