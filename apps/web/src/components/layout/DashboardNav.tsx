@@ -20,7 +20,7 @@ const NAV_ITEMS = [
 // chung danh sách đó với layout grid-cols-5 cố định cho mobile.
 const MISSIONS_ITEM = { href: '/missions', label: 'Nhiệm vụ', icon: '🎯' }
 const LISTENING_ITEM = { href: '/listening', label: 'Luyện nghe', icon: '🎧' }
-const ADMIN_ITEM = { href: '/admin/missions', label: 'Quản trị', icon: '🛠️' }
+const ADMIN_ITEM = { href: '/admin', label: 'Quản trị', icon: '🛠️' }
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)

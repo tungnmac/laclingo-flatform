@@ -11,6 +11,158 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createGrammarExercise = `-- name: CreateGrammarExercise :one
+INSERT INTO grammar_exercises (lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward
+`
+
+type CreateGrammarExerciseParams struct {
+	LessonID      pgtype.UUID `json:"lesson_id"`
+	Type          string      `json:"type"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+	Level         pgtype.Int4 `json:"level"`
+	Hint          pgtype.Text `json:"hint"`
+	XpReward      pgtype.Int4 `json:"xp_reward"`
+}
+
+func (q *Queries) CreateGrammarExercise(ctx context.Context, arg CreateGrammarExerciseParams) (GrammarExercise, error) {
+	row := q.db.QueryRow(ctx, createGrammarExercise,
+		arg.LessonID,
+		arg.Type,
+		arg.Question,
+		arg.Options,
+		arg.CorrectAnswer,
+		arg.Explanation,
+		arg.OrderIndex,
+		arg.Level,
+		arg.Hint,
+		arg.XpReward,
+	)
+	var i GrammarExercise
+	err := row.Scan(
+		&i.ID,
+		&i.LessonID,
+		&i.Type,
+		&i.Question,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Explanation,
+		&i.OrderIndex,
+		&i.Level,
+		&i.Hint,
+		&i.XpReward,
+	)
+	return i, err
+}
+
+const createGrammarLesson = `-- name: CreateGrammarLesson :one
+INSERT INTO grammar_lessons (topic_id, code, title, level, order_index, content)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, topic_id, code, title, level, order_index, content, created_at, updated_at
+`
+
+type CreateGrammarLessonParams struct {
+	TopicID    pgtype.UUID `json:"topic_id"`
+	Code       string      `json:"code"`
+	Title      string      `json:"title"`
+	Level      pgtype.Text `json:"level"`
+	OrderIndex pgtype.Int4 `json:"order_index"`
+	Content    []byte      `json:"content"`
+}
+
+func (q *Queries) CreateGrammarLesson(ctx context.Context, arg CreateGrammarLessonParams) (GrammarLesson, error) {
+	row := q.db.QueryRow(ctx, createGrammarLesson,
+		arg.TopicID,
+		arg.Code,
+		arg.Title,
+		arg.Level,
+		arg.OrderIndex,
+		arg.Content,
+	)
+	var i GrammarLesson
+	err := row.Scan(
+		&i.ID,
+		&i.TopicID,
+		&i.Code,
+		&i.Title,
+		&i.Level,
+		&i.OrderIndex,
+		&i.Content,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createGrammarTopic = `-- name: CreateGrammarTopic :one
+
+INSERT INTO grammar_topics (language_id, code, title, description, order_index)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, language_id, code, title, description, order_index, created_at
+`
+
+type CreateGrammarTopicParams struct {
+	LanguageID  string      `json:"language_id"`
+	Code        string      `json:"code"`
+	Title       string      `json:"title"`
+	Description pgtype.Text `json:"description"`
+	OrderIndex  pgtype.Int4 `json:"order_index"`
+}
+
+// ===== Admin CRUD (quản lý nội dung ngữ pháp) =====
+func (q *Queries) CreateGrammarTopic(ctx context.Context, arg CreateGrammarTopicParams) (GrammarTopic, error) {
+	row := q.db.QueryRow(ctx, createGrammarTopic,
+		arg.LanguageID,
+		arg.Code,
+		arg.Title,
+		arg.Description,
+		arg.OrderIndex,
+	)
+	var i GrammarTopic
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Code,
+		&i.Title,
+		&i.Description,
+		&i.OrderIndex,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deleteGrammarExercise = `-- name: DeleteGrammarExercise :exec
+DELETE FROM grammar_exercises WHERE id = $1
+`
+
+func (q *Queries) DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteGrammarExercise, id)
+	return err
+}
+
+const deleteGrammarLesson = `-- name: DeleteGrammarLesson :exec
+DELETE FROM grammar_lessons WHERE id = $1
+`
+
+func (q *Queries) DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteGrammarLesson, id)
+	return err
+}
+
+const deleteGrammarTopic = `-- name: DeleteGrammarTopic :exec
+DELETE FROM grammar_topics WHERE id = $1
+`
+
+func (q *Queries) DeleteGrammarTopic(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteGrammarTopic, id)
+	return err
+}
+
 const getGrammarExerciseByID = `-- name: GetGrammarExerciseByID :one
 SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward FROM grammar_exercises
 WHERE id = $1
@@ -53,6 +205,46 @@ func (q *Queries) GetGrammarLessonByCode(ctx context.Context, code string) (Gram
 		&i.Content,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGrammarLessonByID = `-- name: GetGrammarLessonByID :one
+SELECT id, topic_id, code, title, level, order_index, content, created_at, updated_at FROM grammar_lessons WHERE id = $1
+`
+
+func (q *Queries) GetGrammarLessonByID(ctx context.Context, id pgtype.UUID) (GrammarLesson, error) {
+	row := q.db.QueryRow(ctx, getGrammarLessonByID, id)
+	var i GrammarLesson
+	err := row.Scan(
+		&i.ID,
+		&i.TopicID,
+		&i.Code,
+		&i.Title,
+		&i.Level,
+		&i.OrderIndex,
+		&i.Content,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getGrammarTopicByID = `-- name: GetGrammarTopicByID :one
+SELECT id, language_id, code, title, description, order_index, created_at FROM grammar_topics WHERE id = $1
+`
+
+func (q *Queries) GetGrammarTopicByID(ctx context.Context, id pgtype.UUID) (GrammarTopic, error) {
+	row := q.db.QueryRow(ctx, getGrammarTopicByID, id)
+	var i GrammarTopic
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Code,
+		&i.Title,
+		&i.Description,
+		&i.OrderIndex,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -171,4 +363,127 @@ func (q *Queries) ListGrammarTopicsByLanguage(ctx context.Context, languageID st
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateGrammarExercise = `-- name: UpdateGrammarExercise :one
+UPDATE grammar_exercises
+SET type = $2, question = $3, options = $4, correct_answer = $5, explanation = $6,
+    order_index = $7, level = $8, hint = $9, xp_reward = $10
+WHERE id = $1
+RETURNING id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward
+`
+
+type UpdateGrammarExerciseParams struct {
+	ID            pgtype.UUID `json:"id"`
+	Type          string      `json:"type"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+	Level         pgtype.Int4 `json:"level"`
+	Hint          pgtype.Text `json:"hint"`
+	XpReward      pgtype.Int4 `json:"xp_reward"`
+}
+
+func (q *Queries) UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error) {
+	row := q.db.QueryRow(ctx, updateGrammarExercise,
+		arg.ID,
+		arg.Type,
+		arg.Question,
+		arg.Options,
+		arg.CorrectAnswer,
+		arg.Explanation,
+		arg.OrderIndex,
+		arg.Level,
+		arg.Hint,
+		arg.XpReward,
+	)
+	var i GrammarExercise
+	err := row.Scan(
+		&i.ID,
+		&i.LessonID,
+		&i.Type,
+		&i.Question,
+		&i.Options,
+		&i.CorrectAnswer,
+		&i.Explanation,
+		&i.OrderIndex,
+		&i.Level,
+		&i.Hint,
+		&i.XpReward,
+	)
+	return i, err
+}
+
+const updateGrammarLesson = `-- name: UpdateGrammarLesson :one
+UPDATE grammar_lessons
+SET title = $2, level = $3, order_index = $4, content = $5, updated_at = NOW()
+WHERE id = $1
+RETURNING id, topic_id, code, title, level, order_index, content, created_at, updated_at
+`
+
+type UpdateGrammarLessonParams struct {
+	ID         pgtype.UUID `json:"id"`
+	Title      string      `json:"title"`
+	Level      pgtype.Text `json:"level"`
+	OrderIndex pgtype.Int4 `json:"order_index"`
+	Content    []byte      `json:"content"`
+}
+
+func (q *Queries) UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error) {
+	row := q.db.QueryRow(ctx, updateGrammarLesson,
+		arg.ID,
+		arg.Title,
+		arg.Level,
+		arg.OrderIndex,
+		arg.Content,
+	)
+	var i GrammarLesson
+	err := row.Scan(
+		&i.ID,
+		&i.TopicID,
+		&i.Code,
+		&i.Title,
+		&i.Level,
+		&i.OrderIndex,
+		&i.Content,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateGrammarTopic = `-- name: UpdateGrammarTopic :one
+UPDATE grammar_topics
+SET title = $2, description = $3, order_index = $4
+WHERE id = $1
+RETURNING id, language_id, code, title, description, order_index, created_at
+`
+
+type UpdateGrammarTopicParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Title       string      `json:"title"`
+	Description pgtype.Text `json:"description"`
+	OrderIndex  pgtype.Int4 `json:"order_index"`
+}
+
+func (q *Queries) UpdateGrammarTopic(ctx context.Context, arg UpdateGrammarTopicParams) (GrammarTopic, error) {
+	row := q.db.QueryRow(ctx, updateGrammarTopic,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.OrderIndex,
+	)
+	var i GrammarTopic
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Code,
+		&i.Title,
+		&i.Description,
+		&i.OrderIndex,
+		&i.CreatedAt,
+	)
+	return i, err
 }

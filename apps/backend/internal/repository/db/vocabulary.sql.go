@@ -22,6 +22,112 @@ func (q *Queries) CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.
 	return column_1, err
 }
 
+const createVocabulary = `-- name: CreateVocabulary :one
+
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at
+`
+
+type CreateVocabularyParams struct {
+	LanguageID string      `json:"language_id"`
+	Term       string      `json:"term"`
+	Phonetic   pgtype.Text `json:"phonetic"`
+	Meaning    string      `json:"meaning"`
+	Example    pgtype.Text `json:"example"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	AudioUrl   pgtype.Text `json:"audio_url"`
+	ImageUrl   pgtype.Text `json:"image_url"`
+	ImageEmoji pgtype.Text `json:"image_emoji"`
+}
+
+// ===== Admin CRUD (quản lý nội dung từ vựng) =====
+func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyParams) (Vocabulary, error) {
+	row := q.db.QueryRow(ctx, createVocabulary,
+		arg.LanguageID,
+		arg.Term,
+		arg.Phonetic,
+		arg.Meaning,
+		arg.Example,
+		arg.Topic,
+		arg.Level,
+		arg.AudioUrl,
+		arg.ImageUrl,
+		arg.ImageEmoji,
+	)
+	var i Vocabulary
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Term,
+		&i.Phonetic,
+		&i.Meaning,
+		&i.Example,
+		&i.Topic,
+		&i.Level,
+		&i.AudioUrl,
+		&i.ImageUrl,
+		&i.ImageEmoji,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createVocabularyTopic = `-- name: CreateVocabularyTopic :one
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
+RETURNING language_id, name, icon, order_index
+`
+
+type CreateVocabularyTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabularyTopicParams) (VocabularyTopic, error) {
+	row := q.db.QueryRow(ctx, createVocabularyTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.OrderIndex,
+	)
+	var i VocabularyTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.OrderIndex,
+	)
+	return i, err
+}
+
+const deleteVocabulary = `-- name: DeleteVocabulary :exec
+DELETE FROM vocabularies WHERE id = $1
+`
+
+func (q *Queries) DeleteVocabulary(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteVocabulary, id)
+	return err
+}
+
+const deleteVocabularyTopic = `-- name: DeleteVocabularyTopic :exec
+DELETE FROM vocabulary_topics WHERE language_id = $1 AND name = $2
+`
+
+type DeleteVocabularyTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+}
+
+func (q *Queries) DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error {
+	_, err := q.db.Exec(ctx, deleteVocabularyTopic, arg.LanguageID, arg.Name)
+	return err
+}
+
 const favoriteVocabulary = `-- name: FavoriteVocabulary :exec
 INSERT INTO vocabulary_favorites (user_id, vocabulary_id) VALUES ($1, $2)
 ON CONFLICT (user_id, vocabulary_id) DO NOTHING
@@ -129,6 +235,45 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 			&i.Liked,
 			&i.Favorited,
 			&i.InReview,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVocabulariesByLanguageAdmin = `-- name: ListVocabulariesByLanguageAdmin :many
+SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at FROM vocabularies
+WHERE language_id = $1
+ORDER BY topic, term
+`
+
+func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]Vocabulary, error) {
+	rows, err := q.db.Query(ctx, listVocabulariesByLanguageAdmin, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Vocabulary
+	for rows.Next() {
+		var i Vocabulary
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Term,
+			&i.Phonetic,
+			&i.Meaning,
+			&i.Example,
+			&i.Topic,
+			&i.Level,
+			&i.AudioUrl,
+			&i.ImageUrl,
+			&i.ImageEmoji,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -282,6 +427,37 @@ func (q *Queries) ListVocabularyTopics(ctx context.Context, arg ListVocabularyTo
 	return items, nil
 }
 
+const listVocabularyTopicsByLanguageAdmin = `-- name: ListVocabularyTopicsByLanguageAdmin :many
+SELECT language_id, name, icon, order_index FROM vocabulary_topics
+WHERE language_id = $1
+ORDER BY order_index, name
+`
+
+func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]VocabularyTopic, error) {
+	rows, err := q.db.Query(ctx, listVocabularyTopicsByLanguageAdmin, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VocabularyTopic
+	for rows.Next() {
+		var i VocabularyTopic
+		if err := rows.Scan(
+			&i.LanguageID,
+			&i.Name,
+			&i.Icon,
+			&i.OrderIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const unfavoriteVocabulary = `-- name: UnfavoriteVocabulary :exec
 DELETE FROM vocabulary_favorites WHERE user_id = $1 AND vocabulary_id = $2
 `
@@ -308,4 +484,56 @@ type UnlikeVocabularyParams struct {
 func (q *Queries) UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error {
 	_, err := q.db.Exec(ctx, unlikeVocabulary, arg.UserID, arg.VocabularyID)
 	return err
+}
+
+const updateVocabulary = `-- name: UpdateVocabulary :one
+UPDATE vocabularies
+SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7,
+    audio_url = $8, image_url = $9, image_emoji = $10
+WHERE id = $1
+RETURNING id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at
+`
+
+type UpdateVocabularyParams struct {
+	ID         pgtype.UUID `json:"id"`
+	Term       string      `json:"term"`
+	Phonetic   pgtype.Text `json:"phonetic"`
+	Meaning    string      `json:"meaning"`
+	Example    pgtype.Text `json:"example"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	AudioUrl   pgtype.Text `json:"audio_url"`
+	ImageUrl   pgtype.Text `json:"image_url"`
+	ImageEmoji pgtype.Text `json:"image_emoji"`
+}
+
+func (q *Queries) UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error) {
+	row := q.db.QueryRow(ctx, updateVocabulary,
+		arg.ID,
+		arg.Term,
+		arg.Phonetic,
+		arg.Meaning,
+		arg.Example,
+		arg.Topic,
+		arg.Level,
+		arg.AudioUrl,
+		arg.ImageUrl,
+		arg.ImageEmoji,
+	)
+	var i Vocabulary
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Term,
+		&i.Phonetic,
+		&i.Meaning,
+		&i.Example,
+		&i.Topic,
+		&i.Level,
+		&i.AudioUrl,
+		&i.ImageUrl,
+		&i.ImageEmoji,
+		&i.CreatedAt,
+	)
+	return i, err
 }

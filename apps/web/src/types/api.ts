@@ -412,3 +412,167 @@ export interface SubmitListeningAnswerResponse {
   correct_answer: string
   explanation?: string
 }
+
+// =============================================================================
+// Admin — quản lý nội dung học tập (chỉ role=admin)
+// =============================================================================
+
+export interface BulkImportResult {
+  index: number
+  success: boolean
+  error?: string
+}
+
+// --- Ngữ pháp ---
+
+export interface GrammarTopicRequest {
+  language_id: string
+  code: string
+  title: string
+  description?: string
+  order_index: number
+}
+
+export interface GrammarTopicAdmin {
+  id: string
+  language_id: string
+  code: string
+  title: string
+  description?: string
+  order_index: number
+}
+
+export interface GrammarLessonRequest {
+  topic_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+  content: GrammarLessonContent
+}
+
+export interface GrammarLessonAdmin {
+  id: string
+  topic_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+  content?: GrammarLessonContent
+}
+
+export interface GrammarExerciseRequest {
+  lesson_id: string
+  type: string
+  question: string
+  options?: string[]
+  correct_answer: string
+  explanation?: string
+  order_index: number
+  level: number
+  hint?: string
+  xp_reward: number
+}
+
+// --- Ngân hàng câu hỏi thách đấu ---
+
+export interface ChallengeQuestionRequest {
+  language_id: string
+  question: string
+  options: string[]
+  correct_index: number
+  explanation?: string
+  difficulty: number
+}
+
+export interface ChallengeQuestionAdmin {
+  id: string
+  language_id?: string
+  question: string
+  options: string[]
+  correct_index: number
+  explanation?: string
+  difficulty: number
+}
+
+// --- Luyện nghe (admin — có script/correct_answer đầy đủ) ---
+
+export interface ListeningPassageRequest {
+  language_id: string
+  title: string
+  script: string
+  topic?: string
+  level: string
+  order_index: number
+}
+
+export interface ListeningPassageAdmin {
+  id: string
+  language_id: string
+  title: string
+  script: string
+  topic?: string
+  level: string
+  order_index: number
+}
+
+export interface ListeningQuestionRequest {
+  passage_id: string
+  question: string
+  options: string[]
+  correct_answer: string
+  explanation?: string
+  order_index: number
+}
+
+export interface ListeningQuestionAdmin {
+  id: string
+  question: string
+  options: string[]
+  correct_answer: string
+  explanation?: string
+  order_index: number
+}
+
+// --- Từ vựng ---
+
+export interface VocabularyRequest {
+  language_id: string
+  term: string
+  phonetic?: string
+  meaning: string
+  example?: string
+  topic?: string
+  level: string
+  audio_url?: string
+  image_url?: string
+  image_emoji?: string
+}
+
+export interface VocabularyAdmin {
+  id: string
+  language_id: string
+  term: string
+  phonetic?: string
+  meaning: string
+  example?: string
+  topic?: string
+  level: string
+  audio_url?: string
+  image_url?: string
+  image_emoji?: string
+}
+
+export interface VocabularyTopicRequest {
+  language_id: string
+  name: string
+  icon: string
+  order_index: number
+}
+
+export interface VocabularyTopicAdmin {
+  language_id: string
+  name: string
+  icon: string
+  order_index: number
+}

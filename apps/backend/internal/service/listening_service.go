@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -21,6 +22,14 @@ type ListeningRepository interface {
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (db.ListeningPassage, error)
 	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]db.ListListeningQuestionsByPassageRow, error)
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (db.ListeningQuestion, error)
+
+	CreateListeningPassage(ctx context.Context, arg db.CreateListeningPassageParams) (db.ListeningPassage, error)
+	UpdateListeningPassage(ctx context.Context, arg db.UpdateListeningPassageParams) (db.ListeningPassage, error)
+	DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error
+	ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]db.ListeningQuestion, error)
+	CreateListeningQuestion(ctx context.Context, arg db.CreateListeningQuestionParams) (db.ListeningQuestion, error)
+	UpdateListeningQuestion(ctx context.Context, arg db.UpdateListeningQuestionParams) (db.ListeningQuestion, error)
+	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
 }
 
 // ListeningPassageSummary — 1 bài luyện nghe trong danh sách (không kèm script/câu hỏi)
@@ -152,4 +161,222 @@ func (s *ListeningService) SubmitAnswer(ctx context.Context, userID, questionID 
 		CorrectAnswer: question.CorrectAnswer,
 		Explanation:   question.Explanation.String,
 	}, nil
+}
+
+// ===== Admin CRUD (quản lý nội dung luyện nghe) =====
+
+type ListeningPassageRequest struct {
+	LanguageID string `json:"language_id" example:"en"`
+	Title      string `json:"title"`
+	Script     string `json:"script"`
+	Topic      string `json:"topic,omitempty"`
+	Level      string `json:"level" example:"A1"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+// ListeningPassageAdminResponse — bài luyện nghe nhìn từ admin (có script đầy đủ)
+type ListeningPassageAdminResponse struct {
+	ID         uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	LanguageID string    `json:"language_id"`
+	Title      string    `json:"title"`
+	Script     string    `json:"script"`
+	Topic      string    `json:"topic,omitempty"`
+	Level      string    `json:"level"`
+	OrderIndex int32     `json:"order_index"`
+}
+
+type ListeningQuestionRequest struct {
+	PassageID     uuid.UUID `json:"passage_id" swaggertype:"string" format:"uuid"`
+	Question      string    `json:"question"`
+	Options       []string  `json:"options"`
+	CorrectAnswer string    `json:"correct_answer"`
+	Explanation   string    `json:"explanation,omitempty"`
+	OrderIndex    int32     `json:"order_index"`
+}
+
+// ListeningQuestionAdminResponse — câu hỏi nhìn từ admin (CÓ correct_answer)
+type ListeningQuestionAdminResponse struct {
+	ID            uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	Question      string    `json:"question"`
+	Options       []string  `json:"options"`
+	CorrectAnswer string    `json:"correct_answer"`
+	Explanation   string    `json:"explanation,omitempty"`
+	OrderIndex    int32     `json:"order_index"`
+}
+
+func toListeningPassageAdminResponse(p db.ListeningPassage) ListeningPassageAdminResponse {
+	return ListeningPassageAdminResponse{
+		ID:         uuid.UUID(p.ID.Bytes),
+		LanguageID: p.LanguageID,
+		Title:      p.Title,
+		Script:     p.Script,
+		Topic:      p.Topic.String,
+		Level:      p.Level.String,
+		OrderIndex: p.OrderIndex.Int32,
+	}
+}
+
+// CreatePassage tạo 1 bài luyện nghe mới
+func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassageRequest) (ListeningPassageAdminResponse, error) {
+	if req.LanguageID == "" || req.Title == "" || req.Script == "" {
+		return ListeningPassageAdminResponse{}, ErrInvalidInput
+	}
+	p, err := s.repo.CreateListeningPassage(ctx, db.CreateListeningPassageParams{
+		LanguageID: req.LanguageID,
+		Title:      req.Title,
+		Script:     req.Script,
+		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		OrderIndex: pgtype.Int4{Int32: req.OrderIndex, Valid: true},
+	})
+	if isPgError(err, pgForeignKeyViolation) {
+		return ListeningPassageAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
+	}
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+	return toListeningPassageAdminResponse(p), nil
+}
+
+// ListPassagesAdmin trả về toàn bộ bài luyện nghe của 1 ngôn ngữ (có script đầy đủ)
+func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID string) ([]ListeningPassageAdminResponse, error) {
+	rows, err := s.repo.ListListeningPassagesByLanguage(ctx, languageID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ListeningPassageAdminResponse, 0, len(rows))
+	for _, r := range rows {
+		full, err := s.repo.GetListeningPassageByID(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, toListeningPassageAdminResponse(full))
+	}
+	return results, nil
+}
+
+// UpdatePassage sửa 1 bài luyện nghe (không đổi language_id)
+func (s *ListeningService) UpdatePassage(ctx context.Context, id uuid.UUID, req ListeningPassageRequest) (ListeningPassageAdminResponse, error) {
+	if req.Title == "" || req.Script == "" {
+		return ListeningPassageAdminResponse{}, ErrInvalidInput
+	}
+	p, err := s.repo.UpdateListeningPassage(ctx, db.UpdateListeningPassageParams{
+		ID:         toPgUUID(id),
+		Title:      req.Title,
+		Script:     req.Script,
+		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		OrderIndex: pgtype.Int4{Int32: req.OrderIndex, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ListeningPassageAdminResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
+	return toListeningPassageAdminResponse(p), nil
+}
+
+// DeletePassage xoá 1 bài luyện nghe (CASCADE xoá câu hỏi bên trong)
+func (s *ListeningService) DeletePassage(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteListeningPassage(ctx, toPgUUID(id))
+}
+
+// BulkImportPassages nhập hàng loạt bài luyện nghe
+func (s *ListeningService) BulkImportPassages(ctx context.Context, items []ListeningPassageRequest) []BulkImportResult {
+	return runBulkImport(items, func(req ListeningPassageRequest) error {
+		_, err := s.CreatePassage(ctx, req)
+		return err
+	})
+}
+
+func toListeningQuestionAdminResponse(q db.ListeningQuestion) ListeningQuestionAdminResponse {
+	var options []string
+	_ = json.Unmarshal(q.Options, &options)
+	return ListeningQuestionAdminResponse{
+		ID:            uuid.UUID(q.ID.Bytes),
+		Question:      q.Question,
+		Options:       options,
+		CorrectAnswer: q.CorrectAnswer,
+		Explanation:   q.Explanation.String,
+		OrderIndex:    q.OrderIndex.Int32,
+	}
+}
+
+// CreateQuestion tạo 1 câu hỏi nghe hiểu mới cho 1 passage
+func (s *ListeningService) CreateQuestion(ctx context.Context, req ListeningQuestionRequest) (ListeningQuestionAdminResponse, error) {
+	if req.PassageID == uuid.Nil || req.Question == "" || len(req.Options) < 2 || req.CorrectAnswer == "" {
+		return ListeningQuestionAdminResponse{}, ErrInvalidInput
+	}
+	options, err := json.Marshal(req.Options)
+	if err != nil {
+		return ListeningQuestionAdminResponse{}, ErrInvalidInput
+	}
+	q, err := s.repo.CreateListeningQuestion(ctx, db.CreateListeningQuestionParams{
+		PassageID:     toPgUUID(req.PassageID),
+		Question:      req.Question,
+		Options:       options,
+		CorrectAnswer: req.CorrectAnswer,
+		Explanation:   pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
+		OrderIndex:    pgtype.Int4{Int32: req.OrderIndex, Valid: true},
+	})
+	if isPgError(err, pgForeignKeyViolation) {
+		return ListeningQuestionAdminResponse{}, fmt.Errorf("không tìm thấy bài luyện nghe: %w", ErrInvalidInput)
+	}
+	if err != nil {
+		return ListeningQuestionAdminResponse{}, err
+	}
+	return toListeningQuestionAdminResponse(q), nil
+}
+
+// ListQuestionsAdmin trả về câu hỏi của 1 passage, CÓ correct_answer (chỉ admin dùng)
+func (s *ListeningService) ListQuestionsAdmin(ctx context.Context, passageID uuid.UUID) ([]ListeningQuestionAdminResponse, error) {
+	rows, err := s.repo.ListListeningQuestionsByPassageAdmin(ctx, toPgUUID(passageID))
+	if err != nil {
+		return nil, err
+	}
+	results := make([]ListeningQuestionAdminResponse, 0, len(rows))
+	for _, q := range rows {
+		results = append(results, toListeningQuestionAdminResponse(q))
+	}
+	return results, nil
+}
+
+// UpdateQuestion sửa 1 câu hỏi nghe hiểu (không đổi passage_id)
+func (s *ListeningService) UpdateQuestion(ctx context.Context, id uuid.UUID, req ListeningQuestionRequest) (ListeningQuestionAdminResponse, error) {
+	if req.Question == "" || len(req.Options) < 2 || req.CorrectAnswer == "" {
+		return ListeningQuestionAdminResponse{}, ErrInvalidInput
+	}
+	options, err := json.Marshal(req.Options)
+	if err != nil {
+		return ListeningQuestionAdminResponse{}, ErrInvalidInput
+	}
+	q, err := s.repo.UpdateListeningQuestion(ctx, db.UpdateListeningQuestionParams{
+		ID:            toPgUUID(id),
+		Question:      req.Question,
+		Options:       options,
+		CorrectAnswer: req.CorrectAnswer,
+		Explanation:   pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
+		OrderIndex:    pgtype.Int4{Int32: req.OrderIndex, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ListeningQuestionAdminResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return ListeningQuestionAdminResponse{}, err
+	}
+	return toListeningQuestionAdminResponse(q), nil
+}
+
+// DeleteQuestion xoá 1 câu hỏi nghe hiểu
+func (s *ListeningService) DeleteQuestion(ctx context.Context, id uuid.UUID) error {
+	return s.repo.DeleteListeningQuestion(ctx, toPgUUID(id))
+}
+
+// BulkImportQuestions nhập hàng loạt câu hỏi nghe hiểu
+func (s *ListeningService) BulkImportQuestions(ctx context.Context, items []ListeningQuestionRequest) []BulkImportResult {
+	return runBulkImport(items, func(req ListeningQuestionRequest) error {
+		_, err := s.CreateQuestion(ctx, req)
+		return err
+	})
 }

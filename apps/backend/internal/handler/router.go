@@ -44,7 +44,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	protected := api.Group("", RequireAuth(tokens))
 	NewUserHandler(userService).RegisterRoutes(protected)
 	NewSRSHandler(service.NewSRSService(repo, missions)).RegisterRoutes(protected)
-	NewVocabularyHandler(service.NewVocabularyService(repo)).RegisterRoutes(protected)
+	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo))
+	vocabularyHandler.RegisterRoutes(protected)
 	challengeHandler.RegisterRoutes(protected)
 	grammarHandler.RegisterProtectedRoutes(protected)
 	listeningHandler.RegisterProtectedRoutes(protected)
@@ -53,6 +54,10 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// Cần đăng nhập + role admin
 	admin := api.Group("", RequireAuth(tokens), RequireAdmin(userService))
 	NewMissionHandler(missions).RegisterAdminRoutes(admin)
+	grammarHandler.RegisterAdminRoutes(admin)
+	listeningHandler.RegisterAdminRoutes(admin)
+	vocabularyHandler.RegisterAdminRoutes(admin)
+	NewChallengeQuestionHandler(service.NewChallengeQuestionService(repo)).RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client
@@ -67,7 +72,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrInvalidCredentials):
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: err.Error()})
-	case errors.Is(err, service.ErrEmailTaken), errors.Is(err, service.ErrUsernameTaken):
+	case errors.Is(err, service.ErrEmailTaken), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrDuplicate):
 		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrRoomNotFound):
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: err.Error()})
