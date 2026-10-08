@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -123,13 +124,32 @@ export default function AdminUsersPage() {
           <ul className="divide-y divide-slate-100">
             {data.items.map((u) => {
               const isSelf = u.id === me?.id
+              const isOpen = editingModulesId === u.id
+              const canExpand = u.role === 'admin'
               return (
-                <li key={u.id} className="flex flex-col gap-3 px-4 py-3 sm:px-6">
-                  <div className="flex flex-wrap items-center gap-3">
+                <li key={u.id}>
+                  <div
+                    role={canExpand ? 'button' : undefined}
+                    tabIndex={canExpand ? 0 : undefined}
+                    onClick={() => canExpand && setEditingModulesId(isOpen ? null : u.id)}
+                    onKeyDown={(e) => {
+                      if (canExpand && (e.key === 'Enter' || e.key === ' ')) setEditingModulesId(isOpen ? null : u.id)
+                    }}
+                    className={cn(
+                      'flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6',
+                      canExpand && 'cursor-pointer hover:bg-slate-50',
+                    )}
+                  >
                     <Avatar name={displayName(u)} src={u.avatar_url || undefined} className="h-9 w-9 shrink-0 text-sm" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-slate-900">
-                        {displayName(u)}
+                        <Link
+                          href={`/admin/users/${u.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:text-indigo-600 hover:underline"
+                        >
+                          {displayName(u)}
+                        </Link>
                         {isSelf && <span className="ml-2 text-xs font-normal text-indigo-600">(bạn)</span>}
                       </p>
                       <p className="truncate text-sm text-slate-500">
@@ -150,27 +170,28 @@ export default function AdminUsersPage() {
                     >
                       {u.role}
                     </span>
-                    {u.role === 'admin' && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setEditingModulesId(editingModulesId === u.id ? null : u.id)}
-                      >
-                        {editingModulesId === u.id ? 'Đóng' : 'Quyền module'}
-                      </Button>
+                    {canExpand && (
+                      <span className={cn('shrink-0 text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
+                        ▾
+                      </span>
                     )}
                     <Button
                       variant={u.role === 'admin' ? 'danger' : 'secondary'}
                       size="sm"
                       disabled={isSelf && u.role === 'admin'}
-                      onClick={() => onToggleRole(u)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleRole(u)
+                      }}
                     >
                       {busyId === u.id ? 'Đang lưu...' : u.role === 'admin' ? 'Thu hồi quyền' : 'Cấp quyền admin'}
                     </Button>
                   </div>
 
-                  {editingModulesId === u.id && (
-                    <ModulesEditor user={u} isSelf={isSelf} onClose={() => setEditingModulesId(null)} onSaved={reload} />
+                  {isOpen && (
+                    <div className="px-4 pb-4 sm:px-6">
+                      <ModulesEditor user={u} isSelf={isSelf} onClose={() => setEditingModulesId(null)} onSaved={reload} />
+                    </div>
                   )}
                 </li>
               )
