@@ -42,14 +42,15 @@ func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
 // @Tags         admin-users
 // @Produce      json
 // @Security     BearerAuth
-// @Param        q     query     string  false  "Tìm theo username/email/họ tên"
-// @Param        role  query     string  false  "user | admin"
-// @Param        page  query     int     false  "Trang (mặc định 1)"
-// @Success      200   {array}   service.UserResponse
+// @Param        q       query     string  false  "Tìm theo username/email/họ tên"
+// @Param        role    query     string  false  "user | admin"
+// @Param        module  query     string  false  "Lọc theo module đã được cấp quyền (users, missions, vocabulary, grammar, challenge_questions, listening)"
+// @Param        page    query     int     false  "Trang (mặc định 1)"
+// @Success      200     {array}   service.UserResponse
 // @Router       /admin/users [get]
 func (h *UserHandler) ListUsersAdmin(c *fiber.Ctx) error {
 	page, pageSize := pageParams(c)
-	results, err := h.svc.ListUsersAdmin(c.UserContext(), c.Query("q"), c.Query("role"), page, pageSize)
+	results, err := h.svc.ListUsersAdmin(c.UserContext(), c.Query("q"), c.Query("role"), c.Query("module"), page, pageSize)
 	if err != nil {
 		return err
 	}

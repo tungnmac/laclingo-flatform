@@ -26,9 +26,10 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [role, setRole] = useState('')
+  const [moduleFilter, setModuleFilter] = useState('')
   const { data, error, loading, reload } = useApi(
-    () => userService.listUsersAdmin({ page, pageSize: PAGE_SIZE, q: debouncedSearch, role }),
-    [page, debouncedSearch, role],
+    () => userService.listUsersAdmin({ page, pageSize: PAGE_SIZE, q: debouncedSearch, role, module: moduleFilter }),
+    [page, debouncedSearch, role, moduleFilter],
   )
   const [busyId, setBusyId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -74,7 +75,9 @@ export default function AdminUsersPage() {
           <select
             value={role}
             onChange={(e) => {
-              setRole(e.target.value)
+              const nextRole = e.target.value
+              setRole(nextRole)
+              if (nextRole === 'user') setModuleFilter('')
               setPage(1)
             }}
             className={cn(inputClass, 'max-w-[10rem]')}
@@ -82,6 +85,25 @@ export default function AdminUsersPage() {
             <option value="">Tất cả</option>
             <option value="user">user</option>
             <option value="admin">admin</option>
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Quyền module
+          <select
+            value={moduleFilter}
+            disabled={role === 'user'}
+            onChange={(e) => {
+              setModuleFilter(e.target.value)
+              setPage(1)
+            }}
+            className={cn(inputClass, 'max-w-[12rem]', role === 'user' && 'cursor-not-allowed opacity-50')}
+          >
+            <option value="">Tất cả</option>
+            {ADMIN_MODULES.map((m) => (
+              <option key={m.key} value={m.key}>
+                {m.icon} {m.label}
+              </option>
+            ))}
           </select>
         </label>
       </div>

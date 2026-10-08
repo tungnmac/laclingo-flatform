@@ -252,13 +252,15 @@ WHERE ($1::text IS NULL
     OR email ILIKE '%' || $1::text || '%'
     OR full_name ILIKE '%' || $1::text || '%')
   AND ($2::text IS NULL OR role = $2::text)
+  AND ($3::text IS NULL OR $3::text = ANY(admin_modules))
 ORDER BY created_at DESC
-LIMIT $4 OFFSET $3
+LIMIT $5 OFFSET $4
 `
 
 type ListUsersAdminPagedParams struct {
 	Search pgtype.Text `json:"search"`
 	Role   pgtype.Text `json:"role"`
+	Module pgtype.Text `json:"module"`
 	Offset int32       `json:"offset"`
 	Limit  int32       `json:"limit"`
 }
@@ -281,11 +283,13 @@ type ListUsersAdminPagedRow struct {
 	TotalCount   int64              `json:"total_count"`
 }
 
-// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo role.
+// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
+// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
 func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error) {
 	rows, err := q.db.Query(ctx, listUsersAdminPaged,
 		arg.Search,
 		arg.Role,
+		arg.Module,
 		arg.Offset,
 		arg.Limit,
 	)

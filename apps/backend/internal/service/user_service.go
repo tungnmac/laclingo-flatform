@@ -198,12 +198,17 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by string) ([]Leaderbo
 }
 
 // ListUsersAdmin trả về 1 trang học viên (admin quản lý) — search theo
-// username/email/full_name, lọc theo role, phân trang server-side.
-func (s *UserService) ListUsersAdmin(ctx context.Context, search, role string, page, pageSize int32) (PageResult[UserResponse], error) {
+// username/email/full_name, lọc theo role và/hoặc theo module đã được cấp
+// quyền, phân trang server-side.
+func (s *UserService) ListUsersAdmin(ctx context.Context, search, role, module string, page, pageSize int32) (PageResult[UserResponse], error) {
+	if module != "" && !validAdminModules[module] {
+		return PageResult[UserResponse]{}, fmt.Errorf("module \"%s\" không hợp lệ: %w", module, ErrInvalidInput)
+	}
 	limit, offset := NormalizePage(page, pageSize)
 	rows, err := s.repo.ListUsersAdminPaged(ctx, db.ListUsersAdminPagedParams{
 		Search: pgtype.Text{String: search, Valid: search != ""},
 		Role:   pgtype.Text{String: role, Valid: role != ""},
+		Module: pgtype.Text{String: module, Valid: module != ""},
 		Limit:  limit,
 		Offset: offset,
 	})

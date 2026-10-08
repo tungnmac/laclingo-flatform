@@ -106,7 +106,8 @@ type Querier interface {
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
-	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo role.
+	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
+	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
 	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
 	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)

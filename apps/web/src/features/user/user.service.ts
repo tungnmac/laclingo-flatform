@@ -10,8 +10,10 @@ export const userService = {
     apiFetch<User>('/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
 
   // Admin
-  listUsersAdmin: (params: { page?: number; pageSize?: number; q?: string; role?: string } = {}) =>
-    apiFetch<PageResult<User>>(`/admin/users${buildQuery({ page: params.page, page_size: params.pageSize, q: params.q, role: params.role })}`),
+  listUsersAdmin: (params: { page?: number; pageSize?: number; q?: string; role?: string; module?: string } = {}) =>
+    apiFetch<PageResult<User>>(
+      `/admin/users${buildQuery({ page: params.page, page_size: params.pageSize, q: params.q, role: params.role, module: params.module })}`,
+    ),
   setRole: (id: string, role: 'user' | 'admin') =>
     apiFetch<User>(`/admin/users/${encodeURIComponent(id)}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   setModules: (id: string, adminModules: string[]) =>
