@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 
 const sections = [
+  { href: '/admin/users', icon: '👤', title: 'Học viên', description: 'Tìm kiếm, lọc theo role, cấp/thu hồi quyền admin.' },
   { href: '/admin/missions', icon: '🎯', title: 'Nhiệm vụ', description: 'Tạo/sửa/tắt nhiệm vụ daily/weekly/monthly/event.' },
   { href: '/admin/vocabulary', icon: '📚', title: 'Từ vựng', description: 'Quản lý từ vựng + chủ đề từ vựng theo ngôn ngữ.' },
   { href: '/admin/grammar', icon: '📖', title: 'Ngữ pháp', description: 'Quản lý chủ đề, bài học, bài tập ngữ pháp.' },

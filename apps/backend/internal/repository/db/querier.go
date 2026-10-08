@@ -106,6 +106,8 @@ type Querier interface {
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo role.
+	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
 	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
@@ -138,6 +140,7 @@ type Querier interface {
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 	UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error)
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
 	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).

@@ -27,6 +27,66 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/leaderboard", h.GetLeaderboard)
 }
 
+// RegisterAdminRoutes gắn route quản lý học viên — PHẢI nằm sau RequireAdmin
+// trong chain (đăng ký ở router.go).
+func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
+	api := router.Group("/admin/users")
+	api.Get("", h.ListUsersAdmin)
+	api.Put("/:id/role", h.SetRole)
+}
+
+// ListUsersAdmin godoc
+// @Summary      Danh sách học viên (admin)
+// @Description  Search theo username/email/họ tên, lọc theo role, phân trang.
+// @Tags         admin-users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        q     query     string  false  "Tìm theo username/email/họ tên"
+// @Param        role  query     string  false  "user | admin"
+// @Param        page  query     int     false  "Trang (mặc định 1)"
+// @Success      200   {array}   service.UserResponse
+// @Router       /admin/users [get]
+func (h *UserHandler) ListUsersAdmin(c *fiber.Ctx) error {
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListUsersAdmin(c.UserContext(), c.Query("q"), c.Query("role"), page, pageSize)
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
+type setUserRoleRequest struct {
+	Role string `json:"role" example:"admin" enums:"user,admin"`
+}
+
+// SetRole godoc
+// @Summary      Cấp/thu hồi quyền admin (admin)
+// @Description  Không cho tự thu hồi quyền admin của chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string               true  "User ID (UUID)"
+// @Param        body  body      setUserRoleRequest  true  "Role mới"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Router       /admin/users/{id}/role [put]
+func (h *UserHandler) SetRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetRole(c.UserContext(), currentUserID(c), id, req.Role)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
 // GetMe godoc
 // @Summary      Thông tin user đang đăng nhập
 // @Tags         users

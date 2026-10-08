@@ -238,6 +238,82 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const listUsersAdminPaged = `-- name: ListUsersAdminPaged :many
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+WHERE ($1::text IS NULL
+    OR username ILIKE '%' || $1::text || '%'
+    OR email ILIKE '%' || $1::text || '%'
+    OR full_name ILIKE '%' || $1::text || '%')
+  AND ($2::text IS NULL OR role = $2::text)
+ORDER BY created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListUsersAdminPagedParams struct {
+	Search pgtype.Text `json:"search"`
+	Role   pgtype.Text `json:"role"`
+	Offset int32       `json:"offset"`
+	Limit  int32       `json:"limit"`
+}
+
+type ListUsersAdminPagedRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	Username     string             `json:"username"`
+	PasswordHash string             `json:"password_hash"`
+	FullName     pgtype.Text        `json:"full_name"`
+	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+	StreakCount  pgtype.Int4        `json:"streak_count"`
+	Role         string             `json:"role"`
+	Exp          int64              `json:"exp"`
+	Level        int32              `json:"level"`
+	Points       int64              `json:"points"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	TotalCount   int64              `json:"total_count"`
+}
+
+// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo role.
+func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listUsersAdminPaged,
+		arg.Search,
+		arg.Role,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersAdminPagedRow
+	for rows.Next() {
+		var i ListUsersAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Username,
+			&i.PasswordHash,
+			&i.FullName,
+			&i.AvatarUrl,
+			&i.StreakCount,
+			&i.Role,
+			&i.Exp,
+			&i.Level,
+			&i.Points,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsersByLevel = `-- name: ListUsersByLevel :many
 SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at FROM users
 ORDER BY level DESC, exp DESC
@@ -375,6 +451,39 @@ type UpdateUserProfileParams struct {
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
 	row := q.db.QueryRow(ctx, updateUserProfile, arg.FullName, arg.AvatarUrl, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.AvatarUrl,
+		&i.StreakCount,
+		&i.Role,
+		&i.Exp,
+		&i.Level,
+		&i.Points,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE users
+SET role = $1, updated_at = NOW()
+WHERE id = $2
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, exp, level, points, created_at, updated_at
+`
+
+type UpdateUserRoleParams struct {
+	Role string      `json:"role"`
+	ID   pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserRole, arg.Role, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -23,7 +24,11 @@ type UserRepository interface {
 	ListUsersByStreak(ctx context.Context, limit int32) ([]db.User, error)
 	ListUsersByLevel(ctx context.Context, limit int32) ([]db.User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]db.User, error)
+	ListUsersAdminPaged(ctx context.Context, arg db.ListUsersAdminPagedParams) ([]db.ListUsersAdminPagedRow, error)
+	UpdateUserRole(ctx context.Context, arg db.UpdateUserRoleParams) (db.User, error)
 }
+
+var validUserRoles = map[string]bool{"user": true, "admin": true}
 
 // UserResponse là dữ liệu trả ra API — không bao gồm password_hash
 type UserResponse struct {
@@ -175,6 +180,51 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by string) ([]Leaderbo
 		})
 	}
 	return results, nil
+}
+
+// ListUsersAdmin trả về 1 trang học viên (admin quản lý) — search theo
+// username/email/full_name, lọc theo role, phân trang server-side.
+func (s *UserService) ListUsersAdmin(ctx context.Context, search, role string, page, pageSize int32) (PageResult[UserResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListUsersAdminPaged(ctx, db.ListUsersAdminPagedParams{
+		Search: pgtype.Text{String: search, Valid: search != ""},
+		Role:   pgtype.Text{String: role, Valid: role != ""},
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return PageResult[UserResponse]{}, err
+	}
+	results := make([]UserResponse, 0, len(rows))
+	var total int64
+	for _, r := range rows {
+		total = r.TotalCount
+		results = append(results, toUserResponse(db.User{
+			ID: r.ID, Email: r.Email, Username: r.Username, FullName: r.FullName, AvatarUrl: r.AvatarUrl,
+			StreakCount: r.StreakCount, Role: r.Role, Exp: r.Exp, Level: r.Level, Points: r.Points, CreatedAt: r.CreatedAt,
+		}))
+	}
+	return PageResult[UserResponse]{Items: results, Total: total}, nil
+}
+
+// SetRole cấp/thu hồi quyền admin cho 1 user — không cho tự hạ quyền của
+// chính mình (actingAdminID == targetID) để tránh tự khoá mình khỏi /admin.
+func (s *UserService) SetRole(ctx context.Context, actingAdminID, targetID uuid.UUID, role string) (UserResponse, error) {
+	if !validUserRoles[role] {
+		return UserResponse{}, ErrInvalidInput
+	}
+	if actingAdminID == targetID && role != "admin" {
+		return UserResponse{}, fmt.Errorf("không thể tự thu hồi quyền admin của chính mình: %w", ErrInvalidInput)
+	}
+
+	u, err := s.repo.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: toPgUUID(targetID), Role: role})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return UserResponse{}, err
+	}
+	return toUserResponse(u), nil
 }
 
 func isHTTPURL(raw string) bool {

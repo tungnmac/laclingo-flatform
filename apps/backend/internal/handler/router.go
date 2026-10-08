@@ -41,8 +41,9 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 
 	// Cần đăng nhập
 	userService := service.NewUserService(repo)
+	userHandler := NewUserHandler(userService)
 	protected := api.Group("", RequireAuth(tokens))
-	NewUserHandler(userService).RegisterRoutes(protected)
+	userHandler.RegisterRoutes(protected)
 	NewSRSHandler(service.NewSRSService(repo, missions)).RegisterRoutes(protected)
 	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo))
 	vocabularyHandler.RegisterRoutes(protected)
@@ -57,6 +58,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	grammarHandler.RegisterAdminRoutes(admin)
 	listeningHandler.RegisterAdminRoutes(admin)
 	vocabularyHandler.RegisterAdminRoutes(admin)
+	userHandler.RegisterAdminRoutes(admin)
 	NewChallengeQuestionHandler(service.NewChallengeQuestionService(repo)).RegisterAdminRoutes(admin)
 }
 

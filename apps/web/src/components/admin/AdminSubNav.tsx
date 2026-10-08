@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const items = [
+  { href: '/admin/users', label: 'Học viên', icon: '👤' },
   { href: '/admin/missions', label: 'Nhiệm vụ', icon: '🎯' },
   { href: '/admin/vocabulary', label: 'Từ vựng', icon: '📚' },
   { href: '/admin/grammar', label: 'Ngữ pháp', icon: '📖' },
