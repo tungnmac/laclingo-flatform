@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-slate-900">
                         <Link
-                          href={`/admin/users/${u.id}`}
+                          href={`/admin/users/${encodeURIComponent(u.username)}`}
                           onClick={(e) => e.stopPropagation()}
                           className="hover:text-indigo-600 hover:underline"
                         >

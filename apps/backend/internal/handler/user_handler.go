@@ -32,6 +32,7 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
 	api := router.Group("/admin/users")
 	api.Get("", h.ListUsersAdmin)
+	api.Get("/by-username/:username", h.GetByUsernameAdmin)
 	api.Put("/:id/role", h.SetRole)
 	api.Put("/:id/modules", h.SetModules)
 }
@@ -55,6 +56,23 @@ func (h *UserHandler) ListUsersAdmin(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(results)
+}
+
+// GetByUsernameAdmin godoc
+// @Summary      Chi tiết 1 học viên theo username (admin)
+// @Description  Dùng cho trang chi tiết /admin/users/<username> — tránh lộ UUID database trên URL.
+// @Tags         admin-users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        username  path      string  true  "Username"
+// @Success      200       {object}  service.UserResponse
+// @Router       /admin/users/by-username/{username} [get]
+func (h *UserHandler) GetByUsernameAdmin(c *fiber.Ctx) error {
+	result, err := h.svc.GetByUsername(c.UserContext(), c.Params("username"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
 }
 
 type setUserRoleRequest struct {

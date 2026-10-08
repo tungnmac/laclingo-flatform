@@ -10,8 +10,8 @@ import { useApi } from '@/hooks/useApi'
 import { ADMIN_MODULES } from '@/lib/adminModules'
 import { cn, displayName, formatDate } from '@/lib/utils'
 
-export default function AdminUserDetailPage({ params }: { params: { id: string } }) {
-  const { data: user, error, loading, reload } = useApi(() => userService.getById(params.id), [params.id])
+export default function AdminUserDetailPage({ params }: { params: { username: string } }) {
+  const { data: user, error, loading, reload } = useApi(() => userService.getByUsernameAdmin(params.username), [params.username])
 
   return (
     <>

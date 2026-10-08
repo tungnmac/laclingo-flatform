@@ -19,6 +19,7 @@ import (
 // UserRepository định nghĩa Interface tiếp xúc với cơ sở dữ liệu
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
+	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 	ListUsers(ctx context.Context) ([]db.User, error)
 	UpdateUserProfile(ctx context.Context, arg db.UpdateUserProfileParams) (db.User, error)
 	ListUsersByStreak(ctx context.Context, limit int32) ([]db.User, error)
@@ -111,6 +112,19 @@ func NewUserService(repo UserRepository) *UserService {
 
 func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (UserResponse, error) {
 	u, err := s.repo.GetUserByID(ctx, toPgUUID(id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return UserResponse{}, err
+	}
+	return toUserResponse(u), nil
+}
+
+// GetByUsername trả về 1 user theo username — admin dùng để hiển thị trang
+// chi tiết học viên qua URL /admin/users/<username> thay vì lộ UUID database.
+func (s *UserService) GetByUsername(ctx context.Context, username string) (UserResponse, error) {
+	u, err := s.repo.GetUserByUsername(ctx, username)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return UserResponse{}, ErrNotFound
 	}
