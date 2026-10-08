@@ -103,6 +103,43 @@ export interface LearnVocabularyResponse {
   learned: boolean
 }
 
+export interface VocabularyTopic {
+  name: string
+  icon: string
+  total: number
+  learned: number // số từ đã vào hàng đợi ôn tập SRS
+}
+
+// Một từ ở trang học theo chủ đề / trang yêu thích
+export interface VocabularyCard {
+  vocabulary_id: string
+  language_id: string
+  term: string
+  phonetic: string
+  meaning: string
+  example: string
+  topic: string
+  level: string
+  audio_url: string
+  image_url: string
+  image_emoji: string // từ không có emoji riêng thì là icon chủ đề
+  like_count: number
+  liked: boolean
+  favorited: boolean
+  in_review: boolean
+}
+
+export interface LikeResponse {
+  vocabulary_id: string
+  liked: boolean
+  like_count: number
+}
+
+export interface FavoriteResponse {
+  vocabulary_id: string
+  favorited: boolean
+}
+
 export interface RegisterRequest {
   email: string
   username: string

@@ -15,6 +15,189 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/missions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-missions"
+                ],
+                "summary": "Danh sách toàn bộ nhiệm vụ (admin, kể cả đã tắt)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.MissionResponse"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-missions"
+                ],
+                "summary": "Tạo nhiệm vụ mới (admin)",
+                "parameters": [
+                    {
+                        "description": "Thông tin nhiệm vụ",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.MissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/service.MissionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/missions/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin-missions"
+                ],
+                "summary": "Sửa nhiệm vụ (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Mission ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Thông tin nhiệm vụ",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.MissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.MissionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "admin-missions"
+                ],
+                "summary": "Tắt nhiệm vụ (admin, xoá mềm — giữ lịch sử tiến độ)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Mission ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "consumes": [
@@ -111,6 +294,345 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/challenges/rooms": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "challenges"
+                ],
+                "summary": "Tạo phòng thử thách",
+                "parameters": [
+                    {
+                        "description": "Cấu hình phòng",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateRoomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateRoomResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/challenges/rooms/join": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "challenges"
+                ],
+                "summary": "Tham gia phòng bằng mã",
+                "parameters": [
+                    {
+                        "description": "Mã phòng",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.JoinRoomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ParticipantResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/challenges/rooms/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "challenges"
+                ],
+                "summary": "Thông tin phòng thử thách",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.RoomDetailResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/challenges/rooms/{id}/invite": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "challenges"
+                ],
+                "summary": "Mời người chơi vào phòng theo username (chỉ host)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Username người được mời",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.InviteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ParticipantResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/challenges/rooms/{id}/leaderboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "challenges"
+                ],
+                "summary": "Bảng xếp hạng phòng thử thách",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.LeaderboardEntryResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/grammar/exercises/{id}/submit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Chạy song song với check client-side hiện có — chỉ để ghi nhận tiến độ nhiệm vụ.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "grammar"
+                ],
+                "summary": "Chấm 1 bài tập ngữ pháp",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Exercise ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Câu trả lời",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.submitExerciseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.SubmitExerciseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/handler.ErrorResponse"
                         }
@@ -268,6 +790,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/leaderboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sort theo level, điểm thách đấu (points), hoặc streak (mặc định).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Bảng xếp hạng người học",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "level",
+                        "description": "level | points | streak",
+                        "name": "by",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.LeaderboardEntry"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/missions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Danh sách nhiệm vụ đang active kèm tiến độ của user hiện tại trong kỳ hiện tại.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "missions"
+                ],
+                "summary": "Nhiệm vụ của tôi",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.MyMissionResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/srs/due": {
             "get": {
                 "security": [
@@ -287,6 +886,13 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Số lượng tối đa (mặc định 20, tối đa 100)",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Chỉ lấy đến hạn của 1 ngôn ngữ (bỏ trống = tất cả ngôn ngữ)",
+                        "name": "language",
                         "in": "query"
                     }
                 ],
@@ -675,9 +1281,424 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/vocab/favorites": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Từ vựng yêu thích",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Chỉ lấy 1 ngôn ngữ (bỏ trống = tất cả)",
+                        "name": "language",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.VocabularyCard"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/vocab/topics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Danh sách chủ đề của 1 ngôn ngữ kèm số từ user đã đưa vào ôn tập.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Chủ đề từ vựng",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Mã ngôn ngữ (mặc định en)",
+                        "name": "language",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.VocabularyTopic"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/vocab/words": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Topic truyền qua query vì tên chủ đề có dấu cách/ký tự đặc biệt.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Từ vựng theo chủ đề",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "en",
+                        "description": "Mã ngôn ngữ (mặc định en)",
+                        "name": "language",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "Đồ ăn \u0026 Thức uống",
+                        "description": "Tên chủ đề",
+                        "name": "topic",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.VocabularyCard"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/vocab/{id}/favorite": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Thêm từ vào yêu thích",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Vocabulary ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.FavoriteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Bỏ từ khỏi yêu thích",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Vocabulary ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.FavoriteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/vocab/{id}/like": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Like từ vựng",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Vocabulary ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LikeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "vocab"
+                ],
+                "summary": "Bỏ like từ vựng",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Vocabulary ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LikeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handler.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "domain.CreateRoomRequest": {
+            "type": "object",
+            "properties": {
+                "difficulty": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "example": 2
+                },
+                "is_practice": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "language_id": {
+                    "type": "string",
+                    "example": "en"
+                },
+                "question_count": {
+                    "type": "integer",
+                    "maximum": 50,
+                    "minimum": 1,
+                    "example": 10
+                },
+                "time_per_question_seconds": {
+                    "type": "integer",
+                    "maximum": 120,
+                    "minimum": 5,
+                    "example": 20
+                }
+            }
+        },
+        "domain.CreateRoomResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "AB3K9Z"
+                },
+                "difficulty": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "is_practice": {
+                    "type": "boolean"
+                },
+                "max_participants": {
+                    "type": "integer"
+                },
+                "question_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "waiting"
+                },
+                "time_per_question_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.InviteRequest": {
+            "type": "object",
+            "properties": {
+                "username": {
+                    "type": "string",
+                    "example": "nguyenvana"
+                }
+            }
+        },
+        "domain.JoinRoomRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "AB3K9Z"
+                }
+            }
+        },
+        "domain.LeaderboardEntryResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.LearnVocabularyRequest": {
             "type": "object",
             "properties": {
@@ -698,6 +1719,71 @@ const docTemplate = `{
                 "vocabulary_id": {
                     "type": "string",
                     "format": "uuid"
+                }
+            }
+        },
+        "domain.ParticipantResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "joined_at": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RoomDetailResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "difficulty": {
+                    "type": "integer"
+                },
+                "host_user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "is_practice": {
+                    "type": "boolean"
+                },
+                "participants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ParticipantResponse"
+                    }
+                },
+                "question_count": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "time_per_question_seconds": {
+                    "type": "integer"
                 }
             }
         },
@@ -747,6 +1833,15 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.submitExerciseRequest": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string",
+                    "example": "goes"
+                }
+            }
+        },
         "service.AuthResponse": {
             "type": "object",
             "properties": {
@@ -771,6 +1866,10 @@ const docTemplate = `{
                 "audio_url": {
                     "type": "string"
                 },
+                "language_id": {
+                    "type": "string",
+                    "example": "en"
+                },
                 "meaning": {
                     "type": "string"
                 },
@@ -786,6 +1885,18 @@ const docTemplate = `{
                 "term": {
                     "type": "string",
                     "example": "apple"
+                },
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
+        "service.FavoriteResponse": {
+            "type": "object",
+            "properties": {
+                "favorited": {
+                    "type": "boolean"
                 },
                 "vocabulary_id": {
                     "type": "string",
@@ -929,6 +2040,54 @@ const docTemplate = `{
                 }
             }
         },
+        "service.LeaderboardEntry": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "exp": {
+                    "type": "integer"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "level": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "rank": {
+                    "type": "integer"
+                },
+                "streak_count": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.LikeResponse": {
+            "type": "object",
+            "properties": {
+                "like_count": {
+                    "type": "integer"
+                },
+                "liked": {
+                    "type": "boolean"
+                },
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
         "service.LoginRequest": {
             "type": "object",
             "properties": {
@@ -942,6 +2101,141 @@ const docTemplate = `{
                 }
             }
         },
+        "service.MissionRequest": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string",
+                    "enum": [
+                        "srs_review",
+                        "learn_word",
+                        "grammar_exercise",
+                        "challenge_participate",
+                        "challenge_win"
+                    ],
+                    "example": "srs_review"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "ends_at": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "period": {
+                    "type": "string",
+                    "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly",
+                        "event"
+                    ],
+                    "example": "daily"
+                },
+                "reward_exp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 50
+                },
+                "reward_points": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "example": 10
+                },
+                "starts_at": {
+                    "type": "string"
+                },
+                "target_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "example": 10
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Ôn tập 10 từ hôm nay"
+                }
+            }
+        },
+        "service.MissionResponse": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "ends_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "reward_exp": {
+                    "type": "integer"
+                },
+                "reward_points": {
+                    "type": "integer"
+                },
+                "starts_at": {
+                    "type": "string"
+                },
+                "target_count": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.MyMissionResponse": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string"
+                },
+                "completed": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "format": "uuid"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "progress_count": {
+                    "type": "integer"
+                },
+                "reward_exp": {
+                    "type": "integer"
+                },
+                "reward_points": {
+                    "type": "integer"
+                },
+                "target_count": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "service.NewVocabulary": {
             "type": "object",
             "properties": {
@@ -950,6 +2244,10 @@ const docTemplate = `{
                 },
                 "example": {
                     "type": "string"
+                },
+                "language_id": {
+                    "type": "string",
+                    "example": "en"
                 },
                 "level": {
                     "type": "string",
@@ -1001,6 +2299,14 @@ const docTemplate = `{
                 }
             }
         },
+        "service.SubmitExerciseResponse": {
+            "type": "object",
+            "properties": {
+                "correct": {
+                    "type": "boolean"
+                }
+            }
+        },
         "service.UpdateProfileRequest": {
             "type": "object",
             "properties": {
@@ -1028,6 +2334,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "user@laclingo.vn"
                 },
+                "exp": {
+                    "type": "integer"
+                },
                 "full_name": {
                     "type": "string"
                 },
@@ -1035,12 +2344,101 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid"
                 },
+                "level": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "user"
+                },
                 "streak_count": {
                     "type": "integer"
                 },
                 "username": {
                     "type": "string",
                     "example": "nguyenvana"
+                }
+            }
+        },
+        "service.VocabularyCard": {
+            "type": "object",
+            "properties": {
+                "audio_url": {
+                    "type": "string"
+                },
+                "example": {
+                    "type": "string"
+                },
+                "favorited": {
+                    "type": "boolean"
+                },
+                "image_emoji": {
+                    "description": "từ không có emoji riêng thì lấy icon chủ đề",
+                    "type": "string",
+                    "example": "🍎"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "in_review": {
+                    "description": "đã có trong hàng đợi ôn tập SRS",
+                    "type": "boolean"
+                },
+                "language_id": {
+                    "type": "string",
+                    "example": "en"
+                },
+                "level": {
+                    "type": "string",
+                    "example": "A1"
+                },
+                "like_count": {
+                    "type": "integer"
+                },
+                "liked": {
+                    "type": "boolean"
+                },
+                "meaning": {
+                    "type": "string"
+                },
+                "phonetic": {
+                    "type": "string"
+                },
+                "term": {
+                    "type": "string",
+                    "example": "apple"
+                },
+                "topic": {
+                    "type": "string"
+                },
+                "vocabulary_id": {
+                    "type": "string",
+                    "format": "uuid"
+                }
+            }
+        },
+        "service.VocabularyTopic": {
+            "type": "object",
+            "properties": {
+                "icon": {
+                    "type": "string",
+                    "example": "🍜"
+                },
+                "learned": {
+                    "description": "số từ đã vào hàng đợi SRS",
+                    "type": "integer",
+                    "example": 12
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Đồ ăn \u0026 Thức uống"
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 25
                 }
             }
         }

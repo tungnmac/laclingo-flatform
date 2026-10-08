@@ -134,7 +134,7 @@ func (q *Queries) GetVocabularyReview(ctx context.Context, arg GetVocabularyRevi
 }
 
 const listNewVocabulariesForUser = `-- name: ListNewVocabulariesForUser :many
-SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.topic, v.level, v.audio_url, v.image_url, v.created_at
+SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.topic, v.level, v.audio_url, v.image_url, v.image_emoji, v.created_at
 FROM vocabularies v
 WHERE v.language_id = $1
   AND NOT EXISTS (
@@ -171,6 +171,7 @@ func (q *Queries) ListNewVocabulariesForUser(ctx context.Context, arg ListNewVoc
 			&i.Level,
 			&i.AudioUrl,
 			&i.ImageUrl,
+			&i.ImageEmoji,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

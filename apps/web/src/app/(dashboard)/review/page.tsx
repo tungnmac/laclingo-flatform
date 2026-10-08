@@ -22,6 +22,7 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
   const vocabularyHref = language ? `/review/vocabulary?language=${encodeURIComponent(language)}` : '/review/vocabulary'
   const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
   const grammarHref = language ? `/learn/${encodeURIComponent(language)}` : '/learn'
+  const favoritesHref = language ? `/review/favorites?language=${encodeURIComponent(language)}` : '/review/favorites'
 
   return (
     <div className="space-y-6">
@@ -30,7 +31,7 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
         description={currentLanguage ? `Đang học: ${currentLanguage.name} — chọn dạng ôn tập phù hợp với bạn hôm nay` : 'Chọn dạng ôn tập phù hợp với bạn hôm nay'}
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-2">
             <span className="text-4xl">🧠</span>
@@ -63,7 +64,7 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-slate-900">Học từ mới</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Mỗi lượt 10 từ A1–A2 theo 12 chủ đề — từ vừa học vào ngay hàng đợi ôn tập.
+              Chọn chủ đề, học từ qua hình minh họa và câu mẫu — thêm từ bạn muốn vào hàng đợi ôn tập.
             </p>
           </div>
           <ButtonLink href={newWordsHref} variant="secondary" className="w-full">
@@ -81,6 +82,17 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
           </div>
           <ButtonLink href={grammarHref} variant="secondary" className="w-full">
             Chọn bài học
+          </ButtonLink>
+        </Card>
+
+        <Card className="flex flex-col gap-3">
+          <span className="text-4xl">⭐</span>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-slate-900">Từ yêu thích</h2>
+            <p className="mt-1 text-sm text-slate-600">Xem lại những từ bạn đã đánh dấu yêu thích khi học.</p>
+          </div>
+          <ButtonLink href={favoritesHref} variant="secondary" className="w-full">
+            Xem từ yêu thích
           </ButtonLink>
         </Card>
       </div>

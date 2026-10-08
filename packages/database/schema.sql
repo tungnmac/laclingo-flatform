@@ -73,9 +73,12 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     level VARCHAR(5) DEFAULT 'A1',
     audio_url TEXT,
     image_url TEXT,
+    image_emoji VARCHAR(16),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (language_id, term)
 );
+
+CREATE INDEX IF NOT EXISTS idx_vocabularies_lang_topic ON vocabularies(language_id, topic);
 
 CREATE TABLE IF NOT EXISTS user_vocabulary_reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -281,3 +284,28 @@ CREATE TABLE IF NOT EXISTS user_mission_progress (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mission_progress_user ON user_mission_progress(user_id);
+
+-- Metadata hiển thị của chủ đề từ vựng. vocabularies.topic vẫn là string (không FK).
+CREATE TABLE IF NOT EXISTS vocabulary_topics (
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,
+    icon VARCHAR(16) NOT NULL DEFAULT '📘',
+    order_index INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (language_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS vocabulary_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vocabulary_id UUID NOT NULL REFERENCES vocabularies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, vocabulary_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vocabulary_likes_vocab ON vocabulary_likes(vocabulary_id);
+
+CREATE TABLE IF NOT EXISTS vocabulary_favorites (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vocabulary_id UUID NOT NULL REFERENCES vocabularies(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, vocabulary_id)
+);

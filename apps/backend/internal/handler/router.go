@@ -42,6 +42,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	protected := api.Group("", RequireAuth(tokens))
 	NewUserHandler(userService).RegisterRoutes(protected)
 	NewSRSHandler(service.NewSRSService(repo, missions)).RegisterRoutes(protected)
+	NewVocabularyHandler(service.NewVocabularyService(repo)).RegisterRoutes(protected)
 	challengeHandler.RegisterRoutes(protected)
 	grammarHandler.RegisterProtectedRoutes(protected)
 	NewMissionHandler(missions).RegisterRoutes(protected)

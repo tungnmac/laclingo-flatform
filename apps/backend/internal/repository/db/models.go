@@ -222,6 +222,7 @@ type Vocabulary struct {
 	Level      pgtype.Text        `json:"level"`
 	AudioUrl   pgtype.Text        `json:"audio_url"`
 	ImageUrl   pgtype.Text        `json:"image_url"`
+	ImageEmoji pgtype.Text        `json:"image_emoji"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -236,4 +237,23 @@ type VocabularyExercise struct {
 	Difficulty      pgtype.Int4        `json:"difficulty"`
 	Metadata        []byte             `json:"metadata"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type VocabularyFavorite struct {
+	UserID       pgtype.UUID        `json:"user_id"`
+	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type VocabularyLike struct {
+	UserID       pgtype.UUID        `json:"user_id"`
+	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type VocabularyTopic struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
 }

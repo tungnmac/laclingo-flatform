@@ -1,5 +1,79 @@
 basePath: /api/v1
 definitions:
+  domain.CreateRoomRequest:
+    properties:
+      difficulty:
+        example: 2
+        maximum: 5
+        minimum: 1
+        type: integer
+      is_practice:
+        example: false
+        type: boolean
+      language_id:
+        example: en
+        type: string
+      question_count:
+        example: 10
+        maximum: 50
+        minimum: 1
+        type: integer
+      time_per_question_seconds:
+        example: 20
+        maximum: 120
+        minimum: 5
+        type: integer
+    type: object
+  domain.CreateRoomResponse:
+    properties:
+      code:
+        example: AB3K9Z
+        type: string
+      difficulty:
+        type: integer
+      id:
+        format: uuid
+        type: string
+      is_practice:
+        type: boolean
+      max_participants:
+        type: integer
+      question_count:
+        type: integer
+      status:
+        example: waiting
+        type: string
+      time_per_question_seconds:
+        type: integer
+    type: object
+  domain.InviteRequest:
+    properties:
+      username:
+        example: nguyenvana
+        type: string
+    type: object
+  domain.JoinRoomRequest:
+    properties:
+      code:
+        example: AB3K9Z
+        type: string
+    type: object
+  domain.LeaderboardEntryResponse:
+    properties:
+      avatar_url:
+        type: string
+      full_name:
+        type: string
+      rank:
+        type: integer
+      score:
+        type: integer
+      user_id:
+        format: uuid
+        type: string
+      username:
+        type: string
+    type: object
   domain.LearnVocabularyRequest:
     properties:
       vocabulary_id:
@@ -15,6 +89,50 @@ definitions:
       vocabulary_id:
         format: uuid
         type: string
+    type: object
+  domain.ParticipantResponse:
+    properties:
+      avatar_url:
+        type: string
+      full_name:
+        type: string
+      joined_at:
+        type: string
+      room_id:
+        format: uuid
+        type: string
+      score:
+        type: integer
+      user_id:
+        format: uuid
+        type: string
+      username:
+        type: string
+    type: object
+  domain.RoomDetailResponse:
+    properties:
+      code:
+        type: string
+      difficulty:
+        type: integer
+      host_user_id:
+        format: uuid
+        type: string
+      id:
+        format: uuid
+        type: string
+      is_practice:
+        type: boolean
+      participants:
+        items:
+          $ref: '#/definitions/domain.ParticipantResponse'
+        type: array
+      question_count:
+        type: integer
+      status:
+        type: string
+      time_per_question_seconds:
+        type: integer
     type: object
   domain.VocabularyReviewRequest:
     properties:
@@ -49,6 +167,12 @@ definitions:
         example: không tìm thấy dữ liệu
         type: string
     type: object
+  handler.submitExerciseRequest:
+    properties:
+      answer:
+        example: goes
+        type: string
+    type: object
   service.AuthResponse:
     properties:
       access_token:
@@ -65,6 +189,9 @@ definitions:
     properties:
       audio_url:
         type: string
+      language_id:
+        example: en
+        type: string
       meaning:
         type: string
       next_review_at:
@@ -76,6 +203,14 @@ definitions:
       term:
         example: apple
         type: string
+      vocabulary_id:
+        format: uuid
+        type: string
+    type: object
+  service.FavoriteResponse:
+    properties:
+      favorited:
+        type: boolean
       vocabulary_id:
         format: uuid
         type: string
@@ -175,6 +310,38 @@ definitions:
         example: English
         type: string
     type: object
+  service.LeaderboardEntry:
+    properties:
+      avatar_url:
+        type: string
+      exp:
+        type: integer
+      full_name:
+        type: string
+      level:
+        type: integer
+      points:
+        type: integer
+      rank:
+        type: integer
+      streak_count:
+        type: integer
+      user_id:
+        format: uuid
+        type: string
+      username:
+        type: string
+    type: object
+  service.LikeResponse:
+    properties:
+      like_count:
+        type: integer
+      liked:
+        type: boolean
+      vocabulary_id:
+        format: uuid
+        type: string
+    type: object
   service.LoginRequest:
     properties:
       identifier:
@@ -184,11 +351,109 @@ definitions:
         example: matkhau123
         type: string
     type: object
+  service.MissionRequest:
+    properties:
+      action_type:
+        enum:
+        - srs_review
+        - learn_word
+        - grammar_exercise
+        - challenge_participate
+        - challenge_win
+        example: srs_review
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      is_active:
+        type: boolean
+      period:
+        enum:
+        - daily
+        - weekly
+        - monthly
+        - event
+        example: daily
+        type: string
+      reward_exp:
+        example: 50
+        minimum: 0
+        type: integer
+      reward_points:
+        example: 10
+        minimum: 0
+        type: integer
+      starts_at:
+        type: string
+      target_count:
+        example: 10
+        minimum: 1
+        type: integer
+      title:
+        example: Ôn tập 10 từ hôm nay
+        type: string
+    type: object
+  service.MissionResponse:
+    properties:
+      action_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      id:
+        format: uuid
+        type: string
+      is_active:
+        type: boolean
+      period:
+        type: string
+      reward_exp:
+        type: integer
+      reward_points:
+        type: integer
+      starts_at:
+        type: string
+      target_count:
+        type: integer
+      title:
+        type: string
+    type: object
+  service.MyMissionResponse:
+    properties:
+      action_type:
+        type: string
+      completed:
+        type: boolean
+      description:
+        type: string
+      id:
+        format: uuid
+        type: string
+      period:
+        type: string
+      progress_count:
+        type: integer
+      reward_exp:
+        type: integer
+      reward_points:
+        type: integer
+      target_count:
+        type: integer
+      title:
+        type: string
+    type: object
   service.NewVocabulary:
     properties:
       audio_url:
         type: string
       example:
+        type: string
+      language_id:
+        example: en
         type: string
       level:
         example: A1
@@ -227,6 +492,11 @@ definitions:
         minLength: 3
         type: string
     type: object
+  service.SubmitExerciseResponse:
+    properties:
+      correct:
+        type: boolean
+    type: object
   service.UpdateProfileRequest:
     properties:
       avatar_url:
@@ -246,10 +516,19 @@ definitions:
       email:
         example: user@laclingo.vn
         type: string
+      exp:
+        type: integer
       full_name:
         type: string
       id:
         format: uuid
+        type: string
+      level:
+        type: integer
+      points:
+        type: integer
+      role:
+        example: user
         type: string
       streak_count:
         type: integer
@@ -257,12 +536,183 @@ definitions:
         example: nguyenvana
         type: string
     type: object
+  service.VocabularyCard:
+    properties:
+      audio_url:
+        type: string
+      example:
+        type: string
+      favorited:
+        type: boolean
+      image_emoji:
+        description: từ không có emoji riêng thì lấy icon chủ đề
+        example: "\U0001F34E"
+        type: string
+      image_url:
+        type: string
+      in_review:
+        description: đã có trong hàng đợi ôn tập SRS
+        type: boolean
+      language_id:
+        example: en
+        type: string
+      level:
+        example: A1
+        type: string
+      like_count:
+        type: integer
+      liked:
+        type: boolean
+      meaning:
+        type: string
+      phonetic:
+        type: string
+      term:
+        example: apple
+        type: string
+      topic:
+        type: string
+      vocabulary_id:
+        format: uuid
+        type: string
+    type: object
+  service.VocabularyTopic:
+    properties:
+      icon:
+        example: "\U0001F35C"
+        type: string
+      learned:
+        description: số từ đã vào hàng đợi SRS
+        example: 12
+        type: integer
+      name:
+        example: Đồ ăn & Thức uống
+        type: string
+      total:
+        example: 25
+        type: integer
+    type: object
 info:
   contact: {}
   description: API học ngôn ngữ với thuật toán SRS (SM-2).
   title: LacLingo API
   version: "1.0"
 paths:
+  /admin/missions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.MissionResponse'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Danh sách toàn bộ nhiệm vụ (admin, kể cả đã tắt)
+      tags:
+      - admin-missions
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Thông tin nhiệm vụ
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.MissionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/service.MissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Tạo nhiệm vụ mới (admin)
+      tags:
+      - admin-missions
+  /admin/missions/{id}:
+    delete:
+      parameters:
+      - description: Mission ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Tắt nhiệm vụ (admin, xoá mềm — giữ lịch sử tiến độ)
+      tags:
+      - admin-missions
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Mission ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Thông tin nhiệm vụ
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.MissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sửa nhiệm vụ (admin)
+      tags:
+      - admin-missions
   /auth/login:
     post:
       consumes:
@@ -330,6 +780,221 @@ paths:
       summary: Đăng ký tài khoản
       tags:
       - auth
+  /challenges/rooms:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cấu hình phòng
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.CreateRoomResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Tạo phòng thử thách
+      tags:
+      - challenges
+  /challenges/rooms/{id}:
+    get:
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.RoomDetailResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Thông tin phòng thử thách
+      tags:
+      - challenges
+  /challenges/rooms/{id}/invite:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Username người được mời
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InviteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ParticipantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mời người chơi vào phòng theo username (chỉ host)
+      tags:
+      - challenges
+  /challenges/rooms/{id}/leaderboard:
+    get:
+      parameters:
+      - description: Room ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.LeaderboardEntryResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bảng xếp hạng phòng thử thách
+      tags:
+      - challenges
+  /challenges/rooms/join:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Mã phòng
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.JoinRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ParticipantResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Tham gia phòng bằng mã
+      tags:
+      - challenges
+  /grammar/exercises/{id}/submit:
+    post:
+      consumes:
+      - application/json
+      description: Chạy song song với check client-side hiện có — chỉ để ghi nhận
+        tiến độ nhiệm vụ.
+      parameters:
+      - description: Exercise ID (UUID)
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Câu trả lời
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.submitExerciseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.SubmitExerciseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Chấm 1 bài tập ngữ pháp
+      tags:
+      - grammar
   /grammar/lessons/{code}:
     get:
       description: Nội dung bài học (summary, công thức, dấu hiệu) và danh sách bài
@@ -430,6 +1095,55 @@ paths:
       summary: Danh sách chủ đề ngữ pháp của một ngôn ngữ
       tags:
       - grammar
+  /leaderboard:
+    get:
+      description: Sort theo level, điểm thách đấu (points), hoặc streak (mặc định).
+      parameters:
+      - description: level | points | streak
+        example: level
+        in: query
+        name: by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.LeaderboardEntry'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bảng xếp hạng người học
+      tags:
+      - users
+  /missions:
+    get:
+      description: Danh sách nhiệm vụ đang active kèm tiến độ của user hiện tại trong
+        kỳ hiện tại.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.MyMissionResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Nhiệm vụ của tôi
+      tags:
+      - missions
   /srs/due:
     get:
       parameters:
@@ -437,6 +1151,11 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Chỉ lấy đến hạn của 1 ngôn ngữ (bỏ trống = tất cả ngôn ngữ)
+        example: en
+        in: query
+        name: language
+        type: string
       produces:
       - application/json
       responses:
@@ -687,6 +1406,202 @@ paths:
       summary: Cập nhật hồ sơ của user đang đăng nhập
       tags:
       - users
+  /vocab/{id}/favorite:
+    delete:
+      parameters:
+      - description: Vocabulary ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.FavoriteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bỏ từ khỏi yêu thích
+      tags:
+      - vocab
+    put:
+      parameters:
+      - description: Vocabulary ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.FavoriteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Thêm từ vào yêu thích
+      tags:
+      - vocab
+  /vocab/{id}/like:
+    delete:
+      parameters:
+      - description: Vocabulary ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LikeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Bỏ like từ vựng
+      tags:
+      - vocab
+    put:
+      parameters:
+      - description: Vocabulary ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LikeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Like từ vựng
+      tags:
+      - vocab
+  /vocab/favorites:
+    get:
+      parameters:
+      - description: Chỉ lấy 1 ngôn ngữ (bỏ trống = tất cả)
+        example: en
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.VocabularyCard'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Từ vựng yêu thích
+      tags:
+      - vocab
+  /vocab/topics:
+    get:
+      description: Danh sách chủ đề của 1 ngôn ngữ kèm số từ user đã đưa vào ôn tập.
+      parameters:
+      - description: Mã ngôn ngữ (mặc định en)
+        example: en
+        in: query
+        name: language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.VocabularyTopic'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Chủ đề từ vựng
+      tags:
+      - vocab
+  /vocab/words:
+    get:
+      description: Topic truyền qua query vì tên chủ đề có dấu cách/ký tự đặc biệt.
+      parameters:
+      - description: Mã ngôn ngữ (mặc định en)
+        example: en
+        in: query
+        name: language
+        type: string
+      - description: Tên chủ đề
+        example: Đồ ăn & Thức uống
+        in: query
+        name: topic
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.VocabularyCard'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Từ vựng theo chủ đề
+      tags:
+      - vocab
 securityDefinitions:
   BearerAuth:
     description: Nhập "Bearer <access_token>" (lấy từ /auth/login hoặc /auth/register)

@@ -15,6 +15,7 @@ type Querier interface {
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
@@ -22,6 +23,7 @@ type Querier interface {
 	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
+	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
@@ -45,10 +47,13 @@ type Querier interface {
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
 	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
+	LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error
 	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]Mission, error)
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
 	ListAllMissions(ctx context.Context) ([]Mission, error)
+	// language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
+	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
@@ -63,6 +68,11 @@ type Querier interface {
 	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
 	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
+	// Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
+	ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error)
+	// Chủ đề lấy từ vocabularies.topic; icon/thứ tự từ vocabulary_topics nếu có.
+	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
+	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
@@ -73,6 +83,8 @@ type Querier interface {
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UnfavoriteVocabulary(ctx context.Context, arg UnfavoriteVocabularyParams) error
+	UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
