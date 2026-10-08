@@ -137,30 +137,24 @@ export default function AdminUsersPage() {
                         {u.username} · {u.email}
                       </p>
                     </div>
-                    <div className="shrink-0 text-right text-xs text-slate-500">
-                      <p>
-                        ⭐ Lv.{u.level} · 🏆 {u.points} · 🔥 {u.streak_count}
-                      </p>
-                      <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
-                    </div>
-                    <div className="flex w-16 shrink-0 justify-end">
-                      <RoleBadge user={u} />
-                    </div>
-                    <div className="flex w-20 shrink-0 justify-end">
-                      <ActiveBadge user={u} />
-                    </div>
-                    <div className="flex w-4 shrink-0 justify-end">
-                      {canExpand && (
-                        <span className={cn('text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
-                          ▾
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex w-40 shrink-0 justify-end">
-                      <RoleToggleButton user={u} onChanged={reload} />
-                    </div>
-                    <div className="flex w-48 shrink-0 justify-end">
-                      <ActiveToggleButton user={u} onChanged={reload} />
+                    <div className="flex w-full shrink-0 flex-col items-end gap-1.5 sm:w-60">
+                      <div className="text-right text-xs text-slate-500">
+                        <p>
+                          ⭐ Lv.{u.level} · 🏆 {u.points} · 🔥 {u.streak_count}
+                        </p>
+                        <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <RoleBadge user={u} />
+                        <ActiveBadge user={u} />
+                        {canExpand && (
+                          <span className={cn('text-slate-400 transition-transform', isOpen && 'rotate-180')} aria-hidden>
+                            ▾
+                          </span>
+                        )}
+                        <RoleToggleButton user={u} onChanged={reload} />
+                        <ActiveToggleButton user={u} onChanged={reload} />
+                      </div>
                     </div>
                   </div>
 
