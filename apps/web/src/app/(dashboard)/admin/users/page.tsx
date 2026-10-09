@@ -12,6 +12,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { ADMIN_MODULES } from '@/lib/adminModules'
 import { cn, displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
@@ -20,6 +21,15 @@ const PAGE_SIZE = 20
 
 export default function AdminUsersPage() {
   const me = useSession((s) => s.user)
+  const t = useTranslation()
+  const moduleLabels: Record<string, string> = {
+    users: t.adminCommon.moduleUsers,
+    missions: t.adminCommon.moduleMissions,
+    vocabulary: t.adminCommon.moduleVocabulary,
+    grammar: t.adminCommon.moduleGrammar,
+    challenge_questions: t.adminCommon.moduleChallengeQuestions,
+    listening: t.adminCommon.moduleListening,
+  }
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -42,11 +52,11 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <PageHeader title="Học viên" description="Danh sách người học — tìm kiếm, lọc theo role, cấp/thu hồi quyền admin." />
+      <PageHeader title={t.adminUsers.pageTitle} description={t.adminUsers.pageDesc} />
 
       <div className="mb-4 flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Tìm kiếm
+          {t.adminUsers.searchLabel}
           <input
             type="search"
             value={search}
@@ -54,12 +64,12 @@ export default function AdminUsersPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Tìm theo username/email/họ tên..."
+            placeholder={t.adminUsers.searchPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Role
+          {t.adminUsers.roleLabel}
           <select
             value={role}
             onChange={(e) => {
@@ -70,13 +80,13 @@ export default function AdminUsersPage() {
             }}
             className={cn(inputClass, 'max-w-[10rem]')}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t.adminUsers.roleAll}</option>
             <option value="user">user</option>
             <option value="admin">admin</option>
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Quyền module
+          {t.adminUsers.moduleFilterLabel}
           <select
             value={moduleFilter}
             disabled={role === 'user'}
@@ -86,10 +96,10 @@ export default function AdminUsersPage() {
             }}
             className={cn(inputClass, 'max-w-[12rem]', role === 'user' && 'cursor-not-allowed opacity-50')}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t.adminUsers.moduleFilterAll}</option>
             {ADMIN_MODULES.map((m) => (
               <option key={m.key} value={m.key}>
-                {m.icon} {m.label}
+                {m.icon} {moduleLabels[m.key]}
               </option>
             ))}
           </select>
@@ -98,7 +108,7 @@ export default function AdminUsersPage() {
 
       {loading && !data && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Không tìm thấy học viên nào" icon="👤" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminUsers.emptyTitle} icon="👤" />}
 
       {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
@@ -131,7 +141,7 @@ export default function AdminUsersPage() {
                         >
                           {displayName(u)}
                         </Link>
-                        {isSelf && <span className="ml-2 text-xs font-normal text-indigo-600">(bạn)</span>}
+                        {isSelf && <span className="ml-2 text-xs font-normal text-indigo-600">{t.adminUsers.youSuffix}</span>}
                       </p>
                       <p className="truncate text-sm text-slate-500">
                         {u.username} · {u.email}
@@ -139,10 +149,8 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
                       <div className="shrink-0 text-right text-xs text-slate-500">
-                        <p>
-                          ⭐ Lv.{u.level} · 🏆 {u.points} · 🔥 {u.streak_count}
-                        </p>
-                        <p className="text-slate-400">Tham gia {formatDate(u.created_at)}</p>
+                        <p>{t.adminUsers.statLine(u.level, u.points, u.streak_count)}</p>
+                        <p className="text-slate-400">{t.adminUsers.joinedAt(formatDate(u.created_at))}</p>
                       </div>
                       <RoleBadge user={u} />
                       <ActiveBadge user={u} />
