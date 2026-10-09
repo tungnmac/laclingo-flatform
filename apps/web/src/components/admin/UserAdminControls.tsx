@@ -136,6 +136,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
     grammar: t.adminCommon.moduleGrammar,
     challenge_questions: t.adminCommon.moduleChallengeQuestions,
     listening: t.adminCommon.moduleListening,
+    classes: t.adminCommon.moduleClasses,
   }
 
   const toggle = (key: string) => {

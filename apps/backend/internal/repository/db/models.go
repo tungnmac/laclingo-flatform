@@ -19,6 +19,24 @@ type ChallengeQuestion struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type Class struct {
+	ID          pgtype.UUID        `json:"id"`
+	LanguageID  string             `json:"language_id"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	Level       string             `json:"level"`
+	OrderIndex  int32              `json:"order_index"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ClassLesson struct {
+	ID         pgtype.UUID `json:"id"`
+	ClassID    pgtype.UUID `json:"class_id"`
+	LessonID   pgtype.UUID `json:"lesson_id"`
+	OrderIndex int32       `json:"order_index"`
+}
+
 type DeckVocabulary struct {
 	DeckID       pgtype.UUID        `json:"deck_id"`
 	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
@@ -190,6 +208,13 @@ type User struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserClassEnrollment struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	ClassID    pgtype.UUID        `json:"class_id"`
+	EnrolledAt pgtype.Timestamptz `json:"enrolled_at"`
+}
+
 type UserDeck struct {
 	ID          pgtype.UUID        `json:"id"`
 	UserID      pgtype.UUID        `json:"user_id"`
@@ -201,6 +226,12 @@ type UserDeck struct {
 	IsSystem    pgtype.Bool        `json:"is_system"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserExerciseCompletion struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	ExerciseID  pgtype.UUID        `json:"exercise_id"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
 type UserGrammarProgress struct {

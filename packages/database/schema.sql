@@ -177,6 +177,49 @@ CREATE TABLE IF NOT EXISTS user_grammar_progress (
 CREATE INDEX IF NOT EXISTS idx_grammar_progress_user ON user_grammar_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_grammar_progress_status ON user_grammar_progress(user_id, status);
 
+-- "Lớp học" — giáo án: 1 chuỗi bài ngữ pháp theo thứ tự cố định cho 1 level.
+CREATE TABLE IF NOT EXISTS classes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    level VARCHAR(5) NOT NULL DEFAULT 'A1',
+    order_index INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_classes_language ON classes(language_id);
+
+-- Bài ngữ pháp nào thuộc lớp nào, thứ tự học — admin set lại TOÀN BỘ mỗi lần
+-- lưu giáo án (xoá hết rồi insert lại theo thứ tự mảng), không add/remove rời.
+CREATE TABLE IF NOT EXISTS class_lessons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    lesson_id UUID NOT NULL REFERENCES grammar_lessons(id) ON DELETE CASCADE,
+    order_index INT NOT NULL DEFAULT 0,
+    CONSTRAINT unique_class_lesson UNIQUE (class_id, lesson_id)
+);
+CREATE INDEX IF NOT EXISTS idx_class_lessons_class ON class_lessons(class_id, order_index);
+
+-- Ghi danh — user "vào học" 1 lớp.
+CREATE TABLE IF NOT EXISTS user_class_enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_user_class UNIQUE (user_id, class_id)
+);
+CREATE INDEX IF NOT EXISTS idx_enrollments_user ON user_class_enrollments(user_id);
+
+-- Nền tảng tính % giáo án: 1 dòng khi user làm ĐÚNG 1 bài tập lần đầu. PK kép
+-- làm nó idempotent — submit lại bài đã đúng không tạo trùng, không lỗi.
+CREATE TABLE IF NOT EXISTS user_exercise_completions (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exercise_id UUID NOT NULL REFERENCES grammar_exercises(id) ON DELETE CASCADE,
+    completed_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, exercise_id)
+);
+
 -- Hệ thống "thử thách" realtime kiểu game show: phòng chơi, câu hỏi riêng
 -- (không dùng grammar_exercises/vocabulary_exercises), người tham gia, câu trả lời.
 

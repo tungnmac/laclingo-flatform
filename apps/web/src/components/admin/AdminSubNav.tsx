@@ -21,6 +21,7 @@ export function AdminSubNav() {
     grammar: t.adminCommon.moduleGrammar,
     challenge_questions: t.adminCommon.moduleChallengeQuestions,
     listening: t.adminCommon.moduleListening,
+    classes: t.adminCommon.moduleClasses,
   }
 
   return (

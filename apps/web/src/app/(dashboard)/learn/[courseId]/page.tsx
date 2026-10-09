@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
+import { ClassesSection } from '@/features/class/components/ClassesSection'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
 import { TopicLessonList } from '@/features/grammar/components/TopicLessonList'
@@ -44,6 +45,11 @@ export default function CoursePage({ params }: { params: { courseId: string } })
         <h2 className="mb-2 text-lg font-semibold text-slate-900">{t.learn.srsCardTitle}</h2>
         <p className="text-sm text-slate-600">{t.learn.srsCardDesc}</p>
       </Card>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">{t.classes.sectionTitle}</h2>
+        <ClassesSection languageId={params.courseId} />
+      </section>
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">{t.learn.grammarSectionTitle}</h2>

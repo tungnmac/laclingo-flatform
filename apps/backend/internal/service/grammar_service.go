@@ -23,6 +23,7 @@ type GrammarRepository interface {
 	GetGrammarLessonByCode(ctx context.Context, code string) (db.GrammarLesson, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]db.GrammarExercise, error)
 	GetGrammarExerciseByID(ctx context.Context, id pgtype.UUID) (db.GrammarExercise, error)
+	CompleteExercise(ctx context.Context, arg db.CompleteExerciseParams) error
 
 	CreateGrammarTopic(ctx context.Context, arg db.CreateGrammarTopicParams) (db.GrammarTopic, error)
 	UpdateGrammarTopic(ctx context.Context, arg db.UpdateGrammarTopicParams) (db.GrammarTopic, error)
@@ -198,6 +199,10 @@ func (s *GrammarService) SubmitExercise(ctx context.Context, userID, exerciseID 
 	if correct {
 		if err := s.missions.RecordAction(ctx, userID, "grammar_exercise", 1); err != nil {
 			log.Printf("❌ mission: RecordAction user=%s action=grammar_exercise: %v", userID, err)
+		}
+		// Nền tảng tính % giáo án lớp học — idempotent (PK kép), an toàn khi submit lại bài đã đúng.
+		if err := s.repo.CompleteExercise(ctx, db.CompleteExerciseParams{UserID: toPgUUID(userID), ExerciseID: toPgUUID(exerciseID)}); err != nil {
+			log.Printf("❌ CompleteExercise user=%s exercise=%s: %v", userID, exerciseID, err)
 		}
 	}
 

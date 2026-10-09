@@ -6,6 +6,7 @@ import { adminGrammarTranslations, type AdminGrammarDict } from './dict/admin-gr
 import { adminListeningTranslations, type AdminListeningDict } from './dict/admin-listening'
 import { adminVocabularyTranslations, type AdminVocabularyDict } from './dict/admin-vocabulary'
 import { challengesTranslations, type ChallengesDict } from './dict/challenges'
+import { classesTranslations, type ClassesDict } from './dict/classes'
 import { commonTranslations, type CommonDict } from './dict/common'
 import { homeTranslations, type HomeDict } from './dict/home'
 import { learnTranslations, type LearnDict } from './dict/learn'
@@ -379,7 +380,8 @@ type AllDicts = Dictionary &
   AdminGrammarDict &
   AdminChallengesMissionsDict &
   AdminListeningDict &
-  CommonDict
+  CommonDict &
+  ClassesDict
 
 export const translations: Record<Locale, AllDicts> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
@@ -398,6 +400,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(adminChallengesMissionsTranslations, locale),
       ...pick(adminListeningTranslations, locale),
       ...pick(commonTranslations, locale),
+      ...pick(classesTranslations, locale),
     },
   ]),
 ) as Record<Locale, AllDicts>

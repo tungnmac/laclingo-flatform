@@ -29,6 +29,7 @@ export default function AdminUsersPage() {
     grammar: t.adminCommon.moduleGrammar,
     challenge_questions: t.adminCommon.moduleChallengeQuestions,
     listening: t.adminCommon.moduleListening,
+    classes: t.adminCommon.moduleClasses,
   }
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')

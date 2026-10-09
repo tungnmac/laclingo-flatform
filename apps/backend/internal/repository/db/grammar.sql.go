@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const completeExercise = `-- name: CompleteExercise :exec
+INSERT INTO user_exercise_completions (user_id, exercise_id)
+VALUES ($1, $2)
+ON CONFLICT (user_id, exercise_id) DO NOTHING
+`
+
+type CompleteExerciseParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	ExerciseID pgtype.UUID `json:"exercise_id"`
+}
+
+// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+func (q *Queries) CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error {
+	_, err := q.db.Exec(ctx, completeExercise, arg.UserID, arg.ExerciseID)
+	return err
+}
+
 const createGrammarExercise = `-- name: CreateGrammarExercise :one
 INSERT INTO grammar_exercises (lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

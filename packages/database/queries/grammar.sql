@@ -102,3 +102,10 @@ WHERE lesson_id = sqlc.arg('lesson_id')
   AND (sqlc.narg('search')::text IS NULL OR question ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY order_index
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: CompleteExercise :exec
+-- Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+-- PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+INSERT INTO user_exercise_completions (user_id, exercise_id)
+VALUES ($1, $2)
+ON CONFLICT (user_id, exercise_id) DO NOTHING;

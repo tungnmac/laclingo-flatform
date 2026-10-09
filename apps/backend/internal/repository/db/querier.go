@@ -11,14 +11,20 @@ import (
 )
 
 type Querier interface {
+	AddClassLesson(ctx context.Context, arg AddClassLessonParams) error
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
 	// ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
 	CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error)
+	// ===== Admin CRUD =====
+	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateGrammarExercise(ctx context.Context, arg CreateGrammarExerciseParams) (GrammarExercise, error)
 	CreateGrammarLesson(ctx context.Context, arg CreateGrammarLessonParams) (GrammarLesson, error)
@@ -37,6 +43,9 @@ type Querier interface {
 	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
 	DeleteChallengeQuestion(ctx context.Context, id pgtype.UUID) error
+	DeleteClass(ctx context.Context, id pgtype.UUID) error
+	// Dùng trong ReplaceClassLessons (xoá hết rồi insert lại theo thứ tự mảng mới).
+	DeleteClassLessons(ctx context.Context, classID pgtype.UUID) error
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
 	DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error
@@ -46,8 +55,10 @@ type Querier interface {
 	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
+	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	GetClassByID(ctx context.Context, id pgtype.UUID) (Class, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
@@ -84,6 +95,20 @@ type Querier interface {
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	ListChallengeQuestionsByLanguage(ctx context.Context, arg ListChallengeQuestionsByLanguageParams) ([]ListChallengeQuestionsByLanguageRow, error)
+	// Giáo án đầy đủ của 1 lớp, kèm thông tin bài học — dùng cho cả admin (sửa
+	// giáo án) và learner detail (learner query riêng có thêm completion, xem dưới).
+	ListClassLessonsByClass(ctx context.Context, classID pgtype.UUID) ([]ListClassLessonsByClassRow, error)
+	// Giống ListClassLessonsByClass nhưng kèm completed_exercises/total_exercises
+	// của 1 user cụ thể — dùng cho trang chi tiết lớp (learner).
+	ListClassLessonsWithProgress(ctx context.Context, arg ListClassLessonsWithProgressParams) ([]ListClassLessonsWithProgressRow, error)
+	// 1 query gộp cho TOÀN BỘ lớp của 1 ngôn ngữ — tránh N+1 khi liệt kê lớp. Mỗi
+	// dòng = 1 bài trong giáo án, nên COUNT(*) dòng theo class_id ở Go cũng chính
+	// là lesson_count (lớp chưa có bài nào thì không có dòng, tự hiểu count=0).
+	// Gộp thành % tiến độ ở Go (lesson "done" khi completed_exercises >= total_exercises và total > 0).
+	ListClassProgressByLanguage(ctx context.Context, arg ListClassProgressByLanguageParams) ([]ListClassProgressByLanguageRow, error)
+	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
+	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
+	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
 	// language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
 	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
@@ -116,6 +141,8 @@ type Querier interface {
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
+	// Trả về class_id user đã ghi danh, lọc theo ngôn ngữ — dùng đánh dấu "enrolled" khi liệt kê lớp.
+	ListMyEnrollmentsByLanguage(ctx context.Context, arg ListMyEnrollmentsByLanguageParams) ([]pgtype.UUID, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
@@ -155,6 +182,7 @@ type Querier interface {
 	UnfavoriteVocabulary(ctx context.Context, arg UnfavoriteVocabularyParams) error
 	UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error
 	UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error)
+	UpdateClass(ctx context.Context, arg UpdateClassParams) (Class, error)
 	UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error)
 	UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error)
 	UpdateGrammarTopic(ctx context.Context, arg UpdateGrammarTopicParams) (GrammarTopic, error)

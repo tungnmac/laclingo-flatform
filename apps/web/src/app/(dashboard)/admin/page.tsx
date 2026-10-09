@@ -23,6 +23,7 @@ export default function AdminHubPage() {
       description: t.adminCommon.challengeQuestionsDesc,
     },
     { key: 'listening', href: '/admin/listening', icon: '🎧', title: t.adminCommon.moduleListening, description: t.adminCommon.listeningDesc },
+    { key: 'classes', href: '/admin/classes', icon: '📋', title: t.adminCommon.moduleClasses, description: t.adminCommon.classesDesc },
   ]
   const visible = sections.filter((s) => hasModule(user, s.key))
 

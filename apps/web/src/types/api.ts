@@ -610,3 +610,64 @@ export interface VocabularyTopicAdmin {
   order_index: number
   parent_name?: string | null
 }
+
+// --- Lớp học (classes — giáo án ngữ pháp theo thứ tự) ---
+
+export interface ClassRequest {
+  language_id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+}
+
+export interface ClassAdmin {
+  id: string
+  language_id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+}
+
+export interface ClassSummary {
+  id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+  lesson_count: number
+  enrolled: boolean
+  progress_percent: number
+}
+
+export interface ClassLessonProgress {
+  lesson_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+  completed: boolean
+}
+
+export interface ClassDetail {
+  id: string
+  title: string
+  description?: string
+  level: string
+  enrolled: boolean
+  progress_percent: number
+  lessons: ClassLessonProgress[]
+}
+
+export interface ClassLessonAdmin {
+  lesson_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+}
+
+export interface ReplaceClassLessonsRequest {
+  lesson_ids: string[]
+}
