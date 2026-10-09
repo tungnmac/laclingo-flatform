@@ -42,6 +42,14 @@ export function useSRSReviewSession(language?: string) {
 
   const flip = useCallback(() => setFlipped((f) => !f), [])
 
+  // Bỏ qua chấm điểm, chuyển thẻ tiếp theo — dùng khi tự động đọc (nghe lại
+  // không phải tự kiểm tra bản thân) nên KHÔNG gọi API lưu kết quả, thẻ vẫn
+  // giữ nguyên lịch ôn tập SRS như chưa được ôn trong phiên này.
+  const skip = useCallback(() => {
+    setIndex((i) => i + 1)
+    setFlipped(false)
+  }, [])
+
   const grade = useCallback(
     async (quality: number) => {
       if (!current || submitting) return
@@ -72,6 +80,7 @@ export function useSRSReviewSession(language?: string) {
     error,
     finished,
     flip,
+    skip,
     grade,
     reload: load,
   }

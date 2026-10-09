@@ -138,7 +138,7 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       gapSecondsLabel: 'Cách nhau (giây)',
       shadowModeLabel: 'Shadowing — xen đọc nghĩa giữa các lần đọc từ',
       autoplayRunningHint: '🔊 Đang tự động đọc — bấm ← → hoặc Trước/Tiếp để dừng và tự chuyển từ.',
-      srsAutoplayRunningHint: '🔊 Đang tự động đọc và lật thẻ — bạn vẫn tự bấm chọn mức độ nhớ như thường. Bấm "Dừng tự động" để tắt.',
+      srsAutoplayRunningHint: '🔊 Đang tự động đọc — tự lật thẻ, đọc từ + nghĩa rồi tự chuyển thẻ tiếp theo, bỏ qua bước tự chấm điểm. Bấm "Dừng tự động" để quay lại ôn tập bình thường.',
 
       loadingFavorites: 'Đang lấy từ yêu thích...',
       emptyFavoritesTitle: 'Chưa có từ yêu thích nào',
@@ -221,7 +221,8 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       gapSecondsLabel: 'Gap (seconds)',
       shadowModeLabel: 'Shadowing — read the meaning between word repeats',
       autoplayRunningHint: '🔊 Auto-playing — press ← → or Previous/Next to stop and move manually.',
-      srsAutoplayRunningHint: '🔊 Auto-playing and auto-flipping — you still pick how well you remembered as usual. Press "Stop auto-play" to turn it off.',
+      srsAutoplayRunningHint:
+        '🔊 Auto-playing — auto-flips, reads the word + meaning, then moves to the next card, skipping the self-grading step. Press "Stop auto-play" to go back to normal review.',
 
       loadingFavorites: 'Loading favorites...',
       emptyFavoritesTitle: 'No favorite words yet',

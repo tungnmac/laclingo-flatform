@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -15,8 +15,8 @@ import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSes
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
 import { useKeypress } from '@/hooks/useKeypress'
-import { useSRSAutoplay } from '@/hooks/useSRSAutoplay'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { formatDate } from '@/lib/utils'
 import { useAutoplaySettings } from '@/store/autoplaySettings'
 
@@ -50,24 +50,29 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
   )
   useKeypress(onKey, !!current && !submitting)
 
-  // Tự động đọc thẻ hiện tại rồi tự lật (xem useSRSAutoplay) — KHÔNG tự chấm
-  // điểm, người học vẫn phải tự bấm mức độ nhớ sau khi lật.
+  // Tự động đọc: lật thẻ ngay (bỏ qua bước tự kiểm tra bản thân) rồi đọc
+  // từ/nghĩa lặp lại `repeatCount` lần, xong tự skip() sang thẻ tiếp theo —
+  // KHÔNG chấm điểm (skip không gọi API SRS), vì đây là nghe lại chứ không
+  // phải tự đánh giá mức độ nhớ. Dùng chung useWordAutoplay với trang học từ.
   const [autoplay, setAutoplay] = useState(false)
   const repeatCount = useAutoplaySettings((s) => s.repeatCount)
   const gapSeconds = useAutoplaySettings((s) => s.gapSeconds)
   const shadowMode = useAutoplaySettings((s) => s.shadowMode)
 
-  useSRSAutoplay({
+  useEffect(() => {
+    if (autoplay && current && !flipped) flip()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoplay, current?.vocabulary_id])
+
+  useWordAutoplay({
     enabled: autoplay && !!current,
-    cardId: current?.vocabulary_id ?? '',
     term: current?.term ?? '',
     meaning: current?.meaning ?? '',
     languageId: current?.language_id ?? language ?? 'en',
-    flipped,
-    onFlip: flip,
     repeatCount,
     gapSeconds,
     shadowMode,
+    onAdvance: session.skip,
   })
 
   if (session.loading) return <Spinner label={t.review.loadingReviewCards} />
@@ -160,16 +165,20 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
 
         {session.error && <p className="text-sm text-rose-600">{session.error.message}</p>}
 
-        {flipped ? (
-          <div className="w-full space-y-2">
-            <p className="text-center text-sm text-slate-500">{t.review.howWellRemember}</p>
-            <QualityButtons onGrade={grade} disabled={submitting} />
-          </div>
-        ) : (
-          <Button size="lg" className="w-full sm:w-auto sm:min-w-48" onClick={flip}>
-            {t.review.showMeaningBtn}
-          </Button>
-        )}
+        {/* Tự động đọc thì bỏ hẳn bước tự chấm điểm — skip() tự chuyển thẻ,
+            không cần hỏi "Bạn nhớ từ này thế nào?" vì đây là nghe lại, không
+            phải tự kiểm tra bản thân. */}
+        {!autoplay &&
+          (flipped ? (
+            <div className="w-full space-y-2">
+              <p className="text-center text-sm text-slate-500">{t.review.howWellRemember}</p>
+              <QualityButtons onGrade={grade} disabled={submitting} />
+            </div>
+          ) : (
+            <Button size="lg" className="w-full sm:w-auto sm:min-w-48" onClick={flip}>
+              {t.review.showMeaningBtn}
+            </Button>
+          ))}
       </div>
     </div>
   )
