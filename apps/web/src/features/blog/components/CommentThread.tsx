@@ -14,17 +14,27 @@ function authorName(c: Pick<BlogCommentNode, 'author_full_name' | 'author_userna
   return c.author_full_name || c.author_username
 }
 
-// Mention "@username " ở đầu content (do FE tự chèn khi trả lời 1 reply,
-// xem CommentItem.onClickReply) — tách ra để tô màu riêng, phần còn lại hiện bình thường.
-const MENTION_PATTERN = /^(@\S+)(\s)/
+// Mention "@Tên hiển thị " ở đầu content (FE tự chèn khi trả lời, xem
+// CommentItem.onClickReply) — tên hiển thị có thể nhiều từ (vd "Nguyễn Văn
+// A") nên KHÔNG thể dò bằng regex "@\S+" thông thường (chỉ bắt được từ đầu).
+// Khớp theo đúng danh sách tên người tham gia thread đó (candidates, truyền
+// từ CommentThread) — ưu tiên tên dài hơn trước để tránh khớp nhầm tên con
+// là tiền tố của tên khác (vd "An" vs "Anh").
+function matchMention(content: string, candidates: string[]): { name: string; rest: string } | null {
+  const sorted = [...candidates].sort((a, b) => b.length - a.length)
+  for (const name of sorted) {
+    const prefix = `@${name} `
+    if (content.startsWith(prefix)) return { name, rest: content.slice(prefix.length) }
+  }
+  return null
+}
 
-function CommentBody({ content }: { content: string }) {
-  const match = content.match(MENTION_PATTERN)
+function CommentBody({ content, mentionCandidates }: { content: string; mentionCandidates: string[] }) {
+  const match = matchMention(content, mentionCandidates)
   if (!match) return <>{content}</>
   return (
     <>
-      <span className="font-medium text-indigo-600">{match[1]}</span>
-      {content.slice(match[0].length)}
+      <span className="font-medium text-indigo-600">@{match.name}</span> {match.rest}
     </>
   )
 }
@@ -46,20 +56,31 @@ export function CommentThread({
   if (comments.length === 0) return null
   return (
     <ul className="space-y-5">
-      {comments.map((root) => (
-        <li key={root.id}>
-          <CommentItem postId={postId} comment={root} currentUserId={currentUserId} onChanged={onChanged} />
-          {root.replies.length > 0 && (
-            <ul className="mt-3 space-y-4 border-l border-slate-100 pl-4">
-              {root.replies.map((reply) => (
-                <li key={reply.id}>
-                  <CommentItem postId={postId} comment={reply} currentUserId={currentUserId} onChanged={onChanged} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </li>
-      ))}
+      {comments.map((root) => {
+        // Danh sách tên để dò mention trong CẢ thread này (gốc + mọi reply) —
+        // chỉ cần tính 1 lần/root, dùng chung cho root và từng reply bên dưới.
+        const mentionCandidates = [...new Set([authorName(root), ...root.replies.map(authorName)])]
+        return (
+          <li key={root.id}>
+            <CommentItem postId={postId} comment={root} currentUserId={currentUserId} onChanged={onChanged} mentionCandidates={mentionCandidates} />
+            {root.replies.length > 0 && (
+              <ul className="mt-3 space-y-4 border-l border-slate-100 pl-4">
+                {root.replies.map((reply) => (
+                  <li key={reply.id}>
+                    <CommentItem
+                      postId={postId}
+                      comment={reply}
+                      currentUserId={currentUserId}
+                      onChanged={onChanged}
+                      mentionCandidates={mentionCandidates}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -69,11 +90,13 @@ function CommentItem({
   comment,
   currentUserId,
   onChanged,
+  mentionCandidates,
 }: {
   postId: string
   comment: BlogCommentNode
   currentUserId?: string
   onChanged: () => void
+  mentionCandidates: string[]
 }) {
   const t = useTranslation()
   const confirm = useConfirm()
@@ -86,12 +109,12 @@ function CommentItem({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Mở ô reply lần đầu thì mồi sẵn "@username " — trả lời root hay 1 reply
-  // khác đều tag @ người đó (backend tự trải phẳng về đúng root khi lưu).
+  // Mở ô reply lần đầu thì mồi sẵn "@Tên hiển thị " — trả lời root hay 1
+  // reply khác đều tag @ người đó (backend tự trải phẳng về đúng root khi lưu).
   const onClickReply = () => {
     setReplying((v) => {
       const next = !v
-      if (next && !replyText) setReplyText(`@${comment.author_username} `)
+      if (next && !replyText) setReplyText(`@${authorName(comment)} `)
       return next
     })
   }
@@ -168,7 +191,7 @@ function CommentItem({
           </div>
         ) : (
           <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-700">
-            <CommentBody content={comment.content} />
+            <CommentBody content={comment.content} mentionCandidates={mentionCandidates} />
           </p>
         )}
 
