@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/features/auth/auth.service'
+import { useTranslation } from '@/hooks/useTranslation'
 import { useSession } from '@/store/session'
 import type { AuthResponse } from '@/types/api'
 
@@ -14,6 +15,7 @@ export const inputClass =
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter()
   const setSession = useSession((s) => s.setSession)
+  const t = useTranslation()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -49,14 +51,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     <form onSubmit={onSubmit} className="mt-6 space-y-4">
       {mode === 'register' && (
         <label className="block text-sm font-medium text-slate-700">
-          Họ tên
-          <input name="full_name" type="text" autoComplete="name" maxLength={100} className={inputClass} placeholder="Nguyễn Văn A" />
+          {t.auth.fullNameLabel}
+          <input name="full_name" type="text" autoComplete="name" maxLength={100} className={inputClass} placeholder={t.auth.fullNamePlaceholder} />
         </label>
       )}
       {mode === 'register' ? (
         <>
           <label className="block text-sm font-medium text-slate-700">
-            Tên đăng nhập
+            {t.auth.usernameLabel}
             <input
               name="username"
               type="text"
@@ -64,26 +66,26 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               minLength={3}
               maxLength={50}
               pattern="[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]"
-              title="3-50 ký tự: chữ, số, dấu chấm, gạch dưới, gạch ngang"
+              title={t.auth.usernameHint}
               autoComplete="username"
               className={inputClass}
-              placeholder="nguyenvana"
+              placeholder={t.auth.usernamePlaceholder}
             />
           </label>
           <label className="block text-sm font-medium text-slate-700">
-            Email
-            <input name="email" type="email" required autoComplete="email" className={inputClass} placeholder="ban@laclingo.vn" />
+            {t.auth.emailLabel}
+            <input name="email" type="email" required autoComplete="email" className={inputClass} placeholder={t.auth.emailPlaceholder} />
           </label>
         </>
       ) : (
         <label className="block text-sm font-medium text-slate-700">
-          Email hoặc tên đăng nhập
-          <input name="identifier" type="text" required autoComplete="username" className={inputClass} placeholder="ban@laclingo.vn hoặc nguyenvana" />
+          {t.auth.identifierLabel}
+          <input name="identifier" type="text" required autoComplete="username" className={inputClass} placeholder={t.auth.identifierPlaceholder} />
         </label>
       )}
       <div>
         <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-          Mật khẩu
+          {t.auth.passwordLabel}
         </label>
         <div className="relative">
           <input
@@ -99,7 +101,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            aria-label={showPassword ? t.auth.hidePassword : t.auth.showPassword}
             className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-600"
           >
             {showPassword ? (
@@ -126,7 +128,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       )}
 
       <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-        {submitting ? 'Đang xử lý...' : mode === 'register' ? 'Đăng ký' : 'Đăng nhập'}
+        {submitting ? t.auth.submitting : mode === 'register' ? t.auth.submitRegister : t.auth.submitLogin}
       </Button>
     </form>
   )
