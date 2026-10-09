@@ -1,6 +1,7 @@
 import type { Locale } from '@/store/locale'
 import { adminCommonTranslations, type AdminCommonDict } from './dict/admin-common'
 import { adminUsersTranslations, type AdminUsersDict } from './dict/admin-users'
+import { adminChallengesMissionsTranslations, type AdminChallengesMissionsDict } from './dict/admin-challenges-missions'
 import { adminGrammarTranslations, type AdminGrammarDict } from './dict/admin-grammar'
 import { adminVocabularyTranslations, type AdminVocabularyDict } from './dict/admin-vocabulary'
 import { challengesTranslations, type ChallengesDict } from './dict/challenges'
@@ -373,7 +374,8 @@ type AllDicts = Dictionary &
   AdminCommonDict &
   AdminUsersDict &
   AdminVocabularyDict &
-  AdminGrammarDict
+  AdminGrammarDict &
+  AdminChallengesMissionsDict
 
 export const translations: Record<Locale, AllDicts> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
@@ -389,6 +391,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(adminUsersTranslations, locale),
       ...pick(adminVocabularyTranslations, locale),
       ...pick(adminGrammarTranslations, locale),
+      ...pick(adminChallengesMissionsTranslations, locale),
     },
   ]),
 ) as Record<Locale, AllDicts>

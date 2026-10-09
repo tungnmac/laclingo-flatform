@@ -9,24 +9,9 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { missionService } from '@/features/mission/mission.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { Mission, MissionActionType, MissionPeriod, MissionRequest } from '@/types/api'
-
-const periodOptions: { value: MissionPeriod; label: string }[] = [
-  { value: 'daily', label: 'Hàng ngày' },
-  { value: 'weekly', label: 'Hàng tuần' },
-  { value: 'monthly', label: 'Hàng tháng' },
-  { value: 'event', label: 'Sự kiện' },
-]
-
-const actionOptions: { value: MissionActionType; label: string }[] = [
-  { value: 'srs_review', label: 'Ôn tập từ vựng (SRS)' },
-  { value: 'learn_word', label: 'Học từ mới' },
-  { value: 'grammar_exercise', label: 'Luyện ngữ pháp' },
-  { value: 'challenge_participate', label: 'Tham gia phòng thách đấu' },
-  { value: 'challenge_win', label: 'Thắng phòng thách đấu' },
-  { value: 'listening_practice', label: 'Trả lời đúng câu hỏi luyện nghe' },
-]
 
 function toDateInputValue(iso?: string) {
   return iso ? iso.slice(0, 10) : ''
@@ -34,7 +19,24 @@ function toDateInputValue(iso?: string) {
 
 export default function AdminMissionsPage() {
   const confirm = useConfirm()
+  const t = useTranslation()
   const { data, error, loading, reload } = useApi(missionService.listAll, [])
+
+  const periodOptions: { value: MissionPeriod; label: string }[] = [
+    { value: 'daily', label: t.adminMissions.periodDailyPlain },
+    { value: 'weekly', label: t.adminMissions.periodWeeklyPlain },
+    { value: 'monthly', label: t.adminMissions.periodMonthlyPlain },
+    { value: 'event', label: t.adminMissions.periodEventPlain },
+  ]
+
+  const actionOptions: { value: MissionActionType; label: string }[] = [
+    { value: 'srs_review', label: t.adminMissions.actionSrsReview },
+    { value: 'learn_word', label: t.adminMissions.actionLearnWord },
+    { value: 'grammar_exercise', label: t.adminMissions.actionGrammarExercise },
+    { value: 'challenge_participate', label: t.adminMissions.actionChallengeParticipate },
+    { value: 'challenge_win', label: t.adminMissions.actionChallengeWin },
+    { value: 'listening_practice', label: t.adminMissions.actionListeningPractice },
+  ]
   const [editing, setEditing] = useState<Mission | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -53,7 +55,7 @@ export default function AdminMissionsPage() {
   }
 
   const onDeactivate = async (m: Mission) => {
-    if (!(await confirm(`Tắt nhiệm vụ "${m.title}"? Lịch sử tiến độ sẽ được giữ lại.`))) return
+    if (!(await confirm(t.adminMissions.deactivateConfirm(m.title)))) return
     await missionService.deactivate(m.id)
     reload()
   }
@@ -76,7 +78,7 @@ export default function AdminMissionsPage() {
       const startsAt = String(form.get('starts_at') ?? '')
       const endsAt = String(form.get('ends_at') ?? '')
       if (!startsAt || !endsAt) {
-        setFormError('Nhiệm vụ sự kiện cần đủ ngày bắt đầu và kết thúc.')
+        setFormError(t.adminMissions.eventDatesRequired)
         return
       }
       body.starts_at = new Date(startsAt).toISOString()
@@ -101,25 +103,27 @@ export default function AdminMissionsPage() {
   return (
     <>
       <PageHeader
-        title="Quản trị nhiệm vụ"
-        description="Tạo, sửa, tắt nhiệm vụ daily/weekly/monthly/event."
-        action={!showForm && <Button onClick={onCreateNew}>+ Tạo nhiệm vụ</Button>}
+        title={t.adminMissions.pageTitle}
+        description={t.adminMissions.pageDesc}
+        action={!showForm && <Button onClick={onCreateNew}>{t.adminMissions.addMissionBtn}</Button>}
       />
 
       {showForm && (
         <Card className="mb-6">
-          <h3 className="text-lg font-semibold text-slate-900">{editing ? `Sửa: ${editing.title}` : 'Tạo nhiệm vụ mới'}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {editing ? t.adminMissions.editMissionTitle(editing.title) : t.adminMissions.addMissionTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-              Tiêu đề
+              {t.adminMissions.titleLabel}
               <input name="title" type="text" required maxLength={200} defaultValue={editing?.title} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-              Mô tả
+              {t.adminMissions.descriptionLabel}
               <input name="description" type="text" defaultValue={editing?.description} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Chu kỳ
+              {t.adminMissions.periodLabel}
               <select name="period" defaultValue={editing?.period ?? 'daily'} className={inputClass}>
                 {periodOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -129,7 +133,7 @@ export default function AdminMissionsPage() {
               </select>
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Hành động
+              {t.adminMissions.actionLabel}
               <select name="action_type" defaultValue={editing?.action_type ?? 'srs_review'} className={inputClass}>
                 {actionOptions.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -139,16 +143,16 @@ export default function AdminMissionsPage() {
               </select>
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Số lần cần đạt
+              {t.adminMissions.targetCountLabel}
               <input name="target_count" type="number" min={1} required defaultValue={editing?.target_count ?? 1} className={inputClass} />
             </label>
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
-                Thưởng EXP
+                {t.adminMissions.rewardExpLabel}
                 <input name="reward_exp" type="number" min={0} required defaultValue={editing?.reward_exp ?? 0} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Thưởng điểm
+                {t.adminMissions.rewardPointsLabel}
                 <input
                   name="reward_points"
                   type="number"
@@ -160,17 +164,17 @@ export default function AdminMissionsPage() {
               </label>
             </div>
             <label className="block text-sm font-medium text-slate-700">
-              Ngày bắt đầu (chỉ sự kiện)
+              {t.adminMissions.startsAtLabel}
               <input name="starts_at" type="date" defaultValue={toDateInputValue(editing?.starts_at)} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Ngày kết thúc (chỉ sự kiện)
+              {t.adminMissions.endsAtLabel}
               <input name="ends_at" type="date" defaultValue={toDateInputValue(editing?.ends_at)} className={inputClass} />
             </label>
             {editing && (
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700 sm:col-span-2">
                 <input name="is_active" type="checkbox" defaultChecked={editing.is_active} className="h-4 w-4 rounded border-slate-300" />
-                Đang hoạt động
+                {t.adminMissions.isActiveLabel}
               </label>
             )}
 
@@ -182,10 +186,10 @@ export default function AdminMissionsPage() {
 
             <div className="flex gap-2 sm:col-span-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -194,7 +198,7 @@ export default function AdminMissionsPage() {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có nhiệm vụ nào" icon="🎯" />}
+      {data && data.length === 0 && <EmptyState title={t.adminMissions.emptyMissions} icon="🎯" />}
 
       {data && data.length > 0 && (
         <Card className="p-0 sm:p-0">
@@ -203,19 +207,19 @@ export default function AdminMissionsPage() {
               <li key={m.id} className={cn('flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6', !m.is_active && 'opacity-50')}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">
-                    {m.title} {!m.is_active && <span className="text-xs font-normal text-slate-400">(đã tắt)</span>}
+                    {m.title} {!m.is_active && <span className="text-xs font-normal text-slate-400">{t.adminMissions.deactivatedSuffix}</span>}
                   </p>
                   <p className="truncate text-sm text-slate-500">
-                    {m.period} · {m.action_type} · mục tiêu {m.target_count} · ⭐{m.reward_exp} EXP · 🏆{m.reward_points} điểm
+                    {t.adminMissions.summaryLine(m.period, m.action_type, m.target_count, m.reward_exp, m.reward_points)}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => onEdit(m)}>
-                    Sửa
+                    {t.adminCommon.editBtn}
                   </Button>
                   {m.is_active && (
                     <Button variant="danger" size="sm" onClick={() => onDeactivate(m)}>
-                      Tắt
+                      {t.adminMissions.deactivateBtn}
                     </Button>
                   )}
                 </div>

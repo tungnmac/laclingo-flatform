@@ -13,6 +13,7 @@ import { challengeQuestionService } from '@/features/challenge/challenge-questio
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ChallengeQuestionAdmin, ChallengeQuestionRequest } from '@/types/api'
@@ -32,6 +33,7 @@ const bulkPlaceholder = `[
 
 export default function AdminChallengeQuestionsPage() {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [languageId, setLanguageId] = useState('en')
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -59,7 +61,7 @@ export default function AdminChallengeQuestionsPage() {
   }
 
   const onDelete = async (q: ChallengeQuestionAdmin) => {
-    if (!(await confirm({ description: `Xoá câu hỏi "${q.question}"?`, danger: true }))) return
+    if (!(await confirm({ description: t.adminChallengeQuestions.deleteQuestionConfirm(q.question), danger: true }))) return
     await challengeQuestionService.delete(q.id)
     reload()
   }
@@ -80,7 +82,7 @@ export default function AdminChallengeQuestionsPage() {
       difficulty: Number(form.get('difficulty')),
     }
     if (body.correct_index < 0 || body.correct_index >= options.length) {
-      setFormError('Đáp án đúng phải là số thứ tự (bắt đầu từ 0) trong danh sách lựa chọn.')
+      setFormError(t.adminChallengeQuestions.correctIndexError)
       return
     }
 
@@ -102,8 +104,8 @@ export default function AdminChallengeQuestionsPage() {
   return (
     <>
       <PageHeader
-        title="Câu hỏi thách đấu"
-        description="Ngân hàng câu hỏi trắc nghiệm dùng cho phòng thách đấu realtime."
+        title={t.adminChallengeQuestions.pageTitle}
+        description={t.adminChallengeQuestions.pageDesc}
         action={
           !showForm && (
             <div className="flex gap-2">
@@ -113,7 +115,7 @@ export default function AdminChallengeQuestionsPage() {
                 }
                 filename={`challenge-questions-${languageId}.json`}
               />
-              <Button onClick={onCreateNew}>+ Tạo câu hỏi</Button>
+              <Button onClick={onCreateNew}>{t.adminChallengeQuestions.addQuestionBtn}</Button>
             </div>
           )
         }
@@ -121,7 +123,7 @@ export default function AdminChallengeQuestionsPage() {
 
       <div className="mb-4 flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Ngôn ngữ
+          {t.adminCommon.languageLabel}
           <select
             value={languageId}
             onChange={(e) => {
@@ -135,7 +137,7 @@ export default function AdminChallengeQuestionsPage() {
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Tìm kiếm
+          {t.adminCommon.searchLabel}
           <input
             type="search"
             value={search}
@@ -143,12 +145,12 @@ export default function AdminChallengeQuestionsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Tìm theo nội dung câu hỏi..."
+            placeholder={t.adminChallengeQuestions.searchPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Độ khó
+          {t.adminChallengeQuestions.difficultyLabel}
           <select
             value={difficulty}
             onChange={(e) => {
@@ -157,7 +159,7 @@ export default function AdminChallengeQuestionsPage() {
             }}
             className={cn(inputClass, 'max-w-xs')}
           >
-            <option value={0}>Tất cả</option>
+            <option value={0}>{t.adminCommon.allLabel}</option>
             {[1, 2, 3, 4, 5].map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -169,14 +171,16 @@ export default function AdminChallengeQuestionsPage() {
 
       {showForm && (
         <Card className="mb-6">
-          <h3 className="text-lg font-semibold text-slate-900">{editing ? 'Sửa câu hỏi' : 'Tạo câu hỏi mới'}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {editing ? t.adminChallengeQuestions.editQuestionTitle : t.adminChallengeQuestions.addQuestionTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Câu hỏi
+              {t.adminChallengeQuestions.questionLabel}
               <input name="question" type="text" required defaultValue={editing?.question} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Lựa chọn (mỗi dòng 1 lựa chọn)
+              {t.adminChallengeQuestions.optionsLabel}
               <textarea
                 name="options"
                 required
@@ -188,7 +192,7 @@ export default function AdminChallengeQuestionsPage() {
             </label>
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
-                Đáp án đúng (số thứ tự, từ 0)
+                {t.adminChallengeQuestions.correctIndexLabel}
                 <input
                   name="correct_index"
                   type="number"
@@ -199,7 +203,7 @@ export default function AdminChallengeQuestionsPage() {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Độ khó (1-5)
+                {t.adminChallengeQuestions.difficultyRangeLabel}
                 <input
                   name="difficulty"
                   type="number"
@@ -212,7 +216,7 @@ export default function AdminChallengeQuestionsPage() {
               </label>
             </div>
             <label className="block text-sm font-medium text-slate-700">
-              Giải thích (tuỳ chọn)
+              {t.adminChallengeQuestions.explanationLabel}
               <input name="explanation" type="text" defaultValue={editing?.explanation} className={inputClass} />
             </label>
 
@@ -224,10 +228,10 @@ export default function AdminChallengeQuestionsPage() {
 
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -236,7 +240,7 @@ export default function AdminChallengeQuestionsPage() {
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có câu hỏi nào" icon="🎮" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminChallengeQuestions.emptyQuestions} icon="🎮" />}
 
       {data && data.items.length > 0 && (
         <Card className="mb-2 p-0 sm:p-0">
@@ -246,15 +250,16 @@ export default function AdminChallengeQuestionsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{q.question}</p>
                   <p className="truncate text-sm text-slate-500">
-                    {q.options.map((o, i) => (i === q.correct_index ? `✅ ${o}` : o)).join(' · ')} — độ khó {q.difficulty}
+                    {q.options.map((o, i) => (i === q.correct_index ? `✅ ${o}` : o)).join(' · ')}
+                    {t.adminChallengeQuestions.difficultySuffix(q.difficulty)}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => onEdit(q)}>
-                    Sửa
+                    {t.adminCommon.editBtn}
                   </Button>
                   <Button variant="danger" size="sm" onClick={() => onDelete(q)}>
-                    Xoá
+                    {t.adminCommon.deleteBtn}
                   </Button>
                 </div>
               </li>
