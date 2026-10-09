@@ -1,8 +1,5 @@
 import { speechLang } from '@/features/course/components/LanguageCard'
 
-/** Nghĩa trong dữ liệu từ vựng luôn lưu bằng tiếng Việt, bất kể ngôn ngữ đang học. */
-export const MEANING_LANGUAGE_ID = 'vi'
-
 /**
  * Phát 1 câu bằng Web Speech API, chọn giọng theo voiceByLang — đúng cách
  * AudioButton đang chọn giọng (xem src/components/audio/AudioButton.tsx) để

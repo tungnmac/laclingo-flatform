@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
-import { MEANING_LANGUAGE_ID, speakText } from '@/lib/speech'
+import { speakText } from '@/lib/speech'
+import { useLocale } from '@/store/locale'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
 interface QueueItem {
@@ -37,6 +38,10 @@ export function useWordAutoplay({
 }) {
   const voices = useSpeechVoices()
   const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
+  // Nghĩa hiển thị theo ngôn ngữ giao diện hệ thống (vi/en/zh/ja/ko đang chọn
+  // ở LanguageSwitcher), không cố định tiếng Việt — đọc nghĩa phải theo đúng
+  // ngôn ngữ đó thì mới khớp giọng/phát âm.
+  const locale = useLocale((s) => s.locale)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -46,7 +51,7 @@ export function useWordAutoplay({
     const queue: QueueItem[] = []
     for (let i = 0; i < repeatCount; i++) {
       queue.push({ text: term, languageId })
-      if (shadowMode && meaning) queue.push({ text: meaning, languageId: MEANING_LANGUAGE_ID })
+      if (shadowMode && meaning) queue.push({ text: meaning, languageId: locale })
     }
 
     let cancelled = false
@@ -77,5 +82,5 @@ export function useWordAutoplay({
       window.speechSynthesis.cancel()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, term, meaning, languageId, repeatCount, gapSeconds, shadowMode])
+  }, [enabled, term, meaning, languageId, repeatCount, gapSeconds, shadowMode, locale])
 }
