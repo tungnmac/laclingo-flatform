@@ -13,6 +13,7 @@ import { languageFlag, previewPhrase, speechLang } from '@/features/course/compo
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
+import { useTranslation } from '@/hooks/useTranslation'
 import { expForLevel } from '@/lib/leveling'
 import { displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
@@ -22,6 +23,7 @@ export default function ProfilePage() {
   const router = useRouter()
   const logout = useSession((s) => s.logout)
   const setUser = useSession((s) => s.setUser)
+  const t = useTranslation()
   const { data: user, error, loading, reload } = useApi(userService.me, [])
 
   const [saving, setSaving] = useState(false)
@@ -42,7 +44,7 @@ export default function ProfilePage() {
         avatar_url: String(form.get('avatar_url') ?? ''),
       })
       setUser(updated) // đồng bộ lại sidebar/header
-      setSaveMsg({ ok: true, text: 'Đã lưu thay đổi.' })
+      setSaveMsg({ ok: true, text: t.profile.saved })
       reload()
     } catch (err) {
       setSaveMsg({ ok: false, text: (err as Error).message })
@@ -52,9 +54,9 @@ export default function ProfilePage() {
   }
 
   const stats = [
-    { label: 'Chuỗi ngày học', value: `🔥 ${user.streak_count}` },
-    { label: 'Điểm thách đấu', value: `🏆 ${user.points}` },
-    { label: 'Tham gia từ', value: formatDate(user.created_at) },
+    { label: t.profile.streak, value: `🔥 ${user.streak_count}` },
+    { label: t.profile.challengePoints, value: `🏆 ${user.points}` },
+    { label: t.profile.joinedAt, value: formatDate(user.created_at) },
   ]
 
   const currentLevelExp = expForLevel(user.level)
@@ -66,7 +68,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <PageHeader title="Hồ sơ" />
+      <PageHeader title={t.profile.title} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="flex flex-col items-center gap-3 self-start text-center">
@@ -83,14 +85,14 @@ export default function ProfilePage() {
               router.replace('/login')
             }}
           >
-            Đăng xuất
+            {t.profile.logout}
           </Button>
         </Card>
 
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">Cấp độ</p>
+              <p className="text-sm text-slate-500">{t.profile.level}</p>
               <p className="text-sm font-semibold text-slate-700">
                 {user.exp}/{nextLevelExp} EXP
               </p>
@@ -114,14 +116,14 @@ export default function ProfilePage() {
           </div>
 
           <Card>
-            <h3 className="text-lg font-semibold text-slate-900">Chỉnh sửa hồ sơ</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t.profile.editProfile}</h3>
             <form onSubmit={onSave} className="mt-4 space-y-4">
               <label className="block text-sm font-medium text-slate-700">
-                Họ tên
+                {t.profile.fullNameLabel}
                 <input name="full_name" type="text" maxLength={100} defaultValue={user.full_name} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Ảnh đại diện (URL)
+                {t.profile.avatarUrlLabel}
                 <input
                   name="avatar_url"
                   type="url"
@@ -145,7 +147,7 @@ export default function ProfilePage() {
               )}
 
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                {saving ? t.profile.saving : t.profile.save}
               </Button>
             </form>
           </Card>
@@ -163,6 +165,7 @@ function VoiceSettingsCard() {
   const voices = useSpeechVoices()
   const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
   const setVoice = useVoiceSettings((s) => s.setVoice)
+  const t = useTranslation()
 
   const preview = (languageId: string) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -178,10 +181,8 @@ function VoiceSettingsCard() {
 
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-slate-900">🔊 Giọng đọc phát âm</h3>
-      <p className="mt-1 text-sm text-slate-500">
-        Chọn giọng Web Speech cho từng ngôn ngữ — danh sách phụ thuộc giọng đã cài trên máy/trình duyệt của bạn.
-      </p>
+      <h3 className="text-lg font-semibold text-slate-900">{t.profile.voiceSettingsTitle}</h3>
+      <p className="mt-1 text-sm text-slate-500">{t.profile.voiceSettingsDesc}</p>
       <div className="mt-4 space-y-3">
         {languages.map((lang) => {
           const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.id.toLowerCase()))
@@ -195,7 +196,7 @@ function VoiceSettingsCard() {
                 onChange={(e) => setVoice(lang.id, e.target.value)}
                 className={`${inputClass} mt-0 min-w-0 flex-1`}
               >
-                <option value="">Mặc định hệ thống</option>
+                <option value="">{t.profile.systemDefault}</option>
                 {matching.map((v) => (
                   <option key={v.voiceURI} value={v.voiceURI}>
                     {v.name} ({v.lang})
@@ -203,7 +204,7 @@ function VoiceSettingsCard() {
                 ))}
               </select>
               <Button type="button" variant="secondary" size="sm" onClick={() => preview(lang.id)} disabled={matching.length === 0}>
-                Nghe thử
+                {t.profile.preview}
               </Button>
             </div>
           )

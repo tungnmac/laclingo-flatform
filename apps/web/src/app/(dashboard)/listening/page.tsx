@@ -6,17 +6,19 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningLanguagePage() {
   const { data, error, loading, reload } = useApi(courseService.list, [])
+  const t = useTranslation()
 
   return (
     <>
-      <PageHeader title="🎧 Luyện nghe" description="Nghe đoạn hội thoại/câu chuyện ngắn và trả lời câu hỏi hiểu nội dung." />
+      <PageHeader title={t.listening.pageTitle} description={t.listening.pageDesc} />
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có ngôn ngữ nào" />}
+      {data && data.length === 0 && <EmptyState title={t.listening.emptyLanguages} />}
       {data && data.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
           {data.map((lang) => (

@@ -136,6 +136,9 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
 		return AuthResponse{}, ErrInvalidCredentials
 	}
+	if !user.IsActive {
+		return AuthResponse{}, ErrAccountDeactivated
+	}
 
 	return s.issue(user)
 }

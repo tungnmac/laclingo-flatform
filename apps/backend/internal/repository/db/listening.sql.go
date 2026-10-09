@@ -15,7 +15,7 @@ const createListeningPassage = `-- name: CreateListeningPassage :one
 
 INSERT INTO listening_passages (language_id, title, script, topic, level, order_index)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
 `
 
 type CreateListeningPassageParams struct {
@@ -46,6 +46,7 @@ func (q *Queries) CreateListeningPassage(ctx context.Context, arg CreateListenin
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -89,6 +90,37 @@ func (q *Queries) CreateListeningQuestion(ctx context.Context, arg CreateListeni
 	return i, err
 }
 
+const createListeningTopic = `-- name: CreateListeningTopic :one
+INSERT INTO listening_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
+RETURNING language_id, name, icon, order_index
+`
+
+type CreateListeningTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+func (q *Queries) CreateListeningTopic(ctx context.Context, arg CreateListeningTopicParams) (ListeningTopic, error) {
+	row := q.db.QueryRow(ctx, createListeningTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.OrderIndex,
+	)
+	var i ListeningTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.OrderIndex,
+	)
+	return i, err
+}
+
 const deleteListeningPassage = `-- name: DeleteListeningPassage :exec
 DELETE FROM listening_passages WHERE id = $1
 `
@@ -107,8 +139,22 @@ func (q *Queries) DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) e
 	return err
 }
 
+const deleteListeningTopic = `-- name: DeleteListeningTopic :exec
+DELETE FROM listening_topics WHERE language_id = $1 AND name = $2
+`
+
+type DeleteListeningTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+}
+
+func (q *Queries) DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error {
+	_, err := q.db.Exec(ctx, deleteListeningTopic, arg.LanguageID, arg.Name)
+	return err
+}
+
 const getListeningPassageByID = `-- name: GetListeningPassageByID :one
-SELECT id, language_id, title, script, topic, level, order_index, created_at, updated_at FROM listening_passages
+SELECT id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at FROM listening_passages
 WHERE id = $1
 `
 
@@ -123,6 +169,7 @@ func (q *Queries) GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -149,12 +196,92 @@ func (q *Queries) GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const listListeningPassagesAdminPaged = `-- name: ListListeningPassagesAdminPaged :many
+SELECT id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at, COUNT(*) OVER() AS total_count FROM listening_passages
+WHERE language_id = $1
+  AND ($2::text IS NULL OR title ILIKE '%' || $2::text || '%' OR topic ILIKE '%' || $2::text || '%')
+  AND ($3::text IS NULL OR topic = $3::text)
+  AND ($4::text IS NULL OR level = $4::text)
+ORDER BY order_index, created_at
+LIMIT $6 OFFSET $5
+`
+
+type ListListeningPassagesAdminPagedParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListListeningPassagesAdminPagedRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	LanguageID string             `json:"language_id"`
+	Title      string             `json:"title"`
+	Script     string             `json:"script"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
+	OrderIndex pgtype.Int4        `json:"order_index"`
+	AudioKey   pgtype.Text        `json:"audio_key"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	TotalCount int64              `json:"total_count"`
+}
+
+// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
+// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
+func (q *Queries) ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listListeningPassagesAdminPaged,
+		arg.LanguageID,
+		arg.Search,
+		arg.Topic,
+		arg.Level,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListeningPassagesAdminPagedRow
+	for rows.Next() {
+		var i ListListeningPassagesAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Title,
+			&i.Script,
+			&i.Topic,
+			&i.Level,
+			&i.OrderIndex,
+			&i.AudioKey,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listListeningPassagesByLanguage = `-- name: ListListeningPassagesByLanguage :many
 SELECT id, language_id, title, topic, level, order_index
 FROM listening_passages
 WHERE language_id = $1
+  AND ($2::text IS NULL OR topic = $2::text)
 ORDER BY order_index, created_at
 `
+
+type ListListeningPassagesByLanguageParams struct {
+	LanguageID string      `json:"language_id"`
+	Topic      pgtype.Text `json:"topic"`
+}
 
 type ListListeningPassagesByLanguageRow struct {
 	ID         pgtype.UUID `json:"id"`
@@ -165,8 +292,10 @@ type ListListeningPassagesByLanguageRow struct {
 	OrderIndex pgtype.Int4 `json:"order_index"`
 }
 
-func (q *Queries) ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]ListListeningPassagesByLanguageRow, error) {
-	rows, err := q.db.Query(ctx, listListeningPassagesByLanguage, languageID)
+// topic để NULL thì lấy mọi chủ đề (trang chọn ngôn ngữ cũ); truyền topic thì
+// chỉ lấy bài của đúng chủ đề đó (trang chọn chủ đề mới, xem ListTopics).
+func (q *Queries) ListListeningPassagesByLanguage(ctx context.Context, arg ListListeningPassagesByLanguageParams) ([]ListListeningPassagesByLanguageRow, error) {
+	rows, err := q.db.Query(ctx, listListeningPassagesByLanguage, arg.LanguageID, arg.Topic)
 	if err != nil {
 		return nil, err
 	}
@@ -236,21 +365,46 @@ func (q *Queries) ListListeningQuestionsByPassage(ctx context.Context, passageID
 }
 
 const listListeningQuestionsByPassageAdmin = `-- name: ListListeningQuestionsByPassageAdmin :many
-SELECT id, passage_id, question, options, correct_answer, explanation, order_index FROM listening_questions
+SELECT id, passage_id, question, options, correct_answer, explanation, order_index, COUNT(*) OVER() AS total_count FROM listening_questions
 WHERE passage_id = $1
+  AND ($2::text IS NULL OR question ILIKE '%' || $2::text || '%')
 ORDER BY order_index
+LIMIT $4 OFFSET $3
 `
 
+type ListListeningQuestionsByPassageAdminParams struct {
+	PassageID pgtype.UUID `json:"passage_id"`
+	Search    pgtype.Text `json:"search"`
+	Offset    int32       `json:"offset"`
+	Limit     int32       `json:"limit"`
+}
+
+type ListListeningQuestionsByPassageAdminRow struct {
+	ID            pgtype.UUID `json:"id"`
+	PassageID     pgtype.UUID `json:"passage_id"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+	TotalCount    int64       `json:"total_count"`
+}
+
 // Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
-func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error) {
-	rows, err := q.db.Query(ctx, listListeningQuestionsByPassageAdmin, passageID)
+func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listListeningQuestionsByPassageAdmin,
+		arg.PassageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListeningQuestion
+	var items []ListListeningQuestionsByPassageAdminRow
 	for rows.Next() {
-		var i ListeningQuestion
+		var i ListListeningQuestionsByPassageAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PassageID,
@@ -259,6 +413,100 @@ func (q *Queries) ListListeningQuestionsByPassageAdmin(ctx context.Context, pass
 			&i.CorrectAnswer,
 			&i.Explanation,
 			&i.OrderIndex,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListeningTopics = `-- name: ListListeningTopics :many
+SELECT
+    p.topic::varchar AS name,
+    COALESCE(t.icon, '🎧')::varchar AS icon,
+    COUNT(*)::int AS total
+FROM listening_passages p
+LEFT JOIN listening_topics t ON t.language_id = p.language_id AND t.name = p.topic
+WHERE p.language_id = $1 AND p.topic IS NOT NULL
+GROUP BY p.topic, t.icon, t.order_index
+ORDER BY COALESCE(t.order_index, 2147483647), p.topic
+`
+
+type ListListeningTopicsRow struct {
+	Name  string `json:"name"`
+	Icon  string `json:"icon"`
+	Total int32  `json:"total"`
+}
+
+// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
+func (q *Queries) ListListeningTopics(ctx context.Context, languageID string) ([]ListListeningTopicsRow, error) {
+	rows, err := q.db.Query(ctx, listListeningTopics, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListeningTopicsRow
+	for rows.Next() {
+		var i ListListeningTopicsRow
+		if err := rows.Scan(&i.Name, &i.Icon, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListeningTopicsByLanguageAdmin = `-- name: ListListeningTopicsByLanguageAdmin :many
+SELECT language_id, name, icon, order_index, COUNT(*) OVER() AS total_count FROM listening_topics
+WHERE language_id = $1
+  AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
+ORDER BY order_index, name
+LIMIT $4 OFFSET $3
+`
+
+type ListListeningTopicsByLanguageAdminParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListListeningTopicsByLanguageAdminRow struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+	TotalCount int64  `json:"total_count"`
+}
+
+func (q *Queries) ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listListeningTopicsByLanguageAdmin,
+		arg.LanguageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListListeningTopicsByLanguageAdminRow
+	for rows.Next() {
+		var i ListListeningTopicsByLanguageAdminRow
+		if err := rows.Scan(
+			&i.LanguageID,
+			&i.Name,
+			&i.Icon,
+			&i.OrderIndex,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -274,7 +522,7 @@ const updateListeningPassage = `-- name: UpdateListeningPassage :one
 UPDATE listening_passages
 SET title = $2, script = $3, topic = $4, level = $5, order_index = $6, updated_at = NOW()
 WHERE id = $1
-RETURNING id, language_id, title, script, topic, level, order_index, created_at, updated_at
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
 `
 
 type UpdateListeningPassageParams struct {
@@ -304,6 +552,38 @@ func (q *Queries) UpdateListeningPassage(ctx context.Context, arg UpdateListenin
 		&i.Topic,
 		&i.Level,
 		&i.OrderIndex,
+		&i.AudioKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateListeningPassageAudioKey = `-- name: UpdateListeningPassageAudioKey :one
+UPDATE listening_passages
+SET audio_key = $1, updated_at = NOW()
+WHERE id = $2
+RETURNING id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at
+`
+
+type UpdateListeningPassageAudioKeyParams struct {
+	AudioKey pgtype.Text `json:"audio_key"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+// audio_key để NULL thì xoá audio hiện tại (gỡ file khỏi bucket ở service, xem UploadAudio/DeleteAudio).
+func (q *Queries) UpdateListeningPassageAudioKey(ctx context.Context, arg UpdateListeningPassageAudioKeyParams) (ListeningPassage, error) {
+	row := q.db.QueryRow(ctx, updateListeningPassageAudioKey, arg.AudioKey, arg.ID)
+	var i ListeningPassage
+	err := row.Scan(
+		&i.ID,
+		&i.LanguageID,
+		&i.Title,
+		&i.Script,
+		&i.Topic,
+		&i.Level,
+		&i.OrderIndex,
+		&i.AudioKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

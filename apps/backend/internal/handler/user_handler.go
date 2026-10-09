@@ -27,6 +27,152 @@ func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/leaderboard", h.GetLeaderboard)
 }
 
+// RegisterAdminRoutes gắn route quản lý học viên — PHẢI nằm sau
+// RequireModule(..., "users") trong chain (đăng ký ở router.go).
+func (h *UserHandler) RegisterAdminRoutes(router fiber.Router) {
+	api := router.Group("/admin/users")
+	api.Get("", h.ListUsersAdmin)
+	api.Get("/by-username/:username", h.GetByUsernameAdmin)
+	api.Put("/:id/role", h.SetRole)
+	api.Put("/:id/modules", h.SetModules)
+	api.Put("/:id/active", h.SetActive)
+}
+
+// ListUsersAdmin godoc
+// @Summary      Danh sách học viên (admin)
+// @Description  Search theo username/email/họ tên, lọc theo role, phân trang.
+// @Tags         admin-users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        q       query     string  false  "Tìm theo username/email/họ tên"
+// @Param        role    query     string  false  "user | admin"
+// @Param        module  query     string  false  "Lọc theo module đã được cấp quyền (users, missions, vocabulary, grammar, challenge_questions, listening)"
+// @Param        page    query     int     false  "Trang (mặc định 1)"
+// @Success      200     {array}   service.UserResponse
+// @Router       /admin/users [get]
+func (h *UserHandler) ListUsersAdmin(c *fiber.Ctx) error {
+	page, pageSize := pageParams(c)
+	results, err := h.svc.ListUsersAdmin(c.UserContext(), c.Query("q"), c.Query("role"), c.Query("module"), page, pageSize)
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
+// GetByUsernameAdmin godoc
+// @Summary      Chi tiết 1 học viên theo username (admin)
+// @Description  Dùng cho trang chi tiết /admin/users/<username> — tránh lộ UUID database trên URL.
+// @Tags         admin-users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        username  path      string  true  "Username"
+// @Success      200       {object}  service.UserResponse
+// @Router       /admin/users/by-username/{username} [get]
+func (h *UserHandler) GetByUsernameAdmin(c *fiber.Ctx) error {
+	result, err := h.svc.GetByUsername(c.UserContext(), c.Params("username"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+type setUserRoleRequest struct {
+	Role string `json:"role" example:"admin" enums:"user,admin"`
+}
+
+// SetRole godoc
+// @Summary      Cấp/thu hồi quyền admin (admin)
+// @Description  Không cho tự thu hồi quyền admin của chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string               true  "User ID (UUID)"
+// @Param        body  body      setUserRoleRequest  true  "Role mới"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Router       /admin/users/{id}/role [put]
+func (h *UserHandler) SetRole(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserRoleRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetRole(c.UserContext(), currentUserID(c), id, req.Role)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+type setUserModulesRequest struct {
+	AdminModules []string `json:"admin_modules" example:"vocabulary,grammar"`
+}
+
+// SetModules godoc
+// @Summary      Cấp/thu hồi module /admin cho 1 user (admin)
+// @Description  Thay nguyên danh sách module — gửi mảng rỗng để thu hồi hết. Không cho tự rút module "users" của chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                  true  "User ID (UUID)"
+// @Param        body  body      setUserModulesRequest  true  "Danh sách module"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Router       /admin/users/{id}/modules [put]
+func (h *UserHandler) SetModules(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserModulesRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetModules(c.UserContext(), currentUserID(c), id, req.AdminModules)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+type setUserActiveRequest struct {
+	IsActive bool `json:"is_active" example:"false"`
+}
+
+// SetActive godoc
+// @Summary      Vô hiệu hoá/khôi phục tài khoản (owner-only)
+// @Description  Soft-delete — is_active=false khoá đăng nhập, giữ lại dữ liệu liên quan. Chỉ owner mới gọi được, không áp dụng lên owner hoặc chính mình.
+// @Tags         admin-users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                 true  "User ID (UUID)"
+// @Param        body  body      setUserActiveRequest  true  "Trạng thái mới"
+// @Success      200   {object}  service.UserResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Router       /admin/users/{id}/active [put]
+func (h *UserHandler) SetActive(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
+	}
+	var req setUserActiveRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	result, err := h.svc.SetActive(c.UserContext(), currentUserID(c), id, req.IsActive)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
 // GetMe godoc
 // @Summary      Thông tin user đang đăng nhập
 // @Tags         users
@@ -117,17 +263,21 @@ func (h *UserHandler) List(c *fiber.Ctx) error {
 
 // GetLeaderboard godoc
 // @Summary      Bảng xếp hạng người học
-// @Description  Sort theo level, điểm thách đấu (points), hoặc streak (mặc định).
+// @Description  Sort theo level, điểm thách đấu (points), hoặc streak (mặc định). Search theo username/họ tên, phân trang.
 // @Tags         users
 // @Produce      json
 // @Security     BearerAuth
-// @Param        by   query     string  false  "level | points | streak"  example(level)
-// @Success      200  {array}   service.LeaderboardEntry
-// @Failure      400  {object}  ErrorResponse
-// @Failure      401  {object}  ErrorResponse
+// @Param        by        query     string  false  "level | points | streak"  example(level)
+// @Param        q         query     string  false  "Tìm theo username/họ tên"
+// @Param        page      query     int     false  "Trang (mặc định 1)"
+// @Param        page_size query     int     false  "Số dòng/trang (mặc định 20, tối đa 100)"
+// @Success      200       {array}   service.LeaderboardEntry
+// @Failure      400       {object}  ErrorResponse
+// @Failure      401       {object}  ErrorResponse
 // @Router       /leaderboard [get]
 func (h *UserHandler) GetLeaderboard(c *fiber.Ctx) error {
-	results, err := h.svc.GetLeaderboard(c.UserContext(), c.Query("by"))
+	page, pageSize := pageParams(c)
+	results, err := h.svc.GetLeaderboard(c.UserContext(), c.Query("by"), c.Query("q"), page, pageSize)
 	if err != nil {
 		return err
 	}

@@ -17,7 +17,7 @@ import (
 // là luồng chơi game, còn đây là luồng quản trị nội dung).
 type ChallengeQuestionRepository interface {
 	CreateChallengeQuestion(ctx context.Context, arg db.CreateChallengeQuestionParams) (db.ChallengeQuestion, error)
-	ListChallengeQuestionsByLanguage(ctx context.Context, languageID pgtype.Text) ([]db.ChallengeQuestion, error)
+	ListChallengeQuestionsByLanguage(ctx context.Context, arg db.ListChallengeQuestionsByLanguageParams) ([]db.ListChallengeQuestionsByLanguageRow, error)
 	UpdateChallengeQuestion(ctx context.Context, arg db.UpdateChallengeQuestionParams) (db.ChallengeQuestion, error)
 	DeleteChallengeQuestion(ctx context.Context, id pgtype.UUID) error
 }
@@ -100,17 +100,30 @@ func (s *ChallengeQuestionService) CreateQuestion(ctx context.Context, req Chall
 	return toChallengeQuestionResponse(q), nil
 }
 
-// ListQuestions trả về toàn bộ câu hỏi của 1 ngôn ngữ (admin quản lý)
-func (s *ChallengeQuestionService) ListQuestions(ctx context.Context, languageID string) ([]ChallengeQuestionResponse, error) {
-	rows, err := s.repo.ListChallengeQuestionsByLanguage(ctx, pgtype.Text{String: languageID, Valid: languageID != ""})
+// ListQuestions trả về 1 trang câu hỏi của 1 ngôn ngữ (admin quản lý), lọc
+// theo search (khớp nội dung câu hỏi)/difficulty, phân trang server-side.
+func (s *ChallengeQuestionService) ListQuestions(ctx context.Context, languageID, search string, difficulty, page, pageSize int32) (PageResult[ChallengeQuestionResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListChallengeQuestionsByLanguage(ctx, db.ListChallengeQuestionsByLanguageParams{
+		LanguageID: pgtype.Text{String: languageID, Valid: languageID != ""},
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Difficulty: pgtype.Int4{Int32: difficulty, Valid: difficulty != 0},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[ChallengeQuestionResponse]{}, err
 	}
 	results := make([]ChallengeQuestionResponse, 0, len(rows))
+	var total int64
 	for _, q := range rows {
-		results = append(results, toChallengeQuestionResponse(q))
+		total = q.TotalCount
+		results = append(results, toChallengeQuestionResponse(db.ChallengeQuestion{
+			ID: q.ID, LanguageID: q.LanguageID, Question: q.Question, Options: q.Options,
+			CorrectIndex: q.CorrectIndex, Explanation: q.Explanation, Difficulty: q.Difficulty, CreatedAt: q.CreatedAt,
+		}))
 	}
-	return results, nil
+	return PageResult[ChallengeQuestionResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateQuestion sửa 1 câu hỏi (không đổi language_id)

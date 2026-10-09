@@ -26,20 +26,28 @@ type VocabularyRepository interface {
 	UnfavoriteVocabulary(ctx context.Context, arg db.UnfavoriteVocabularyParams) error
 
 	CreateVocabulary(ctx context.Context, arg db.CreateVocabularyParams) (db.Vocabulary, error)
-	ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]db.Vocabulary, error)
+	ListVocabulariesByLanguageAdmin(ctx context.Context, arg db.ListVocabulariesByLanguageAdminParams) ([]db.ListVocabulariesByLanguageAdminRow, error)
 	UpdateVocabulary(ctx context.Context, arg db.UpdateVocabularyParams) (db.Vocabulary, error)
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	CreateVocabularyTopic(ctx context.Context, arg db.CreateVocabularyTopicParams) (db.VocabularyTopic, error)
-	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]db.VocabularyTopic, error)
+	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg db.ListVocabularyTopicsByLanguageAdminParams) ([]db.ListVocabularyTopicsByLanguageAdminRow, error)
 	DeleteVocabularyTopic(ctx context.Context, arg db.DeleteVocabularyTopicParams) error
+	GetVocabularyTopic(ctx context.Context, arg db.GetVocabularyTopicParams) (db.VocabularyTopic, error)
+	CountVocabularyTopicChildren(ctx context.Context, arg db.CountVocabularyTopicChildrenParams) (int64, error)
+	ListVocabularyTopicRelations(ctx context.Context, languageID string) ([]db.ListVocabularyTopicRelationsRow, error)
+	ListVocabularyChildTopics(ctx context.Context, arg db.ListVocabularyChildTopicsParams) ([]db.ListVocabularyChildTopicsRow, error)
+	GetVocabularyTopicOwnStats(ctx context.Context, arg db.GetVocabularyTopicOwnStatsParams) (db.GetVocabularyTopicOwnStatsRow, error)
 }
 
-// VocabularyTopic là một chủ đề từ vựng kèm tiến độ học của user
+// VocabularyTopic là một chủ đề từ vựng kèm tiến độ học của user. Total/Learned
+// của chủ đề CẤP CAO NHẤT cộng gộp cả từ gắn trực tiếp (từ chung) và từ của
+// các chủ đề con (nếu có) — xem VocabularyService.ListTopics.
 type VocabularyTopic struct {
-	Name    string `json:"name" example:"Đồ ăn & Thức uống"`
-	Icon    string `json:"icon" example:"🍜"`
-	Total   int32  `json:"total" example:"25"`
-	Learned int32  `json:"learned" example:"12"` // số từ đã vào hàng đợi SRS
+	Name        string `json:"name" example:"Đồ ăn & Thức uống"`
+	Icon        string `json:"icon" example:"🍜"`
+	Total       int32  `json:"total" example:"25"`
+	Learned     int32  `json:"learned" example:"12"` // số từ đã vào hàng đợi SRS
+	HasChildren bool   `json:"has_children"`         // có chủ đề con hay không — xem GET /vocab/topics/children
 }
 
 // VocabularyCard là một từ hiển thị ở trang học theo chủ đề / trang yêu thích
@@ -82,7 +90,14 @@ func NewVocabularyService(repo VocabularyRepository) *VocabularyService {
 	return &VocabularyService{repo: repo}
 }
 
-// ListTopics trả về các chủ đề của 1 ngôn ngữ (mặc định en) kèm tiến độ của user
+// ListTopics trả về các chủ đề CẤP CAO NHẤT của 1 ngôn ngữ (mặc định en) kèm
+// tiến độ của user. ListVocabularyTopics trả về từng chủ đề PHẲNG (gộp theo
+// vocabularies.topic, kể cả chủ đề con lẫn chủ đề chưa khai báo trong
+// vocabulary_topics — tương thích ngược với dữ liệu cũ trước khi có cây 2
+// cấp). Ở đây cộng gộp: nếu 1 chủ đề phẳng là CON đã khai báo (có parent_name)
+// thì dồn total/learned của nó vào chủ đề cha; ngược lại giữ nguyên là chủ đề
+// cấp cao nhất. Chủ đề cha hiện ra ngay cả khi chính nó không có từ trực
+// tiếp, miễn tổng (qua con) > 0 — ẩn hẳn chủ đề rỗng hoàn toàn.
 func (s *VocabularyService) ListTopics(ctx context.Context, userID uuid.UUID, languageID string) ([]VocabularyTopic, error) {
 	if languageID == "" {
 		languageID = defaultVocabularyLanguage
@@ -94,8 +109,103 @@ func (s *VocabularyService) ListTopics(ctx context.Context, userID uuid.UUID, la
 	if err != nil {
 		return nil, err
 	}
+	relations, err := s.repo.ListVocabularyTopicRelations(ctx, languageID)
+	if err != nil {
+		return nil, err
+	}
 
-	results := make([]VocabularyTopic, 0, len(rows))
+	childParent := make(map[string]string, len(relations))
+	icons := make(map[string]string, len(relations))
+	hasChildren := make(map[string]bool, len(relations))
+	for _, rel := range relations {
+		icons[rel.Name] = rel.Icon
+		if rel.ParentName.Valid {
+			childParent[rel.Name] = rel.ParentName.String
+			hasChildren[rel.ParentName.String] = true
+		}
+	}
+
+	type bucket struct {
+		icon    string
+		total   int32
+		learned int32
+	}
+	order := make([]string, 0, len(rows))
+	buckets := make(map[string]*bucket, len(rows))
+	bucketFor := func(name string) *bucket {
+		b, ok := buckets[name]
+		if !ok {
+			icon := icons[name]
+			if icon == "" {
+				icon = "📘"
+			}
+			b = &bucket{icon: icon}
+			buckets[name] = b
+			order = append(order, name)
+		}
+		return b
+	}
+
+	for _, r := range rows {
+		target := r.Name
+		if parent, ok := childParent[r.Name]; ok {
+			target = parent
+		}
+		b := bucketFor(target)
+		if target == r.Name {
+			b.icon = r.Icon // chủ đề tự đóng góp trực tiếp — icon của chính nó (COALESCE sẵn trong ListVocabularyTopics)
+		}
+		b.total += r.Total
+		b.learned += r.Learned
+	}
+
+	results := make([]VocabularyTopic, 0, len(order))
+	for _, name := range order {
+		b := buckets[name]
+		if b.total == 0 {
+			continue
+		}
+		results = append(results, VocabularyTopic{Name: name, Icon: b.icon, Total: b.total, Learned: b.learned, HasChildren: hasChildren[name]})
+	}
+	return results, nil
+}
+
+// ListChildTopics trả về chủ đề con của 1 chủ đề cha (learner drill-down —
+// xem ListTopics). total/learned của từng con chỉ tính từ gắn trực tiếp vào
+// con đó. Nếu chủ đề cha CŨNG có từ gắn trực tiếp (từ chung, "ngoài các từ
+// chung thì chia theo mục con"), phần tử ĐẦU danh sách là chính chủ đề cha
+// (cùng Name = parentName) — FE nhận biết qua so khớp parentName để hiển thị
+// riêng (vd nhãn "Từ chung") thay vì lẫn vào các chủ đề con.
+func (s *VocabularyService) ListChildTopics(ctx context.Context, userID uuid.UUID, languageID, parentName string) ([]VocabularyTopic, error) {
+	if languageID == "" {
+		languageID = defaultVocabularyLanguage
+	}
+	results := make([]VocabularyTopic, 0, 8)
+
+	own, err := s.repo.GetVocabularyTopicOwnStats(ctx, db.GetVocabularyTopicOwnStatsParams{
+		UserID:     toPgUUID(userID),
+		LanguageID: languageID,
+		Topic:      pgtype.Text{String: parentName, Valid: true},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if own.Total > 0 {
+		icon := "📘"
+		if parent, err := s.repo.GetVocabularyTopic(ctx, db.GetVocabularyTopicParams{LanguageID: languageID, Name: parentName}); err == nil {
+			icon = parent.Icon
+		}
+		results = append(results, VocabularyTopic{Name: parentName, Icon: icon, Total: own.Total, Learned: own.Learned})
+	}
+
+	rows, err := s.repo.ListVocabularyChildTopics(ctx, db.ListVocabularyChildTopicsParams{
+		UserID:     toPgUUID(userID),
+		LanguageID: languageID,
+		ParentName: pgtype.Text{String: parentName, Valid: true},
+	})
+	if err != nil {
+		return nil, err
+	}
 	for _, r := range rows {
 		results = append(results, VocabularyTopic{Name: r.Name, Icon: r.Icon, Total: r.Total, Learned: r.Learned})
 	}
@@ -250,17 +360,30 @@ type VocabularyAdminResponse struct {
 }
 
 type VocabularyTopicRequest struct {
-	LanguageID string `json:"language_id" example:"en"`
-	Name       string `json:"name" example:"Đồ ăn & Thức uống"`
-	Icon       string `json:"icon" example:"🍜"`
-	OrderIndex int32  `json:"order_index"`
+	LanguageID string  `json:"language_id" example:"en"`
+	Name       string  `json:"name" example:"Công nghệ thông tin"`
+	Icon       string  `json:"icon" example:"🍜"`
+	OrderIndex int32   `json:"order_index"`
+	// ParentName — chủ đề cha (vd "Công việc & Nghề nghiệp"), để trống/null =
+	// chủ đề cấp cao nhất. Chủ đề cha phải là chủ đề cấp cao nhất và chưa có
+	// con nào khác lồng trên nó — không lồng quá 2 cấp (xem CreateOrUpdateTopic).
+	ParentName *string `json:"parent_name,omitempty" example:"Công việc & Nghề nghiệp"`
 }
 
 type VocabularyTopicAdminResponse struct {
-	LanguageID string `json:"language_id"`
-	Name       string `json:"name"`
-	Icon       string `json:"icon"`
-	OrderIndex int32  `json:"order_index"`
+	LanguageID string  `json:"language_id"`
+	Name       string  `json:"name"`
+	Icon       string  `json:"icon"`
+	OrderIndex int32   `json:"order_index"`
+	ParentName *string `json:"parent_name,omitempty"`
+}
+
+func toVocabularyTopicAdminResponse(t db.VocabularyTopic) VocabularyTopicAdminResponse {
+	resp := VocabularyTopicAdminResponse{LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex}
+	if t.ParentName.Valid {
+		resp.ParentName = &t.ParentName.String
+	}
+	return resp
 }
 
 func toVocabularyAdminResponse(v db.Vocabulary) VocabularyAdminResponse {
@@ -308,17 +431,32 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 	return toVocabularyAdminResponse(v), nil
 }
 
-// ListVocabulariesAdmin trả về toàn bộ từ vựng của 1 ngôn ngữ (admin quản lý)
-func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageID string) ([]VocabularyAdminResponse, error) {
-	rows, err := s.repo.ListVocabulariesByLanguageAdmin(ctx, languageID)
+// ListVocabulariesAdmin trả về 1 trang từ vựng của 1 ngôn ngữ (admin quản lý),
+// lọc theo search (khớp term/meaning)/topic/level, phân trang server-side.
+func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageID, search, topic, level string, page, pageSize int32) (PageResult[VocabularyAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListVocabulariesByLanguageAdmin(ctx, db.ListVocabulariesByLanguageAdminParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Topic:      pgtype.Text{String: topic, Valid: topic != ""},
+		Level:      pgtype.Text{String: level, Valid: level != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[VocabularyAdminResponse]{}, err
 	}
 	results := make([]VocabularyAdminResponse, 0, len(rows))
+	var total int64
 	for _, v := range rows {
-		results = append(results, toVocabularyAdminResponse(v))
+		total = v.TotalCount
+		results = append(results, toVocabularyAdminResponse(db.Vocabulary{
+			ID: v.ID, LanguageID: v.LanguageID, Term: v.Term, Phonetic: v.Phonetic, Meaning: v.Meaning,
+			Example: v.Example, Topic: v.Topic, Level: v.Level, AudioUrl: v.AudioUrl, ImageUrl: v.ImageUrl,
+			ImageEmoji: v.ImageEmoji, CreatedAt: v.CreatedAt,
+		}))
 	}
-	return results, nil
+	return PageResult[VocabularyAdminResponse]{Items: results, Total: total}, nil
 }
 
 // UpdateVocabulary sửa 1 từ vựng (không đổi language_id)
@@ -363,8 +501,12 @@ func (s *VocabularyService) BulkImportVocabularies(ctx context.Context, items []
 	})
 }
 
-// CreateOrUpdateTopic tạo chủ đề mới hoặc cập nhật icon/thứ tự nếu đã tồn tại
-// (natural key là language_id+name, nên create/update dùng chung 1 upsert).
+// CreateOrUpdateTopic tạo chủ đề mới hoặc cập nhật icon/thứ tự/chủ đề cha nếu
+// đã tồn tại (natural key là language_id+name, nên create/update dùng chung 1
+// upsert). ParentName tối đa lồng 2 cấp — ép bằng 2 điều kiện: (1) chủ đề cha
+// phải đang là chủ đề cấp cao nhất (parent_name riêng của nó phải NULL), (2)
+// chủ đề này (req.Name) chưa có con nào — nếu đã có con thì không thể trở
+// thành con của chủ đề khác (sẽ tạo ra 3 cấp).
 func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req VocabularyTopicRequest) (VocabularyTopicAdminResponse, error) {
 	if req.LanguageID == "" || req.Name == "" {
 		return VocabularyTopicAdminResponse{}, ErrInvalidInput
@@ -373,11 +515,42 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 	if icon == "" {
 		icon = "📘"
 	}
+
+	var parentName pgtype.Text
+	if req.ParentName != nil && *req.ParentName != "" {
+		parent := *req.ParentName
+		if parent == req.Name {
+			return VocabularyTopicAdminResponse{}, fmt.Errorf("chủ đề không thể là cha của chính nó: %w", ErrInvalidInput)
+		}
+		parentRow, err := s.repo.GetVocabularyTopic(ctx, db.GetVocabularyTopicParams{LanguageID: req.LanguageID, Name: parent})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VocabularyTopicAdminResponse{}, fmt.Errorf("không tìm thấy chủ đề cha \"%s\": %w", parent, ErrInvalidInput)
+		}
+		if err != nil {
+			return VocabularyTopicAdminResponse{}, err
+		}
+		if parentRow.ParentName.Valid {
+			return VocabularyTopicAdminResponse{}, fmt.Errorf("chủ đề cha phải là chủ đề cấp cao nhất, không lồng quá 2 cấp: %w", ErrInvalidInput)
+		}
+		childCount, err := s.repo.CountVocabularyTopicChildren(ctx, db.CountVocabularyTopicChildrenParams{
+			LanguageID: req.LanguageID,
+			ParentName: pgtype.Text{String: req.Name, Valid: true},
+		})
+		if err != nil {
+			return VocabularyTopicAdminResponse{}, err
+		}
+		if childCount > 0 {
+			return VocabularyTopicAdminResponse{}, fmt.Errorf("chủ đề đã có chủ đề con, không thể trở thành con của chủ đề khác: %w", ErrInvalidInput)
+		}
+		parentName = pgtype.Text{String: parent, Valid: true}
+	}
+
 	t, err := s.repo.CreateVocabularyTopic(ctx, db.CreateVocabularyTopicParams{
 		LanguageID: req.LanguageID,
 		Name:       req.Name,
 		Icon:       icon,
 		OrderIndex: req.OrderIndex,
+		ParentName: parentName,
 	})
 	if isPgError(err, pgForeignKeyViolation) {
 		return VocabularyTopicAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
@@ -385,30 +558,31 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 	if err != nil {
 		return VocabularyTopicAdminResponse{}, err
 	}
-	return VocabularyTopicAdminResponse{
-		LanguageID: t.LanguageID,
-		Name:       t.Name,
-		Icon:       t.Icon,
-		OrderIndex: t.OrderIndex,
-	}, nil
+	return toVocabularyTopicAdminResponse(t), nil
 }
 
-// ListTopicsAdmin trả về toàn bộ chủ đề từ vựng của 1 ngôn ngữ (icon/thứ tự hiển thị)
-func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID string) ([]VocabularyTopicAdminResponse, error) {
-	rows, err := s.repo.ListVocabularyTopicsByLanguageAdmin(ctx, languageID)
+// ListTopicsAdmin trả về toàn bộ chủ đề từ vựng của 1 ngôn ngữ (icon/thứ tự/
+// chủ đề cha) — FE tự dựng cây 2 cấp từ danh sách phẳng này (dữ liệu nhỏ).
+func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID, search string, page, pageSize int32) (PageResult[VocabularyTopicAdminResponse], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListVocabularyTopicsByLanguageAdmin(ctx, db.ListVocabularyTopicsByLanguageAdminParams{
+		LanguageID: languageID,
+		Search:     pgtype.Text{String: search, Valid: search != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
 	if err != nil {
-		return nil, err
+		return PageResult[VocabularyTopicAdminResponse]{}, err
 	}
 	results := make([]VocabularyTopicAdminResponse, 0, len(rows))
+	var total int64
 	for _, t := range rows {
-		results = append(results, VocabularyTopicAdminResponse{
-			LanguageID: t.LanguageID,
-			Name:       t.Name,
-			Icon:       t.Icon,
-			OrderIndex: t.OrderIndex,
-		})
+		total = t.TotalCount
+		results = append(results, toVocabularyTopicAdminResponse(db.VocabularyTopic{
+			LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex, ParentName: t.ParentName,
+		}))
 	}
-	return results, nil
+	return PageResult[VocabularyTopicAdminResponse]{Items: results, Total: total}, nil
 }
 
 // DeleteTopic xoá 1 chủ đề (chỉ xoá metadata hiển thị — từ vựng có topic trùng

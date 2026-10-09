@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { speechLang } from '@/features/course/components/LanguageCard'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
@@ -26,6 +27,7 @@ export function AudioButton({
   const [playing, setPlaying] = useState(false)
   const voices = useSpeechVoices()
   const voiceURI = useVoiceSettings((s) => s.voiceByLang[languageId])
+  const t = useTranslation()
 
   const play = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -61,7 +63,7 @@ export function AudioButton({
     <button
       type="button"
       onClick={play}
-      aria-label={`Phát âm "${text}"`}
+      aria-label={t.common.audioAriaLabel(text)}
       className={cn(
         'inline-flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-lg text-indigo-700 transition hover:bg-indigo-100',
         playing && 'animate-pulse',

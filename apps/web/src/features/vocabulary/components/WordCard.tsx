@@ -5,6 +5,7 @@ import { AudioButton } from '@/components/audio/AudioButton'
 import { Card } from '@/components/ui/Card'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { srsService } from '@/features/srs-review/srs.service'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
@@ -27,6 +28,7 @@ export function WordCard({
 }) {
   const [pending, setPending] = useState<Action | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslation()
 
   const run = async (action: Action, call: () => Promise<Partial<VocabularyCard>>) => {
     if (pending) return
@@ -119,11 +121,11 @@ export function WordCard({
               : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
           )}
         >
-          {word.favorited ? '⭐ Đã yêu thích' : '☆ Yêu thích'}
+          {word.favorited ? t.vocabCard.favoritedLabel : t.vocabCard.favoriteLabel}
         </button>
         {word.in_review ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-            ✓ Đã trong ôn tập
+            {t.vocabCard.inReviewLabel}
           </span>
         ) : (
           <button
@@ -132,7 +134,7 @@ export function WordCard({
             disabled={pending !== null}
             className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
           >
-            {pending === 'review' ? 'Đang thêm...' : '➕ Thêm vào ôn tập'}
+            {pending === 'review' ? t.vocabCard.addingToReview : t.vocabCard.addToReview}
           </button>
         )}
       </div>

@@ -10,7 +10,14 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100),
     avatar_url TEXT,
     streak_count INT DEFAULT 0,
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin', 'owner')),
+    -- Module /admin mà user này (khi role='admin') được cấp quyền truy cập —
+    -- role='admin' KHÔNG còn tự động full quyền mọi module. role='owner' luôn
+    -- có mọi module (middleware bypass), không ai thu hồi/vô hiệu hoá được owner.
+    admin_modules TEXT[] NOT NULL DEFAULT '{}',
+    -- Vô hiệu hoá tài khoản (owner-only) — khoá đăng nhập, giữ lại dữ liệu liên
+    -- quan để có thể khôi phục, thay cho xoá cứng (cascade phức tạp, khó hồi phục).
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     exp BIGINT NOT NULL DEFAULT 0,
     level INT NOT NULL DEFAULT 1,
     points BIGINT NOT NULL DEFAULT 0,
@@ -170,6 +177,49 @@ CREATE TABLE IF NOT EXISTS user_grammar_progress (
 CREATE INDEX IF NOT EXISTS idx_grammar_progress_user ON user_grammar_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_grammar_progress_status ON user_grammar_progress(user_id, status);
 
+-- "Lớp học" — giáo án: 1 chuỗi bài ngữ pháp theo thứ tự cố định cho 1 level.
+CREATE TABLE IF NOT EXISTS classes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    level VARCHAR(5) NOT NULL DEFAULT 'A1',
+    order_index INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_classes_language ON classes(language_id);
+
+-- Bài ngữ pháp nào thuộc lớp nào, thứ tự học — admin set lại TOÀN BỘ mỗi lần
+-- lưu giáo án (xoá hết rồi insert lại theo thứ tự mảng), không add/remove rời.
+CREATE TABLE IF NOT EXISTS class_lessons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    lesson_id UUID NOT NULL REFERENCES grammar_lessons(id) ON DELETE CASCADE,
+    order_index INT NOT NULL DEFAULT 0,
+    CONSTRAINT unique_class_lesson UNIQUE (class_id, lesson_id)
+);
+CREATE INDEX IF NOT EXISTS idx_class_lessons_class ON class_lessons(class_id, order_index);
+
+-- Ghi danh — user "vào học" 1 lớp.
+CREATE TABLE IF NOT EXISTS user_class_enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    class_id UUID NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_user_class UNIQUE (user_id, class_id)
+);
+CREATE INDEX IF NOT EXISTS idx_enrollments_user ON user_class_enrollments(user_id);
+
+-- Nền tảng tính % giáo án: 1 dòng khi user làm ĐÚNG 1 bài tập lần đầu. PK kép
+-- làm nó idempotent — submit lại bài đã đúng không tạo trùng, không lỗi.
+CREATE TABLE IF NOT EXISTS user_exercise_completions (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exercise_id UUID NOT NULL REFERENCES grammar_exercises(id) ON DELETE CASCADE,
+    completed_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, exercise_id)
+);
+
 -- Hệ thống "thử thách" realtime kiểu game show: phòng chơi, câu hỏi riêng
 -- (không dùng grammar_exercises/vocabulary_exercises), người tham gia, câu trả lời.
 
@@ -291,8 +341,15 @@ CREATE TABLE IF NOT EXISTS vocabulary_topics (
     name VARCHAR(50) NOT NULL,
     icon VARCHAR(16) NOT NULL DEFAULT '📘',
     order_index INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (language_id, name)
+    -- Chủ đề cha (tối đa 2 cấp, không lồng sâu hơn — ép ở service layer).
+    -- NULL = chủ đề cấp cao nhất. Vocabularies.topic có thể gắn vào chủ đề
+    -- cha (từ chung) HOẶC vào 1 chủ đề con (mục con cụ thể) — xem ListTopics.
+    parent_name VARCHAR(50),
+    PRIMARY KEY (language_id, name),
+    FOREIGN KEY (language_id, parent_name) REFERENCES vocabulary_topics(language_id, name) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_vocabulary_topics_parent ON vocabulary_topics(language_id, parent_name);
 
 CREATE TABLE IF NOT EXISTS vocabulary_likes (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -320,6 +377,9 @@ CREATE TABLE IF NOT EXISTS listening_passages (
     topic VARCHAR(100),
     level VARCHAR(5) DEFAULT 'A1',
     order_index INT DEFAULT 0,
+    -- Object key trong bucket R2 (KHÔNG phải URL public) — backend tự tạo
+    -- presigned URL khi trả về cho FE, xem internal/storage/r2.go.
+    audio_key VARCHAR(255),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -337,3 +397,114 @@ CREATE TABLE IF NOT EXISTS listening_questions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_listening_questions_passage ON listening_questions(passage_id, order_index);
+
+-- Chủ đề luyện nghe — icon/thứ tự hiển thị cho các giá trị listening_passages.topic
+-- (free-text, không FK) — mirror vocabulary_topics, nhưng chưa có phân cấp cha/con.
+CREATE TABLE IF NOT EXISTS listening_topics (
+    language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    icon VARCHAR(16) NOT NULL DEFAULT '🎧',
+    order_index INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (language_id, name)
+);
+
+-- Blog học viên: bài viết tự do (tag tự gõ), comment trải phẳng (root +
+-- reply), 4 counter tương tác độc lập. content là HTML rich text (Tiptap) đã qua sanitize ở
+-- backend trước khi lưu — ảnh/video YouTube nhúng NGAY TRONG content (ảnh
+-- qua link ổn định /blog/images/:id, xem blog_post_images; video qua
+-- <iframe> youtube.com/embed/... do sanitize policy cho phép riêng).
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    language_id VARCHAR(10) REFERENCES languages(id) ON DELETE SET NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    tags TEXT[] NOT NULL DEFAULT '{}',
+    view_count INT NOT NULL DEFAULT 0,
+    is_hidden BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_posts_author ON blog_posts(author_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_language ON blog_posts(language_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_created ON blog_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_tags ON blog_posts USING GIN (tags);
+
+-- Object key trong bucket R2 (KHÔNG phải URL public), giống listening_passages.audio_key.
+-- Ảnh được chèn NGAY TRONG content (rich text, như Notion/Medium) qua link
+-- ổn định /blog/images/:id (resolve sang presigned URL khi phục vụ) — không
+-- còn là gallery riêng theo bài, nên post_id NULL được (upload lúc đang soạn
+-- bài MỚI, chưa có id) cho tới khi lưu bài thì "nhận" (adopt) theo author_id.
+CREATE TABLE IF NOT EXISTS blog_post_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID REFERENCES blog_posts(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    image_key VARCHAR(255) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_post_images_post ON blog_post_images(post_id);
+CREATE INDEX IF NOT EXISTS idx_blog_post_images_author ON blog_post_images(author_id);
+
+-- Comment trải phẳng tối đa 2 cấp: parent_comment_id NULL = comment gốc,
+-- reply luôn gắn trực tiếp vào root (BlogService.CreateComment tự "trải
+-- phẳng" nếu trả lời 1 reply khác — DB vẫn cho phép lồng sâu hơn về mặt kỹ
+-- thuật, chỉ service layer đảm bảo không bao giờ ghi sâu hơn 2 cấp).
+CREATE TABLE IF NOT EXISTS blog_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_comment_id UUID REFERENCES blog_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comments_post ON blog_comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_blog_comments_parent ON blog_comments(parent_comment_id);
+
+-- Like/dislike cho comment — độc lập với like/dislike của bài viết.
+CREATE TABLE IF NOT EXISTS blog_comment_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    comment_id UUID NOT NULL REFERENCES blog_comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, comment_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_comment_dislikes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    comment_id UUID NOT NULL REFERENCES blog_comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, comment_id)
+);
+
+-- 4 counter độc lập — mirror vocabulary_likes/vocabulary_favorites: junction
+-- table PK kép, không cột dư.
+CREATE TABLE IF NOT EXISTS blog_post_stars (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_markers (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_dislikes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);

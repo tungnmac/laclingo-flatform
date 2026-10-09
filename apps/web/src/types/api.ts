@@ -7,7 +7,9 @@ export interface User {
   full_name: string
   avatar_url: string
   streak_count: number
-  role: 'user' | 'admin'
+  role: 'user' | 'admin' | 'owner'
+  admin_modules?: string[]
+  is_active: boolean
   level: number
   exp: number
   points: number
@@ -108,6 +110,7 @@ export interface VocabularyTopic {
   icon: string
   total: number
   learned: number // số từ đã vào hàng đợi ôn tập SRS
+  has_children: boolean // có chủ đề con hay không — xem GET /vocab/topics/children
 }
 
 // Một từ ở trang học theo chủ đề / trang yêu thích
@@ -387,6 +390,12 @@ export interface ListeningPassageSummary {
   order_index: number
 }
 
+export interface ListeningTopic {
+  name: string
+  icon: string
+  total: number
+}
+
 // KHÔNG có correct_answer — chỉ server biết, chấm qua listeningService.submit
 export interface ListeningQuestion {
   id: string
@@ -400,6 +409,7 @@ export interface ListeningPassageDetail {
   script: string
   topic?: string
   level: string
+  audio_url?: string // link tạm (presigned) phát audio thật nếu có — không thì dùng TTS từ script
   questions: ListeningQuestion[]
 }
 
@@ -421,6 +431,13 @@ export interface BulkImportResult {
   index: number
   success: boolean
   error?: string
+}
+
+// Kết quả 1 trang — total tính trên TOÀN BỘ kết quả khớp filter (trước khi
+// phân trang), đủ để FE vẽ UI phân trang mà không cần gọi thêm API đếm riêng.
+export interface PageResult<T> {
+  items: T[]
+  total: number
 }
 
 // --- Ngữ pháp ---
@@ -514,6 +531,21 @@ export interface ListeningPassageAdmin {
   topic?: string
   level: string
   order_index: number
+  audio_url?: string // link tạm (presigned) để admin nghe lại/kiểm tra
+}
+
+export interface ListeningTopicRequest {
+  language_id: string
+  name: string
+  icon: string
+  order_index: number
+}
+
+export interface ListeningTopicAdmin {
+  language_id: string
+  name: string
+  icon: string
+  order_index: number
 }
 
 export interface ListeningQuestionRequest {
@@ -568,6 +600,7 @@ export interface VocabularyTopicRequest {
   name: string
   icon: string
   order_index: number
+  parent_name?: string | null
 }
 
 export interface VocabularyTopicAdmin {
@@ -575,4 +608,176 @@ export interface VocabularyTopicAdmin {
   name: string
   icon: string
   order_index: number
+  parent_name?: string | null
+}
+
+// --- Lớp học (classes — giáo án ngữ pháp theo thứ tự) ---
+
+export interface ClassRequest {
+  language_id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+}
+
+export interface ClassAdmin {
+  id: string
+  language_id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+}
+
+export interface ClassSummary {
+  id: string
+  title: string
+  description?: string
+  level: string
+  order_index: number
+  lesson_count: number
+  enrolled: boolean
+  progress_percent: number
+}
+
+export interface ClassLessonProgress {
+  lesson_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+  completed: boolean
+}
+
+export interface ClassDetail {
+  id: string
+  title: string
+  description?: string
+  level: string
+  enrolled: boolean
+  progress_percent: number
+  lessons: ClassLessonProgress[]
+}
+
+export interface ClassLessonAdmin {
+  lesson_id: string
+  code: string
+  title: string
+  level: string
+  order_index: number
+}
+
+export interface ReplaceClassLessonsRequest {
+  lesson_ids: string[]
+}
+
+// --- Blog học viên ---
+
+export interface BlogPostRequest {
+  language_id?: string
+  title: string
+  content: string
+  tags: string[]
+}
+
+// Kết quả 1 lần upload ảnh (chưa gắn bài nào) — chèn thẳng res.url vào content rich text.
+export interface BlogImageResponse {
+  id: string
+  url: string
+}
+
+export interface BlogPostSummary {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  language_id?: string
+  title: string
+  excerpt: string
+  thumbnail_url?: string
+  tags: string[]
+  view_count: number
+  comment_count: number
+  star_count: number
+  marker_count: number
+  like_count: number
+  dislike_count: number
+  starred: boolean
+  marked: boolean
+  liked: boolean
+  disliked: boolean
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogPostDetail {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  language_id?: string
+  title: string
+  content: string
+  tags: string[]
+  view_count: number
+  comment_count: number
+  star_count: number
+  marker_count: number
+  like_count: number
+  dislike_count: number
+  starred: boolean
+  marked: boolean
+  liked: boolean
+  disliked: boolean
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogPostAdmin {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  language_id?: string
+  title: string
+  view_count: number
+  comment_count: number
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogCommentRequest {
+  parent_comment_id?: string
+  content: string
+}
+
+export interface BlogCommentNode {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  content: string
+  is_hidden: boolean
+  created_at: string
+  like_count: number
+  dislike_count: number
+  liked: boolean
+  disliked: boolean
+  replies: BlogCommentNode[]
+}
+
+export interface BlogToggleResponse {
+  post_id: string
+  on: boolean
+  count: number
+}
+
+export interface BlogCommentToggleResponse {
+  comment_id: string
+  on: boolean
+  count: number
 }

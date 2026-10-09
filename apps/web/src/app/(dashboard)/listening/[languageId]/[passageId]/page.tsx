@@ -1,20 +1,24 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ListeningQuestionCard } from '@/features/listening/components/ListeningQuestionCard'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningPassagePage({ params }: { params: { languageId: string; passageId: string } }) {
   const { data: passage, error, loading, reload } = useApi(() => listeningService.getPassage(params.passageId), [params.passageId])
+  const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const [showTranscript, setShowTranscript] = useState(false)
+  const t = useTranslation()
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -22,12 +26,15 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/listening/${params.languageId}`}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
-      >
-        ← Danh sách bài luyện nghe
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.listening, href: '/listening' },
+          passage.topic
+            ? { label: passage.topic, href: `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` }
+            : { label: language?.name ?? params.languageId, href: `/listening/${params.languageId}` },
+          { label: passage.title },
+        ]}
+      />
 
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-900">{passage.title}</h1>
@@ -35,24 +42,28 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
       </div>
 
       <Card className="flex flex-col items-center gap-4 text-center">
-        <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
-        <p className="text-sm text-slate-500">Nhấn để nghe đoạn audio. Có thể nghe lại nhiều lần trước khi trả lời.</p>
+        {passage.audio_url ? (
+          <audio controls src={passage.audio_url} className="w-full max-w-sm" />
+        ) : (
+          <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
+        )}
+        <p className="text-sm text-slate-500">{t.listening.audioHint}</p>
         <Button variant="ghost" size="sm" onClick={() => setShowTranscript((v) => !v)}>
-          {showTranscript ? 'Ẩn văn bản' : 'Hiện văn bản (nếu cần)'}
+          {showTranscript ? t.listening.hideTranscript : t.listening.showTranscript}
         </Button>
         {showTranscript && <p className="rounded-xl bg-slate-50 p-3 text-left text-sm leading-relaxed text-slate-700">{passage.script}</p>}
       </Card>
 
       {passage.questions.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">❓ Câu hỏi</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.listening.questionsTitle}</h2>
           {passage.questions.map((question, index) => (
             <ListeningQuestionCard key={question.id} question={question} index={index} />
           ))}
         </section>
       )}
 
-      <Mascot message="Nghe kỹ trước khi trả lời nha! 🦩" />
+      <Mascot message={t.listening.mascotListen} />
     </div>
   )
 }

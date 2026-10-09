@@ -1,0 +1,32 @@
+[
+  {
+    "language_id": "en",
+    "term": "backpack",
+    "phonetic": "ˈbækpæk",
+    "meaning": "túi/balô",
+    "example": "She carried a small backpack on the trip.",
+    "topic": "Du lịch & Khách sạn",
+    "level": "A2",
+    "image_emoji": "🎒"
+  },
+  {
+    "language_id": "en",
+    "term": "suitcase",
+    "phonetic": "ˈsuːtkeɪs",
+    "meaning": "vali",
+    "example": "She packed her suitcase the night before.",
+    "topic": "Du lịch & Khách sạn",
+    "level": "A1",
+    "image_emoji": "🧳"
+  },
+  {
+    "language_id": "en",
+    "term": "goalkeeper",
+    "phonetic": "ˈɡəʊlkiːpər",
+    "meaning": "thủ môn",
+    "example": "The goalkeeper saved the penalty.",
+    "topic": "Thể thao",
+    "level": "B1",
+    "image_emoji": "🧤"
+  }
+]

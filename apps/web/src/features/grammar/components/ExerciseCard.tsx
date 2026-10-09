@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { GrammarExercise } from '@/types/api'
 
@@ -15,6 +16,7 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
   const [answer, setAnswer] = useState('')
   const [checked, setChecked] = useState(false)
   const correct = checked && isCorrectAnswer(answer, exercise)
+  const t = useTranslation()
 
   const onCheck = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -31,7 +33,9 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
       )}
     >
       <p className="text-sm font-medium text-slate-900">
-        <span className="mr-2 text-slate-400">Câu {index + 1}.</span>
+        <span className="mr-2 text-slate-400">
+          {t.grammar.questionPrefix} {index + 1}.
+        </span>
         {exercise.question}
       </p>
 
@@ -65,13 +69,13 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
           disabled={checked}
           onChange={(e) => setAnswer(e.target.value)}
           className={cn(inputClass, 'mt-3 disabled:bg-slate-50')}
-          placeholder="Điền đáp án..."
+          placeholder={t.grammar.fillPlaceholder}
         />
       )}
 
       {!checked && (
         <Button type="submit" size="sm" className="mt-4" disabled={!answer.trim()}>
-          Kiểm tra
+          {t.grammar.check}
         </Button>
       )}
 
@@ -82,9 +86,7 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
             correct ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-rose-200',
           )}
         >
-          <p className="font-semibold">
-            {correct ? '✅ Chính xác!' : `❌ Chưa đúng — đáp án: ${exercise.correct_answer}`}
-          </p>
+          <p className="font-semibold">{correct ? t.grammar.correct : t.grammar.incorrect(exercise.correct_answer)}</p>
           {exercise.explanation && <p className="mt-1">{exercise.explanation}</p>}
         </div>
       )}

@@ -6,13 +6,15 @@ import { FinishedRoomView } from '@/features/challenge/components/FinishedRoomVi
 import { LiveRoomView } from '@/features/challenge/components/LiveRoomView'
 import { challengeService } from '@/features/challenge/challenge.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ChallengeRoomPage({ params }: { params: { roomId: string } }) {
   const { data: room, error, loading, reload } = useApi(() => challengeService.getRoom(params.roomId), [params.roomId])
+  const t = useTranslation()
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Phòng thử thách" />
+      <PageHeader title={t.challenges.roomPageTitle} />
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}

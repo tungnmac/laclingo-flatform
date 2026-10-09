@@ -1,9 +1,14 @@
+'use client'
+
+import { useTranslation } from '@/hooks/useTranslation'
+
 export function ProgressHeader({ done, total }: { done: number; total: number }) {
   const percent = total === 0 ? 0 : Math.round((done / total) * 100)
+  const t = useTranslation()
   return (
     <div className="w-full">
       <div className="mb-2 flex items-center justify-between text-sm text-slate-600">
-        <span>Tiến độ</span>
+        <span>{t.vocabCard.progressLabel}</span>
         <span className="font-semibold">
           {done}/{total}
         </span>
