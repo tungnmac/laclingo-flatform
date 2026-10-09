@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 import { Button } from './Button'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 
 interface ConfirmOptions {
@@ -28,6 +29,7 @@ export function useConfirm(): ConfirmFn {
 export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
   const [options, setOptions] = useState<ConfirmOptions | null>(null)
   const resolveRef = useRef<(value: boolean) => void>()
+  const t = useTranslation()
 
   const confirm = useCallback<ConfirmFn>((input) => {
     setOptions(typeof input === 'string' ? { description: input } : input)
@@ -63,10 +65,10 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="secondary" size="sm" onClick={() => close(false)}>
-                {options.cancelLabel ?? 'Hủy'}
+                {options.cancelLabel ?? t.adminCommon.cancelBtn}
               </Button>
               <Button variant={options.danger ? 'danger' : 'primary'} size="sm" onClick={() => close(true)} autoFocus>
-                {options.confirmLabel ?? 'Xác nhận'}
+                {options.confirmLabel ?? t.adminCommon.confirmBtn}
               </Button>
             </div>
           </div>

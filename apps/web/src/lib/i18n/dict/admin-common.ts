@@ -63,6 +63,7 @@ export interface AdminCommonDict {
     savedModulesToast: (name: string) => string
     saveBtn: string
     cancelBtn: string
+    confirmBtn: string
     iconSearchPlaceholder: string
     chooseIconAria: string
     noIconsFound: string
@@ -132,6 +133,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       savedModulesToast: (name) => `Đã lưu quyền module cho "${name}"`,
       saveBtn: 'Lưu',
       cancelBtn: 'Hủy',
+      confirmBtn: 'Xác nhận',
       iconSearchPlaceholder: 'Tìm icon theo từ khoá...',
       chooseIconAria: 'Chọn icon có sẵn',
       noIconsFound: 'Không tìm thấy icon nào',
@@ -199,6 +201,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       savedModulesToast: (name) => `Saved module access for "${name}"`,
       saveBtn: 'Save',
       cancelBtn: 'Cancel',
+      confirmBtn: 'Confirm',
       iconSearchPlaceholder: 'Search icons by keyword...',
       chooseIconAria: 'Choose an icon',
       noIconsFound: 'No icons found',
