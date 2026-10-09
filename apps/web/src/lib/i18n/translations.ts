@@ -1,6 +1,7 @@
 import type { Locale } from '@/store/locale'
 import { adminCommonTranslations, type AdminCommonDict } from './dict/admin-common'
 import { adminUsersTranslations, type AdminUsersDict } from './dict/admin-users'
+import { adminVocabularyTranslations, type AdminVocabularyDict } from './dict/admin-vocabulary'
 import { challengesTranslations, type ChallengesDict } from './dict/challenges'
 import { homeTranslations, type HomeDict } from './dict/home'
 import { learnTranslations, type LearnDict } from './dict/learn'
@@ -360,10 +361,19 @@ const base: Record<Locale, Dictionary> = {
 
 const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
 
-export const translations: Record<
-  Locale,
-  Dictionary & LearnDict & ReviewDict & ChallengesDict & ListeningDict & HomeDict & AdminCommonDict & AdminUsersDict
-> = Object.fromEntries(
+// Gộp type 1 lần duy nhất ở đây — thêm namespace mới sau này chỉ cần thêm
+// vào type alias này + mảng spread bên dưới, không phải sửa 2 chỗ lặp lại.
+type AllDicts = Dictionary &
+  LearnDict &
+  ReviewDict &
+  ChallengesDict &
+  ListeningDict &
+  HomeDict &
+  AdminCommonDict &
+  AdminUsersDict &
+  AdminVocabularyDict
+
+export const translations: Record<Locale, AllDicts> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
     locale,
     {
@@ -375,9 +385,7 @@ export const translations: Record<
       ...pick(homeTranslations, locale),
       ...pick(adminCommonTranslations, locale),
       ...pick(adminUsersTranslations, locale),
+      ...pick(adminVocabularyTranslations, locale),
     },
   ]),
-) as Record<
-  Locale,
-  Dictionary & LearnDict & ReviewDict & ChallengesDict & ListeningDict & HomeDict & AdminCommonDict & AdminUsersDict
->
+) as Record<Locale, AllDicts>

@@ -16,6 +16,7 @@ import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadg
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
@@ -38,6 +39,7 @@ type VocabTab = 'topics' | 'words'
 export default function AdminVocabularyPage() {
   const [languageId, setLanguageId] = useState('en')
   const [tab, setTab] = useState<VocabTab>('words')
+  const t = useTranslation()
   const allTopicsApi = useApi(
     () => vocabularyService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
     [languageId],
@@ -45,10 +47,10 @@ export default function AdminVocabularyPage() {
 
   return (
     <>
-      <PageHeader title="Từ vựng" description="Quản lý từ vựng và chủ đề từ vựng theo ngôn ngữ." />
+      <PageHeader title={t.adminVocabulary.pageTitle} description={t.adminVocabulary.pageDesc} />
 
       <label className="mb-6 block text-sm font-medium text-slate-700">
-        Ngôn ngữ
+        {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
           <option value="en">🇬🇧 English</option>
           <option value="zh">🇨🇳 中文</option>
@@ -57,8 +59,8 @@ export default function AdminVocabularyPage() {
 
       <Tabs<VocabTab>
         tabs={[
-          { id: 'words', label: '📚 Từ vựng' },
-          { id: 'topics', label: '🗂️ Chủ đề' },
+          { id: 'words', label: t.adminVocabulary.tabWords },
+          { id: 'topics', label: t.adminVocabulary.tabTopics },
         ]}
         active={tab}
         onChange={setTab}
@@ -82,6 +84,7 @@ function TopicsSection({
   onChanged: () => void
 }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [showForm, setShowForm] = useState(false)
@@ -129,14 +132,11 @@ function TopicsSection({
     setShowForm(true)
   }
 
-  const onDelete = async (t: VocabularyTopicAdmin) => {
-    const hasChildren = childrenOf(t.name).length > 0
-    const warning = hasChildren
-      ? ` Chủ đề này đang có chủ đề con — xoá sẽ xoá CẢ metadata của các chủ đề con đó (từ vựng vẫn giữ nguyên).`
-      : ''
-    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Từ vựng đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.${warning}`, danger: true })))
-      return
-    await vocabularyService.deleteTopic(t.language_id, t.name)
+  const onDelete = async (topic: VocabularyTopicAdmin) => {
+    const hasChildren = childrenOf(topic.name).length > 0
+    const warning = hasChildren ? t.adminVocabulary.deleteTopicWarningHasChildren : ''
+    if (!(await confirm({ description: t.adminVocabulary.deleteTopicConfirm(topic.name, warning), danger: true }))) return
+    await vocabularyService.deleteTopic(topic.language_id, topic.name)
     reloadAll()
   }
 
@@ -164,17 +164,17 @@ function TopicsSection({
     }
   }
 
-  const renderRow = (t: VocabularyTopicAdmin, isChild: boolean) => (
-    <li key={t.name} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-6', isChild && 'bg-slate-50 pl-10 sm:pl-12')}>
+  const renderRow = (topic: VocabularyTopicAdmin, isChild: boolean) => (
+    <li key={topic.name} className={cn('flex items-center gap-3 px-4 py-2.5 sm:px-6', isChild && 'bg-slate-50 pl-10 sm:pl-12')}>
       {isChild && <span className="text-slate-300">↳</span>}
-      <span className="text-xl">{t.icon}</span>
-      <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{t.name}</p>
+      <span className="text-xl">{topic.icon}</span>
+      <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{topic.name}</p>
       <div className="flex shrink-0 gap-2">
-        <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
-          Sửa
+        <Button variant="secondary" size="sm" onClick={() => onEdit(topic)}>
+          {t.adminCommon.editBtn}
         </Button>
-        <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
-          Xoá
+        <Button variant="danger" size="sm" onClick={() => onDelete(topic)}>
+          {t.adminCommon.deleteBtn}
         </Button>
       </div>
     </li>
@@ -183,7 +183,7 @@ function TopicsSection({
   return (
     <section className="mb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminVocabulary.topicsTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<VocabularyTopicAdmin>
@@ -191,33 +191,35 @@ function TopicsSection({
               filename={`vocabulary-topics-${languageId}.json`}
             />
             <Button size="sm" onClick={onCreateNew}>
-              + Thêm chủ đề
+              {t.adminVocabulary.addTopicBtn}
             </Button>
           </div>
         )}
       </div>
 
       <label className="block text-sm font-medium text-slate-700">
-        Tìm kiếm
+        {t.adminCommon.searchLabel}
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm theo tên chủ đề (cả chủ đề cha và con)..."
+          placeholder={t.adminVocabulary.topicSearchPlaceholder}
           className={cn(inputClass, 'max-w-xs')}
         />
       </label>
 
       {showForm && (
         <Card>
-          <h3 className="mb-3 text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.name}` : 'Thêm chủ đề mới'}</h3>
+          <h3 className="mb-3 text-base font-semibold text-slate-900">
+            {editing ? t.adminVocabulary.editTopicTitle(editing.name) : t.adminVocabulary.addTopicTitle}
+          </h3>
           <form key={editing?.name ?? '__new__'} onSubmit={onSubmit} className="space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Tên chủ đề
+              {t.adminVocabulary.topicNameLabel}
               {editing ? (
-                <p className="mt-1 text-sm text-slate-900">{editing.name} (không thể đổi tên khi sửa)</p>
+                <p className="mt-1 text-sm text-slate-900">{t.adminVocabulary.topicNameImmutable(editing.name)}</p>
               ) : (
-                <input name="name" type="text" required className={inputClass} placeholder="Công nghệ thông tin" />
+                <input name="name" type="text" required className={inputClass} placeholder={t.adminVocabulary.topicNamePlaceholder} />
               )}
             </label>
             <TopicParentAndOrderFields editing={editing} parentOptions={parentOptions} allTopics={allTopics} />
@@ -228,7 +230,7 @@ function TopicsSection({
             )}
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button
                 type="button"
@@ -238,49 +240,49 @@ function TopicsSection({
                   setEditing(null)
                 }}
               >
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
         </Card>
       )}
 
-      {allTopics.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
-      {topLevel.length === 0 && allTopics.length > 0 && <EmptyState title="Không tìm thấy chủ đề nào" icon="🔍" />}
+      {allTopics.length === 0 && <EmptyState title={t.adminVocabulary.emptyTopics} icon="🗂️" />}
+      {topLevel.length === 0 && allTopics.length > 0 && <EmptyState title={t.adminVocabulary.emptyTopicsSearch} icon="🔍" />}
 
       {topLevel.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {topLevel.map((t) => {
-              const children = childrenOf(t.name)
+            {topLevel.map((topic) => {
+              const children = childrenOf(topic.name)
               const hasChildren = children.length > 0
-              const isOpen = openParents.has(t.name) || (query !== '' && children.some((c) => matchesQuery(c.name)))
+              const isOpen = openParents.has(topic.name) || (query !== '' && children.some((c) => matchesQuery(c.name)))
               return (
-                <div key={t.name}>
+                <div key={topic.name}>
                   <li className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
                     {hasChildren ? (
                       <button
                         type="button"
-                        onClick={() => toggleOpen(t.name)}
+                        onClick={() => toggleOpen(topic.name)}
                         className="shrink-0 text-slate-400 transition-transform hover:text-slate-600"
-                        aria-label={isOpen ? 'Thu gọn chủ đề con' : 'Xem chủ đề con'}
+                        aria-label={isOpen ? t.adminVocabulary.collapseChildren : t.adminVocabulary.expandChildren}
                       >
                         <span className={cn('inline-block transition-transform', isOpen && 'rotate-90')}>▸</span>
                       </button>
                     ) : (
                       <span className="w-4 shrink-0" />
                     )}
-                    <span className="text-xl">{t.icon}</span>
+                    <span className="text-xl">{topic.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-700">{t.name}</p>
-                      {hasChildren && <p className="text-xs text-slate-400">{children.length} chủ đề con</p>}
+                      <p className="truncate text-sm font-medium text-slate-700">{topic.name}</p>
+                      {hasChildren && <p className="text-xs text-slate-400">{t.adminVocabulary.childCount(children.length)}</p>}
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
-                        Sửa
+                      <Button variant="secondary" size="sm" onClick={() => onEdit(topic)}>
+                        {t.adminCommon.editBtn}
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
-                        Xoá
+                      <Button variant="danger" size="sm" onClick={() => onDelete(topic)}>
+                        {t.adminCommon.deleteBtn}
                       </Button>
                     </div>
                   </li>
@@ -317,16 +319,17 @@ function TopicParentAndOrderFields({
   allTopics: VocabularyTopicAdmin[]
 }) {
   const [parentName, setParentName] = useState(editing?.parent_name ?? '')
+  const t = useTranslation()
 
-  const siblingCount = allTopics.filter((t) => (t.parent_name ?? '') === parentName && t.name !== editing?.name).length
+  const siblingCount = allTopics.filter((x) => (x.parent_name ?? '') === parentName && x.name !== editing?.name).length
   const defaultOrder = editing ? editing.order_index : siblingCount
 
   return (
     <>
       <label className="block text-sm font-medium text-slate-700">
-        Chủ đề cha (để trống = chủ đề cấp cao nhất)
+        {t.adminVocabulary.parentLabel}
         <select name="parent_name" value={parentName} onChange={(e) => setParentName(e.target.value)} className={inputClass}>
-          <option value="">— Không có, đây là chủ đề cấp cao nhất —</option>
+          <option value="">{t.adminVocabulary.noParentOption}</option>
           {parentOptions.map((p) => (
             <option key={p.name} value={p.name}>
               {p.icon} {p.name}
@@ -336,11 +339,11 @@ function TopicParentAndOrderFields({
       </label>
       <div className="grid grid-cols-2 gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Icon (emoji)
+          {t.adminVocabulary.iconLabel}
           <IconPickerInput name="icon" defaultValue={editing?.icon ?? '📘'} />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Thứ tự hiển thị
+          {t.adminVocabulary.orderIndexLabel}
           <input key={parentName} name="order_index" type="number" defaultValue={defaultOrder} className={inputClass} />
         </label>
       </div>
@@ -350,6 +353,7 @@ function TopicParentAndOrderFields({
 
 function VocabularySection({ languageId, topics }: { languageId: string; topics: VocabularyTopicAdmin[] }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -384,7 +388,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   }
 
   const onDelete = async (v: VocabularyAdmin) => {
-    if (!(await confirm({ description: `Xoá từ "${v.term}"?`, danger: true }))) return
+    if (!(await confirm({ description: t.adminVocabulary.deleteWordConfirm(v.term), danger: true }))) return
     await vocabularyService.deleteVocabulary(v.id)
     reload()
   }
@@ -421,7 +425,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">📚 Từ vựng</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminVocabulary.wordsTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<VocabularyAdmin>
@@ -439,7 +443,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
               filename={`vocabulary-${languageId}.json`}
             />
             <Button size="sm" onClick={onCreateNew}>
-              + Thêm từ
+              {t.adminVocabulary.addWordBtn}
             </Button>
           </div>
         )}
@@ -447,7 +451,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
 
       <div className="flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Tìm kiếm
+          {t.adminCommon.searchLabel}
           <input
             type="search"
             value={search}
@@ -455,12 +459,12 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Tìm theo từ/nghĩa..."
+            placeholder={t.adminVocabulary.wordSearchPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Chủ đề
+          {t.adminVocabulary.topicFilterLabel}
           <input
             type="text"
             list="vocab-topic-filter-options"
@@ -469,17 +473,17 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
               setTopicFilter(e.target.value)
               setPage(1)
             }}
-            placeholder="Gõ để tìm hoặc chọn chủ đề..."
+            placeholder={t.adminVocabulary.topicFilterPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
           <datalist id="vocab-topic-filter-options">
-            {topics.map((t) => (
-              <option key={t.name} value={t.name} />
+            {topics.map((topic) => (
+              <option key={topic.name} value={topic.name} />
             ))}
           </datalist>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Cấp độ
+          {t.adminVocabulary.levelFilterLabel}
           <select
             value={levelFilter}
             onChange={(e) => {
@@ -488,7 +492,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             }}
             className={cn(inputClass, 'max-w-[8rem]')}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t.adminCommon.allLabel}</option>
             {CEFR_LEVELS.map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
@@ -500,34 +504,36 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
 
       {showForm && (
         <Card>
-          <h3 className="text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.term}` : 'Thêm từ mới'}</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            {editing ? t.adminVocabulary.editWordTitle(editing.term) : t.adminVocabulary.addWordTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
-              Từ
+              {t.adminVocabulary.termLabel}
               <input name="term" type="text" required defaultValue={editing?.term} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Phiên âm
+              {t.adminVocabulary.phoneticLabel}
               <input name="phonetic" type="text" defaultValue={editing?.phonetic} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-              Nghĩa
+              {t.adminVocabulary.meaningLabel}
               <input name="meaning" type="text" required defaultValue={editing?.meaning} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-              Ví dụ
+              {t.adminVocabulary.exampleLabel}
               <input name="example" type="text" defaultValue={editing?.example} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Chủ đề
+              {t.adminVocabulary.topicFilterLabel}
               <input name="topic" type="text" defaultValue={editing?.topic} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Cấp độ
+              {t.adminVocabulary.levelFilterLabel}
               <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Emoji minh họa
+              {t.adminVocabulary.illustrationEmojiLabel}
               <IconPickerInput name="image_emoji" defaultValue={editing?.image_emoji ?? ''} />
             </label>
 
@@ -539,10 +545,10 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
 
             <div className="flex gap-2 sm:col-span-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -551,7 +557,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có từ vựng nào" icon="📚" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminVocabulary.emptyWords} icon="📚" />}
 
       {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
@@ -571,10 +577,10 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
                 <LevelBadge level={v.level} />
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => onEdit(v)}>
-                    Sửa
+                    {t.adminCommon.editBtn}
                   </Button>
                   <Button variant="danger" size="sm" onClick={() => onDelete(v)}>
-                    Xoá
+                    {t.adminCommon.deleteBtn}
                   </Button>
                 </div>
               </li>

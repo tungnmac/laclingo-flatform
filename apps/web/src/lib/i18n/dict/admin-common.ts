@@ -66,6 +66,12 @@ export interface AdminCommonDict {
     iconSearchPlaceholder: string
     chooseIconAria: string
     noIconsFound: string
+    editBtn: string
+    deleteBtn: string
+    savingBtn: string
+    searchLabel: string
+    allLabel: string
+    languageLabel: string
   }
 }
 
@@ -129,6 +135,12 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       iconSearchPlaceholder: 'Tìm icon theo từ khoá...',
       chooseIconAria: 'Chọn icon có sẵn',
       noIconsFound: 'Không tìm thấy icon nào',
+      editBtn: 'Sửa',
+      deleteBtn: 'Xoá',
+      savingBtn: 'Đang lưu...',
+      searchLabel: 'Tìm kiếm',
+      allLabel: 'Tất cả',
+      languageLabel: 'Ngôn ngữ',
     },
   },
   en: {
@@ -190,6 +202,12 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       iconSearchPlaceholder: 'Search icons by keyword...',
       chooseIconAria: 'Choose an icon',
       noIconsFound: 'No icons found',
+      editBtn: 'Edit',
+      deleteBtn: 'Delete',
+      savingBtn: 'Saving...',
+      searchLabel: 'Search',
+      allLabel: 'All',
+      languageLabel: 'Language',
     },
   },
 }
