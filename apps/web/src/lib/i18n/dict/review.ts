@@ -25,7 +25,6 @@ export interface ReviewDict {
     viewFavoritesBtn: string
     mascotHub: string
 
-    backToReviewTypes: string
     reviewTypesLabel: string
     loadingTopics: string
     newWordsPageDesc: string
@@ -35,7 +34,6 @@ export interface ReviewDict {
     doneBadge: string
     learnedLabel: string
 
-    backToTopics: string
     subtopicsDesc: string
     emptySubtopicWords: string
     ownWordsLabel: string
@@ -105,7 +103,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       viewFavoritesBtn: 'Xem từ yêu thích',
       mascotHub: 'Mỗi ngày một chút, chữ sẽ tự ở lại trong đầu! 🦩',
 
-      backToReviewTypes: '← Các dạng ôn tập',
       reviewTypesLabel: 'Các dạng ôn tập',
       loadingTopics: 'Đang lấy chủ đề...',
       newWordsPageDesc: 'Chọn một chủ đề — xem hình, nghe phát âm, đọc câu mẫu rồi thêm từ vào ôn tập.',
@@ -115,7 +112,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       doneBadge: 'Hoàn thành',
       learnedLabel: 'Đã học',
 
-      backToTopics: '← Chủ đề',
       subtopicsDesc: 'Chọn mục con để học — hoặc xem từ chung của chủ đề này.',
       emptySubtopicWords: 'Chủ đề này chưa có từ nào',
       ownWordsLabel: 'Từ chung',
@@ -182,7 +178,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       viewFavoritesBtn: 'View favorites',
       mascotHub: 'A little each day — the words will stick! 🦩',
 
-      backToReviewTypes: '← Review modes',
       reviewTypesLabel: 'Review modes',
       loadingTopics: 'Loading topics...',
       newWordsPageDesc: 'Pick a topic — see the picture, hear the pronunciation, read the example, then add the word to review.',
@@ -192,7 +187,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       doneBadge: 'Done',
       learnedLabel: 'Learned',
 
-      backToTopics: '← Topics',
       subtopicsDesc: 'Pick a subtopic to learn — or see the shared words of this topic.',
       emptySubtopicWords: 'This topic has no words yet',
       ownWordsLabel: 'Shared words',

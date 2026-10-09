@@ -33,7 +33,6 @@ export interface AdminGrammarDict {
     emptyLessons: string
     deleteLessonConfirm: (title: string) => string
     exercisesBtn: string
-    backToLessons: string
     exercisesPageTitle: string
     exercisesPageDesc: string
     addExerciseBtn: string
@@ -90,7 +89,6 @@ export const adminGrammarTranslations: Partial<Record<Locale, AdminGrammarDict>>
       emptyLessons: 'Chưa có bài học nào',
       deleteLessonConfirm: (title) => `Xoá bài học "${title}"? Toàn bộ bài tập bên trong sẽ bị xoá theo.`,
       exercisesBtn: 'Bài tập',
-      backToLessons: '← Danh sách bài học',
       exercisesPageTitle: 'Bài tập ngữ pháp',
       exercisesPageDesc: 'Trắc nghiệm (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK) cho bài học này.',
       addExerciseBtn: '+ Tạo bài tập',
@@ -145,7 +143,6 @@ export const adminGrammarTranslations: Partial<Record<Locale, AdminGrammarDict>>
       emptyLessons: 'No lessons yet',
       deleteLessonConfirm: (title) => `Delete lesson "${title}"? All exercises inside it will be deleted too.`,
       exercisesBtn: 'Exercises',
-      backToLessons: '← Lesson list',
       exercisesPageTitle: 'Grammar exercises',
       exercisesPageDesc: 'Multiple-choice (MULTIPLE_CHOICE) or fill-in-the-blank (FILL_BLANK) for this lesson.',
       addExerciseBtn: '+ Create exercise',

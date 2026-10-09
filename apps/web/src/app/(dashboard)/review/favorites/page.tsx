@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ButtonLink } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
@@ -15,6 +15,7 @@ import type { VocabularyCard } from '@/types/api'
 export default function FavoriteWordsPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
   const t = useTranslation()
+  const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const { data, error, loading, reload } = useApi(() => vocabularyService.listFavorites(language), [language])
@@ -29,9 +30,7 @@ export default function FavoriteWordsPage({ searchParams }: { searchParams: { la
 
   return (
     <div className="space-y-6">
-      <Link href={newWordsHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.review.backToTopics}
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.review, href: reviewHref }, { label: t.review.favoritesTitle }]} />
       <PageHeader title={t.review.favoritesTitle} description={t.review.favoritesDesc} />
 
       {words.length === 0 ? (

@@ -10,7 +10,6 @@ export interface LearnDict {
     pageDescription: string
     emptyTitle: string
     emptyBody: string
-    backToLanguages: string
     languageCodeLabel: string
     srsCardTitle: string
     srsCardDesc: string
@@ -20,10 +19,8 @@ export interface LearnDict {
     vocabularyCardTitle: string
     vocabularyCardDesc: string
     grammarCardDesc: string
-    backToCourse: string
   }
   grammar: {
-    backToLessons: string
     formulaAffirmative: string
     formulaNegative: string
     formulaInterrogative: string
@@ -49,7 +46,6 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       pageDescription: 'Bắt đầu hành trình học cùng Chim Lạc.',
       emptyTitle: 'Chưa có ngôn ngữ nào',
       emptyBody: 'Hãy chạy seeds.sql để thêm dữ liệu mẫu.',
-      backToLanguages: '← Tất cả ngôn ngữ',
       languageCodeLabel: 'Mã ngôn ngữ',
       srsCardTitle: '🧠 Ôn tập từ vựng (SRS)',
       srsCardDesc: 'Thuật toán SM-2 nhắc bạn ôn đúng lúc sắp quên — mỗi lần trả lời đúng, khoảng cách ôn tập sẽ dài hơn.',
@@ -59,10 +55,8 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       vocabularyCardTitle: '📚 Từ vựng',
       vocabularyCardDesc: 'Học từ mới theo chủ đề qua hình minh họa, câu mẫu và phát âm.',
       grammarCardDesc: 'Lướt tự do toàn bộ chủ đề và bài học ngữ pháp theo 12 thì.',
-      backToCourse: '← Quay lại khoá học',
     },
     grammar: {
-      backToLessons: '← Danh sách bài học',
       formulaAffirmative: 'Khẳng định',
       formulaNegative: 'Phủ định',
       formulaInterrogative: 'Nghi vấn',
@@ -86,7 +80,6 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       pageDescription: 'Start your learning journey with Chim Lạc.',
       emptyTitle: 'No languages yet',
       emptyBody: 'Run seeds.sql to add sample data.',
-      backToLanguages: '← All languages',
       languageCodeLabel: 'Language code',
       srsCardTitle: '🧠 Vocabulary review (SRS)',
       srsCardDesc: 'The SM-2 algorithm reminds you to review right before you forget — each correct answer stretches the interval further.',
@@ -96,10 +89,8 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       vocabularyCardTitle: '📚 Vocabulary',
       vocabularyCardDesc: 'Learn new words by topic through pictures, example sentences, and pronunciation.',
       grammarCardDesc: 'Freely browse all grammar topics and lessons across the 12 tenses.',
-      backToCourse: '← Back to course',
     },
     grammar: {
-      backToLessons: '← Lesson list',
       formulaAffirmative: 'Affirmative',
       formulaNegative: 'Negative',
       formulaInterrogative: 'Interrogative',
@@ -123,7 +114,6 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       pageDescription: '和 Chim Lạc 一起开始你的学习之旅吧。',
       emptyTitle: '暂无语言',
       emptyBody: '请运行 seeds.sql 添加示例数据。',
-      backToLanguages: '← 所有语言',
       languageCodeLabel: '语言代码',
       srsCardTitle: '🧠 单词复习（SRS）',
       srsCardDesc: 'SM-2 算法会在你快要遗忘时提醒你复习——每次答对，复习间隔都会变长。',
@@ -133,10 +123,8 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       vocabularyCardTitle: '📚 词汇',
       vocabularyCardDesc: '通过图片、例句和发音按主题学习新单词。',
       grammarCardDesc: '自由浏览所有语法主题和 12 种时态的课程。',
-      backToCourse: '← 返回课程',
     },
     grammar: {
-      backToLessons: '← 课程列表',
       formulaAffirmative: '肯定句',
       formulaNegative: '否定句',
       formulaInterrogative: '疑问句',
@@ -160,7 +148,6 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       pageDescription: 'Chim Lạc と一緒に学習の旅を始めましょう。',
       emptyTitle: '言語がまだありません',
       emptyBody: 'seeds.sql を実行してサンプルデータを追加してください。',
-      backToLanguages: '← すべての言語',
       languageCodeLabel: '言語コード',
       srsCardTitle: '🧠 単語復習（SRS）',
       srsCardDesc: 'SM-2 アルゴリズムが忘れる直前に復習のタイミングを教えてくれます——正解するたびに復習間隔が長くなります。',
@@ -170,10 +157,8 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       vocabularyCardTitle: '📚 単語',
       vocabularyCardDesc: '写真や例文、発音を使ってトピック別に新しい単語を学びます。',
       grammarCardDesc: '12の時制に関するすべての文法トピックとレッスンを自由に閲覧できます。',
-      backToCourse: '← コースに戻る',
     },
     grammar: {
-      backToLessons: '← レッスン一覧',
       formulaAffirmative: '肯定文',
       formulaNegative: '否定文',
       formulaInterrogative: '疑問文',
@@ -197,7 +182,6 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       pageDescription: 'Chim Lạc 와 함께 학습 여정을 시작하세요.',
       emptyTitle: '아직 언어가 없습니다',
       emptyBody: 'seeds.sql 을 실행해서 샘플 데이터를 추가하세요.',
-      backToLanguages: '← 모든 언어',
       languageCodeLabel: '언어 코드',
       srsCardTitle: '🧠 단어 복습 (SRS)',
       srsCardDesc: 'SM-2 알고리즘이 잊어버리기 직전에 복습하도록 알려줍니다 — 맞출 때마다 복습 간격이 더 길어집니다.',
@@ -207,10 +191,8 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       vocabularyCardTitle: '📚 단어',
       vocabularyCardDesc: '사진, 예문, 발음을 통해 주제별로 새 단어를 배워요.',
       grammarCardDesc: '12가지 시제에 관한 모든 문법 주제와 레슨을 자유롭게 둘러보세요.',
-      backToCourse: '← 코스로 돌아가기',
     },
     grammar: {
-      backToLessons: '← 레슨 목록',
       formulaAffirmative: '긍정문',
       formulaNegative: '부정문',
       formulaInterrogative: '의문문',

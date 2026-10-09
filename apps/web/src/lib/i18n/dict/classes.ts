@@ -10,7 +10,6 @@ export interface ClassesDict {
     lessonCountSuffix: string
     enrollBtn: string
     enrolling: string
-    backToCourse: string
     detailProgressLabel: string
     lessonsTitle: string
     completedBadge: string
@@ -47,7 +46,6 @@ export const classesTranslations: Partial<Record<Locale, ClassesDict>> = {
       lessonCountSuffix: 'bài học',
       enrollBtn: 'Ghi danh',
       enrolling: 'Đang ghi danh...',
-      backToCourse: '← Quay lại',
       detailProgressLabel: 'Tiến độ giáo án',
       lessonsTitle: 'Giáo án',
       completedBadge: '✅ Hoàn thành',
@@ -83,7 +81,6 @@ export const classesTranslations: Partial<Record<Locale, ClassesDict>> = {
       lessonCountSuffix: 'lessons',
       enrollBtn: 'Enroll',
       enrolling: 'Enrolling...',
-      backToCourse: '← Back',
       detailProgressLabel: 'Curriculum progress',
       lessonsTitle: 'Curriculum',
       completedBadge: '✅ Done',

@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { ActiveBadge, ActiveToggleButton, ModulesEditor, RoleBadge, RoleToggleButton } from '@/components/admin/UserAdminControls'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card } from '@/components/ui/Card'
@@ -17,9 +17,14 @@ export default function AdminUserDetailPage({ params }: { params: { username: st
 
   return (
     <>
-      <Link href="/admin/users" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.adminUsers.backToUsers}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.admin, href: '/admin' },
+          { label: t.adminCommon.moduleUsers, href: '/admin/users' },
+          { label: user ? displayName(user) : t.adminUsers.detailTitle },
+        ]}
+        className="mb-4"
+      />
       <PageHeader title={t.adminUsers.detailTitle} description={t.adminUsers.detailDesc} />
 
       {loading && !user && <Spinner />}

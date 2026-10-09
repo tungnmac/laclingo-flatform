@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -109,9 +109,14 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
 
   return (
     <>
-      <Link href="/admin/grammar" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.adminGrammar.backToLessons}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.admin, href: '/admin' },
+          { label: t.adminGrammar.pageTitle, href: '/admin/grammar' },
+          { label: t.adminGrammar.exercisesPageTitle },
+        ]}
+        className="mb-4"
+      />
       <PageHeader
         title={t.adminGrammar.exercisesPageTitle}
         description={t.adminGrammar.exercisesPageDesc}

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -34,12 +34,13 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/learn/${encodeURIComponent(params.courseId)}`}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
-      >
-        {t.grammar.backToLessons}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.learn, href: '/learn' },
+          { label: t.learn.grammarSectionTitle, href: `/learn/${encodeURIComponent(params.courseId)}/grammar` },
+          { label: lesson.title },
+        ]}
+      />
 
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-900">{lesson.title}</h1>

@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
@@ -19,15 +21,20 @@ export default function ListeningPassagesByTopicPage({
 }) {
   const topic = searchParams.name ?? ''
   const { data, error, loading, reload } = useApi(() => listeningService.listPassages(params.languageId, topic), [params.languageId, topic])
+  const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const t = useTranslation()
 
   if (!topic) return <EmptyState icon="🧭" title={t.listening.emptyNoTopic} />
 
   return (
     <div className="space-y-6">
-      <Link href={`/listening/${params.languageId}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.listening.backToTopics}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.listening, href: '/listening' },
+          { label: language?.name ?? params.languageId, href: `/listening/${params.languageId}` },
+          { label: topic },
+        ]}
+      />
 
       <h1 className="text-2xl font-bold text-slate-900">{topic}</h1>
 

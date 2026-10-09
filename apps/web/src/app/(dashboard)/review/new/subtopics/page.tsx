@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
@@ -16,6 +17,7 @@ export default function SubtopicsPage({ searchParams }: { searchParams: { parent
   const language = searchParams.language
   const t = useTranslation()
   const languageQuery = language ? `&language=${encodeURIComponent(language)}` : ''
+  const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const { data: subtopics, error, loading, reload } = useApi(() => vocabularyService.listChildTopics(parent, language), [parent, language])
@@ -26,9 +28,13 @@ export default function SubtopicsPage({ searchParams }: { searchParams: { parent
 
   return (
     <div className="space-y-6">
-      <Link href={topicsHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.review.backToTopics}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.review, href: reviewHref },
+          { label: t.review.newWordsTitle, href: topicsHref },
+          { label: parent },
+        ]}
+      />
       <PageHeader title={parent} description={t.review.subtopicsDesc} />
 
       {!subtopics || subtopics.length === 0 ? (

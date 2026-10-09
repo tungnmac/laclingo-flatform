@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
@@ -15,6 +15,7 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
   const topic = searchParams.name ?? ''
   const language = searchParams.language
   const t = useTranslation()
+  const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const [words, setWords] = useState<VocabularyCard[]>([])
@@ -65,9 +66,13 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Link href={topicsHref} className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
-        {t.review.backToTopics}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.review, href: reviewHref },
+          { label: t.review.newWordsTitle, href: topicsHref },
+          { label: topic },
+        ]}
+      />
 
       {words.length === 0 || !current ? (
         <EmptyState icon="📭" title={t.review.emptyTopicNamed(topic)} />

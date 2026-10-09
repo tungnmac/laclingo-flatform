@@ -7,14 +7,11 @@ export interface ListeningDict {
     pageTitle: string
     pageDesc: string
     emptyLanguages: string
-    backToLanguages: string
     topicsTitle: string
     emptyTopics: string
     passageCountSuffix: string
-    backToTopics: string
     emptyNoTopic: string
     emptyTopicPassages: string
-    backToPassages: string
     audioHint: string
     hideTranscript: string
     showTranscript: string
@@ -31,14 +28,11 @@ export const listeningTranslations: Partial<Record<Locale, ListeningDict>> = {
       pageTitle: '🎧 Luyện nghe',
       pageDesc: 'Nghe đoạn hội thoại/câu chuyện ngắn và trả lời câu hỏi hiểu nội dung.',
       emptyLanguages: 'Chưa có ngôn ngữ nào',
-      backToLanguages: '← Tất cả ngôn ngữ',
       topicsTitle: 'Luyện nghe',
       emptyTopics: 'Chưa có chủ đề luyện nghe cho ngôn ngữ này',
       passageCountSuffix: 'bài',
-      backToTopics: '← Chủ đề',
       emptyNoTopic: 'Chưa chọn chủ đề',
       emptyTopicPassages: 'Chủ đề này chưa có bài luyện nghe',
-      backToPassages: '← Danh sách bài luyện nghe',
       audioHint: 'Nhấn để nghe đoạn audio. Có thể nghe lại nhiều lần trước khi trả lời.',
       hideTranscript: 'Ẩn văn bản',
       showTranscript: 'Hiện văn bản (nếu cần)',
@@ -53,14 +47,11 @@ export const listeningTranslations: Partial<Record<Locale, ListeningDict>> = {
       pageTitle: '🎧 Listening',
       pageDesc: 'Listen to short dialogues/stories and answer comprehension questions.',
       emptyLanguages: 'No languages yet',
-      backToLanguages: '← All languages',
       topicsTitle: 'Listening',
       emptyTopics: 'No listening topics for this language yet',
       passageCountSuffix: 'passages',
-      backToTopics: '← Topics',
       emptyNoTopic: 'No topic selected',
       emptyTopicPassages: 'This topic has no listening passages yet',
-      backToPassages: '← Passage list',
       audioHint: 'Tap to play the audio. You can replay it as many times as you need before answering.',
       hideTranscript: 'Hide transcript',
       showTranscript: 'Show transcript (if needed)',

@@ -1,12 +1,13 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ListeningQuestionCard } from '@/features/listening/components/ListeningQuestionCard'
 import { listeningService } from '@/features/listening/listening.service'
@@ -15,6 +16,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningPassagePage({ params }: { params: { languageId: string; passageId: string } }) {
   const { data: passage, error, loading, reload } = useApi(() => listeningService.getPassage(params.passageId), [params.passageId])
+  const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const [showTranscript, setShowTranscript] = useState(false)
   const t = useTranslation()
 
@@ -24,12 +26,15 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
 
   return (
     <div className="space-y-6">
-      <Link
-        href={passage.topic ? `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` : `/listening/${params.languageId}`}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
-      >
-        {t.listening.backToPassages}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.listening, href: '/listening' },
+          passage.topic
+            ? { label: passage.topic, href: `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` }
+            : { label: language?.name ?? params.languageId, href: `/listening/${params.languageId}` },
+          { label: passage.title },
+        ]}
+      />
 
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-900">{passage.title}</h1>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -50,9 +51,7 @@ export default function CoursePage({ params }: { params: { courseId: string } })
 
   return (
     <div className="space-y-6">
-      <Link href="/learn" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.learn.backToLanguages}
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.learn, href: '/learn' }, { label: language.name }]} />
 
       <Card className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
         <span className="text-6xl sm:text-7xl">{languageFlag(language.id)}</span>

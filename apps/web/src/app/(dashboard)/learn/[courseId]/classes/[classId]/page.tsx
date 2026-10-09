@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
@@ -34,9 +35,13 @@ export default function ClassDetailPage({ params }: { params: { courseId: string
 
   return (
     <div className="space-y-6">
-      <Link href={`/learn/${params.courseId}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.classes.backToCourse}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.learn, href: '/learn' },
+          { label: t.classes.sectionTitle, href: `/learn/${params.courseId}/classes` },
+          { label: detail.title },
+        ]}
+      />
 
       <Card>
         <div className="flex items-start justify-between gap-3">

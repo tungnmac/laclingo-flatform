@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { useCallback } from 'react'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
 import { Button, ButtonLink } from '@/components/ui/Button'
@@ -102,9 +102,7 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Link href={reviewHref} className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
-        {t.review.backToReviewTypes}
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.review, href: reviewHref }, { label: t.review.vocabReviewTitle }]} />
 
       <div className="flex flex-col items-center gap-6">
         <ProgressHeader done={session.index} total={session.cards.length} />

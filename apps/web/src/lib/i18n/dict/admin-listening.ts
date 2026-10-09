@@ -43,7 +43,6 @@ export interface AdminListeningDict {
     noTopicGroupLabel: string
     passageCountSuffix: string
     questionsBtn: string
-    backToPassages: string
     questionsPageTitle: string
     questionsPageDesc: string
     addQuestionBtn: string
@@ -104,7 +103,6 @@ export const adminListeningTranslations: Partial<Record<Locale, AdminListeningDi
       noTopicGroupLabel: 'Chưa có chủ đề',
       passageCountSuffix: 'bài',
       questionsBtn: 'Câu hỏi',
-      backToPassages: '← Danh sách bài luyện nghe',
       questionsPageTitle: 'Câu hỏi hiểu nội dung',
       questionsPageDesc: 'Trắc nghiệm cho bài luyện nghe này.',
       addQuestionBtn: '+ Tạo câu hỏi',
@@ -162,7 +160,6 @@ export const adminListeningTranslations: Partial<Record<Locale, AdminListeningDi
       noTopicGroupLabel: 'No topic',
       passageCountSuffix: 'passages',
       questionsBtn: 'Questions',
-      backToPassages: '← Passage list',
       questionsPageTitle: 'Comprehension questions',
       questionsPageDesc: 'Multiple-choice questions for this passage.',
       addQuestionBtn: '+ Create question',

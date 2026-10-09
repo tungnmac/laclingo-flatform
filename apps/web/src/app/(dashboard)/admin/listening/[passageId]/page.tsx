@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { ExportButton } from '@/components/admin/ExportButton'
 import { Pagination } from '@/components/admin/Pagination'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -100,9 +100,14 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
 
   return (
     <>
-      <Link href="/admin/listening" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.adminListening.backToPassages}
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.admin, href: '/admin' },
+          { label: t.adminListening.pageTitle, href: '/admin/listening' },
+          { label: t.adminListening.questionsPageTitle },
+        ]}
+        className="mb-4"
+      />
       <PageHeader
         title={t.adminListening.questionsPageTitle}
         description={t.adminListening.questionsPageDesc}

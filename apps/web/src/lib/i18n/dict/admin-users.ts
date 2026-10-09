@@ -15,7 +15,6 @@ export interface AdminUsersDict {
     youSuffix: string
     statLine: (level: number, points: number, streak: number) => string
     joinedAt: (date: string) => string
-    backToUsers: string
     detailTitle: string
     detailDesc: string
     levelLabel: string
@@ -41,7 +40,6 @@ export const adminUsersTranslations: Partial<Record<Locale, AdminUsersDict>> = {
       youSuffix: '(bạn)',
       statLine: (level, points, streak) => `⭐ Lv.${level} · 🏆 ${points} · 🔥 ${streak}`,
       joinedAt: (date) => `Tham gia ${date}`,
-      backToUsers: '← Danh sách học viên',
       detailTitle: 'Chi tiết học viên',
       detailDesc: 'Thông tin hồ sơ và quyền truy cập.',
       levelLabel: 'Level',
@@ -65,7 +63,6 @@ export const adminUsersTranslations: Partial<Record<Locale, AdminUsersDict>> = {
       youSuffix: '(you)',
       statLine: (level, points, streak) => `⭐ Lv.${level} · 🏆 ${points} · 🔥 ${streak}`,
       joinedAt: (date) => `Joined ${date}`,
-      backToUsers: '← User list',
       detailTitle: 'User details',
       detailDesc: 'Profile info and access rights.',
       levelLabel: 'Level',

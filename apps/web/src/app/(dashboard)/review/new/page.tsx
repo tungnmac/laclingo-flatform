@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -24,9 +25,7 @@ export default function NewWordsTopicsPage({ searchParams }: { searchParams: { l
 
   return (
     <div className="space-y-6">
-      <Link href={reviewHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.review.backToReviewTypes}
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.review, href: reviewHref }, { label: t.review.newWordsTitle }]} />
       <PageHeader
         title={t.review.newWordsTitle}
         description={t.review.newWordsPageDesc}

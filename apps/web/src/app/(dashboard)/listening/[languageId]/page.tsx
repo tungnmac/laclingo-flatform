@@ -1,8 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
@@ -13,13 +15,12 @@ import { useTranslation } from '@/hooks/useTranslation'
  * theo dõi tiến độ riêng). */
 export default function ListeningTopicsPage({ params }: { params: { languageId: string } }) {
   const { data, error, loading, reload } = useApi(() => listeningService.listTopics(params.languageId), [params.languageId])
+  const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const t = useTranslation()
 
   return (
     <div className="space-y-6">
-      <Link href="/listening" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        {t.listening.backToLanguages}
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.listening, href: '/listening' }, { label: language?.name ?? params.languageId }]} />
 
       <div className="flex items-center gap-2">
         <span className="text-3xl">{languageFlag(params.languageId)}</span>
