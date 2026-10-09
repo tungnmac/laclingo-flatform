@@ -11,10 +11,12 @@ import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ListeningQuestionCard } from '@/features/listening/components/ListeningQuestionCard'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningPassagePage({ params }: { params: { languageId: string; passageId: string } }) {
   const { data: passage, error, loading, reload } = useApi(() => listeningService.getPassage(params.passageId), [params.passageId])
   const [showTranscript, setShowTranscript] = useState(false)
+  const t = useTranslation()
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -26,7 +28,7 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
         href={passage.topic ? `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` : `/listening/${params.languageId}`}
         className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
       >
-        ← Danh sách bài luyện nghe
+        {t.listening.backToPassages}
       </Link>
 
       <div className="flex items-center gap-3">
@@ -40,23 +42,23 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
         ) : (
           <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
         )}
-        <p className="text-sm text-slate-500">Nhấn để nghe đoạn audio. Có thể nghe lại nhiều lần trước khi trả lời.</p>
+        <p className="text-sm text-slate-500">{t.listening.audioHint}</p>
         <Button variant="ghost" size="sm" onClick={() => setShowTranscript((v) => !v)}>
-          {showTranscript ? 'Ẩn văn bản' : 'Hiện văn bản (nếu cần)'}
+          {showTranscript ? t.listening.hideTranscript : t.listening.showTranscript}
         </Button>
         {showTranscript && <p className="rounded-xl bg-slate-50 p-3 text-left text-sm leading-relaxed text-slate-700">{passage.script}</p>}
       </Card>
 
       {passage.questions.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">❓ Câu hỏi</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.listening.questionsTitle}</h2>
           {passage.questions.map((question, index) => (
             <ListeningQuestionCard key={question.id} question={question} index={index} />
           ))}
         </section>
       )}
 
-      <Mascot message="Nghe kỹ trước khi trả lời nha! 🦩" />
+      <Mascot message={t.listening.mascotListen} />
     </div>
   )
 }

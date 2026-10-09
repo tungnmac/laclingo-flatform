@@ -1,6 +1,7 @@
 import type { Locale } from '@/store/locale'
 import { challengesTranslations, type ChallengesDict } from './dict/challenges'
 import { learnTranslations, type LearnDict } from './dict/learn'
+import { listeningTranslations, type ListeningDict } from './dict/listening'
 import { reviewTranslations, type ReviewDict } from './dict/review'
 
 // Dịch TỪNG PHẦN theo module UI. Namespace lớn (learn/review/...) tách file
@@ -356,7 +357,7 @@ const base: Record<Locale, Dictionary> = {
 
 const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
 
-export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict> = Object.fromEntries(
+export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict & ListeningDict> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
     locale,
     {
@@ -364,6 +365,7 @@ export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict & 
       ...pick(learnTranslations, locale),
       ...pick(reviewTranslations, locale),
       ...pick(challengesTranslations, locale),
+      ...pick(listeningTranslations, locale),
     },
   ]),
-) as Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict>
+) as Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict & ListeningDict>

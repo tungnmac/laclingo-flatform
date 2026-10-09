@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 /** Danh sách bài luyện nghe của 1 chủ đề — trước đây hiện hết bài của cả ngôn
  * ngữ, giờ lọc theo chủ đề đã chọn ở trang trước (ListeningTopicsPage). */
@@ -18,20 +19,21 @@ export default function ListeningPassagesByTopicPage({
 }) {
   const topic = searchParams.name ?? ''
   const { data, error, loading, reload } = useApi(() => listeningService.listPassages(params.languageId, topic), [params.languageId, topic])
+  const t = useTranslation()
 
-  if (!topic) return <EmptyState icon="🧭" title="Chưa chọn chủ đề" />
+  if (!topic) return <EmptyState icon="🧭" title={t.listening.emptyNoTopic} />
 
   return (
     <div className="space-y-6">
       <Link href={`/listening/${params.languageId}`} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Chủ đề
+        {t.listening.backToTopics}
       </Link>
 
       <h1 className="text-2xl font-bold text-slate-900">{topic}</h1>
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState icon="🎧" title="Chủ đề này chưa có bài luyện nghe" />}
+      {data && data.length === 0 && <EmptyState icon="🎧" title={t.listening.emptyTopicPassages} />}
 
       {data && data.length > 0 && (
         <Card className="p-0 sm:p-0">
