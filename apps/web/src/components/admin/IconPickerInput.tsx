@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 
 interface IconEntry {
@@ -99,6 +100,7 @@ export function IconPickerInput({ name, defaultValue = '' }: { name: string; def
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState(ICON_CATEGORIES[0].id)
+  const t = useTranslation()
 
   useEffect(() => {
     if (!open) return
@@ -127,7 +129,7 @@ export function IconPickerInput({ name, defaultValue = '' }: { name: string; def
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-lg text-slate-400 hover:text-slate-600"
-        aria-label="Chọn icon có sẵn"
+        aria-label={t.adminCommon.chooseIconAria}
       >
         🙂
       </button>
@@ -137,7 +139,7 @@ export function IconPickerInput({ name, defaultValue = '' }: { name: string; def
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm icon theo từ khoá..."
+            placeholder={t.adminCommon.iconSearchPlaceholder}
             className={cn(inputClass, 'mb-2 text-sm')}
             autoFocus
           />
@@ -160,7 +162,7 @@ export function IconPickerInput({ name, defaultValue = '' }: { name: string; def
             </div>
           )}
           <div className="grid max-h-48 grid-cols-7 gap-1 overflow-y-auto">
-            {visibleIcons.length === 0 && <p className="col-span-7 py-2 text-center text-xs text-slate-400">Không tìm thấy icon nào</p>}
+            {visibleIcons.length === 0 && <p className="col-span-7 py-2 text-center text-xs text-slate-400">{t.adminCommon.noIconsFound}</p>}
             {visibleIcons.map((i) => (
               <button key={i.emoji} type="button" onClick={() => pick(i.emoji)} title={i.keywords} className="rounded p-1 text-xl hover:bg-slate-100">
                 {i.emoji}

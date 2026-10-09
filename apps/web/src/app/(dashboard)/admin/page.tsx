@@ -3,29 +3,36 @@
 import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState } from '@/components/ui/States'
+import { useTranslation } from '@/hooks/useTranslation'
 import { hasModule } from '@/lib/adminModules'
 import { useSession } from '@/store/session'
 
-const sections = [
-  { key: 'users', href: '/admin/users', icon: '👤', title: 'Học viên', description: 'Tìm kiếm, lọc theo role, cấp/thu hồi quyền admin.' },
-  { key: 'missions', href: '/admin/missions', icon: '🎯', title: 'Nhiệm vụ', description: 'Tạo/sửa/tắt nhiệm vụ daily/weekly/monthly/event.' },
-  { key: 'vocabulary', href: '/admin/vocabulary', icon: '📚', title: 'Từ vựng', description: 'Quản lý từ vựng + chủ đề từ vựng theo ngôn ngữ.' },
-  { key: 'grammar', href: '/admin/grammar', icon: '📖', title: 'Ngữ pháp', description: 'Quản lý chủ đề, bài học, bài tập ngữ pháp.' },
-  { key: 'challenge_questions', href: '/admin/challenge-questions', icon: '🎮', title: 'Câu hỏi thách đấu', description: 'Ngân hàng câu hỏi trắc nghiệm cho phòng thách đấu.' },
-  { key: 'listening', href: '/admin/listening', icon: '🎧', title: 'Luyện nghe', description: 'Bài luyện nghe (script) + câu hỏi hiểu nội dung.' },
-]
-
 export default function AdminHubPage() {
   const user = useSession((s) => s.user)
+  const t = useTranslation()
+  const sections = [
+    { key: 'users', href: '/admin/users', icon: '👤', title: t.adminCommon.moduleUsers, description: t.adminCommon.usersDesc },
+    { key: 'missions', href: '/admin/missions', icon: '🎯', title: t.adminCommon.moduleMissions, description: t.adminCommon.missionsDesc },
+    { key: 'vocabulary', href: '/admin/vocabulary', icon: '📚', title: t.adminCommon.moduleVocabulary, description: t.adminCommon.vocabularyDesc },
+    { key: 'grammar', href: '/admin/grammar', icon: '📖', title: t.adminCommon.moduleGrammar, description: t.adminCommon.grammarDesc },
+    {
+      key: 'challenge_questions',
+      href: '/admin/challenge-questions',
+      icon: '🎮',
+      title: t.adminCommon.moduleChallengeQuestions,
+      description: t.adminCommon.challengeQuestionsDesc,
+    },
+    { key: 'listening', href: '/admin/listening', icon: '🎧', title: t.adminCommon.moduleListening, description: t.adminCommon.listeningDesc },
+  ]
   const visible = sections.filter((s) => hasModule(user, s.key))
 
   return (
     <>
-      <PageHeader title="Quản trị nội dung" description="Quản lý nguồn dữ liệu học tập — thay cho việc viết SQL seed tay." />
+      <PageHeader title={t.adminCommon.hubTitle} description={t.adminCommon.hubDesc} />
 
       {visible.length === 0 && (
-        <EmptyState icon="🔒" title="Bạn chưa được cấp quyền truy cập mục nào">
-          Liên hệ admin đã được cấp module &quot;Học viên&quot; để được cấp quyền.
+        <EmptyState icon="🔒" title={t.adminCommon.noAccessTitle}>
+          {t.adminCommon.noAccessBody}
         </EmptyState>
       )}
 

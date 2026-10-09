@@ -4,6 +4,7 @@ import { useId, useState, type ChangeEvent, type DragEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { BulkImportResult } from '@/types/api'
 
@@ -28,10 +29,11 @@ export function BulkImportPanel<T>({
   const [results, setResults] = useState<BulkImportResult[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslation()
 
   const loadFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.json')) {
-      setError('Chỉ nhận file .json.')
+      setError(t.adminCommon.onlyJsonFiles)
       return
     }
     setError(null)
@@ -39,7 +41,7 @@ export function BulkImportPanel<T>({
       setText(await file.text())
       setFileName(file.name)
     } catch {
-      setError('Không đọc được file.')
+      setError(t.adminCommon.cannotReadFile)
     }
   }
 
@@ -67,11 +69,11 @@ export function BulkImportPanel<T>({
     try {
       items = JSON.parse(text)
     } catch {
-      setError('JSON không hợp lệ.')
+      setError(t.adminCommon.invalidJson)
       return
     }
     if (!Array.isArray(items) || items.length === 0) {
-      setError('Phải là 1 mảng JSON có ít nhất 1 phần tử.')
+      setError(t.adminCommon.mustBeArray)
       return
     }
 
@@ -93,8 +95,8 @@ export function BulkImportPanel<T>({
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-900">📥 Nhập hàng loạt (JSON)</h3>
-      <p className="mt-1 text-sm text-slate-500">Mỗi phần tử cùng cấu trúc với form thêm 1 cái phía trên.</p>
+      <h3 className="text-base font-semibold text-slate-900">{t.adminCommon.bulkImportTitle}</h3>
+      <p className="mt-1 text-sm text-slate-500">{t.adminCommon.bulkImportDesc}</p>
       <label
         htmlFor={fileInputId}
         onDragOver={(e) => {
@@ -122,7 +124,7 @@ export function BulkImportPanel<T>({
                 e.stopPropagation()
                 clearFile()
               }}
-              aria-label="Bỏ file đã chọn"
+              aria-label={t.adminCommon.removeSelectedFile}
               className="ml-1 rounded-full px-1.5 py-0.5 text-slate-400 transition hover:bg-rose-100 hover:text-rose-600"
             >
               ✕
@@ -133,11 +135,11 @@ export function BulkImportPanel<T>({
             <span className="text-lg" aria-hidden>
               📁
             </span>{' '}
-            <span className="font-semibold text-indigo-600">Chọn file .json</span> hoặc kéo thả vào đây
+            <span className="font-semibold text-indigo-600">{t.adminCommon.chooseJsonFile}</span> {t.adminCommon.orDragDrop}
           </span>
         )}
       </label>
-      <p className="mt-3 text-center text-xs text-slate-400">— hoặc dán trực tiếp JSON bên dưới —</p>
+      <p className="mt-3 text-center text-xs text-slate-400">{t.adminCommon.orPasteJson}</p>
       <textarea
         value={text}
         onChange={(e) => {
@@ -150,21 +152,19 @@ export function BulkImportPanel<T>({
       />
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       <Button type="button" size="sm" className="mt-3" disabled={busy || !text.trim()} onClick={onSubmit}>
-        {busy ? 'Đang nhập...' : 'Nhập'}
+        {busy ? t.adminCommon.importing : t.adminCommon.importBtn}
       </Button>
 
       {results && (
         <div className="mt-4">
-          <p className="text-sm font-semibold text-slate-700">
-            ✅ {successCount}/{results.length} dòng thành công
-          </p>
+          <p className="text-sm font-semibold text-slate-700">{t.adminCommon.importResultSummary(successCount, results.length)}</p>
           <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
             {results.map((r) => (
               <li
                 key={r.index}
                 className={cn('rounded px-2 py-1', r.success ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700')}
               >
-                Dòng {r.index + 1}: {r.success ? 'OK' : r.error}
+                {t.adminCommon.rowLabel(r.index + 1)}: {r.success ? t.adminCommon.rowOk : r.error}
               </li>
             ))}
           </ul>

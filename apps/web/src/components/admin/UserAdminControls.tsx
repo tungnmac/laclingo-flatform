@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { useToast } from '@/components/ui/ToastProvider'
 import { userService } from '@/features/user/user.service'
+import { useTranslation } from '@/hooks/useTranslation'
 import { ADMIN_MODULES } from '@/lib/adminModules'
 import { cn, displayName } from '@/lib/utils'
 import { useSession } from '@/store/session'
@@ -25,9 +26,12 @@ export function RoleBadge({ user, className }: { user: User; className?: string 
 }
 
 export function ActiveBadge({ user }: { user: User }) {
+  const t = useTranslation()
   if (user.is_active) return null
   return (
-    <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">Đã khoá</span>
+    <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-200">
+      {t.adminCommon.lockedLabel}
+    </span>
   )
 }
 
@@ -40,6 +44,7 @@ export function RoleToggleButton({ user, onChanged }: { user: User; onChanged: (
   const toast = useToast()
   const me = useSession((s) => s.user)
   const [busy, setBusy] = useState(false)
+  const t = useTranslation()
 
   if (user.role === 'owner') return null
   const isRevoke = user.role === 'admin'
@@ -50,13 +55,13 @@ export function RoleToggleButton({ user, onChanged }: { user: User; onChanged: (
 
   const onClick = async (e: MouseEvent) => {
     e.stopPropagation()
-    const verb = isRevoke ? 'Thu hồi quyền admin của' : 'Cấp quyền admin cho'
-    if (!(await confirm({ description: `${verb} "${displayName(user)}"?`, danger: isRevoke }))) return
+    const confirmMsg = isRevoke ? t.adminCommon.revokeConfirm(displayName(user)) : t.adminCommon.grantConfirm(displayName(user))
+    if (!(await confirm({ description: confirmMsg, danger: isRevoke }))) return
     setBusy(true)
     try {
       await userService.setRole(user.id, nextRole)
       onChanged()
-      toast(isRevoke ? `Đã thu hồi quyền admin của "${displayName(user)}"` : `Đã cấp quyền admin cho "${displayName(user)}"`)
+      toast(isRevoke ? t.adminCommon.revokedToast(displayName(user)) : t.adminCommon.grantedToast(displayName(user)))
     } catch (err) {
       toast((err as Error).message, 'error')
     } finally {
@@ -66,7 +71,7 @@ export function RoleToggleButton({ user, onChanged }: { user: User; onChanged: (
 
   return (
     <Button variant={isRevoke ? 'danger' : 'secondary'} size="sm" disabled={busy || (isSelf && isRevoke)} onClick={onClick}>
-      {isRevoke ? 'Thu hồi quyền' : 'Cấp quyền admin'}
+      {isRevoke ? t.adminCommon.revokeBtn : t.adminCommon.grantBtn}
     </Button>
   )
 }
@@ -79,6 +84,7 @@ export function ActiveToggleButton({ user, onChanged }: { user: User; onChanged:
   const toast = useToast()
   const me = useSession((s) => s.user)
   const [busy, setBusy] = useState(false)
+  const t = useTranslation()
 
   if (me?.role !== 'owner' || user.role === 'owner' || user.id === me?.id) return null
 
@@ -88,7 +94,7 @@ export function ActiveToggleButton({ user, onChanged }: { user: User; onChanged:
     e.stopPropagation()
     if (!nextActive) {
       const ok = await confirm({
-        description: `Khoá tài khoản "${displayName(user)}"? Người này sẽ không thể đăng nhập cho đến khi được khôi phục.`,
+        description: t.adminCommon.lockConfirm(displayName(user)),
         danger: true,
       })
       if (!ok) return
@@ -97,7 +103,7 @@ export function ActiveToggleButton({ user, onChanged }: { user: User; onChanged:
     try {
       await userService.setActive(user.id, nextActive)
       onChanged()
-      toast(nextActive ? `Đã khôi phục tài khoản "${displayName(user)}"` : `Đã khoá tài khoản "${displayName(user)}"`)
+      toast(nextActive ? t.adminCommon.restoredToast(displayName(user)) : t.adminCommon.lockedToast(displayName(user)))
     } catch (err) {
       toast((err as Error).message, 'error')
     } finally {
@@ -107,7 +113,7 @@ export function ActiveToggleButton({ user, onChanged }: { user: User; onChanged:
 
   return (
     <Button variant={nextActive ? 'secondary' : 'danger'} size="sm" disabled={busy} onClick={onClick}>
-      {nextActive ? 'Khôi phục tài khoản' : 'Khoá tài khoản'}
+      {nextActive ? t.adminCommon.restoreAccountBtn : t.adminCommon.lockAccountBtn}
     </Button>
   )
 }
@@ -122,6 +128,15 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
   const [selected, setSelected] = useState<string[]>(user.admin_modules ?? [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslation()
+  const moduleLabels: Record<string, string> = {
+    users: t.adminCommon.moduleUsers,
+    missions: t.adminCommon.moduleMissions,
+    vocabulary: t.adminCommon.moduleVocabulary,
+    grammar: t.adminCommon.moduleGrammar,
+    challenge_questions: t.adminCommon.moduleChallengeQuestions,
+    listening: t.adminCommon.moduleListening,
+  }
 
   const toggle = (key: string) => {
     setSelected((prev) => (prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]))
@@ -133,7 +148,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
     try {
       await userService.setModules(user.id, selected)
       onSaved()
-      toast(`Đã lưu quyền module cho "${displayName(user)}"`)
+      toast(t.adminCommon.savedModulesToast(displayName(user)))
     } catch (err) {
       const message = (err as Error).message
       setError(message)
@@ -145,7 +160,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
 
   return (
     <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
-      <p className="mb-3 text-sm font-medium text-slate-700">Module được cấp quyền truy cập /admin:</p>
+      <p className="mb-3 text-sm font-medium text-slate-700">{t.adminCommon.modulesAccessLabel}</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {ADMIN_MODULES.map((m) => {
           const lockedSelf = isSelf && m.key === 'users'
@@ -158,20 +173,20 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
                 onChange={() => toggle(m.key)}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              {m.icon} {m.label}
+              {m.icon} {moduleLabels[m.key]}
             </label>
           )
         })}
       </div>
-      {isSelf && <p className="mt-2 text-xs text-slate-500">Không thể tự rút quyền module &quot;Học viên&quot; của chính mình.</p>}
+      {isSelf && <p className="mt-2 text-xs text-slate-500">{t.adminCommon.cannotRevokeSelfUsers}</p>}
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       <div className="mt-3 flex gap-2">
         <Button size="sm" disabled={saving} onClick={onSave}>
-          Lưu
+          {t.adminCommon.saveBtn}
         </Button>
         {onClose && (
           <Button size="sm" variant="secondary" onClick={onClose}>
-            Hủy
+            {t.adminCommon.cancelBtn}
           </Button>
         )}
       </div>

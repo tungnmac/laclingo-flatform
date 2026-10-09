@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslation } from '@/hooks/useTranslation'
 import { ADMIN_MODULES, hasModule } from '@/lib/adminModules'
 import { cn } from '@/lib/utils'
 import { useSession } from '@/store/session'
@@ -11,7 +12,16 @@ import { useSession } from '@/store/session'
 export function AdminSubNav() {
   const pathname = usePathname()
   const user = useSession((s) => s.user)
+  const t = useTranslation()
   const items = ADMIN_MODULES.filter((m) => hasModule(user, m.key))
+  const moduleLabels: Record<string, string> = {
+    users: t.adminCommon.moduleUsers,
+    missions: t.adminCommon.moduleMissions,
+    vocabulary: t.adminCommon.moduleVocabulary,
+    grammar: t.adminCommon.moduleGrammar,
+    challenge_questions: t.adminCommon.moduleChallengeQuestions,
+    listening: t.adminCommon.moduleListening,
+  }
 
   return (
     <nav className="mb-6 -mx-4 flex gap-1 overflow-x-auto border-b border-slate-200 px-4 sm:mx-0 sm:px-0">
@@ -19,7 +29,7 @@ export function AdminSubNav() {
         href="/admin"
         className="shrink-0 border-b-2 border-transparent px-3 py-2.5 text-sm font-semibold text-slate-500 transition hover:text-slate-700"
       >
-        🏠 Tổng quan
+        {t.adminCommon.overviewTab}
       </Link>
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -33,7 +43,7 @@ export function AdminSubNav() {
               active ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700',
             )}
           >
-            {item.icon} {item.label}
+            {item.icon} {moduleLabels[item.key]}
           </Link>
         )
       })}
