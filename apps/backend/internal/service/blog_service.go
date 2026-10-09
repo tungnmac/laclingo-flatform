@@ -164,7 +164,7 @@ type BlogCommentRequest struct {
 	Content         string     `json:"content"`
 }
 
-// BlogCommentNode — 1 comment kèm cây reply lồng nhau
+// BlogCommentNode — 1 comment kèm reply (trải phẳng, tối đa 2 cấp — xem CreateComment)
 type BlogCommentNode struct {
 	ID              uuid.UUID         `json:"id" swaggertype:"string" format:"uuid"`
 	AuthorID        uuid.UUID         `json:"author_id" swaggertype:"string" format:"uuid"`
@@ -502,10 +502,13 @@ func (s *BlogService) ResolveImageURL(ctx context.Context, imageID uuid.UUID) (s
 	return url, nil
 }
 
-// ===== Comment lồng nhau =====
+// ===== Comment (trải phẳng tối đa 2 cấp: root + reply, xem CreateComment) =====
 
 // buildCommentTree dựng cây reply từ danh sách flat (sắp theo created_at) —
-// gộp dữ liệu ở Go sau query, khớp pattern ListClassProgressByLanguage.
+// gộp dữ liệu ở Go sau query, khớp pattern ListClassProgressByLanguage. Dữ
+// liệu ghi vào luôn tối đa 2 cấp (CreateComment tự trải phẳng) nên cây dựng
+// ra ở đây cũng chỉ sâu tối đa 2 cấp trên thực tế, nhưng hàm vẫn viết tổng
+// quát (không giả định độ sâu) cho đơn giản, không cần xử lý riêng.
 // commentTreeNode — nút trung gian dùng con trỏ để nối quan hệ cha/con trước
 // khi chuyển hẳn sang giá trị (BlogCommentNode) — PHẢI nối xong toàn bộ cây
 // rồi mới "đóng băng" sang giá trị ở dưới lên, nếu convert ngay khi gặp dòng
@@ -553,7 +556,7 @@ func buildCommentTree(rows []db.ListBlogCommentsByPostRow) []BlogCommentNode {
 	return results
 }
 
-// ListComments trả về cây comment đầy đủ (gốc + reply lồng nhau) của 1 bài viết.
+// ListComments trả về danh sách comment đầy đủ (root + reply trải phẳng dưới mỗi root) của 1 bài viết.
 func (s *BlogService) ListComments(ctx context.Context, postID uuid.UUID) ([]BlogCommentNode, error) {
 	rows, err := s.repo.ListBlogCommentsByPost(ctx, toPgUUID(postID))
 	if err != nil {
@@ -562,7 +565,11 @@ func (s *BlogService) ListComments(ctx context.Context, postID uuid.UUID) ([]Blo
 	return buildCommentTree(rows), nil
 }
 
-// CreateComment thêm 1 comment (hoặc reply nếu có ParentCommentID) vào 1 bài viết.
+// CreateComment thêm 1 comment (hoặc reply nếu có ParentCommentID) vào 1 bài
+// viết. Reply luôn TRẢI PHẲNG về đúng 1 cấp: trả lời 1 reply khác (không phải
+// root) thì tự gắn vào root của reply đó thay vì lồng tiếp — FE tự chèn
+// "@username " vào content khi trả lời 1 reply để biết đang nhắc tới ai
+// (xem CommentThread.tsx), backend chỉ chịu trách nhiệm trải phẳng.
 func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.UUID, req BlogCommentRequest) (BlogCommentNode, error) {
 	if req.Content == "" {
 		return BlogCommentNode{}, ErrInvalidInput
@@ -586,6 +593,9 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 			return BlogCommentNode{}, fmt.Errorf("comment cha không thuộc bài viết này: %w", ErrInvalidInput)
 		}
 		parentArg = toPgUUID(*req.ParentCommentID)
+		if parent.ParentCommentID.Valid {
+			parentArg = parent.ParentCommentID // parent đã là 1 reply — trải phẳng về root của nó
+		}
 	}
 
 	c, err := s.repo.CreateBlogComment(ctx, db.CreateBlogCommentParams{

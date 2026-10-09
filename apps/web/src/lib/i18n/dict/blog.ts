@@ -44,7 +44,6 @@ export interface BlogDict {
     addCommentPlaceholder: string
     submitCommentBtn: string
     replyBtn: string
-    replyingToLabel: string
     cancelReplyBtn: string
     editCommentBtn: string
     deleteCommentBtn: string
@@ -114,7 +113,6 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       addCommentPlaceholder: 'Viết bình luận...',
       submitCommentBtn: 'Gửi',
       replyBtn: 'Trả lời',
-      replyingToLabel: 'Đang trả lời',
       cancelReplyBtn: 'Hủy',
       editCommentBtn: 'Sửa',
       deleteCommentBtn: 'Xoá',
@@ -182,7 +180,6 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       addCommentPlaceholder: 'Write a comment...',
       submitCommentBtn: 'Post',
       replyBtn: 'Reply',
-      replyingToLabel: 'Replying to',
       cancelReplyBtn: 'Cancel',
       editCommentBtn: 'Edit',
       deleteCommentBtn: 'Delete',

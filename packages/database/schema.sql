@@ -408,8 +408,8 @@ CREATE TABLE IF NOT EXISTS listening_topics (
     PRIMARY KEY (language_id, name)
 );
 
--- Blog học viên: bài viết tự do (tag tự gõ), comment lồng nhau, 4 counter
--- tương tác độc lập. content là HTML rich text (Tiptap) đã qua sanitize ở
+-- Blog học viên: bài viết tự do (tag tự gõ), comment trải phẳng (root +
+-- reply), 4 counter tương tác độc lập. content là HTML rich text (Tiptap) đã qua sanitize ở
 -- backend trước khi lưu — ảnh/video YouTube nhúng NGAY TRONG content (ảnh
 -- qua link ổn định /blog/images/:id, xem blog_post_images; video qua
 -- <iframe> youtube.com/embed/... do sanitize policy cho phép riêng).
@@ -446,7 +446,10 @@ CREATE TABLE IF NOT EXISTS blog_post_images (
 CREATE INDEX IF NOT EXISTS idx_blog_post_images_post ON blog_post_images(post_id);
 CREATE INDEX IF NOT EXISTS idx_blog_post_images_author ON blog_post_images(author_id);
 
--- Comment lồng nhau: parent_comment_id NULL = comment gốc.
+-- Comment trải phẳng tối đa 2 cấp: parent_comment_id NULL = comment gốc,
+-- reply luôn gắn trực tiếp vào root (BlogService.CreateComment tự "trải
+-- phẳng" nếu trả lời 1 reply khác — DB vẫn cho phép lồng sâu hơn về mặt kỹ
+-- thuật, chỉ service layer đảm bảo không bao giờ ghi sâu hơn 2 cấp).
 CREATE TABLE IF NOT EXISTS blog_comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
