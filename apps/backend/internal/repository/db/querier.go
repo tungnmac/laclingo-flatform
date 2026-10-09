@@ -24,6 +24,8 @@ type Querier interface {
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
 	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
 	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
+	CountBlogCommentDislikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
+	CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
 	CountBlogPostDislikes(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostLikes(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
@@ -74,6 +76,7 @@ type Querier interface {
 	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
+	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
 	DislikeBlogPost(ctx context.Context, arg DislikeBlogPostParams) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
@@ -119,6 +122,8 @@ type Querier interface {
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
 	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
+	// ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
+	LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) error
 	LikeBlogPost(ctx context.Context, arg LikeBlogPostParams) error
 	LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error
 	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
@@ -126,7 +131,8 @@ type Querier interface {
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
-	ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID) ([]ListBlogCommentsByPostRow, error)
+	// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
+	ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error)
 	// Dùng khi xoá bài (lấy key để xoá object trên R2 trước khi xoá hàng DB).
 	ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([]BlogPostImage, error)
 	// Trang quản trị: thấy mọi bài (ẩn hoặc không), filter "chỉ bài đã ẩn" qua hidden_only.
@@ -214,7 +220,7 @@ type Querier interface {
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
-	// ===== 4 counter độc lập =====
+	// ===== 4 counter độc lập (bài viết) =====
 	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// Atomic: insert câu trả lời + cộng điểm participant trong 1 statement (CTE),
@@ -222,10 +228,12 @@ type Querier interface {
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error
 	UndislikeBlogPost(ctx context.Context, arg UndislikeBlogPostParams) error
 	UnfavoriteVocabulary(ctx context.Context, arg UnfavoriteVocabularyParams) error
 	UnhideBlogComment(ctx context.Context, id pgtype.UUID) error
 	UnhideBlogPost(ctx context.Context, id pgtype.UUID) error
+	UnlikeBlogComment(ctx context.Context, arg UnlikeBlogCommentParams) error
 	UnlikeBlogPost(ctx context.Context, arg UnlikeBlogPostParams) error
 	UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error
 	UnmarkBlogPost(ctx context.Context, arg UnmarkBlogPostParams) error

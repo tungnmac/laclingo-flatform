@@ -140,17 +140,42 @@ UPDATE blog_comments SET is_hidden = false WHERE id = $1;
 
 -- name: ListBlogCommentsByPost :many
 -- Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
+-- Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
 SELECT
     c.*,
     u.username,
     u.full_name,
-    u.avatar_url
+    u.avatar_url,
+    (SELECT COUNT(*) FROM blog_comment_likes l WHERE l.comment_id = c.id)::int AS like_count,
+    (SELECT COUNT(*) FROM blog_comment_dislikes d WHERE d.comment_id = c.id)::int AS dislike_count,
+    EXISTS (SELECT 1 FROM blog_comment_likes l WHERE l.comment_id = c.id AND l.user_id = sqlc.arg('user_id')) AS liked,
+    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = sqlc.arg('user_id')) AS disliked
 FROM blog_comments c
 JOIN users u ON u.id = c.author_id
-WHERE c.post_id = $1
+WHERE c.post_id = sqlc.arg('post_id')
 ORDER BY c.created_at;
 
--- ===== 4 counter độc lập =====
+-- ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
+
+-- name: LikeBlogComment :exec
+INSERT INTO blog_comment_likes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: UnlikeBlogComment :exec
+DELETE FROM blog_comment_likes WHERE user_id = $1 AND comment_id = $2;
+
+-- name: CountBlogCommentLikes :one
+SELECT COUNT(*)::int FROM blog_comment_likes WHERE comment_id = $1;
+
+-- name: DislikeBlogComment :exec
+INSERT INTO blog_comment_dislikes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: UndislikeBlogComment :exec
+DELETE FROM blog_comment_dislikes WHERE user_id = $1 AND comment_id = $2;
+
+-- name: CountBlogCommentDislikes :one
+SELECT COUNT(*)::int FROM blog_comment_dislikes WHERE comment_id = $1;
+
+-- ===== 4 counter độc lập (bài viết) =====
 
 -- name: StarBlogPost :exec
 INSERT INTO blog_post_stars (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;

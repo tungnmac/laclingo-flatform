@@ -51,6 +51,8 @@ export interface BlogDict {
     emptyComments: string
     saveCommentBtn: string
     cancelEditCommentBtn: string
+    showRepliesBtn: (count: number) => string
+    hideRepliesBtn: string
   }
   adminBlog: {
     pageTitle: string
@@ -120,6 +122,8 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       emptyComments: 'Chưa có bình luận nào — hãy là người đầu tiên!',
       saveCommentBtn: 'Lưu',
       cancelEditCommentBtn: 'Hủy',
+      showRepliesBtn: (count) => `Xem ${count} trả lời`,
+      hideRepliesBtn: 'Ẩn trả lời',
     },
     adminBlog: {
       pageTitle: 'Blog',
@@ -187,6 +191,8 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       emptyComments: 'No comments yet — be the first!',
       saveCommentBtn: 'Save',
       cancelEditCommentBtn: 'Cancel',
+      showRepliesBtn: (count) => `View ${count} replies`,
+      hideRepliesBtn: 'Hide replies',
     },
     adminBlog: {
       pageTitle: 'Blog',

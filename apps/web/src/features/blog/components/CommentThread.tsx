@@ -41,7 +41,8 @@ function CommentBody({ content, mentionCandidates }: { content: string; mentionC
 
 /** Bình luận trải phẳng tối đa 2 cấp: root + reply (xem backend
  * BlogService.CreateComment) — trả lời 1 reply khác chỉ tag @ người đó rồi
- * gắn flat vào cùng root, không lồng tiếp thêm cấp. */
+ * gắn flat vào cùng root, không lồng tiếp thêm cấp. Cuộn riêng khi danh
+ * sách comment gốc quá dài, tránh trang phình vô hạn. */
 export function CommentThread({
   postId,
   comments,
@@ -55,35 +56,62 @@ export function CommentThread({
 }) {
   if (comments.length === 0) return null
   return (
-    <ul className="space-y-5">
-      {comments.map((root) => {
-        // Danh sách tên để dò mention trong CẢ thread này (gốc + mọi reply) —
-        // chỉ cần tính 1 lần/root, dùng chung cho root và từng reply bên dưới.
-        const mentionCandidates = [...new Set([authorName(root), ...root.replies.map(authorName)])]
-        return (
-          <li key={root.id}>
-            <CommentItem postId={postId} comment={root} currentUserId={currentUserId} onChanged={onChanged} mentionCandidates={mentionCandidates} />
-            {root.replies.length > 0 && (
-              <ul className="mt-3 space-y-4 border-l border-slate-100 pl-4">
-                {root.replies.map((reply) => (
-                  <li key={reply.id}>
-                    <CommentItem
-                      postId={postId}
-                      comment={reply}
-                      currentUserId={currentUserId}
-                      onChanged={onChanged}
-                      mentionCandidates={mentionCandidates}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
-        )
-      })}
+    <ul className="max-h-[32rem] space-y-5 overflow-y-auto pr-1">
+      {comments.map((root) => (
+        <li key={root.id}>
+          <RootCommentGroup postId={postId} root={root} currentUserId={currentUserId} onChanged={onChanged} />
+        </li>
+      ))}
     </ul>
   )
 }
+
+function RootCommentGroup({
+  postId,
+  root,
+  currentUserId,
+  onChanged,
+}: {
+  postId: string
+  root: BlogCommentNode
+  currentUserId?: string
+  onChanged: () => void
+}) {
+  const t = useTranslation()
+  const [showReplies, setShowReplies] = useState(true)
+  // Danh sách tên để dò mention trong CẢ thread này (gốc + mọi reply).
+  const mentionCandidates = [...new Set([authorName(root), ...root.replies.map(authorName)])]
+
+  return (
+    <>
+      <CommentItem postId={postId} comment={root} currentUserId={currentUserId} onChanged={onChanged} mentionCandidates={mentionCandidates} />
+      {root.replies.length > 0 && (
+        <div className="mt-2 pl-11">
+          <button type="button" onClick={() => setShowReplies((v) => !v)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+            {showReplies ? t.blog.hideRepliesBtn : t.blog.showRepliesBtn(root.replies.length)}
+          </button>
+          {showReplies && (
+            <ul className="mt-3 max-h-96 space-y-4 overflow-y-auto border-l border-slate-100 pl-4">
+              {root.replies.map((reply) => (
+                <li key={reply.id}>
+                  <CommentItem
+                    postId={postId}
+                    comment={reply}
+                    currentUserId={currentUserId}
+                    onChanged={onChanged}
+                    mentionCandidates={mentionCandidates}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+type VoteAction = 'like' | 'dislike'
 
 function CommentItem({
   postId,
@@ -108,6 +136,8 @@ function CommentItem({
   const [editText, setEditText] = useState(comment.content)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingVote, setPendingVote] = useState<VoteAction | null>(null)
+  const [voteError, setVoteError] = useState<string | null>(null)
 
   // Mở ô reply lần đầu thì mồi sẵn "@Tên hiển thị " — trả lời root hay 1
   // reply khác đều tag @ người đó (backend tự trải phẳng về đúng root khi lưu).
@@ -156,6 +186,34 @@ function CommentItem({
     onChanged()
   }
 
+  const toggleLike = async () => {
+    if (pendingVote) return
+    setPendingVote('like')
+    setVoteError(null)
+    try {
+      await blogService.setCommentLike(comment.id, !comment.liked)
+      onChanged()
+    } catch (err) {
+      setVoteError((err as Error).message)
+    } finally {
+      setPendingVote(null)
+    }
+  }
+
+  const toggleDislike = async () => {
+    if (pendingVote) return
+    setPendingVote('dislike')
+    setVoteError(null)
+    try {
+      await blogService.setCommentDislike(comment.id, !comment.disliked)
+      onChanged()
+    } catch (err) {
+      setVoteError((err as Error).message)
+    } finally {
+      setPendingVote(null)
+    }
+  }
+
   return (
     <div className="flex items-start gap-3">
       <Avatar name={authorName(comment)} src={comment.author_avatar_url} className="h-8 w-8 shrink-0 text-xs" />
@@ -196,7 +254,31 @@ function CommentItem({
         )}
 
         {!editing && (
-          <div className="mt-1 flex gap-3 text-xs font-medium text-slate-500">
+          <div className="mt-1.5 flex items-center gap-3 text-xs font-medium text-slate-500">
+            <button
+              type="button"
+              onClick={toggleLike}
+              disabled={pendingVote !== null}
+              aria-pressed={comment.liked}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-inset transition disabled:opacity-50',
+                comment.liked ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-50',
+              )}
+            >
+              👍 {comment.like_count}
+            </button>
+            <button
+              type="button"
+              onClick={toggleDislike}
+              disabled={pendingVote !== null}
+              aria-pressed={comment.disliked}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-inset transition disabled:opacity-50',
+                comment.disliked ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-white text-slate-500 ring-slate-200 hover:bg-slate-50',
+              )}
+            >
+              👎 {comment.dislike_count}
+            </button>
             <button type="button" onClick={onClickReply} className="hover:text-indigo-600">
               {t.blog.replyBtn}
             </button>
@@ -213,7 +295,7 @@ function CommentItem({
           </div>
         )}
 
-        {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+        {(error || voteError) && <p className="mt-1 text-xs text-rose-600">{error || voteError}</p>}
 
         {replying && (
           <div className="mt-2 space-y-2">

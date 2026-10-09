@@ -47,7 +47,14 @@ type BlogRepository interface {
 	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	UnhideBlogComment(ctx context.Context, id pgtype.UUID) error
-	ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID) ([]db.ListBlogCommentsByPostRow, error)
+	ListBlogCommentsByPost(ctx context.Context, arg db.ListBlogCommentsByPostParams) ([]db.ListBlogCommentsByPostRow, error)
+
+	LikeBlogComment(ctx context.Context, arg db.LikeBlogCommentParams) error
+	UnlikeBlogComment(ctx context.Context, arg db.UnlikeBlogCommentParams) error
+	CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
+	DislikeBlogComment(ctx context.Context, arg db.DislikeBlogCommentParams) error
+	UndislikeBlogComment(ctx context.Context, arg db.UndislikeBlogCommentParams) error
+	CountBlogCommentDislikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
 
 	StarBlogPost(ctx context.Context, arg db.StarBlogPostParams) error
 	UnstarBlogPost(ctx context.Context, arg db.UnstarBlogPostParams) error
@@ -174,14 +181,25 @@ type BlogCommentNode struct {
 	Content         string            `json:"content"`
 	IsHidden        bool              `json:"is_hidden"`
 	CreatedAt       time.Time         `json:"created_at"`
+	LikeCount       int               `json:"like_count"`
+	DislikeCount    int               `json:"dislike_count"`
+	Liked           bool              `json:"liked"`
+	Disliked        bool              `json:"disliked"`
 	Replies         []BlogCommentNode `json:"replies"`
 }
 
-// BlogToggleResponse — kết quả 1 lần bật/tắt star/marker/like/dislike
+// BlogToggleResponse — kết quả 1 lần bật/tắt star/marker/like/dislike (bài viết)
 type BlogToggleResponse struct {
 	PostID uuid.UUID `json:"post_id" swaggertype:"string" format:"uuid"`
 	On     bool      `json:"on"`
 	Count  int       `json:"count"`
+}
+
+// BlogCommentToggleResponse — kết quả 1 lần bật/tắt like/dislike của 1 comment
+type BlogCommentToggleResponse struct {
+	CommentID uuid.UUID `json:"comment_id" swaggertype:"string" format:"uuid"`
+	On        bool      `json:"on"`
+	Count     int       `json:"count"`
 }
 
 // blogSanitizePolicy — nền UGCPolicy (thẻ format cơ bản: p/h1-h6/ul/ol/li/
@@ -536,6 +554,7 @@ func buildCommentTree(rows []db.ListBlogCommentsByPostRow) []BlogCommentNode {
 			ID: id, AuthorID: uuid.UUID(r.AuthorID.Bytes),
 			AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
 			Content: r.Content, IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time,
+			LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount), Liked: r.Liked, Disliked: r.Disliked,
 		}}
 	}
 	var roots []*commentTreeNode
@@ -556,9 +575,10 @@ func buildCommentTree(rows []db.ListBlogCommentsByPostRow) []BlogCommentNode {
 	return results
 }
 
-// ListComments trả về danh sách comment đầy đủ (root + reply trải phẳng dưới mỗi root) của 1 bài viết.
-func (s *BlogService) ListComments(ctx context.Context, postID uuid.UUID) ([]BlogCommentNode, error) {
-	rows, err := s.repo.ListBlogCommentsByPost(ctx, toPgUUID(postID))
+// ListComments trả về danh sách comment đầy đủ (root + reply trải phẳng dưới
+// mỗi root) của 1 bài viết, kèm like/dislike flag theo userID hiện tại.
+func (s *BlogService) ListComments(ctx context.Context, userID, postID uuid.UUID) ([]BlogCommentNode, error) {
+	rows, err := s.repo.ListBlogCommentsByPost(ctx, db.ListBlogCommentsByPostParams{UserID: toPgUUID(userID), PostID: toPgUUID(postID)})
 	if err != nil {
 		return nil, err
 	}
@@ -604,8 +624,10 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 	if err != nil {
 		return BlogCommentNode{}, err
 	}
-	// Lấy lại kèm thông tin tác giả (username/full_name/avatar_url) cho đồng bộ response.
-	rows, err := s.repo.ListBlogCommentsByPost(ctx, toPgUUID(postID))
+	// Lấy lại kèm thông tin tác giả (username/full_name/avatar_url) cho đồng bộ
+	// response — dùng authorID (người vừa đăng) để tính liked/disliked, vừa
+	// đăng thì chưa tự like/dislike nên cả 2 đều false.
+	rows, err := s.repo.ListBlogCommentsByPost(ctx, db.ListBlogCommentsByPostParams{UserID: toPgUUID(authorID), PostID: toPgUUID(postID)})
 	if err != nil {
 		return BlogCommentNode{}, err
 	}
@@ -614,7 +636,9 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 			return BlogCommentNode{
 				ID: uuid.UUID(r.ID.Bytes), AuthorID: uuid.UUID(r.AuthorID.Bytes),
 				AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
-				Content: r.Content, IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time, Replies: []BlogCommentNode{},
+				Content: r.Content, IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time,
+				LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount), Liked: r.Liked, Disliked: r.Disliked,
+				Replies: []BlogCommentNode{},
 			}, nil
 		}
 	}
@@ -771,6 +795,80 @@ func (s *BlogService) SetDislike(ctx context.Context, userID, postID uuid.UUID, 
 		return BlogToggleResponse{}, err
 	}
 	return BlogToggleResponse{PostID: postID, On: on, Count: int(count)}, nil
+}
+
+// ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
+
+func (s *BlogService) ensureCommentExists(ctx context.Context, commentID uuid.UUID) error {
+	if _, err := s.repo.GetBlogCommentByID(ctx, toPgUUID(commentID)); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetCommentLike/SetCommentDislike loại trừ nhau — khớp pattern SetLike/SetDislike (bài viết).
+func (s *BlogService) SetCommentLike(ctx context.Context, userID, commentID uuid.UUID, on bool) (BlogCommentToggleResponse, error) {
+	if err := s.ensureCommentExists(ctx, commentID); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.repo.WithTx(tx)
+	arg := db.LikeBlogCommentParams{UserID: toPgUUID(userID), CommentID: toPgUUID(commentID)}
+	if on {
+		if err := qtx.UndislikeBlogComment(ctx, db.UndislikeBlogCommentParams(arg)); err != nil {
+			return BlogCommentToggleResponse{}, err
+		}
+		if err := qtx.LikeBlogComment(ctx, arg); err != nil {
+			return BlogCommentToggleResponse{}, err
+		}
+	} else if err := qtx.UnlikeBlogComment(ctx, db.UnlikeBlogCommentParams(arg)); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	count, err := s.repo.CountBlogCommentLikes(ctx, toPgUUID(commentID))
+	if err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	return BlogCommentToggleResponse{CommentID: commentID, On: on, Count: int(count)}, nil
+}
+
+func (s *BlogService) SetCommentDislike(ctx context.Context, userID, commentID uuid.UUID, on bool) (BlogCommentToggleResponse, error) {
+	if err := s.ensureCommentExists(ctx, commentID); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.repo.WithTx(tx)
+	arg := db.DislikeBlogCommentParams{UserID: toPgUUID(userID), CommentID: toPgUUID(commentID)}
+	if on {
+		if err := qtx.UnlikeBlogComment(ctx, db.UnlikeBlogCommentParams(arg)); err != nil {
+			return BlogCommentToggleResponse{}, err
+		}
+		if err := qtx.DislikeBlogComment(ctx, arg); err != nil {
+			return BlogCommentToggleResponse{}, err
+		}
+	} else if err := qtx.UndislikeBlogComment(ctx, db.UndislikeBlogCommentParams(arg)); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	count, err := s.repo.CountBlogCommentDislikes(ctx, toPgUUID(commentID))
+	if err != nil {
+		return BlogCommentToggleResponse{}, err
+	}
+	return BlogCommentToggleResponse{CommentID: commentID, On: on, Count: int(count)}, nil
 }
 
 // ===== Admin hậu kiểm =====

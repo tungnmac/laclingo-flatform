@@ -31,6 +31,28 @@ func (q *Queries) AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams
 	return err
 }
 
+const countBlogCommentDislikes = `-- name: CountBlogCommentDislikes :one
+SELECT COUNT(*)::int FROM blog_comment_dislikes WHERE comment_id = $1
+`
+
+func (q *Queries) CountBlogCommentDislikes(ctx context.Context, commentID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countBlogCommentDislikes, commentID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countBlogCommentLikes = `-- name: CountBlogCommentLikes :one
+SELECT COUNT(*)::int FROM blog_comment_likes WHERE comment_id = $1
+`
+
+func (q *Queries) CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countBlogCommentLikes, commentID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countBlogPostDislikes = `-- name: CountBlogPostDislikes :one
 SELECT COUNT(*)::int FROM blog_post_dislikes WHERE post_id = $1
 `
@@ -193,6 +215,20 @@ DELETE FROM blog_posts WHERE id = $1
 
 func (q *Queries) DeleteBlogPost(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteBlogPost, id)
+	return err
+}
+
+const dislikeBlogComment = `-- name: DislikeBlogComment :exec
+INSERT INTO blog_comment_dislikes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type DislikeBlogCommentParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	CommentID pgtype.UUID `json:"comment_id"`
+}
+
+func (q *Queries) DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error {
+	_, err := q.db.Exec(ctx, dislikeBlogComment, arg.UserID, arg.CommentID)
 	return err
 }
 
@@ -378,6 +414,22 @@ func (q *Queries) IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID
 	return err
 }
 
+const likeBlogComment = `-- name: LikeBlogComment :exec
+
+INSERT INTO blog_comment_likes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type LikeBlogCommentParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	CommentID pgtype.UUID `json:"comment_id"`
+}
+
+// ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
+func (q *Queries) LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) error {
+	_, err := q.db.Exec(ctx, likeBlogComment, arg.UserID, arg.CommentID)
+	return err
+}
+
 const likeBlogPost = `-- name: LikeBlogPost :exec
 INSERT INTO blog_post_likes (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
@@ -397,12 +449,21 @@ SELECT
     c.id, c.post_id, c.author_id, c.parent_comment_id, c.content, c.is_hidden, c.created_at, c.updated_at,
     u.username,
     u.full_name,
-    u.avatar_url
+    u.avatar_url,
+    (SELECT COUNT(*) FROM blog_comment_likes l WHERE l.comment_id = c.id)::int AS like_count,
+    (SELECT COUNT(*) FROM blog_comment_dislikes d WHERE d.comment_id = c.id)::int AS dislike_count,
+    EXISTS (SELECT 1 FROM blog_comment_likes l WHERE l.comment_id = c.id AND l.user_id = $1) AS liked,
+    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = $1) AS disliked
 FROM blog_comments c
 JOIN users u ON u.id = c.author_id
-WHERE c.post_id = $1
+WHERE c.post_id = $2
 ORDER BY c.created_at
 `
+
+type ListBlogCommentsByPostParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	PostID pgtype.UUID `json:"post_id"`
+}
 
 type ListBlogCommentsByPostRow struct {
 	ID              pgtype.UUID        `json:"id"`
@@ -416,11 +477,16 @@ type ListBlogCommentsByPostRow struct {
 	Username        string             `json:"username"`
 	FullName        pgtype.Text        `json:"full_name"`
 	AvatarUrl       pgtype.Text        `json:"avatar_url"`
+	LikeCount       int32              `json:"like_count"`
+	DislikeCount    int32              `json:"dislike_count"`
+	Liked           bool               `json:"liked"`
+	Disliked        bool               `json:"disliked"`
 }
 
 // Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
-func (q *Queries) ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID) ([]ListBlogCommentsByPostRow, error) {
-	rows, err := q.db.Query(ctx, listBlogCommentsByPost, postID)
+// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
+func (q *Queries) ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error) {
+	rows, err := q.db.Query(ctx, listBlogCommentsByPost, arg.UserID, arg.PostID)
 	if err != nil {
 		return nil, err
 	}
@@ -440,6 +506,10 @@ func (q *Queries) ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID
 			&i.Username,
 			&i.FullName,
 			&i.AvatarUrl,
+			&i.LikeCount,
+			&i.DislikeCount,
+			&i.Liked,
+			&i.Disliked,
 		); err != nil {
 			return nil, err
 		}
@@ -695,9 +765,23 @@ type StarBlogPostParams struct {
 	PostID pgtype.UUID `json:"post_id"`
 }
 
-// ===== 4 counter độc lập =====
+// ===== 4 counter độc lập (bài viết) =====
 func (q *Queries) StarBlogPost(ctx context.Context, arg StarBlogPostParams) error {
 	_, err := q.db.Exec(ctx, starBlogPost, arg.UserID, arg.PostID)
+	return err
+}
+
+const undislikeBlogComment = `-- name: UndislikeBlogComment :exec
+DELETE FROM blog_comment_dislikes WHERE user_id = $1 AND comment_id = $2
+`
+
+type UndislikeBlogCommentParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	CommentID pgtype.UUID `json:"comment_id"`
+}
+
+func (q *Queries) UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error {
+	_, err := q.db.Exec(ctx, undislikeBlogComment, arg.UserID, arg.CommentID)
 	return err
 }
 
@@ -730,6 +814,20 @@ UPDATE blog_posts SET is_hidden = false WHERE id = $1
 
 func (q *Queries) UnhideBlogPost(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, unhideBlogPost, id)
+	return err
+}
+
+const unlikeBlogComment = `-- name: UnlikeBlogComment :exec
+DELETE FROM blog_comment_likes WHERE user_id = $1 AND comment_id = $2
+`
+
+type UnlikeBlogCommentParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	CommentID pgtype.UUID `json:"comment_id"`
+}
+
+func (q *Queries) UnlikeBlogComment(ctx context.Context, arg UnlikeBlogCommentParams) error {
+	_, err := q.db.Exec(ctx, unlikeBlogComment, arg.UserID, arg.CommentID)
 	return err
 }
 

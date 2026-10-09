@@ -3,6 +3,7 @@ import { buildQuery } from '@/lib/query'
 import type {
   BlogCommentNode,
   BlogCommentRequest,
+  BlogCommentToggleResponse,
   BlogImageResponse,
   BlogPostAdmin,
   BlogPostDetail,
@@ -55,6 +56,11 @@ export const blogService = {
   updateComment: (commentId: string, content: string) =>
     apiFetch<void>(`/blog/comments/${encodeURIComponent(commentId)}`, { method: 'PUT', body: JSON.stringify({ content }) }),
   deleteComment: (commentId: string) => apiFetch<void>(`/blog/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE' }),
+
+  setCommentLike: (commentId: string, on: boolean) =>
+    apiFetch<BlogCommentToggleResponse>(`/blog/comments/${encodeURIComponent(commentId)}/like`, { method: on ? 'PUT' : 'DELETE' }),
+  setCommentDislike: (commentId: string, on: boolean) =>
+    apiFetch<BlogCommentToggleResponse>(`/blog/comments/${encodeURIComponent(commentId)}/dislike`, { method: on ? 'PUT' : 'DELETE' }),
 
   // Admin
   listAdmin: (params: { hiddenOnly?: boolean; page?: number; pageSize?: number } = {}) =>

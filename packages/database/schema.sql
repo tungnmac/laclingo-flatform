@@ -464,6 +464,21 @@ CREATE TABLE IF NOT EXISTS blog_comments (
 CREATE INDEX IF NOT EXISTS idx_blog_comments_post ON blog_comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_blog_comments_parent ON blog_comments(parent_comment_id);
 
+-- Like/dislike cho comment — độc lập với like/dislike của bài viết.
+CREATE TABLE IF NOT EXISTS blog_comment_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    comment_id UUID NOT NULL REFERENCES blog_comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, comment_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_comment_dislikes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    comment_id UUID NOT NULL REFERENCES blog_comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, comment_id)
+);
+
 -- 4 counter độc lập — mirror vocabulary_likes/vocabulary_favorites: junction
 -- table PK kép, không cột dư.
 CREATE TABLE IF NOT EXISTS blog_post_stars (

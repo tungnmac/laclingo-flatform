@@ -763,11 +763,21 @@ export interface BlogCommentNode {
   content: string
   is_hidden: boolean
   created_at: string
+  like_count: number
+  dislike_count: number
+  liked: boolean
+  disliked: boolean
   replies: BlogCommentNode[]
 }
 
 export interface BlogToggleResponse {
   post_id: string
+  on: boolean
+  count: number
+}
+
+export interface BlogCommentToggleResponse {
+  comment_id: string
   on: boolean
   count: number
 }

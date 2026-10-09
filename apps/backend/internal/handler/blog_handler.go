@@ -52,6 +52,11 @@ func (h *BlogHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/blog/posts/:id/comments", h.CreateComment)
 	router.Put("/blog/comments/:id", h.UpdateComment)
 	router.Delete("/blog/comments/:id", h.DeleteComment)
+
+	router.Put("/blog/comments/:id/like", h.SetCommentLike)
+	router.Delete("/blog/comments/:id/like", h.UnsetCommentLike)
+	router.Put("/blog/comments/:id/dislike", h.SetCommentDislike)
+	router.Delete("/blog/comments/:id/dislike", h.UnsetCommentDislike)
 }
 
 // RegisterAdminRoutes gắn route hậu kiểm — PHẢI nằm sau RequireModule trong
@@ -319,7 +324,7 @@ func (h *BlogHandler) UnsetDislike(c *fiber.Ctx) error {
 }
 
 // ListComments godoc
-// @Summary      Cây comment đầy đủ (gốc + reply lồng nhau) của 1 bài viết
+// @Summary      Danh sách comment đầy đủ (root + reply trải phẳng) của 1 bài viết
 // @Tags         blog
 // @Produce      json
 // @Security     BearerAuth
@@ -331,7 +336,7 @@ func (h *BlogHandler) ListComments(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	result, err := h.svc.ListComments(c.UserContext(), id)
+	result, err := h.svc.ListComments(c.UserContext(), currentUserID(c), id)
 	if err != nil {
 		return err
 	}
@@ -411,6 +416,56 @@ func (h *BlogHandler) DeleteComment(c *fiber.Ctx) error {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *BlogHandler) runCommentCounter(c *fiber.Ctx, on bool, set func(userID, commentID uuid.UUID, on bool) (service.BlogCommentToggleResponse, error)) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	result, err := set(currentUserID(c), id, on)
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
+}
+
+// SetCommentLike/UnsetCommentLike — bật like tự tắt dislike (xem BlogService.SetCommentLike).
+// @Tags         blog
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Comment ID"  format(uuid)
+// @Success      200  {object}  service.BlogCommentToggleResponse
+// @Router       /blog/comments/{id}/like [put]
+// @Router       /blog/comments/{id}/like [delete]
+func (h *BlogHandler) SetCommentLike(c *fiber.Ctx) error {
+	return h.runCommentCounter(c, true, func(u, cm uuid.UUID, on bool) (service.BlogCommentToggleResponse, error) {
+		return h.svc.SetCommentLike(c.UserContext(), u, cm, on)
+	})
+}
+func (h *BlogHandler) UnsetCommentLike(c *fiber.Ctx) error {
+	return h.runCommentCounter(c, false, func(u, cm uuid.UUID, on bool) (service.BlogCommentToggleResponse, error) {
+		return h.svc.SetCommentLike(c.UserContext(), u, cm, on)
+	})
+}
+
+// SetCommentDislike/UnsetCommentDislike — bật dislike tự tắt like.
+// @Tags         blog
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Comment ID"  format(uuid)
+// @Success      200  {object}  service.BlogCommentToggleResponse
+// @Router       /blog/comments/{id}/dislike [put]
+// @Router       /blog/comments/{id}/dislike [delete]
+func (h *BlogHandler) SetCommentDislike(c *fiber.Ctx) error {
+	return h.runCommentCounter(c, true, func(u, cm uuid.UUID, on bool) (service.BlogCommentToggleResponse, error) {
+		return h.svc.SetCommentDislike(c.UserContext(), u, cm, on)
+	})
+}
+func (h *BlogHandler) UnsetCommentDislike(c *fiber.Ctx) error {
+	return h.runCommentCounter(c, false, func(u, cm uuid.UUID, on bool) (service.BlogCommentToggleResponse, error) {
+		return h.svc.SetCommentDislike(c.UserContext(), u, cm, on)
+	})
 }
 
 // ===== Admin hậu kiểm =====
