@@ -7,19 +7,26 @@ import { Mascot } from '@/components/mascot/Mascot'
 import { Button, ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { Flashcard } from '@/features/srs-review/components/Flashcard'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
 import { QUALITY_OPTIONS, QualityButtons } from '@/features/srs-review/components/QualityButtons'
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
+import { useApi } from '@/hooks/useApi'
 import { useKeypress } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import { formatDate } from '@/lib/utils'
 
-export default function VocabularyReviewPage({ searchParams }: { searchParams: { language?: string } }) {
+/** ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
+ * khi vào từ card "Ôn tập SRS" ở trang khoá học, thay vì gốc Ôn tập. */
+export default function VocabularyReviewPage({ searchParams }: { searchParams: { language?: string; scope?: string } }) {
   const language = searchParams.language
+  const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
+  const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
-  const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
+  const newWordsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
   const session = useSRSReviewSession(language)
   const { current, flipped, flip, grade, submitting } = session
 
@@ -100,9 +107,18 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
     )
   }
 
+  const breadcrumbItems =
+    fromLearn && language
+      ? [
+          { label: t.nav.learn, href: '/learn' },
+          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: t.review.vocabReviewTitle },
+        ]
+      : [{ label: t.nav.review, href: reviewHref }, { label: t.review.vocabReviewTitle }]
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Breadcrumbs items={[{ label: t.nav.review, href: reviewHref }, { label: t.review.vocabReviewTitle }]} />
+      <Breadcrumbs items={breadcrumbItems} />
 
       <div className="flex flex-col items-center gap-6">
         <ProgressHeader done={session.index} total={session.cards.length} />

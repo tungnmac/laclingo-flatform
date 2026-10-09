@@ -6,26 +6,43 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 
-/** Học từ mới: chọn một chủ đề để học — mỗi thẻ hiện tiến độ đã đưa vào ôn tập */
-export default function NewWordsTopicsPage({ searchParams }: { searchParams: { language?: string } }) {
+/** Học từ mới: chọn một chủ đề để học — mỗi thẻ hiện tiến độ đã đưa vào ôn tập.
+ * Trang này dùng chung cho 2 lối vào: từ hub "Ôn tập" (breadcrumb gốc Ôn tập)
+ * và từ card "Từ vựng" ở trang khoá học /learn/[courseId] (breadcrumb gốc
+ * Học/{ngôn ngữ} — nhận biết qua query ?scope=learn, PHẢI truyền tiếp xuống
+ * mọi link con để giữ đúng breadcrumb khi đi sâu hơn). */
+export default function NewWordsTopicsPage({ searchParams }: { searchParams: { language?: string; scope?: string } }) {
   const language = searchParams.language
+  const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
-  const languageQuery = language ? `&language=${encodeURIComponent(language)}` : ''
+  const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
+  const scopeQuery = fromLearn ? '&scope=learn' : ''
+  const languageQuery = (language ? `&language=${encodeURIComponent(language)}` : '') + scopeQuery
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
-  const favoritesHref = language ? `/review/favorites?language=${encodeURIComponent(language)}` : '/review/favorites'
+  const favoritesHref = (language ? `/review/favorites?language=${encodeURIComponent(language)}` : '/review/favorites') + scopeQuery
 
   const { data: topics, error, loading, reload } = useApi(() => vocabularyService.listTopics(language), [language])
 
   if (loading) return <Spinner label={t.review.loadingTopics} />
   if (error) return <ErrorState error={error} onRetry={reload} />
 
+  const breadcrumbItems =
+    fromLearn && language
+      ? [
+          { label: t.nav.learn, href: '/learn' },
+          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: t.learn.vocabularyCardTitle },
+        ]
+      : [{ label: t.nav.review, href: reviewHref }, { label: t.review.newWordsTitle }]
+
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: t.nav.review, href: reviewHref }, { label: t.review.newWordsTitle }]} />
+      <Breadcrumbs items={breadcrumbItems} />
       <PageHeader
         title={t.review.newWordsTitle}
         description={t.review.newWordsPageDesc}

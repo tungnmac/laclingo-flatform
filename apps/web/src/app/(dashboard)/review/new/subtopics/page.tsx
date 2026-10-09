@@ -5,20 +5,26 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 
 /** Mục con của 1 chủ đề cha — "ngoài các từ chung thì chia theo mục con".
  * Mục đầu tiên trùng tên chủ đề cha (nếu có) là từ gắn trực tiếp vào chủ đề
- * cha, hiển thị riêng như "Từ chung"; còn lại là các chủ đề con thật. */
-export default function SubtopicsPage({ searchParams }: { searchParams: { parent?: string; language?: string } }) {
+ * cha, hiển thị riêng như "Từ chung"; còn lại là các chủ đề con thật.
+ * ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
+ * khi vào từ card "Từ vựng" ở trang khoá học, thay vì gốc Ôn tập. */
+export default function SubtopicsPage({ searchParams }: { searchParams: { parent?: string; language?: string; scope?: string } }) {
   const parent = searchParams.parent ?? ''
   const language = searchParams.language
+  const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
-  const languageQuery = language ? `&language=${encodeURIComponent(language)}` : ''
+  const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
+  const scopeQuery = fromLearn ? '&scope=learn' : ''
+  const languageQuery = (language ? `&language=${encodeURIComponent(language)}` : '') + scopeQuery
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
-  const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
+  const topicsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
 
   const { data: subtopics, error, loading, reload } = useApi(() => vocabularyService.listChildTopics(parent, language), [parent, language])
 
@@ -26,15 +32,23 @@ export default function SubtopicsPage({ searchParams }: { searchParams: { parent
   if (loading) return <Spinner label={t.review.loadingTopics} />
   if (error) return <ErrorState error={error} onRetry={reload} />
 
-  return (
-    <div className="space-y-6">
-      <Breadcrumbs
-        items={[
+  const breadcrumbItems =
+    fromLearn && language
+      ? [
+          { label: t.nav.learn, href: '/learn' },
+          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: t.learn.vocabularyCardTitle, href: topicsHref },
+          { label: parent },
+        ]
+      : [
           { label: t.nav.review, href: reviewHref },
           { label: t.review.newWordsTitle, href: topicsHref },
           { label: parent },
-        ]}
-      />
+        ]
+
+  return (
+    <div className="space-y-6">
+      <Breadcrumbs items={breadcrumbItems} />
       <PageHeader title={parent} description={t.review.subtopicsDesc} />
 
       {!subtopics || subtopics.length === 0 ? (

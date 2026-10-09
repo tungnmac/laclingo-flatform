@@ -4,19 +4,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
+import { useApi } from '@/hooks/useApi'
 import { useKeypress } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { VocabularyCard } from '@/types/api'
 
-/** Học từ theo một chủ đề: lướt từng từ, like / yêu thích / thêm vào ôn tập */
-export default function TopicWordsPage({ searchParams }: { searchParams: { name?: string; language?: string } }) {
+/** Học từ theo một chủ đề: lướt từng từ, like / yêu thích / thêm vào ôn tập.
+ * ?scope=learn giữ breadcrumb gốc Học/{ngôn ngữ} khi vào từ card "Từ vựng" ở
+ * trang khoá học (xem review/new/page.tsx), thay vì gốc Ôn tập. */
+export default function TopicWordsPage({ searchParams }: { searchParams: { name?: string; language?: string; scope?: string } }) {
   const topic = searchParams.name ?? ''
   const language = searchParams.language
+  const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
+  const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
-  const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
+  const topicsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
 
   const [words, setWords] = useState<VocabularyCard[]>([])
   const [index, setIndex] = useState(0)
@@ -64,15 +71,23 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
   if (loading) return <Spinner label={t.review.loadingWords} />
   if (error) return <ErrorState error={error} onRetry={load} />
 
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6">
-      <Breadcrumbs
-        items={[
+  const breadcrumbItems =
+    fromLearn && language
+      ? [
+          { label: t.nav.learn, href: '/learn' },
+          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: t.learn.vocabularyCardTitle, href: topicsHref },
+          { label: topic },
+        ]
+      : [
           { label: t.nav.review, href: reviewHref },
           { label: t.review.newWordsTitle, href: topicsHref },
           { label: topic },
-        ]}
-      />
+        ]
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <Breadcrumbs items={breadcrumbItems} />
 
       {words.length === 0 || !current ? (
         <EmptyState icon="📭" title={t.review.emptyTopicNamed(topic)} />

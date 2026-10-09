@@ -21,7 +21,7 @@ export default function CoursePage({ params }: { params: { courseId: string } })
   const cards = [
     {
       key: 'vocabulary',
-      href: `/review/new?language=${params.courseId}`,
+      href: `/review/new?language=${params.courseId}&scope=learn`,
       icon: '📚',
       title: t.learn.vocabularyCardTitle,
       description: t.learn.vocabularyCardDesc,
@@ -42,7 +42,7 @@ export default function CoursePage({ params }: { params: { courseId: string } })
     },
     {
       key: 'srs',
-      href: `/review/vocabulary?language=${params.courseId}`,
+      href: `/review/vocabulary?language=${params.courseId}&scope=learn`,
       icon: '🧠',
       title: t.learn.srsCardTitle,
       description: t.learn.srsCardDesc,
