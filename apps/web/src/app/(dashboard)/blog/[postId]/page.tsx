@@ -13,9 +13,18 @@ import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
-import type { BlogPostDetail } from '@/types/api'
+import type { BlogCommentNode, BlogPostDetail } from '@/types/api'
 
 type CounterAction = 'star' | 'marker' | 'like' | 'dislike'
+
+// Đếm tổng comment (root + reply) từ cây đã fetch — hiện số này ở header
+// THAY CHO post.comment_count, vì mọi hành động trên comment (like/dislike/
+// reply/sửa/xoá) chỉ gọi commentsApi.reload(), KHÔNG gọi lại GetDetail của
+// bài viết nữa (xem onChanged dưới) — gọi lại GetDetail mỗi lần sẽ vừa tăng
+// view_count sai vừa làm cả trang nhấp nháy qua Spinner toàn màn hình.
+function countComments(nodes: BlogCommentNode[]): number {
+  return nodes.reduce((sum, n) => sum + 1 + countComments(n.replies), 0)
+}
 
 export default function BlogPostDetailPage({ params }: { params: { postId: string } }) {
   const t = useTranslation()
@@ -94,7 +103,6 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
       await blogService.createComment(params.postId, { content: newComment.trim() })
       setNewComment('')
       commentsApi.reload()
-      reload()
     } finally {
       setPostingComment(false)
     }
@@ -211,7 +219,7 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
 
       <Card>
         <h2 className="text-base font-semibold text-slate-900">
-          {t.blog.commentsTitle} ({post.comment_count})
+          {t.blog.commentsTitle} ({commentsApi.data ? countComments(commentsApi.data) : post.comment_count})
         </h2>
 
         <div className="mt-3 space-y-2">
@@ -228,17 +236,16 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
         </div>
 
         <div className="mt-5">
-          {commentsApi.loading && <Spinner label={t.blog.loadingComments} />}
+          {/* Chỉ hiện Spinner ở lần tải đầu — reload sau 1 lượt like/reply/sửa/xoá
+              KHÔNG được xoá sạch UI đi hiện Spinner rồi hiện lại, nhìn như giật/nhảy hình. */}
+          {commentsApi.loading && !commentsApi.data && <Spinner label={t.blog.loadingComments} />}
           {commentsApi.data && commentsApi.data.length === 0 && <p className="text-sm text-slate-500">{t.blog.emptyComments}</p>}
           {commentsApi.data && commentsApi.data.length > 0 && (
             <CommentThread
               postId={params.postId}
               comments={commentsApi.data}
               currentUserId={user?.id}
-              onChanged={() => {
-                commentsApi.reload()
-                reload()
-              }}
+              onChanged={commentsApi.reload}
             />
           )}
         </div>
