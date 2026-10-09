@@ -16,6 +16,7 @@ import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadg
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
@@ -47,6 +48,7 @@ type ListeningTab = 'passages' | 'topics'
 export default function AdminListeningPage() {
   const [languageId, setLanguageId] = useState('en')
   const [tab, setTab] = useState<ListeningTab>('passages')
+  const t = useTranslation()
   const allTopicsApi = useApi(
     () => listeningService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
     [languageId],
@@ -54,10 +56,10 @@ export default function AdminListeningPage() {
 
   return (
     <>
-      <PageHeader title="Luyện nghe" description="Bài luyện nghe (script đọc bằng TTS), câu hỏi hiểu nội dung, và chủ đề." />
+      <PageHeader title={t.adminListening.pageTitle} description={t.adminListening.pageDesc} />
 
       <label className="mb-4 block text-sm font-medium text-slate-700">
-        Ngôn ngữ
+        {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
           <option value="en">🇬🇧 English</option>
           <option value="zh">🇨🇳 中文</option>
@@ -66,8 +68,8 @@ export default function AdminListeningPage() {
 
       <Tabs<ListeningTab>
         tabs={[
-          { id: 'passages', label: '🎧 Bài luyện nghe' },
-          { id: 'topics', label: '🗂️ Chủ đề' },
+          { id: 'passages', label: t.adminListening.tabPassages },
+          { id: 'topics', label: t.adminListening.tabTopics },
         ]}
         active={tab}
         onChange={setTab}
@@ -91,6 +93,7 @@ function TopicsSection({
   onChanged: () => void
 }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [showForm, setShowForm] = useState(false)
@@ -98,7 +101,7 @@ function TopicsSection({
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const filtered = allTopics.filter((t) => !debouncedSearch || t.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
+  const filtered = allTopics.filter((x) => !debouncedSearch || x.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
 
   const onCreateNew = () => {
     setEditing(null)
@@ -106,16 +109,15 @@ function TopicsSection({
     setShowForm(true)
   }
 
-  const onEdit = (t: ListeningTopicAdmin) => {
-    setEditing(t)
+  const onEdit = (topic: ListeningTopicAdmin) => {
+    setEditing(topic)
     setFormError(null)
     setShowForm(true)
   }
 
-  const onDelete = async (t: ListeningTopicAdmin) => {
-    if (!(await confirm({ description: `Xoá chủ đề "${t.name}"? Bài luyện nghe đang gắn chủ đề này vẫn giữ nguyên, chỉ mất icon/thứ tự hiển thị riêng.`, danger: true })))
-      return
-    await listeningService.deleteTopic(t.language_id, t.name)
+  const onDelete = async (topic: ListeningTopicAdmin) => {
+    if (!(await confirm({ description: t.adminListening.deleteTopicConfirm(topic.name), danger: true }))) return
+    await listeningService.deleteTopic(topic.language_id, topic.name)
     onChanged()
   }
 
@@ -145,7 +147,7 @@ function TopicsSection({
   return (
     <section className="mb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminListening.topicsTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<ListeningTopicAdmin>
@@ -153,37 +155,39 @@ function TopicsSection({
               filename={`listening-topics-${languageId}.json`}
             />
             <Button size="sm" onClick={onCreateNew}>
-              + Thêm chủ đề
+              {t.adminListening.addTopicBtn}
             </Button>
           </div>
         )}
       </div>
 
       <label className="block text-sm font-medium text-slate-700">
-        Tìm kiếm
+        {t.adminCommon.searchLabel}
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm theo tên chủ đề..."
+          placeholder={t.adminListening.topicSearchPlaceholder}
           className={cn(inputClass, 'max-w-xs')}
         />
       </label>
 
       {showForm && (
         <Card>
-          <h3 className="mb-3 text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.name}` : 'Thêm chủ đề mới'}</h3>
+          <h3 className="mb-3 text-base font-semibold text-slate-900">
+            {editing ? t.adminListening.editTopicTitle(editing.name) : t.adminListening.addTopicTitle}
+          </h3>
           <form key={editing?.name ?? '__new__'} onSubmit={onSubmit} className="space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Tên chủ đề
+              {t.adminListening.topicNameLabel}
               {editing ? (
-                <p className="mt-1 text-sm text-slate-900">{editing.name} (không thể đổi tên khi sửa)</p>
+                <p className="mt-1 text-sm text-slate-900">{t.adminListening.topicNameImmutable(editing.name)}</p>
               ) : (
-                <input name="name" type="text" required className={inputClass} placeholder="Daily life" />
+                <input name="name" type="text" required className={inputClass} placeholder={t.adminListening.topicNamePlaceholder} />
               )}
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Icon (emoji)
+              {t.adminListening.iconLabel}
               <IconPickerInput name="icon" defaultValue={editing?.icon ?? '🎧'} />
             </label>
             {formError && (
@@ -193,7 +197,7 @@ function TopicsSection({
             )}
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button
                 type="button"
@@ -203,29 +207,29 @@ function TopicsSection({
                   setEditing(null)
                 }}
               >
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
         </Card>
       )}
 
-      {allTopics.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
-      {filtered.length === 0 && allTopics.length > 0 && <EmptyState title="Không tìm thấy chủ đề nào" icon="🔍" />}
+      {allTopics.length === 0 && <EmptyState title={t.adminListening.emptyTopics} icon="🗂️" />}
+      {filtered.length === 0 && allTopics.length > 0 && <EmptyState title={t.adminListening.emptyTopicsSearch} icon="🔍" />}
 
       {filtered.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {filtered.map((t) => (
-              <li key={t.name} className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
-                <span className="text-xl">{t.icon}</span>
-                <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{t.name}</p>
+            {filtered.map((topic) => (
+              <li key={topic.name} className="flex items-center gap-3 px-4 py-2.5 sm:px-6">
+                <span className="text-xl">{topic.icon}</span>
+                <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{topic.name}</p>
                 <div className="flex shrink-0 gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
-                    Sửa
+                  <Button variant="secondary" size="sm" onClick={() => onEdit(topic)}>
+                    {t.adminCommon.editBtn}
                   </Button>
-                  <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
-                    Xoá
+                  <Button variant="danger" size="sm" onClick={() => onDelete(topic)}>
+                    {t.adminCommon.deleteBtn}
                   </Button>
                 </div>
               </li>
@@ -252,6 +256,7 @@ const ACCEPTED_AUDIO_TYPES = '.mp3,.wav,.ogg,.m4a,.webm,audio/*'
  * (cần passage.id có sẵn để gắn audio vào, bài mới tạo phải lưu trước). */
 function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageAdmin; onChanged: () => void }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputId = `audio-upload-${passage.id}`
@@ -273,7 +278,7 @@ function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageA
   }
 
   const onDelete = async () => {
-    if (!(await confirm({ description: `Gỡ audio khỏi "${passage.title}"? Bài sẽ quay lại dùng TTS từ script.`, danger: true }))) return
+    if (!(await confirm({ description: t.adminListening.removeAudioConfirm(passage.title), danger: true }))) return
     setBusy(true)
     setError(null)
     try {
@@ -288,26 +293,26 @@ function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageA
 
   return (
     <div className="mt-6 border-t border-slate-100 pt-4">
-      <p className="mb-2 text-sm font-medium text-slate-700">Audio thật (tuỳ chọn, thay cho TTS)</p>
+      <p className="mb-2 text-sm font-medium text-slate-700">{t.adminListening.audioSectionLabel}</p>
       {passage.audio_url ? (
         <div className="space-y-2">
           <audio controls src={passage.audio_url} className="w-full max-w-sm" />
           <div className="flex gap-2">
             <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => document.getElementById(inputId)?.click()}>
-              {busy ? 'Đang xử lý...' : 'Thay file khác'}
+              {busy ? t.adminListening.processingBtn : t.adminListening.changeFileBtn}
             </Button>
             <Button type="button" variant="danger" size="sm" disabled={busy} onClick={onDelete}>
-              Gỡ audio
+              {t.adminListening.removeAudioBtn}
             </Button>
           </div>
         </div>
       ) : (
         <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => document.getElementById(inputId)?.click()}>
-          {busy ? 'Đang upload...' : '📤 Upload audio'}
+          {busy ? t.adminListening.uploadingBtn : t.adminListening.uploadAudioBtn}
         </Button>
       )}
       <input id={inputId} type="file" accept={ACCEPTED_AUDIO_TYPES} onChange={onFileChange} className="sr-only" />
-      <p className="mt-1 text-xs text-slate-400">mp3/wav/ogg/m4a/webm, tối đa 25MB. Không chọn thì bài dùng giọng đọc TTS từ script.</p>
+      <p className="mt-1 text-xs text-slate-400">{t.adminListening.audioHint}</p>
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
     </div>
   )
@@ -315,6 +320,7 @@ function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageA
 
 function PassagesSection({ languageId, topics }: { languageId: string; topics: ListeningTopicAdmin[] }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
   const [topicFilter, setTopicFilter] = useState('')
@@ -369,7 +375,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
   }
 
   const onDelete = async (p: ListeningPassageAdmin) => {
-    if (!(await confirm({ description: `Xoá bài "${p.title}"? Toàn bộ câu hỏi bên trong sẽ bị xoá theo.`, danger: true }))) return
+    if (!(await confirm({ description: t.adminListening.deletePassageConfirm(p.title), danger: true }))) return
     await listeningService.deletePassage(p.id)
     reload()
   }
@@ -404,7 +410,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">🎧 Bài luyện nghe</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminListening.passagesTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<ListeningPassageAdmin>
@@ -415,37 +421,37 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
               }
               filename={`listening-passages-${languageId}.json`}
             />
-            <Button onClick={onCreateNew}>+ Tạo bài</Button>
+            <Button onClick={onCreateNew}>{t.adminListening.addPassageBtn}</Button>
           </div>
         )}
       </div>
 
       <div className="flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Tìm kiếm
+          {t.adminCommon.searchLabel}
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tiêu đề/chủ đề..."
+            placeholder={t.adminListening.passageSearchPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Chủ đề
+          {t.adminListening.topicFilterLabel}
           <select value={topicFilter} onChange={(e) => setTopicFilter(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-            <option value="">Tất cả</option>
-            {topics.map((t) => (
-              <option key={t.name} value={t.name}>
-                {t.icon} {t.name}
+            <option value="">{t.adminCommon.allLabel}</option>
+            {topics.map((topic) => (
+              <option key={topic.name} value={topic.name}>
+                {topic.icon} {topic.name}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Cấp độ
+          {t.adminListening.levelFilterLabel}
           <select value={level} onChange={(e) => setLevel(e.target.value)} className={cn(inputClass, 'max-w-[8rem]')}>
-            <option value="">Tất cả</option>
+            <option value="">{t.adminCommon.allLabel}</option>
             {CEFR_LEVELS.map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
@@ -457,27 +463,29 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
 
       {showForm && (
         <Card className="mb-6">
-          <h3 className="text-lg font-semibold text-slate-900">{editing ? `Sửa: ${editing.title}` : 'Tạo bài luyện nghe mới'}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {editing ? t.adminListening.editPassageTitle(editing.title) : t.adminListening.addPassageTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Tiêu đề
+              {t.adminListening.titleLabel}
               <input name="title" type="text" required defaultValue={editing?.title} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Script (văn bản sẽ được đọc bằng Web Speech TTS)
+              {t.adminListening.scriptLabel}
               <textarea name="script" required rows={5} defaultValue={editing?.script} className={inputClass} />
             </label>
             <div className="grid grid-cols-3 gap-4">
               <label className="block text-sm font-medium text-slate-700">
-                Chủ đề (tuỳ chọn)
+                {t.adminListening.optionalTopicLabel}
                 <input name="topic" type="text" defaultValue={editing?.topic} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Cấp độ
+                {t.adminListening.levelFilterLabel}
                 <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Thứ tự
+                {t.adminListening.orderLabel}
                 <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
               </label>
             </div>
@@ -490,10 +498,10 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
 
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -504,7 +512,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có bài luyện nghe nào" icon="🎧" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminListening.emptyPassages} icon="🎧" />}
 
       {data &&
         data.items.length > 0 &&
@@ -524,8 +532,10 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
                   ▸
                 </span>
                 <span className="text-lg">{isNoTopic ? '📄' : topicMeta?.icon ?? '🎧'}</span>
-                <h3 className="font-semibold text-slate-800">{isNoTopic ? 'Chưa có chủ đề' : key}</h3>
-                <span className="text-sm text-slate-400">{passages.length} bài</span>
+                <h3 className="font-semibold text-slate-800">{isNoTopic ? t.adminListening.noTopicGroupLabel : key}</h3>
+                <span className="text-sm text-slate-400">
+                  {passages.length} {t.adminListening.passageCountSuffix}
+                </span>
               </button>
 
               {isOpen && (
@@ -538,14 +548,14 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
                         <div className="flex gap-2">
                           <Link href={`/admin/listening/${p.id}`}>
                             <Button variant="secondary" size="sm">
-                              Câu hỏi
+                              {t.adminListening.questionsBtn}
                             </Button>
                           </Link>
                           <Button variant="secondary" size="sm" onClick={() => onEdit(p)}>
-                            Sửa
+                            {t.adminCommon.editBtn}
                           </Button>
                           <Button variant="danger" size="sm" onClick={() => onDelete(p)}>
-                            Xoá
+                            {t.adminCommon.deleteBtn}
                           </Button>
                         </div>
                       </li>
