@@ -16,6 +16,7 @@ import { grammarService } from '@/features/grammar/grammar.service'
 import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
@@ -46,6 +47,7 @@ type GrammarTab = 'topics' | 'lessons'
 export default function AdminGrammarPage() {
   const [languageId, setLanguageId] = useState('en')
   const [tab, setTab] = useState<GrammarTab>('lessons')
+  const t = useTranslation()
   const allTopicsApi = useApi(
     () => grammarService.listTopicsAdmin(languageId, { page: 1, pageSize: ALL_TOPICS_PAGE_SIZE }),
     [languageId],
@@ -53,10 +55,10 @@ export default function AdminGrammarPage() {
 
   return (
     <>
-      <PageHeader title="Ngữ pháp" description="Quản lý chủ đề, bài học, bài tập ngữ pháp." />
+      <PageHeader title={t.adminGrammar.pageTitle} description={t.adminGrammar.pageDesc} />
 
       <label className="mb-6 block text-sm font-medium text-slate-700">
-        Ngôn ngữ
+        {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
           <option value="en">🇬🇧 English</option>
           <option value="zh">🇨🇳 中文</option>
@@ -65,8 +67,8 @@ export default function AdminGrammarPage() {
 
       <Tabs<GrammarTab>
         tabs={[
-          { id: 'lessons', label: '📖 Bài học' },
-          { id: 'topics', label: '🗂️ Chủ đề' },
+          { id: 'lessons', label: t.adminGrammar.tabLessons },
+          { id: 'topics', label: t.adminGrammar.tabTopics },
         ]}
         active={tab}
         onChange={setTab}
@@ -80,6 +82,7 @@ export default function AdminGrammarPage() {
 
 function TopicsSection({ languageId, onChanged }: { languageId: string; onChanged: () => void }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -97,8 +100,8 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
     onChanged()
   }
 
-  const onEdit = (t: GrammarTopicAdmin) => {
-    setEditing(t)
+  const onEdit = (topic: GrammarTopicAdmin) => {
+    setEditing(topic)
     setShowForm(true)
     setFormError(null)
   }
@@ -107,9 +110,9 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
     setShowForm(true)
     setFormError(null)
   }
-  const onDelete = async (t: GrammarTopicAdmin) => {
-    if (!(await confirm({ description: `Xoá chủ đề "${t.title}"? Toàn bộ bài học + bài tập bên trong sẽ bị xoá theo.`, danger: true }))) return
-    await grammarService.deleteTopic(t.id)
+  const onDelete = async (topic: GrammarTopicAdmin) => {
+    if (!(await confirm({ description: t.adminGrammar.deleteTopicConfirm(topic.title), danger: true }))) return
+    await grammarService.deleteTopic(topic.id)
     reloadAll()
   }
 
@@ -141,7 +144,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
   return (
     <section className="mb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">🗂️ Chủ đề</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminGrammar.topicsTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<GrammarTopicAdmin>
@@ -149,14 +152,14 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
               filename={`grammar-topics-${languageId}.json`}
             />
             <Button size="sm" onClick={onCreateNew}>
-              + Tạo chủ đề
+              {t.adminGrammar.addTopicBtn}
             </Button>
           </div>
         )}
       </div>
 
       <label className="block text-sm font-medium text-slate-700">
-        Tìm kiếm
+        {t.adminCommon.searchLabel}
         <input
           type="search"
           value={search}
@@ -164,29 +167,31 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
             setSearch(e.target.value)
             setPage(1)
           }}
-          placeholder="Tìm theo tiêu đề/mã chủ đề..."
+          placeholder={t.adminGrammar.topicSearchPlaceholder}
           className={cn(inputClass, 'max-w-xs')}
         />
       </label>
 
       {showForm && (
         <Card>
-          <h3 className="text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.title}` : 'Tạo chủ đề mới'}</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            {editing ? t.adminGrammar.editTopicTitle(editing.title) : t.adminGrammar.addTopicTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Mã chủ đề (duy nhất, không đổi được sau khi tạo)
+              {t.adminGrammar.topicCodeLabel}
               <input name="code" type="text" required disabled={!!editing} defaultValue={editing?.code} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Tiêu đề
+              {t.adminGrammar.titleLabel}
               <input name="title" type="text" required defaultValue={editing?.title} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Mô tả
+              {t.adminGrammar.descriptionLabel}
               <input name="description" type="text" defaultValue={editing?.description} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Thứ tự
+              {t.adminGrammar.orderLabel}
               <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
             </label>
             {formError && (
@@ -196,10 +201,10 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
             )}
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -208,24 +213,24 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có chủ đề nào" icon="🗂️" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminGrammar.emptyTopics} icon="🗂️" />}
 
       {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
           <ul className="divide-y divide-slate-100">
-            {data.items.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+            {data.items.map((topic) => (
+              <li key={topic.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-700">{t.title}</p>
+                  <p className="truncate text-sm font-medium text-slate-700">{topic.title}</p>
                   <p className="truncate text-xs text-slate-400">
-                    {t.code} · id: {t.id}
+                    {topic.code} · id: {topic.id}
                   </p>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => onEdit(t)}>
-                  Sửa
+                <Button variant="secondary" size="sm" onClick={() => onEdit(topic)}>
+                  {t.adminCommon.editBtn}
                 </Button>
-                <Button variant="danger" size="sm" onClick={() => onDelete(t)}>
-                  Xoá
+                <Button variant="danger" size="sm" onClick={() => onDelete(topic)}>
+                  {t.adminCommon.deleteBtn}
                 </Button>
               </li>
             ))}
@@ -245,6 +250,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
 
 function LessonsSection({ languageId, topics }: { languageId: string; topics: GrammarTopicAdmin[] }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -272,7 +278,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
     setFormError(null)
   }
   const onDelete = async (l: GrammarLessonAdmin) => {
-    if (!(await confirm({ description: `Xoá bài học "${l.title}"? Toàn bộ bài tập bên trong sẽ bị xoá theo.`, danger: true }))) return
+    if (!(await confirm({ description: t.adminGrammar.deleteLessonConfirm(l.title), danger: true }))) return
     await grammarService.deleteLesson(l.id)
     reload()
   }
@@ -284,7 +290,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
     try {
       content = JSON.parse(String(form.get('content') ?? '{}'))
     } catch {
-      setFormError('Nội dung bài học (content) phải là JSON hợp lệ.')
+      setFormError(t.adminGrammar.invalidContentJson)
       return
     }
     const body: GrammarLessonRequest = {
@@ -314,7 +320,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">📖 Bài học</h2>
+        <h2 className="text-lg font-semibold text-slate-900">{t.adminGrammar.lessonsTitle}</h2>
         {!showForm && (
           <div className="flex gap-2">
             <ExportButton<GrammarLessonAdmin>
@@ -326,16 +332,16 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
               filename={`grammar-lessons-${languageId}.json`}
             />
             <Button size="sm" disabled={topics.length === 0} onClick={onCreateNew}>
-              + Tạo bài học
+              {t.adminGrammar.addLessonBtn}
             </Button>
           </div>
         )}
       </div>
-      {topics.length === 0 && <p className="text-sm text-slate-500">Tạo chủ đề trước khi thêm bài học.</p>}
+      {topics.length === 0 && <p className="text-sm text-slate-500">{t.adminGrammar.createTopicFirst}</p>}
 
       <div className="flex flex-wrap gap-4">
         <label className="block text-sm font-medium text-slate-700">
-          Tìm kiếm
+          {t.adminCommon.searchLabel}
           <input
             type="search"
             value={search}
@@ -343,12 +349,12 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Tìm theo tiêu đề/mã bài học..."
+            placeholder={t.adminGrammar.lessonSearchPlaceholder}
             className={cn(inputClass, 'max-w-xs')}
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Chủ đề
+          {t.adminGrammar.topicFilterLabel}
           <select
             value={topicFilter}
             onChange={(e) => {
@@ -357,16 +363,16 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
             }}
             className={cn(inputClass, 'max-w-xs')}
           >
-            <option value="">Tất cả</option>
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
+            <option value="">{t.adminCommon.allLabel}</option>
+            {topics.map((topic) => (
+              <option key={topic.id} value={topic.id}>
+                {topic.title}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Cấp độ
+          {t.adminGrammar.levelFilterLabel}
           <select
             value={levelFilter}
             onChange={(e) => {
@@ -375,7 +381,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
             }}
             className={cn(inputClass, 'max-w-[8rem]')}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t.adminCommon.allLabel}</option>
             {CEFR_LEVELS.map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
@@ -387,43 +393,45 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
 
       {showForm && (
         <Card>
-          <h3 className="text-base font-semibold text-slate-900">{editing ? `Sửa: ${editing.title}` : 'Tạo bài học mới'}</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            {editing ? t.adminGrammar.editLessonTitle(editing.title) : t.adminGrammar.addLessonTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 space-y-4">
             {!editing && (
               <label className="block text-sm font-medium text-slate-700">
-                Chủ đề
+                {t.adminGrammar.chooseTopicLabel}
                 <select name="topic_id" required defaultValue="" className={inputClass}>
                   <option value="" disabled>
-                    Chọn chủ đề...
+                    {t.adminGrammar.chooseTopicPlaceholder}
                   </option>
-                  {topics.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title}
+                  {topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>
+                      {topic.title}
                     </option>
                   ))}
                 </select>
               </label>
             )}
             <label className="block text-sm font-medium text-slate-700">
-              Mã bài học (duy nhất, không đổi được sau khi tạo)
+              {t.adminGrammar.lessonCodeLabel}
               <input name="code" type="text" required disabled={!!editing} defaultValue={editing?.code} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Tiêu đề
+              {t.adminGrammar.titleLabel}
               <input name="title" type="text" required defaultValue={editing?.title} className={inputClass} />
             </label>
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
-                Cấp độ
+                {t.adminGrammar.levelFilterLabel}
                 <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Thứ tự
+                {t.adminGrammar.orderLabel}
                 <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
               </label>
             </div>
             <label className="block text-sm font-medium text-slate-700">
-              Nội dung (JSON — summary/formulas/signals)
+              {t.adminGrammar.contentLabel}
               <textarea
                 name="content"
                 required
@@ -439,10 +447,10 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
             )}
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -451,7 +459,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có bài học nào" icon="📖" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminGrammar.emptyLessons} icon="📖" />}
 
       {data && data.items.length > 0 && (
         <Card className="p-0 sm:p-0">
@@ -465,14 +473,14 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
                 <LevelBadge level={l.level} />
                 <Link href={`/admin/grammar/${l.id}`}>
                   <Button variant="secondary" size="sm">
-                    Bài tập
+                    {t.adminGrammar.exercisesBtn}
                   </Button>
                 </Link>
                 <Button variant="secondary" size="sm" onClick={() => onEdit(l)}>
-                  Sửa
+                  {t.adminCommon.editBtn}
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => onDelete(l)}>
-                  Xoá
+                  {t.adminCommon.deleteBtn}
                 </Button>
               </li>
             ))}

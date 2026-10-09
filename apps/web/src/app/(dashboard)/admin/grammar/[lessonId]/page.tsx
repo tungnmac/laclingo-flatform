@@ -14,6 +14,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useTranslation } from '@/hooks/useTranslation'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarExercise, GrammarExerciseRequest } from '@/types/api'
@@ -36,6 +37,7 @@ const bulkPlaceholder = `[
 
 export default function AdminGrammarExercisesPage({ params }: { params: { lessonId: string } }) {
   const confirm = useConfirm()
+  const t = useTranslation()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -59,7 +61,7 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
     setFormError(null)
   }
   const onDelete = async (ex: GrammarExercise) => {
-    if (!(await confirm({ description: `Xoá bài tập "${ex.question}"?`, danger: true }))) return
+    if (!(await confirm({ description: t.adminGrammar.deleteExerciseConfirm(ex.question), danger: true }))) return
     await grammarService.deleteExercise(ex.id)
     reload()
   }
@@ -108,11 +110,11 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
   return (
     <>
       <Link href="/admin/grammar" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Danh sách bài học
+        {t.adminGrammar.backToLessons}
       </Link>
       <PageHeader
-        title="Bài tập ngữ pháp"
-        description="Trắc nghiệm (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK) cho bài học này."
+        title={t.adminGrammar.exercisesPageTitle}
+        description={t.adminGrammar.exercisesPageDesc}
         action={
           !showForm && (
             <div className="flex gap-2">
@@ -122,14 +124,14 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
                 }
                 filename="grammar-exercises.json"
               />
-              <Button onClick={onCreateNew}>+ Tạo bài tập</Button>
+              <Button onClick={onCreateNew}>{t.adminGrammar.addExerciseBtn}</Button>
             </div>
           )
         }
       />
 
       <label className="mb-4 block text-sm font-medium text-slate-700">
-        Tìm kiếm
+        {t.adminCommon.searchLabel}
         <input
           type="search"
           value={search}
@@ -137,54 +139,56 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
             setSearch(e.target.value)
             setPage(1)
           }}
-          placeholder="Tìm theo nội dung câu hỏi..."
+          placeholder={t.adminGrammar.exerciseSearchPlaceholder}
           className={cn(inputClass, 'max-w-xs')}
         />
       </label>
 
       {showForm && (
         <Card className="mb-6">
-          <h3 className="text-lg font-semibold text-slate-900">{editing ? 'Sửa bài tập' : 'Tạo bài tập mới'}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {editing ? t.adminGrammar.editExerciseTitle : t.adminGrammar.addExerciseTitle}
+          </h3>
           <form onSubmit={onSubmit} className="mt-4 space-y-4">
             <label className="block text-sm font-medium text-slate-700">
-              Dạng bài
+              {t.adminGrammar.exerciseTypeLabel}
               <select name="type" defaultValue={editing?.type ?? 'MULTIPLE_CHOICE'} className={inputClass}>
-                <option value="MULTIPLE_CHOICE">Trắc nghiệm (MULTIPLE_CHOICE)</option>
-                <option value="FILL_BLANK">Điền từ (FILL_BLANK)</option>
+                <option value="MULTIPLE_CHOICE">{t.adminGrammar.multipleChoiceOption}</option>
+                <option value="FILL_BLANK">{t.adminGrammar.fillBlankOption}</option>
               </select>
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Câu hỏi
+              {t.adminGrammar.questionLabel}
               <input name="question" type="text" required defaultValue={editing?.question} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Lựa chọn (mỗi dòng 1 lựa chọn — chỉ cần nếu là trắc nghiệm)
+              {t.adminGrammar.optionsLabel}
               <textarea name="options" rows={4} defaultValue={editing?.options?.join('\n')} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Đáp án đúng
+              {t.adminGrammar.correctAnswerLabel}
               <input name="correct_answer" type="text" required defaultValue={editing?.correct_answer} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Giải thích
+              {t.adminGrammar.explanationLabel}
               <input name="explanation" type="text" defaultValue={editing?.explanation} className={inputClass} />
             </label>
             <div className="grid grid-cols-3 gap-4">
               <label className="block text-sm font-medium text-slate-700">
-                Độ khó (1-4)
+                {t.adminGrammar.difficultyLabel}
                 <input name="level" type="number" min={1} max={4} defaultValue={1} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Thứ tự
+                {t.adminGrammar.orderLabel}
                 <input name="order_index" type="number" defaultValue={editing?.order_index ?? 0} className={inputClass} />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                XP thưởng
+                {t.adminGrammar.xpRewardLabel}
                 <input name="xp_reward" type="number" defaultValue={10} className={inputClass} />
               </label>
             </div>
             <label className="block text-sm font-medium text-slate-700">
-              Gợi ý (tuỳ chọn)
+              {t.adminGrammar.hintLabel}
               <input name="hint" type="text" className={inputClass} />
             </label>
 
@@ -196,10 +200,10 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
 
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>
-                {saving ? 'Đang lưu...' : 'Lưu'}
+                {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
-                Hủy
+                {t.adminCommon.cancelBtn}
               </Button>
             </div>
           </form>
@@ -208,7 +212,7 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.items.length === 0 && <EmptyState title="Chưa có bài tập nào" icon="✏️" />}
+      {data && data.items.length === 0 && <EmptyState title={t.adminGrammar.emptyExercises} icon="✏️" />}
 
       {data && data.items.length > 0 && (
         <Card className="mb-2 p-0 sm:p-0">
@@ -217,15 +221,13 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
               <li key={ex.id} className={cn('flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6')}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">{ex.question}</p>
-                  <p className="truncate text-sm text-slate-500">
-                    {ex.type} · đáp án: {ex.correct_answer}
-                  </p>
+                  <p className="truncate text-sm text-slate-500">{t.adminGrammar.typeAndAnswer(ex.type, ex.correct_answer)}</p>
                 </div>
                 <Button variant="secondary" size="sm" onClick={() => onEdit(ex)}>
-                  Sửa
+                  {t.adminCommon.editBtn}
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => onDelete(ex)}>
-                  Xoá
+                  {t.adminCommon.deleteBtn}
                 </Button>
               </li>
             ))}
