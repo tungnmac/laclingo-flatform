@@ -1,6 +1,7 @@
 'use client'
 
 import { Card } from '@/components/ui/Card'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type {
   ChallengeLeaderboardEntry,
@@ -34,8 +35,8 @@ export function QuestionView({
   myUserId?: string
   onSubmit: (selectedIndex: number) => void
 }) {
+  const t = useTranslation()
   if (!question) return null
-
   const percent = question.time_limit_seconds === 0 ? 0 : Math.round((timeLeft / question.time_limit_seconds) * 100)
   const revealing = phase === 'reveal' && reveal !== null
   const answered = myAnswer !== null
@@ -44,9 +45,7 @@ export function QuestionView({
     <div className="space-y-6">
       <div>
         <div className="mb-2 flex items-center justify-between text-sm text-slate-600">
-          <span>
-            Câu {question.index + 1}/{question.total}
-          </span>
+          <span>{t.challenges.questionCounter(question.index + 1, question.total)}</span>
           <span className="font-semibold">{timeLeft}s</span>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
@@ -68,7 +67,7 @@ export function QuestionView({
             answerResult.correct ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-rose-200',
           )}
         >
-          {answerResult.correct ? `Chính xác! +${answerResult.points_earned} điểm` : 'Chưa đúng — 0 điểm'}
+          {answerResult.correct ? t.challenges.correctWithPoints(answerResult.points_earned) : t.challenges.incorrectZero}
         </p>
       )}
 
@@ -101,11 +100,11 @@ export function QuestionView({
         })}
       </div>
 
-      {answered && !revealing && <p className="text-center text-sm text-slate-500">Đã gửi câu trả lời, chờ người khác...</p>}
+      {answered && !revealing && <p className="text-center text-sm text-slate-500">{t.challenges.waitingOthers}</p>}
 
       {revealing && leaderboard.length > 0 && (
         <Card>
-          <h3 className="mb-3 text-sm font-semibold text-slate-900">Bảng xếp hạng</h3>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">{t.challenges.questionLeaderboardTitle}</h3>
           <ol className="space-y-2">
             {leaderboard.slice(0, 5).map((entry) => (
               <li
@@ -113,9 +112,11 @@ export function QuestionView({
                 className={cn('flex items-center justify-between text-sm', entry.user_id === myUserId && 'font-bold text-indigo-600')}
               >
                 <span>
-                  {entry.rank}. {participantName(entry)}
+                  {entry.rank}. {participantName(entry, t.challenges.defaultPlayerName)}
                 </span>
-                <span>{entry.score} điểm</span>
+                <span>
+                  {entry.score} {t.challenges.pointsSuffix}
+                </span>
               </li>
             ))}
           </ol>

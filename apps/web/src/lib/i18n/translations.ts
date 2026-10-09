@@ -1,4 +1,5 @@
 import type { Locale } from '@/store/locale'
+import { challengesTranslations, type ChallengesDict } from './dict/challenges'
 import { learnTranslations, type LearnDict } from './dict/learn'
 import { reviewTranslations, type ReviewDict } from './dict/review'
 
@@ -355,13 +356,14 @@ const base: Record<Locale, Dictionary> = {
 
 const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
 
-export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict> = Object.fromEntries(
+export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
     locale,
     {
       ...base[locale],
       ...pick(learnTranslations, locale),
       ...pick(reviewTranslations, locale),
+      ...pick(challengesTranslations, locale),
     },
   ]),
-) as Record<Locale, Dictionary & LearnDict & ReviewDict>
+) as Record<Locale, Dictionary & LearnDict & ReviewDict & ChallengesDict>

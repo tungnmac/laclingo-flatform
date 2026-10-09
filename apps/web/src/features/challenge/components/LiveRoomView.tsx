@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, type ReactNode } from 'react'
 import { Button, ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useTranslation } from '@/hooks/useTranslation'
 import { useSession } from '@/store/session'
 import type { ChallengeRoomDetail } from '@/types/api'
 import { useChallengeSocket } from '../hooks/useChallengeSocket'
@@ -20,19 +21,20 @@ export function LiveRoomView({ room, onParticipantChange }: { room: ChallengeRoo
   const socket = useChallengeSocket(room.id, onParticipantChange)
   const isHost = me?.id === room.host_user_id
   const [chatOpen, setChatOpen] = useState(false)
+  const t = useTranslation()
 
   if (socket.kicked) {
     return (
       <Card className="space-y-4 text-center">
         <p className="text-4xl">🚫</p>
         <p className="font-semibold text-slate-900">{socket.kicked.reason}</p>
-        <ButtonLink href="/challenges">Về trang thách đấu</ButtonLink>
+        <ButtonLink href="/challenges">{t.challenges.backToChallenges}</ButtonLink>
       </Card>
     )
   }
 
   const onLeave = () => {
-    if (!window.confirm('Bạn chắc chắn muốn rời phòng?')) return
+    if (!window.confirm(t.challenges.leaveRoomConfirm)) return
     socket.leaveRoom()
     router.push('/challenges')
   }
@@ -74,7 +76,7 @@ export function LiveRoomView({ room, onParticipantChange }: { room: ChallengeRoo
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button variant="ghost" size="sm" onClick={onLeave}>
-          🚪 Rời phòng
+          {t.challenges.leaveRoomBtn}
         </Button>
       </div>
 
@@ -88,7 +90,7 @@ export function LiveRoomView({ room, onParticipantChange }: { room: ChallengeRoo
           onClick={() => setChatOpen((v) => !v)}
           className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700"
         >
-          💬 Chat & reaction
+          {t.challenges.chatReactionToggle}
           <span className="text-slate-400">{chatOpen ? '▲' : '▼'}</span>
         </button>
         {chatOpen && (
