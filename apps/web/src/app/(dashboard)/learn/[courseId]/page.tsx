@@ -1,26 +1,52 @@
 'use client'
 
 import Link from 'next/link'
-import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
-import { ClassesSection } from '@/features/class/components/ClassesSection'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
-import { TopicLessonList } from '@/features/grammar/components/TopicLessonList'
-import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function CoursePage({ params }: { params: { courseId: string } }) {
   const { data: language, error, loading, reload } = useApi(() => courseService.getById(params.courseId), [params.courseId])
-  const grammar = useApi(() => grammarService.listTopics(params.courseId), [params.courseId])
   const t = useTranslation()
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
   if (!language) return null
+
+  const cards = [
+    {
+      key: 'vocabulary',
+      href: `/review/new?language=${params.courseId}`,
+      icon: '📚',
+      title: t.learn.vocabularyCardTitle,
+      description: t.learn.vocabularyCardDesc,
+    },
+    {
+      key: 'grammar',
+      href: `/learn/${params.courseId}/grammar`,
+      icon: '📖',
+      title: t.learn.grammarSectionTitle,
+      description: t.learn.grammarCardDesc,
+    },
+    {
+      key: 'classes',
+      href: `/learn/${params.courseId}/classes`,
+      icon: '📋',
+      title: t.classes.sectionTitle,
+      description: t.classes.cardDesc,
+    },
+    {
+      key: 'srs',
+      href: `/review/vocabulary?language=${params.courseId}`,
+      icon: '🧠',
+      title: t.learn.srsCardTitle,
+      description: t.learn.srsCardDesc,
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -36,27 +62,21 @@ export default function CoursePage({ params }: { params: { courseId: string } })
             {t.learn.languageCodeLabel}: {language.code}
           </p>
         </div>
-        <ButtonLink href={`/review?language=${params.courseId}`} size="lg" className="w-full sm:w-auto">
-          {t.learn.reviewNow}
-        </ButtonLink>
       </Card>
 
-      <Card>
-        <h2 className="mb-2 text-lg font-semibold text-slate-900">{t.learn.srsCardTitle}</h2>
-        <p className="text-sm text-slate-600">{t.learn.srsCardDesc}</p>
-      </Card>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-slate-900">{t.classes.sectionTitle}</h2>
-        <ClassesSection languageId={params.courseId} />
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-slate-900">{t.learn.grammarSectionTitle}</h2>
-        {grammar.loading && <Spinner label={t.learn.loadingLessons} />}
-        {grammar.error && <ErrorState error={grammar.error} onRetry={grammar.reload} />}
-        {grammar.data && <TopicLessonList topics={grammar.data} courseId={params.courseId} />}
-      </section>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {cards.map((c) => (
+          <Link
+            key={c.key}
+            href={c.href}
+            className="group flex flex-col gap-2 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-indigo-300"
+          >
+            <span className="text-3xl">{c.icon}</span>
+            <h3 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-600">{c.title}</h3>
+            <p className="text-sm text-slate-500">{c.description}</p>
+          </Link>
+        ))}
+      </div>
 
       <Mascot message={t.learn.mascotCourse(language.name)} />
     </div>

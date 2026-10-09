@@ -5,6 +5,7 @@ import type { Locale } from '@/store/locale'
 export interface ClassesDict {
   classes: {
     sectionTitle: string
+    cardDesc: string
     emptyClasses: string
     lessonCountSuffix: string
     enrollBtn: string
@@ -41,6 +42,7 @@ export const classesTranslations: Partial<Record<Locale, ClassesDict>> = {
   vi: {
     classes: {
       sectionTitle: '📋 Lớp học',
+      cardDesc: 'Học theo giáo án có sẵn — chuỗi bài ngữ pháp theo thứ tự cố định cho từng level.',
       emptyClasses: 'Chưa có lớp học nào cho ngôn ngữ này',
       lessonCountSuffix: 'bài học',
       enrollBtn: 'Ghi danh',
@@ -76,6 +78,7 @@ export const classesTranslations: Partial<Record<Locale, ClassesDict>> = {
   en: {
     classes: {
       sectionTitle: '📋 Classes',
+      cardDesc: 'Follow a ready-made curriculum — a fixed-order sequence of grammar lessons for each level.',
       emptyClasses: 'No classes for this language yet',
       lessonCountSuffix: 'lessons',
       enrollBtn: 'Enroll',

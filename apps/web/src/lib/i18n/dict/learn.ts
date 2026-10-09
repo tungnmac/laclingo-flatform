@@ -12,12 +12,15 @@ export interface LearnDict {
     emptyBody: string
     backToLanguages: string
     languageCodeLabel: string
-    reviewNow: string
     srsCardTitle: string
     srsCardDesc: string
     grammarSectionTitle: string
     loadingLessons: string
     mascotCourse: (name: string) => string
+    vocabularyCardTitle: string
+    vocabularyCardDesc: string
+    grammarCardDesc: string
+    backToCourse: string
   }
   grammar: {
     backToLessons: string
@@ -48,12 +51,15 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       emptyBody: 'Hãy chạy seeds.sql để thêm dữ liệu mẫu.',
       backToLanguages: '← Tất cả ngôn ngữ',
       languageCodeLabel: 'Mã ngôn ngữ',
-      reviewNow: 'Ôn tập ngay',
       srsCardTitle: '🧠 Ôn tập từ vựng (SRS)',
       srsCardDesc: 'Thuật toán SM-2 nhắc bạn ôn đúng lúc sắp quên — mỗi lần trả lời đúng, khoảng cách ôn tập sẽ dài hơn.',
       grammarSectionTitle: '📖 Ngữ pháp',
       loadingLessons: 'Đang tải bài học...',
       mascotCourse: (name) => `Cùng chinh phục ${name} mỗi ngày nhé!`,
+      vocabularyCardTitle: '📚 Từ vựng',
+      vocabularyCardDesc: 'Học từ mới theo chủ đề qua hình minh họa, câu mẫu và phát âm.',
+      grammarCardDesc: 'Lướt tự do toàn bộ chủ đề và bài học ngữ pháp theo 12 thì.',
+      backToCourse: '← Quay lại khoá học',
     },
     grammar: {
       backToLessons: '← Danh sách bài học',
@@ -82,12 +88,15 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       emptyBody: 'Run seeds.sql to add sample data.',
       backToLanguages: '← All languages',
       languageCodeLabel: 'Language code',
-      reviewNow: 'Review now',
       srsCardTitle: '🧠 Vocabulary review (SRS)',
       srsCardDesc: 'The SM-2 algorithm reminds you to review right before you forget — each correct answer stretches the interval further.',
       grammarSectionTitle: '📖 Grammar',
       loadingLessons: 'Loading lessons...',
       mascotCourse: (name) => `Let's conquer ${name} every day!`,
+      vocabularyCardTitle: '📚 Vocabulary',
+      vocabularyCardDesc: 'Learn new words by topic through pictures, example sentences, and pronunciation.',
+      grammarCardDesc: 'Freely browse all grammar topics and lessons across the 12 tenses.',
+      backToCourse: '← Back to course',
     },
     grammar: {
       backToLessons: '← Lesson list',
@@ -116,12 +125,15 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       emptyBody: '请运行 seeds.sql 添加示例数据。',
       backToLanguages: '← 所有语言',
       languageCodeLabel: '语言代码',
-      reviewNow: '立即复习',
       srsCardTitle: '🧠 单词复习（SRS）',
       srsCardDesc: 'SM-2 算法会在你快要遗忘时提醒你复习——每次答对，复习间隔都会变长。',
       grammarSectionTitle: '📖 语法',
       loadingLessons: '正在加载课程...',
       mascotCourse: (name) => `一起每天征服${name}吧！`,
+      vocabularyCardTitle: '📚 词汇',
+      vocabularyCardDesc: '通过图片、例句和发音按主题学习新单词。',
+      grammarCardDesc: '自由浏览所有语法主题和 12 种时态的课程。',
+      backToCourse: '← 返回课程',
     },
     grammar: {
       backToLessons: '← 课程列表',
@@ -150,12 +162,15 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       emptyBody: 'seeds.sql を実行してサンプルデータを追加してください。',
       backToLanguages: '← すべての言語',
       languageCodeLabel: '言語コード',
-      reviewNow: '今すぐ復習',
       srsCardTitle: '🧠 単語復習（SRS）',
       srsCardDesc: 'SM-2 アルゴリズムが忘れる直前に復習のタイミングを教えてくれます——正解するたびに復習間隔が長くなります。',
       grammarSectionTitle: '📖 文法',
       loadingLessons: 'レッスンを読み込み中...',
       mascotCourse: (name) => `毎日一緒に${name}を制覇しましょう！`,
+      vocabularyCardTitle: '📚 単語',
+      vocabularyCardDesc: '写真や例文、発音を使ってトピック別に新しい単語を学びます。',
+      grammarCardDesc: '12の時制に関するすべての文法トピックとレッスンを自由に閲覧できます。',
+      backToCourse: '← コースに戻る',
     },
     grammar: {
       backToLessons: '← レッスン一覧',
@@ -184,12 +199,15 @@ export const learnTranslations: Record<Locale, LearnDict> = {
       emptyBody: 'seeds.sql 을 실행해서 샘플 데이터를 추가하세요.',
       backToLanguages: '← 모든 언어',
       languageCodeLabel: '언어 코드',
-      reviewNow: '지금 복습하기',
       srsCardTitle: '🧠 단어 복습 (SRS)',
       srsCardDesc: 'SM-2 알고리즘이 잊어버리기 직전에 복습하도록 알려줍니다 — 맞출 때마다 복습 간격이 더 길어집니다.',
       grammarSectionTitle: '📖 문법',
       loadingLessons: '레슨을 불러오는 중...',
       mascotCourse: (name) => `매일 함께 ${name}을 정복해봐요!`,
+      vocabularyCardTitle: '📚 단어',
+      vocabularyCardDesc: '사진, 예문, 발음을 통해 주제별로 새 단어를 배워요.',
+      grammarCardDesc: '12가지 시제에 관한 모든 문법 주제와 레슨을 자유롭게 둘러보세요.',
+      backToCourse: '← 코스로 돌아가기',
     },
     grammar: {
       backToLessons: '← 레슨 목록',
