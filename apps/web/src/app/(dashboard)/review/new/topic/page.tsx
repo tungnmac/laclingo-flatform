@@ -4,12 +4,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useKeypress } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useWordAutoplay } from '@/hooks/useWordAutoplay'
+import { cn } from '@/lib/utils'
+import { useAutoplaySettings } from '@/store/autoplaySettings'
 import type { VocabularyCard } from '@/types/api'
 
 /** Học từ theo một chủ đề: lướt từng từ, like / yêu thích / thêm vào ôn tập.
@@ -48,8 +52,46 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
 
   const current = words[index] as VocabularyCard | undefined
   const learned = words.filter((w) => w.in_review).length
-  const prev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
-  const next = useCallback(() => setIndex((i) => Math.min(words.length - 1, i + 1)), [words.length])
+  const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
+  const goNext = useCallback(() => setIndex((i) => Math.min(words.length - 1, i + 1)), [words.length])
+
+  // Tự chạy slide: đọc từ (và xen nghĩa nếu shadowMode) rồi tự goNext — bấm
+  // Trước/Tiếp hoặc phím mũi tên thủ công thì DỪNG tự động (tránh đọc đè lên
+  // việc điều hướng tay), nên tách riêng bản "thủ công" khỏi goPrev/goNext thô.
+  const [autoplay, setAutoplay] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const repeatCount = useAutoplaySettings((s) => s.repeatCount)
+  const gapSeconds = useAutoplaySettings((s) => s.gapSeconds)
+  const shadowMode = useAutoplaySettings((s) => s.shadowMode)
+  const setRepeatCount = useAutoplaySettings((s) => s.setRepeatCount)
+  const setGapSeconds = useAutoplaySettings((s) => s.setGapSeconds)
+  const setShadowMode = useAutoplaySettings((s) => s.setShadowMode)
+
+  const isLastWord = index >= words.length - 1
+  const onAutoAdvance = useCallback(() => {
+    if (isLastWord) setAutoplay(false)
+    else goNext()
+  }, [isLastWord, goNext])
+
+  useWordAutoplay({
+    enabled: autoplay && !!current,
+    term: current?.term ?? '',
+    meaning: current?.meaning ?? '',
+    languageId: current?.language_id ?? language ?? 'en',
+    repeatCount,
+    gapSeconds,
+    shadowMode,
+    onAdvance: onAutoAdvance,
+  })
+
+  const prev = () => {
+    setAutoplay(false)
+    goPrev()
+  }
+  const next = () => {
+    setAutoplay(false)
+    goNext()
+  }
 
   const onKey = useCallback(
     (key: string) => {
@@ -58,7 +100,8 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
       else return false
       return true
     },
-    [prev, next],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [goPrev, goNext],
   )
   useKeypress(onKey, words.length > 0)
 
@@ -108,6 +151,55 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
             <Button onClick={next} disabled={index >= words.length - 1}>
               {t.review.nextBtn}
             </Button>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Button variant={autoplay ? 'danger' : 'secondary'} size="sm" onClick={() => setAutoplay((v) => !v)}>
+                {autoplay ? t.review.autoplayStopBtn : t.review.autoplayStartBtn}
+              </Button>
+              <button type="button" onClick={() => setShowSettings((v) => !v)} className="text-xs font-medium text-slate-500 hover:text-indigo-600">
+                ⚙️ {t.review.autoplaySettingsBtn}
+              </button>
+            </div>
+
+            {showSettings && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                  {t.review.repeatCountLabel}
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={repeatCount}
+                    onChange={(e) => setRepeatCount(Number(e.target.value))}
+                    className={cn(inputClass, 'mt-0')}
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-slate-600">
+                  {t.review.gapSecondsLabel}
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={gapSeconds}
+                    onChange={(e) => setGapSeconds(Number(e.target.value))}
+                    className={cn(inputClass, 'mt-0')}
+                  />
+                </label>
+                <label className="col-span-2 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={shadowMode}
+                    onChange={(e) => setShadowMode(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  {t.review.shadowModeLabel}
+                </label>
+              </div>
+            )}
+
+            {autoplay && <p className="text-center text-xs font-medium text-indigo-600">{t.review.autoplayRunningHint}</p>}
           </div>
         </>
       )}

@@ -45,6 +45,13 @@ export interface ReviewDict {
     prevBtn: string
     nextBtn: string
     arrowHint: string
+    autoplayStartBtn: string
+    autoplayStopBtn: string
+    autoplaySettingsBtn: string
+    repeatCountLabel: string
+    gapSecondsLabel: string
+    shadowModeLabel: string
+    autoplayRunningHint: string
 
     loadingFavorites: string
     emptyFavoritesTitle: string
@@ -123,6 +130,13 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       prevBtn: '← Trước',
       nextBtn: 'Tiếp →',
       arrowHint: 'Dùng phím ← → để chuyển từ',
+      autoplayStartBtn: '▶️ Tự động đọc',
+      autoplayStopBtn: '⏸ Dừng tự động',
+      autoplaySettingsBtn: 'Cài đặt',
+      repeatCountLabel: 'Số lần đọc mỗi từ',
+      gapSecondsLabel: 'Cách nhau (giây)',
+      shadowModeLabel: 'Shadowing — xen đọc nghĩa giữa các lần đọc từ',
+      autoplayRunningHint: '🔊 Đang tự động đọc — bấm ← → hoặc Trước/Tiếp để dừng và tự chuyển từ.',
 
       loadingFavorites: 'Đang lấy từ yêu thích...',
       emptyFavoritesTitle: 'Chưa có từ yêu thích nào',
@@ -198,6 +212,13 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       prevBtn: '← Previous',
       nextBtn: 'Next →',
       arrowHint: 'Use ← → to switch words',
+      autoplayStartBtn: '▶️ Auto-play',
+      autoplayStopBtn: '⏸ Stop auto-play',
+      autoplaySettingsBtn: 'Settings',
+      repeatCountLabel: 'Repeats per word',
+      gapSecondsLabel: 'Gap (seconds)',
+      shadowModeLabel: 'Shadowing — read the meaning between word repeats',
+      autoplayRunningHint: '🔊 Auto-playing — press ← → or Previous/Next to stop and move manually.',
 
       loadingFavorites: 'Loading favorites...',
       emptyFavoritesTitle: 'No favorite words yet',
