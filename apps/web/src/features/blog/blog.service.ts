@@ -1,11 +1,11 @@
-import { apiFetch } from '@/lib/api'
+import { API_URL, apiFetch } from '@/lib/api'
 import { buildQuery } from '@/lib/query'
 import type {
   BlogCommentNode,
   BlogCommentRequest,
+  BlogImageResponse,
   BlogPostAdmin,
   BlogPostDetail,
-  BlogPostImage,
   BlogPostRequest,
   BlogPostSummary,
   BlogToggleResponse,
@@ -29,13 +29,16 @@ export const blogService = {
     apiFetch<BlogPostDetail>(`/blog/posts/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (id: string) => apiFetch<void>(`/blog/posts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  uploadImage: (postId: string, file: File) => {
+  // Upload KHÔNG cần postId — ảnh được "nhận" vào bài khi lưu content (xem backend
+  // adoptContentImages), nên có thể chèn ảnh ngay cả khi đang soạn bài MỚI. res.url
+  // từ backend là path tương đối (giữ ổn định mãi, tự resolve sang R2 presigned URL
+  // khi phục vụ) — ghép với API_URL để ra URL đầy đủ chèn vào content rich text.
+  uploadImage: async (file: File): Promise<BlogImageResponse> => {
     const form = new FormData()
     form.append('image', file)
-    return apiFetch<BlogPostImage>(`/blog/posts/${encodeURIComponent(postId)}/images`, { method: 'POST', body: form })
+    const res = await apiFetch<BlogImageResponse>('/blog/images', { method: 'POST', body: form })
+    return { ...res, url: `${API_URL}${res.url}` }
   },
-  deleteImage: (postId: string, imageId: string) =>
-    apiFetch<void>(`/blog/posts/${encodeURIComponent(postId)}/images/${encodeURIComponent(imageId)}`, { method: 'DELETE' }),
 
   setStar: (postId: string, on: boolean) =>
     apiFetch<BlogToggleResponse>(`/blog/posts/${encodeURIComponent(postId)}/star`, { method: on ? 'PUT' : 'DELETE' }),

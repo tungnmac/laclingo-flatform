@@ -679,10 +679,10 @@ export interface BlogPostRequest {
   title: string
   content: string
   tags: string[]
-  youtube_urls: string[]
 }
 
-export interface BlogPostImage {
+// Kết quả 1 lần upload ảnh (chưa gắn bài nào) — chèn thẳng res.url vào content rich text.
+export interface BlogImageResponse {
   id: string
   url: string
 }
@@ -696,6 +696,7 @@ export interface BlogPostSummary {
   language_id?: string
   title: string
   excerpt: string
+  thumbnail_url?: string
   tags: string[]
   view_count: number
   comment_count: number
@@ -721,8 +722,6 @@ export interface BlogPostDetail {
   title: string
   content: string
   tags: string[]
-  images: BlogPostImage[]
-  youtube_urls: string[]
   view_count: number
   comment_count: number
   star_count: number

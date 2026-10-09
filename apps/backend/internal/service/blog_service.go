@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"regexp"
+	"strings"
 	"time"
 
 	"laclingo-backend/internal/repository/db"
@@ -14,12 +16,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 // BlogRepository định nghĩa Interface tiếp xúc với cơ sở dữ liệu. BeginTx +
-// WithTx dùng để tạo/sửa bài viết + link YouTube trong 1 transaction thật
-// (khớp pattern ClassService.ReplaceLessons) — CreateBlogPost/UpdateBlogPost/
-// DeleteBlogPostYoutubeLinks/AddBlogPostYoutubeLink vì vậy KHÔNG có trong
+// WithTx dùng để tạo/sửa bài viết + "nhận" ảnh chèn trong content trong 1
+// transaction thật (khớp pattern ClassService.ReplaceLessons) —
+// CreateBlogPost/UpdateBlogPost/AdoptBlogImages vì vậy KHÔNG có trong
 // interface này, chỉ gọi qua qtx bên trong transaction.
 type BlogRepository interface {
 	BeginTx(ctx context.Context) (pgx.Tx, error)
@@ -33,12 +36,10 @@ type BlogRepository interface {
 	UnhideBlogPost(ctx context.Context, id pgtype.UUID) error
 	ListBlogPostsPaged(ctx context.Context, arg db.ListBlogPostsPagedParams) ([]db.ListBlogPostsPagedRow, error)
 	ListBlogPostsAdminPaged(ctx context.Context, arg db.ListBlogPostsAdminPagedParams) ([]db.ListBlogPostsAdminPagedRow, error)
-	ListBlogPostYoutubeLinks(ctx context.Context, postID pgtype.UUID) ([]db.BlogPostYoutubeLink, error)
 
-	CountBlogPostImages(ctx context.Context, postID pgtype.UUID) (int32, error)
-	AddBlogPostImage(ctx context.Context, arg db.AddBlogPostImageParams) (db.BlogPostImage, error)
+	CreateBlogImage(ctx context.Context, arg db.CreateBlogImageParams) (db.BlogPostImage, error)
+	GetBlogImageByID(ctx context.Context, id pgtype.UUID) (db.BlogPostImage, error)
 	ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([]db.BlogPostImage, error)
-	DeleteBlogPostImage(ctx context.Context, arg db.DeleteBlogPostImageParams) (string, error)
 
 	CreateBlogComment(ctx context.Context, arg db.CreateBlogCommentParams) (db.BlogComment, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (db.BlogComment, error)
@@ -75,21 +76,23 @@ func NewBlogService(repo BlogRepository, r2 *storage.R2Client) *BlogService {
 
 // ===== Request / response types =====
 
-// BlogPostRequest — body tạo/sửa bài viết (tác giả tự phục vụ)
+// BlogPostRequest — body tạo/sửa bài viết (tác giả tự phục vụ). Content là
+// HTML rich text (Tiptap) — ảnh/video YouTube đã nhúng NGAY TRONG content,
+// không còn field riêng.
 type BlogPostRequest struct {
-	LanguageID  string   `json:"language_id,omitempty"`
-	Title       string   `json:"title"`
-	Content     string   `json:"content"`
-	Tags        []string `json:"tags"`
-	YoutubeURLs []string `json:"youtube_urls"`
+	LanguageID string   `json:"language_id,omitempty"`
+	Title      string   `json:"title"`
+	Content    string   `json:"content"`
+	Tags       []string `json:"tags"`
 }
 
-type BlogPostImageResponse struct {
+// BlogImageResponse — kết quả 1 lần upload ảnh (chưa gắn bài nào tới khi Create/Update "nhận")
+type BlogImageResponse struct {
 	ID  uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
 	URL string    `json:"url"`
 }
 
-// BlogPostSummary — 1 bài trong danh sách, kèm excerpt + count/flag theo user hiện tại
+// BlogPostSummary — 1 bài trong danh sách, kèm excerpt (plain text) + count/flag theo user hiện tại
 type BlogPostSummary struct {
 	ID              uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
 	AuthorID        uuid.UUID `json:"author_id" swaggertype:"string" format:"uuid"`
@@ -99,6 +102,7 @@ type BlogPostSummary struct {
 	LanguageID      string    `json:"language_id,omitempty"`
 	Title           string    `json:"title"`
 	Excerpt         string    `json:"excerpt"`
+	ThumbnailURL    string    `json:"thumbnail_url,omitempty"`
 	Tags            []string  `json:"tags"`
 	ViewCount       int32     `json:"view_count"`
 	CommentCount    int       `json:"comment_count"`
@@ -114,31 +118,30 @@ type BlogPostSummary struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// BlogPostDetail — 1 bài đầy đủ (trang chi tiết)
+// BlogPostDetail — 1 bài đầy đủ (trang chi tiết). Content là HTML rich text
+// đã sanitize — tự chứa ảnh/video, không cần field Images/YoutubeURLs riêng.
 type BlogPostDetail struct {
-	ID              uuid.UUID               `json:"id" swaggertype:"string" format:"uuid"`
-	AuthorID        uuid.UUID               `json:"author_id" swaggertype:"string" format:"uuid"`
-	AuthorUsername  string                  `json:"author_username"`
-	AuthorFullName  string                  `json:"author_full_name,omitempty"`
-	AuthorAvatarURL string                  `json:"author_avatar_url,omitempty"`
-	LanguageID      string                  `json:"language_id,omitempty"`
-	Title           string                  `json:"title"`
-	Content         string                  `json:"content"`
-	Tags            []string                `json:"tags"`
-	Images          []BlogPostImageResponse `json:"images"`
-	YoutubeURLs     []string                `json:"youtube_urls"`
-	ViewCount       int32                   `json:"view_count"`
-	CommentCount    int                     `json:"comment_count"`
-	StarCount       int                     `json:"star_count"`
-	MarkerCount     int                     `json:"marker_count"`
-	LikeCount       int                     `json:"like_count"`
-	DislikeCount    int                     `json:"dislike_count"`
-	Starred         bool                    `json:"starred"`
-	Marked          bool                    `json:"marked"`
-	Liked           bool                    `json:"liked"`
-	Disliked        bool                    `json:"disliked"`
-	IsHidden        bool                    `json:"is_hidden"`
-	CreatedAt       time.Time               `json:"created_at"`
+	ID              uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	AuthorID        uuid.UUID `json:"author_id" swaggertype:"string" format:"uuid"`
+	AuthorUsername  string    `json:"author_username"`
+	AuthorFullName  string    `json:"author_full_name,omitempty"`
+	AuthorAvatarURL string    `json:"author_avatar_url,omitempty"`
+	LanguageID      string    `json:"language_id,omitempty"`
+	Title           string    `json:"title"`
+	Content         string    `json:"content"`
+	Tags            []string  `json:"tags"`
+	ViewCount       int32     `json:"view_count"`
+	CommentCount    int       `json:"comment_count"`
+	StarCount       int       `json:"star_count"`
+	MarkerCount     int       `json:"marker_count"`
+	LikeCount       int       `json:"like_count"`
+	DislikeCount    int       `json:"dislike_count"`
+	Starred         bool      `json:"starred"`
+	Marked          bool      `json:"marked"`
+	Liked           bool      `json:"liked"`
+	Disliked        bool      `json:"disliked"`
+	IsHidden        bool      `json:"is_hidden"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // BlogPostAdminResponse — 1 bài nhìn từ phía admin hậu kiểm (không cần flag theo user)
@@ -181,13 +184,71 @@ type BlogToggleResponse struct {
 	Count  int       `json:"count"`
 }
 
-// excerptLen — số ký tự content giữ lại cho danh sách (cắt theo rune để không vỡ UTF-8).
+// blogSanitizePolicy — nền UGCPolicy (thẻ format cơ bản: p/h1-h6/ul/ol/li/
+// blockquote/pre/code/a[href]/img[src,alt]...) + mở riêng 1 lỗ nhỏ cho
+// <iframe> nhúng YouTube (Tiptap extension-youtube bọc trong
+// <div data-youtube-video>) — src PHẢI khớp domain youtube, chặn mọi iframe
+// khác (vector XSS/clickjacking phổ biến nhất nếu mở iframe tuỳ ý).
+var youtubeEmbedSrc = regexp.MustCompile(`^https://(www\.)?youtube(-nocookie)?\.com/embed/[\w-]+(\?.*)?$`)
+
+// blogImageIDPattern khớp UUID ngay sau "/blog/images/" bất kể origin đứng
+// trước (dev/prod khác domain) — dùng để tìm ảnh được tham chiếu trong content.
+var blogImageIDPattern = regexp.MustCompile(`/blog/images/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
+
+var stripTagsPattern = regexp.MustCompile(`<[^>]+>`)
+
+func newBlogSanitizePolicy() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	p.AllowAttrs("data-youtube-video").OnElements("div")
+	p.AllowAttrs("src").Matching(youtubeEmbedSrc).OnElements("iframe")
+	p.AllowAttrs("width", "height", "frameborder", "allow", "allowfullscreen", "title").OnElements("iframe")
+	return p
+}
+
+var blogSanitizePolicy = newBlogSanitizePolicy()
+
+func sanitizeBlogContent(html string) string {
+	return blogSanitizePolicy.Sanitize(html)
+}
+
+// extractBlogImageIDs tìm mọi id ảnh (/blog/images/{id}) được tham chiếu
+// trong content HTML — dùng để "nhận" (adopt) ảnh vào bài khi lưu.
+func extractBlogImageIDs(html string) []uuid.UUID {
+	matches := blogImageIDPattern.FindAllStringSubmatch(html, -1)
+	seen := make(map[uuid.UUID]bool, len(matches))
+	ids := make([]uuid.UUID, 0, len(matches))
+	for _, m := range matches {
+		id, err := uuid.Parse(m[1])
+		if err != nil || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// firstImageURL trả về src của <img> đầu tiên trong content (đã là URL ổn
+// định /blog/images/{id}, dùng thẳng làm thumbnail) — "" nếu bài không có ảnh.
+var firstImgSrcPattern = regexp.MustCompile(`<img[^>]+src="([^"]+)"`)
+
+func firstImageURL(content string) string {
+	m := firstImgSrcPattern.FindStringSubmatch(content)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+// excerptLen — số ký tự plain-text giữ lại cho danh sách (cắt theo rune để không vỡ UTF-8).
 const excerptLen = 200
 
+// excerpt bỏ hết thẻ HTML, gộp khoảng trắng rồi cắt ngắn — content giờ là rich HTML.
 func excerpt(content string) string {
-	runes := []rune(content)
+	plain := strings.Join(strings.Fields(stripTagsPattern.ReplaceAllString(content, " ")), " ")
+	runes := []rune(plain)
 	if len(runes) <= excerptLen {
-		return content
+		return plain
 	}
 	return string(runes[:excerptLen]) + "…"
 }
@@ -224,7 +285,7 @@ func (s *BlogService) List(ctx context.Context, userID uuid.UUID, languageID, ta
 		results = append(results, BlogPostSummary{
 			ID: uuid.UUID(r.ID.Bytes), AuthorID: uuid.UUID(r.AuthorID.Bytes),
 			AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
-			LanguageID: optionalText(r.LanguageID), Title: r.Title, Excerpt: excerpt(r.Content), Tags: r.Tags,
+			LanguageID: optionalText(r.LanguageID), Title: r.Title, Excerpt: excerpt(r.Content), ThumbnailURL: firstImageURL(r.Content), Tags: r.Tags,
 			ViewCount: r.ViewCount, CommentCount: int(r.CommentCount),
 			StarCount: int(r.StarCount), MarkerCount: int(r.MarkerCount), LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount),
 			Starred: r.Starred, Marked: r.Marked, Liked: r.Liked, Disliked: r.Disliked,
@@ -232,18 +293,6 @@ func (s *BlogService) List(ctx context.Context, userID uuid.UUID, languageID, ta
 		})
 	}
 	return PageResult[BlogPostSummary]{Items: results, Total: total}, nil
-}
-
-func (s *BlogService) presignImageURL(ctx context.Context, key string) string {
-	if s.r2 == nil || key == "" {
-		return ""
-	}
-	url, err := s.r2.PresignGet(ctx, key, imagePresignTTL)
-	if err != nil {
-		log.Printf("❌ presign blog image key=%s: %v", key, err)
-		return ""
-	}
-	return url
 }
 
 // GetDetail trả về 1 bài đầy đủ, tăng view_count 1 lần mỗi lượt gọi (không dedupe per-user).
@@ -256,6 +305,8 @@ func (s *BlogService) GetDetail(ctx context.Context, userID, postID uuid.UUID) (
 
 // fetchDetail trả về 1 bài đầy đủ KHÔNG tăng view_count — dùng cho response
 // ngay sau Create/Update (vừa tạo/sửa xong thì không tính là 1 lượt xem).
+// Content tự chứa ảnh/video (URL ổn định /blog/images/:id, iframe youtube),
+// không cần join thêm bảng ảnh/link nào để dựng response.
 func (s *BlogService) fetchDetail(ctx context.Context, userID, postID uuid.UUID) (BlogPostDetail, error) {
 	r, err := s.repo.GetBlogPostDetailByID(ctx, db.GetBlogPostDetailByIDParams{UserID: toPgUUID(userID), ID: toPgUUID(postID)})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -265,29 +316,11 @@ func (s *BlogService) fetchDetail(ctx context.Context, userID, postID uuid.UUID)
 		return BlogPostDetail{}, err
 	}
 
-	imageRows, err := s.repo.ListBlogPostImages(ctx, toPgUUID(postID))
-	if err != nil {
-		return BlogPostDetail{}, err
-	}
-	images := make([]BlogPostImageResponse, 0, len(imageRows))
-	for _, img := range imageRows {
-		images = append(images, BlogPostImageResponse{ID: uuid.UUID(img.ID.Bytes), URL: s.presignImageURL(ctx, img.ImageKey)})
-	}
-
-	linkRows, err := s.repo.ListBlogPostYoutubeLinks(ctx, toPgUUID(postID))
-	if err != nil {
-		return BlogPostDetail{}, err
-	}
-	links := make([]string, 0, len(linkRows))
-	for _, l := range linkRows {
-		links = append(links, l.Url)
-	}
-
 	return BlogPostDetail{
 		ID: postID, AuthorID: uuid.UUID(r.AuthorID.Bytes),
 		AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
 		LanguageID: optionalText(r.LanguageID), Title: r.Title, Content: r.Content, Tags: r.Tags,
-		Images: images, YoutubeURLs: links, ViewCount: r.ViewCount, CommentCount: int(r.CommentCount),
+		ViewCount: r.ViewCount, CommentCount: int(r.CommentCount),
 		StarCount: int(r.StarCount), MarkerCount: int(r.MarkerCount), LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount),
 		Starred: r.Starred, Marked: r.Marked, Liked: r.Liked, Disliked: r.Disliked,
 		IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time,
@@ -310,31 +343,31 @@ func (s *BlogService) requireAuthor(ctx context.Context, postID, authorID uuid.U
 	return post, nil
 }
 
-// replaceYoutubeLinks xoá hết link cũ rồi insert lại theo mảng mới — gọi qua
-// qtx bên trong 1 transaction (khớp pattern ClassService.ReplaceLessons).
-func replaceYoutubeLinks(ctx context.Context, qtx *db.Queries, postID uuid.UUID, urls []string) error {
-	if err := qtx.DeleteBlogPostYoutubeLinks(ctx, toPgUUID(postID)); err != nil {
-		return err
+// adoptContentImages "nhận" các ảnh được tham chiếu trong content (đã upload
+// bởi đúng authorID, chưa gắn bài nào) vào postID — gọi qua qtx bên trong 1
+// transaction (khớp pattern ClassService.ReplaceLessons). Ảnh KHÔNG còn được
+// tham chiếu nữa (user xoá khỏi content khi sửa bài) vẫn giữ post_id cũ,
+// chấp nhận là rác mồ côi trên R2 — bản này chưa có cơ chế dọn tự động.
+func adoptContentImages(ctx context.Context, qtx *db.Queries, content string, postID, authorID uuid.UUID) error {
+	ids := extractBlogImageIDs(content)
+	if len(ids) == 0 {
+		return nil
 	}
-	for i, url := range urls {
-		if url == "" {
-			continue
-		}
-		if err := qtx.AddBlogPostYoutubeLink(ctx, db.AddBlogPostYoutubeLinkParams{
-			PostID: toPgUUID(postID), Url: url, OrderIndex: int32(i),
-		}); err != nil {
-			return err
-		}
+	pgIDs := make([]pgtype.UUID, len(ids))
+	for i, id := range ids {
+		pgIDs[i] = toPgUUID(id)
 	}
-	return nil
+	return qtx.AdoptBlogImages(ctx, db.AdoptBlogImagesParams{PostID: toPgUUID(postID), Ids: pgIDs, AuthorID: toPgUUID(authorID)})
 }
 
-// Create tạo 1 bài viết mới (title/content/tags bắt buộc) + link YouTube
-// trong 1 transaction. Ảnh đính kèm upload riêng SAU khi bài đã có ID (xem UploadImage).
+// Create tạo 1 bài viết mới (title/content/tags bắt buộc) — content được
+// sanitize rồi "nhận" các ảnh đã tham chiếu trong 1 transaction.
 func (s *BlogService) Create(ctx context.Context, authorID uuid.UUID, req BlogPostRequest) (BlogPostDetail, error) {
 	if req.Title == "" || req.Content == "" {
 		return BlogPostDetail{}, ErrInvalidInput
 	}
+	content := sanitizeBlogContent(req.Content)
+
 	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return BlogPostDetail{}, err
@@ -344,13 +377,13 @@ func (s *BlogService) Create(ctx context.Context, authorID uuid.UUID, req BlogPo
 
 	post, err := qtx.CreateBlogPost(ctx, db.CreateBlogPostParams{
 		AuthorID: toPgUUID(authorID), LanguageID: pgtype.Text{String: req.LanguageID, Valid: req.LanguageID != ""},
-		Title: req.Title, Content: req.Content, Tags: req.Tags,
+		Title: req.Title, Content: content, Tags: req.Tags,
 	})
 	if err != nil {
 		return BlogPostDetail{}, err
 	}
 	postID := uuid.UUID(post.ID.Bytes)
-	if err := replaceYoutubeLinks(ctx, qtx, postID, req.YoutubeURLs); err != nil {
+	if err := adoptContentImages(ctx, qtx, content, postID, authorID); err != nil {
 		return BlogPostDetail{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -367,6 +400,7 @@ func (s *BlogService) Update(ctx context.Context, authorID, postID uuid.UUID, re
 	if _, err := s.requireAuthor(ctx, postID, authorID); err != nil {
 		return BlogPostDetail{}, err
 	}
+	content := sanitizeBlogContent(req.Content)
 
 	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
@@ -376,12 +410,12 @@ func (s *BlogService) Update(ctx context.Context, authorID, postID uuid.UUID, re
 	qtx := s.repo.WithTx(tx)
 
 	if _, err := qtx.UpdateBlogPost(ctx, db.UpdateBlogPostParams{
-		ID: toPgUUID(postID), Title: req.Title, Content: req.Content, Tags: req.Tags,
+		ID: toPgUUID(postID), Title: req.Title, Content: content, Tags: req.Tags,
 		LanguageID: pgtype.Text{String: req.LanguageID, Valid: req.LanguageID != ""},
 	}); err != nil {
 		return BlogPostDetail{}, err
 	}
-	if err := replaceYoutubeLinks(ctx, qtx, postID, req.YoutubeURLs); err != nil {
+	if err := adoptContentImages(ctx, qtx, content, postID, authorID); err != nil {
 		return BlogPostDetail{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -419,60 +453,53 @@ var allowedImageContentTypes = map[string]bool{
 }
 
 const maxImageBytes = 5 * 1024 * 1024 // 5MB/ảnh
-const maxImagesPerPost = 6
-const imagePresignTTL = 24 * time.Hour
+const imagePresignTTL = 1 * time.Hour // ngắn vì /blog/images/:id presign lại mỗi lần phục vụ, không lộ lâu
 
-// UploadImage đính 1 ảnh vào bài viết của chính tác giả (tối đa maxImagesPerPost ảnh/bài).
-func (s *BlogService) UploadImage(ctx context.Context, authorID, postID uuid.UUID, content io.Reader, size int64, contentType, ext string) (BlogPostImageResponse, error) {
+// UploadImage upload 1 ảnh lên R2, trả về id + URL phục vụ ổn định
+// (/blog/images/:id) để chèn vào content ngay lúc soạn — chưa gắn bài nào
+// (post_id NULL), Create/Update sẽ "nhận" ảnh khi lưu (xem adoptContentImages).
+// KHÔNG cần postId — giải quyết việc soạn bài MỚI chưa có id vẫn chèn ảnh được.
+func (s *BlogService) UploadImage(ctx context.Context, authorID uuid.UUID, content io.Reader, size int64, contentType, ext string) (BlogImageResponse, error) {
 	if s.r2 == nil {
-		return BlogPostImageResponse{}, fmt.Errorf("chưa cấu hình lưu trữ ảnh (R2): %w", ErrInvalidInput)
+		return BlogImageResponse{}, fmt.Errorf("chưa cấu hình lưu trữ ảnh (R2): %w", ErrInvalidInput)
 	}
 	if !allowedImageContentTypes[contentType] {
-		return BlogPostImageResponse{}, fmt.Errorf("định dạng ảnh không hỗ trợ (%s): %w", contentType, ErrInvalidInput)
+		return BlogImageResponse{}, fmt.Errorf("định dạng ảnh không hỗ trợ (%s): %w", contentType, ErrInvalidInput)
 	}
 	if size > maxImageBytes {
-		return BlogPostImageResponse{}, fmt.Errorf("ảnh quá lớn (tối đa %dMB): %w", maxImageBytes/1024/1024, ErrInvalidInput)
-	}
-	if _, err := s.requireAuthor(ctx, postID, authorID); err != nil {
-		return BlogPostImageResponse{}, err
-	}
-	count, err := s.repo.CountBlogPostImages(ctx, toPgUUID(postID))
-	if err != nil {
-		return BlogPostImageResponse{}, err
-	}
-	if count >= maxImagesPerPost {
-		return BlogPostImageResponse{}, fmt.Errorf("mỗi bài tối đa %d ảnh: %w", maxImagesPerPost, ErrInvalidInput)
+		return BlogImageResponse{}, fmt.Errorf("ảnh quá lớn (tối đa %dMB): %w", maxImageBytes/1024/1024, ErrInvalidInput)
 	}
 
-	key := fmt.Sprintf("blog/%s/%s%s", postID, uuid.New(), ext)
+	key := fmt.Sprintf("blog/%s/%s%s", authorID, uuid.New(), ext)
 	if err := s.r2.Upload(ctx, key, content, contentType); err != nil {
-		return BlogPostImageResponse{}, fmt.Errorf("upload ảnh thất bại: %w", err)
+		return BlogImageResponse{}, fmt.Errorf("upload ảnh thất bại: %w", err)
 	}
-	img, err := s.repo.AddBlogPostImage(ctx, db.AddBlogPostImageParams{PostID: toPgUUID(postID), ImageKey: key, OrderIndex: count})
+	img, err := s.repo.CreateBlogImage(ctx, db.CreateBlogImageParams{AuthorID: toPgUUID(authorID), ImageKey: key})
 	if err != nil {
-		return BlogPostImageResponse{}, err
+		return BlogImageResponse{}, err
 	}
-	return BlogPostImageResponse{ID: uuid.UUID(img.ID.Bytes), URL: s.presignImageURL(ctx, img.ImageKey)}, nil
+	imgID := uuid.UUID(img.ID.Bytes)
+	return BlogImageResponse{ID: imgID, URL: fmt.Sprintf("/blog/images/%s", imgID)}, nil
 }
 
-// DeleteImage gỡ 1 ảnh khỏi bài viết của chính tác giả (xoá luôn object trên R2).
-func (s *BlogService) DeleteImage(ctx context.Context, authorID, postID, imageID uuid.UUID) error {
-	if _, err := s.requireAuthor(ctx, postID, authorID); err != nil {
-		return err
+// ResolveImageURL tra key theo imageID rồi presign — dùng cho route public
+// GET /blog/images/:id (redirect sang URL thật, xem BlogHandler.ServeImage).
+func (s *BlogService) ResolveImageURL(ctx context.Context, imageID uuid.UUID) (string, error) {
+	if s.r2 == nil {
+		return "", ErrNotFound
 	}
-	key, err := s.repo.DeleteBlogPostImage(ctx, db.DeleteBlogPostImageParams{ID: toPgUUID(imageID), PostID: toPgUUID(postID)})
+	img, err := s.repo.GetBlogImageByID(ctx, toPgUUID(imageID))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
+		return "", ErrNotFound
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	if s.r2 != nil {
-		if err := s.r2.Delete(ctx, key); err != nil {
-			log.Printf("❌ xoá ảnh blog key=%s: %v", key, err)
-		}
+	url, err := s.r2.PresignGet(ctx, img.ImageKey, imagePresignTTL)
+	if err != nil {
+		return "", err
 	}
-	return nil
+	return url, nil
 }
 
 // ===== Comment lồng nhau =====

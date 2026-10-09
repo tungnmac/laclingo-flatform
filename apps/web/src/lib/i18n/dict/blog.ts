@@ -27,9 +27,11 @@ export interface BlogDict {
     tagsHint: string
     tagsPlaceholder: string
     languageOptionalLabel: string
-    youtubeLabel: string
-    youtubeHint: string
-    youtubeAddBtn: string
+    contentPlaceholder: string
+    linkPrompt: string
+    youtubePrompt: string
+    insertImageLabel: string
+    insertYoutubeLabel: string
     submitCreateBtn: string
     submitUpdateBtn: string
     submittingBtn: string
@@ -37,12 +39,6 @@ export interface BlogDict {
     deleteBtn: string
     deletePostConfirm: (title: string) => string
     viewPostBtn: string
-
-    imagesTitle: string
-    addImageBtn: string
-    uploadingImage: string
-    maxImagesHint: string
-    deleteImageConfirm: string
 
     commentsTitle: string
     addCommentPlaceholder: string
@@ -101,22 +97,18 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       tagsHint: 'Gõ tên chủ đề rồi nhấn Enter để thêm.',
       tagsPlaceholder: 'VD: ngữ pháp, kinh nghiệm...',
       languageOptionalLabel: 'Ngôn ngữ (không bắt buộc)',
-      youtubeLabel: 'Link YouTube',
-      youtubeHint: 'Dán link video YouTube rồi nhấn Thêm.',
-      youtubeAddBtn: 'Thêm',
+      contentPlaceholder: 'Viết nội dung bài... dùng toolbar để định dạng, chèn ảnh hoặc video YouTube.',
+      linkPrompt: 'Nhập URL:',
+      youtubePrompt: 'Dán link video YouTube:',
+      insertImageLabel: 'Chèn ảnh (tối đa 5MB)',
+      insertYoutubeLabel: 'Chèn video YouTube',
       submitCreateBtn: 'Đăng bài',
       submitUpdateBtn: 'Lưu thay đổi',
       submittingBtn: 'Đang xử lý...',
       editBtn: 'Sửa',
       deleteBtn: 'Xoá',
-      deletePostConfirm: (title) => `Xoá bài viết "${title}"? Toàn bộ ảnh, link và bình luận sẽ bị xoá theo.`,
+      deletePostConfirm: (title) => `Xoá bài viết "${title}"? Toàn bộ bình luận sẽ bị xoá theo.`,
       viewPostBtn: 'Xem bài viết',
-
-      imagesTitle: 'Hình ảnh đính kèm',
-      addImageBtn: '+ Thêm ảnh',
-      uploadingImage: 'Đang tải ảnh lên...',
-      maxImagesHint: 'Tối đa 6 ảnh/bài, mỗi ảnh tối đa 5MB.',
-      deleteImageConfirm: 'Xoá ảnh này khỏi bài viết?',
 
       commentsTitle: 'Bình luận',
       addCommentPlaceholder: 'Viết bình luận...',
@@ -173,22 +165,18 @@ export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
       tagsHint: 'Type a tag and press Enter to add it.',
       tagsPlaceholder: 'e.g. grammar, tips...',
       languageOptionalLabel: 'Language (optional)',
-      youtubeLabel: 'YouTube link',
-      youtubeHint: 'Paste a YouTube video link, then click Add.',
-      youtubeAddBtn: 'Add',
+      contentPlaceholder: 'Write your post... use the toolbar to format text or insert images/YouTube videos.',
+      linkPrompt: 'Enter URL:',
+      youtubePrompt: 'Paste a YouTube video link:',
+      insertImageLabel: 'Insert image (up to 5MB)',
+      insertYoutubeLabel: 'Insert YouTube video',
       submitCreateBtn: 'Publish',
       submitUpdateBtn: 'Save changes',
       submittingBtn: 'Processing...',
       editBtn: 'Edit',
       deleteBtn: 'Delete',
-      deletePostConfirm: (title) => `Delete post "${title}"? All its images, links and comments will be deleted too.`,
+      deletePostConfirm: (title) => `Delete post "${title}"? All its comments will be deleted too.`,
       viewPostBtn: 'View post',
-
-      imagesTitle: 'Attached images',
-      addImageBtn: '+ Add image',
-      uploadingImage: 'Uploading image...',
-      maxImagesHint: 'Up to 6 images/post, 5MB each.',
-      deleteImageConfirm: 'Remove this image from the post?',
 
       commentsTitle: 'Comments',
       addCommentPlaceholder: 'Write a comment...',

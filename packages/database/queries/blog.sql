@@ -89,36 +89,30 @@ WHERE (sqlc.arg('hidden_only')::bool = false OR p.is_hidden = true)
 ORDER BY p.created_at DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
--- ===== Ảnh đính kèm (upload qua R2) =====
+-- ===== Ảnh chèn trong content (upload qua R2, phục vụ qua /blog/images/:id) =====
 
--- name: CountBlogPostImages :one
-SELECT COUNT(*)::int FROM blog_post_images WHERE post_id = $1;
-
--- name: AddBlogPostImage :one
-INSERT INTO blog_post_images (post_id, image_key, order_index)
-VALUES ($1, $2, $3)
+-- name: CreateBlogImage :one
+-- post_id NULL lúc upload (có thể đang soạn bài MỚI, chưa có id) — Create/Update
+-- bài sẽ "nhận" (AdoptBlogImages) các ảnh được tham chiếu trong content.
+INSERT INTO blog_post_images (author_id, image_key)
+VALUES ($1, $2)
 RETURNING *;
 
+-- name: GetBlogImageByID :one
+-- Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
+SELECT * FROM blog_post_images WHERE id = $1;
+
+-- name: AdoptBlogImages :exec
+-- Gắn các ảnh (do đúng author upload, CHƯA gắn bài nào) vào bài vừa lưu —
+-- ảnh KHÔNG thuộc danh sách này (đã bị xoá khỏi content khi sửa bài) vẫn
+-- giữ nguyên post_id cũ, chấp nhận trở thành rác mồ côi trên R2 (không có
+-- cơ chế dọn tự động ở bản này).
+UPDATE blog_post_images SET post_id = sqlc.arg('post_id')
+WHERE id = ANY(sqlc.arg('ids')::uuid[]) AND author_id = sqlc.arg('author_id') AND post_id IS NULL;
+
 -- name: ListBlogPostImages :many
-SELECT * FROM blog_post_images WHERE post_id = $1 ORDER BY order_index;
-
--- name: DeleteBlogPostImage :one
--- Trả về image_key để service xoá luôn object trong R2.
-DELETE FROM blog_post_images WHERE id = $1 AND post_id = $2
-RETURNING image_key;
-
--- ===== Link YouTube =====
-
--- name: DeleteBlogPostYoutubeLinks :exec
--- Dùng trong ReplaceYoutubeLinks (xoá hết rồi insert lại theo mảng mới — giống ReplaceClassLessons).
-DELETE FROM blog_post_youtube_links WHERE post_id = $1;
-
--- name: AddBlogPostYoutubeLink :exec
-INSERT INTO blog_post_youtube_links (post_id, url, order_index)
-VALUES ($1, $2, $3);
-
--- name: ListBlogPostYoutubeLinks :many
-SELECT * FROM blog_post_youtube_links WHERE post_id = $1 ORDER BY order_index;
+-- Dùng khi xoá bài (lấy key để xoá object trên R2 trước khi xoá hàng DB).
+SELECT * FROM blog_post_images WHERE post_id = $1;
 
 -- ===== Comment (lồng nhau) =====
 

@@ -408,8 +408,11 @@ CREATE TABLE IF NOT EXISTS listening_topics (
     PRIMARY KEY (language_id, name)
 );
 
--- Blog học viên: bài viết tự do (tag tự gõ), ảnh đính kèm upload qua R2,
--- link YouTube, comment lồng nhau, 4 counter tương tác độc lập.
+-- Blog học viên: bài viết tự do (tag tự gõ), comment lồng nhau, 4 counter
+-- tương tác độc lập. content là HTML rich text (Tiptap) đã qua sanitize ở
+-- backend trước khi lưu — ảnh/video YouTube nhúng NGAY TRONG content (ảnh
+-- qua link ổn định /blog/images/:id, xem blog_post_images; video qua
+-- <iframe> youtube.com/embed/... do sanitize policy cho phép riêng).
 CREATE TABLE IF NOT EXISTS blog_posts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -429,23 +432,19 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_created ON blog_posts(created_at DESC)
 CREATE INDEX IF NOT EXISTS idx_blog_posts_tags ON blog_posts USING GIN (tags);
 
 -- Object key trong bucket R2 (KHÔNG phải URL public), giống listening_passages.audio_key.
+-- Ảnh được chèn NGAY TRONG content (rich text, như Notion/Medium) qua link
+-- ổn định /blog/images/:id (resolve sang presigned URL khi phục vụ) — không
+-- còn là gallery riêng theo bài, nên post_id NULL được (upload lúc đang soạn
+-- bài MỚI, chưa có id) cho tới khi lưu bài thì "nhận" (adopt) theo author_id.
 CREATE TABLE IF NOT EXISTS blog_post_images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
-    image_key VARCHAR(255) NOT NULL,
-    order_index INT NOT NULL DEFAULT 0
+    post_id UUID REFERENCES blog_posts(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    image_key VARCHAR(255) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_blog_post_images_post ON blog_post_images(post_id, order_index);
-
-CREATE TABLE IF NOT EXISTS blog_post_youtube_links (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
-    url VARCHAR(500) NOT NULL,
-    order_index INT NOT NULL DEFAULT 0
-);
-
-CREATE INDEX IF NOT EXISTS idx_blog_post_youtube_links_post ON blog_post_youtube_links(post_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_blog_post_images_post ON blog_post_images(post_id);
+CREATE INDEX IF NOT EXISTS idx_blog_post_images_author ON blog_post_images(author_id);
 
 -- Comment lồng nhau: parent_comment_id NULL = comment gốc.
 CREATE TABLE IF NOT EXISTS blog_comments (

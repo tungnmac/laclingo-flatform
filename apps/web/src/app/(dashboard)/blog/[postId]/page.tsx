@@ -11,7 +11,7 @@ import { blogService } from '@/features/blog/blog.service'
 import { CommentThread } from '@/features/blog/components/CommentThread'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
-import { cn, extractYoutubeId, formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import type { BlogPostDetail } from '@/types/api'
 
@@ -30,7 +30,6 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
 
   const [pending, setPending] = useState<CounterAction | null>(null)
   const [counterError, setCounterError] = useState<string | null>(null)
-  const [openImage, setOpenImage] = useState<string | null>(null)
   const [newComment, setNewComment] = useState('')
   const [postingComment, setPostingComment] = useState(false)
 
@@ -136,41 +135,12 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
           </div>
         )}
 
-        <p className="mt-4 whitespace-pre-wrap break-words text-slate-700">{post.content}</p>
-
-        {post.images.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {post.images.map((img) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={img.id}
-                src={img.url}
-                alt=""
-                onClick={() => setOpenImage(img.url)}
-                className="aspect-square cursor-pointer rounded-lg object-cover transition hover:opacity-90"
-              />
-            ))}
-          </div>
-        )}
-
-        {post.youtube_urls.length > 0 && (
-          <div className="mt-4 space-y-3">
-            {post.youtube_urls.map((url) => {
-              const videoId = extractYoutubeId(url)
-              if (!videoId) return null
-              return (
-                <div key={url} className="aspect-video overflow-hidden rounded-lg">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${videoId}`}
-                    title="YouTube video"
-                    allowFullScreen
-                    className="h-full w-full"
-                  />
-                </div>
-              )
-            })}
-          </div>
-        )}
+        {/* Content là HTML đã sanitize ở backend (xem blog_service.go sanitizeBlogContent)
+            — ảnh/video YouTube nhúng ngay trong content, [&_iframe] canh tỉ lệ 16:9 gọn. */}
+        <div
+          className="prose prose-slate mt-4 max-w-none [&_iframe]:aspect-video [&_iframe]:w-full [&_img]:rounded-lg"
+          dangerouslySetInnerHTML={{ __html: post.content }}
+        />
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
@@ -273,19 +243,6 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
           )}
         </div>
       </Card>
-
-      {openImage && (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setOpenImage(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setOpenImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={openImage} alt="" className="max-h-full max-w-full rounded-lg object-contain" />
-        </div>
-      )}
     </div>
   )
 }

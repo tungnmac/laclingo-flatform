@@ -18,6 +18,13 @@ func NewBlogHandler(svc *service.BlogService) *BlogHandler {
 	return &BlogHandler{svc: svc}
 }
 
+// RegisterPublicRoutes gắn route KHÔNG cần đăng nhập — chỉ phục vụ ảnh vì
+// <img src> render thẳng trong trình duyệt không gửi được header
+// Authorization, nên route tra/redirect ảnh phải nằm ngoài nhóm protected.
+func (h *BlogHandler) RegisterPublicRoutes(router fiber.Router) {
+	router.Get("/blog/images/:id", h.ServeImage)
+}
+
 // RegisterRoutes gắn route tự-phục-vụ — cần đăng nhập (mọi màn hình trong app
 // đều sau dashboard login, không có bản "công khai" riêng).
 func (h *BlogHandler) RegisterRoutes(router fiber.Router) {
@@ -27,8 +34,10 @@ func (h *BlogHandler) RegisterRoutes(router fiber.Router) {
 	router.Put("/blog/posts/:id", h.Update)
 	router.Delete("/blog/posts/:id", h.Delete)
 
-	router.Post("/blog/posts/:id/images", h.UploadImage)
-	router.Delete("/blog/posts/:id/images/:imageId", h.DeleteImage)
+	// Upload KHÔNG cần postId — ảnh được "nhận" vào bài khi Create/Update
+	// lưu content (xem BlogService.adoptContentImages), giải quyết việc soạn
+	// bài MỚI (chưa có id) vẫn chèn ảnh ngay trong rich text editor được.
+	router.Post("/blog/images", h.UploadImage)
 
 	router.Put("/blog/posts/:id/star", h.SetStar)
 	router.Delete("/blog/posts/:id/star", h.UnsetStar)
@@ -183,22 +192,18 @@ func (h *BlogHandler) Delete(c *fiber.Ctx) error {
 }
 
 // UploadImage godoc
-// @Summary      Đính 1 ảnh vào bài viết của chính mình (tối đa 6 ảnh/bài)
-// @Description  multipart/form-data, field "image".
+// @Summary      Upload 1 ảnh để chèn vào nội dung rich text (chưa gắn bài nào)
+// @Description  multipart/form-data, field "image". Không cần postId — ảnh được
+// @Description  "nhận" vào bài khi Create/Update lưu content (xem BlogService.adoptContentImages).
 // @Tags         blog
 // @Accept       multipart/form-data
 // @Produce      json
 // @Security     BearerAuth
-// @Param        id     path      string  true  "Post ID"
-// @Param        image  formData  file    true  "Ảnh (jpeg/png/webp/gif, tối đa 5MB)"
-// @Success      201    {object}  service.BlogPostImageResponse
+// @Param        image  formData  file  true  "Ảnh (jpeg/png/webp/gif, tối đa 5MB)"
+// @Success      201    {object}  service.BlogImageResponse
 // @Failure      400    {object}  ErrorResponse
-// @Router       /blog/posts/{id}/images [post]
+// @Router       /blog/images [post]
 func (h *BlogHandler) UploadImage(c *fiber.Ctx) error {
-	id, err := parseUUIDParam(c, "id")
-	if err != nil {
-		return err
-	}
 	fileHeader, err := c.FormFile("image")
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "thiếu file ảnh (field \"image\")")
@@ -211,34 +216,32 @@ func (h *BlogHandler) UploadImage(c *fiber.Ctx) error {
 
 	contentType := fileHeader.Header.Get("Content-Type")
 	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-	result, err := h.svc.UploadImage(c.UserContext(), currentUserID(c), id, file, fileHeader.Size, contentType, ext)
+	result, err := h.svc.UploadImage(c.UserContext(), currentUserID(c), file, fileHeader.Size, contentType, ext)
 	if err != nil {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
-// DeleteImage godoc
-// @Summary      Gỡ 1 ảnh khỏi bài viết của chính mình
+// ServeImage godoc
+// @Summary      Redirect sang URL thật của 1 ảnh blog (public, không cần đăng nhập)
+// @Description  <img src> render trong trình duyệt không gửi được Bearer token
+// @Description  nên route này PHẢI public — resolve key rồi 302 sang presigned URL R2.
 // @Tags         blog
-// @Security     BearerAuth
-// @Param        id       path  string  true  "Post ID"   format(uuid)
-// @Param        imageId  path  string  true  "Image ID"  format(uuid)
-// @Success      204
-// @Router       /blog/posts/{id}/images/{imageId} [delete]
-func (h *BlogHandler) DeleteImage(c *fiber.Ctx) error {
+// @Param        id   path  string  true  "Image ID"  format(uuid)
+// @Success      302
+// @Failure      404  {object}  ErrorResponse
+// @Router       /blog/images/{id} [get]
+func (h *BlogHandler) ServeImage(c *fiber.Ctx) error {
 	id, err := parseUUIDParam(c, "id")
 	if err != nil {
 		return err
 	}
-	imageID, err := parseUUIDParam(c, "imageId")
+	url, err := h.svc.ResolveImageURL(c.UserContext(), id)
 	if err != nil {
 		return err
 	}
-	if err := h.svc.DeleteImage(c.UserContext(), currentUserID(c), id, imageID); err != nil {
-		return err
-	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.Redirect(url, fiber.StatusFound)
 }
 
 func (h *BlogHandler) runCounter(c *fiber.Ctx, on bool, set func(userID, postID uuid.UUID, on bool) (service.BlogToggleResponse, error)) error {

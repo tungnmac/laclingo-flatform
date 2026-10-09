@@ -11,19 +11,20 @@ import (
 )
 
 type Querier interface {
-	AddBlogPostImage(ctx context.Context, arg AddBlogPostImageParams) (BlogPostImage, error)
-	AddBlogPostYoutubeLink(ctx context.Context, arg AddBlogPostYoutubeLinkParams) error
 	AddClassLesson(ctx context.Context, arg AddClassLessonParams) error
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
+	// Gắn các ảnh (do đúng author upload, CHƯA gắn bài nào) vào bài vừa lưu —
+	// ảnh KHÔNG thuộc danh sách này (đã bị xoá khỏi content khi sửa bài) vẫn
+	// giữ nguyên post_id cũ, chấp nhận trở thành rác mồ côi trên R2 (không có
+	// cơ chế dọn tự động ở bản này).
+	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
 	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
 	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
 	CountBlogPostDislikes(ctx context.Context, postID pgtype.UUID) (int32, error)
-	// ===== Ảnh đính kèm (upload qua R2) =====
-	CountBlogPostImages(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostLikes(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
@@ -31,6 +32,10 @@ type Querier interface {
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
 	// ===== Comment (lồng nhau) =====
 	CreateBlogComment(ctx context.Context, arg CreateBlogCommentParams) (BlogComment, error)
+	// ===== Ảnh chèn trong content (upload qua R2, phục vụ qua /blog/images/:id) =====
+	// post_id NULL lúc upload (có thể đang soạn bài MỚI, chưa có id) — Create/Update
+	// bài sẽ "nhận" (AdoptBlogImages) các ảnh được tham chiếu trong content.
+	CreateBlogImage(ctx context.Context, arg CreateBlogImageParams) (BlogPostImage, error)
 	// ===== Posts =====
 	CreateBlogPost(ctx context.Context, arg CreateBlogPostParams) (BlogPost, error)
 	// ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
@@ -56,11 +61,6 @@ type Querier interface {
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
 	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
 	DeleteBlogPost(ctx context.Context, id pgtype.UUID) error
-	// Trả về image_key để service xoá luôn object trong R2.
-	DeleteBlogPostImage(ctx context.Context, arg DeleteBlogPostImageParams) (string, error)
-	// ===== Link YouTube =====
-	// Dùng trong ReplaceYoutubeLinks (xoá hết rồi insert lại theo mảng mới — giống ReplaceClassLessons).
-	DeleteBlogPostYoutubeLinks(ctx context.Context, postID pgtype.UUID) error
 	DeleteChallengeQuestion(ctx context.Context, id pgtype.UUID) error
 	DeleteClass(ctx context.Context, id pgtype.UUID) error
 	// Dùng trong ReplaceClassLessons (xoá hết rồi insert lại theo thứ tự mảng mới).
@@ -79,6 +79,8 @@ type Querier interface {
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
+	// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
+	GetBlogImageByID(ctx context.Context, id pgtype.UUID) (BlogPostImage, error)
 	// Bản gọn, dùng cho ownership check trước khi Update/Delete — không join gì thêm.
 	GetBlogPostByID(ctx context.Context, id pgtype.UUID) (BlogPost, error)
 	// Bản đầy đủ cho trang chi tiết: thông tin tác giả + count/flag theo user hiện tại.
@@ -125,8 +127,8 @@ type Querier interface {
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
 	ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID) ([]ListBlogCommentsByPostRow, error)
+	// Dùng khi xoá bài (lấy key để xoá object trên R2 trước khi xoá hàng DB).
 	ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([]BlogPostImage, error)
-	ListBlogPostYoutubeLinks(ctx context.Context, postID pgtype.UUID) ([]BlogPostYoutubeLink, error)
 	// Trang quản trị: thấy mọi bài (ẩn hoặc không), filter "chỉ bài đã ẩn" qua hidden_only.
 	ListBlogPostsAdminPaged(ctx context.Context, arg ListBlogPostsAdminPagedParams) ([]ListBlogPostsAdminPagedRow, error)
 	// Learner-facing: ẩn bài is_hidden của người khác, nhưng tác giả vẫn thấy bài

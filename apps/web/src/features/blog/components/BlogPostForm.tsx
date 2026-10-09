@@ -3,12 +3,13 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { RichTextEditor } from '@/features/blog/components/RichTextEditor'
 import { useTranslation } from '@/hooks/useTranslation'
-import { cn, extractYoutubeId } from '@/lib/utils'
 import type { BlogPostDetail, BlogPostRequest, Language } from '@/types/api'
 
 /** Form tạo/sửa bài viết — dùng chung cho /blog/new và /blog/[postId]/edit.
- * Ảnh đính kèm KHÔNG nằm trong form này (cần postId đã tồn tại), xem trang edit. */
+ * Nội dung dùng rich text editor đầy đủ công cụ (xem RichTextEditor) — ảnh và
+ * video YouTube chèn NGAY TRONG content qua toolbar, không có field riêng. */
 export function BlogPostForm({
   initial,
   languages,
@@ -28,9 +29,6 @@ export function BlogPostForm({
   const [languageId, setLanguageId] = useState(initial?.language_id ?? '')
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
-  const [youtubeUrls, setYoutubeUrls] = useState<string[]>(initial?.youtube_urls ?? [])
-  const [youtubeInput, setYoutubeInput] = useState('')
-  const [youtubeError, setYoutubeError] = useState<string | null>(null)
 
   const addTag = () => {
     const value = tagInput.trim()
@@ -45,22 +43,9 @@ export function BlogPostForm({
   }
   const removeTag = (value: string) => setTags((ts) => ts.filter((tg) => tg !== value))
 
-  const addYoutube = () => {
-    const value = youtubeInput.trim()
-    if (!value) return
-    if (!extractYoutubeId(value)) {
-      setYoutubeError(t.blog.youtubeHint)
-      return
-    }
-    setYoutubeError(null)
-    setYoutubeUrls((us) => [...us, value])
-    setYoutubeInput('')
-  }
-  const removeYoutube = (value: string) => setYoutubeUrls((us) => us.filter((u) => u !== value))
-
   const onFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    onSubmit({ language_id: languageId || undefined, title: title.trim(), content: content.trim(), tags, youtube_urls: youtubeUrls })
+    onSubmit({ language_id: languageId || undefined, title: title.trim(), content, tags })
   }
 
   return (
@@ -70,10 +55,10 @@ export function BlogPostForm({
         <input value={title} onChange={(e) => setTitle(e.target.value)} required className={inputClass} />
       </label>
 
-      <label className="block text-sm font-medium text-slate-700">
-        {t.blog.contentLabel}
-        <textarea value={content} onChange={(e) => setContent(e.target.value)} required rows={8} className={inputClass} />
-      </label>
+      <div>
+        <label className="mb-1 block text-sm font-medium text-slate-700">{t.blog.contentLabel}</label>
+        <RichTextEditor content={content} onChange={setContent} placeholder={t.blog.contentPlaceholder} />
+      </div>
 
       <label className="block text-sm font-medium text-slate-700">
         {t.blog.languageOptionalLabel}
@@ -110,35 +95,6 @@ export function BlogPostForm({
               </span>
             ))}
           </div>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-700">{t.blog.youtubeLabel}</label>
-        <div className="mt-1 flex gap-2">
-          <input
-            value={youtubeInput}
-            onChange={(e) => setYoutubeInput(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className={cn(inputClass, 'mt-0')}
-          />
-          <Button type="button" variant="secondary" onClick={addYoutube}>
-            {t.blog.youtubeAddBtn}
-          </Button>
-        </div>
-        <p className="mt-1 text-xs text-slate-400">{t.blog.youtubeHint}</p>
-        {youtubeError && <p className="mt-1 text-xs text-rose-600">{youtubeError}</p>}
-        {youtubeUrls.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {youtubeUrls.map((u) => (
-              <li key={u} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
-                <span className="truncate">{u}</span>
-                <button type="button" onClick={() => removeYoutube(u)} className="shrink-0 text-slate-400 hover:text-rose-600">
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
         )}
       </div>
 

@@ -39,10 +39,10 @@ type BlogPostDislike struct {
 }
 
 type BlogPostImage struct {
-	ID         pgtype.UUID `json:"id"`
-	PostID     pgtype.UUID `json:"post_id"`
-	ImageKey   string      `json:"image_key"`
-	OrderIndex int32       `json:"order_index"`
+	ID       pgtype.UUID `json:"id"`
+	PostID   pgtype.UUID `json:"post_id"`
+	AuthorID pgtype.UUID `json:"author_id"`
+	ImageKey string      `json:"image_key"`
 }
 
 type BlogPostLike struct {
@@ -61,13 +61,6 @@ type BlogPostStar struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	PostID    pgtype.UUID        `json:"post_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
-}
-
-type BlogPostYoutubeLink struct {
-	ID         pgtype.UUID `json:"id"`
-	PostID     pgtype.UUID `json:"post_id"`
-	Url        string      `json:"url"`
-	OrderIndex int32       `json:"order_index"`
 }
 
 type ChallengeQuestion struct {

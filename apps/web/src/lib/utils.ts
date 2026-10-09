@@ -12,12 +12,6 @@ export function displayName(user: { full_name: string; email: string }) {
   return user.full_name || user.email.split('@')[0]
 }
 
-/** Lấy video ID từ 1 link YouTube (watch?v=, youtu.be/, /embed/) — null nếu không nhận ra được. */
-export function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/)
-  return match ? match[1] : null
-}
-
 export function initials(name: string) {
   return name
     .split(/\s+/)

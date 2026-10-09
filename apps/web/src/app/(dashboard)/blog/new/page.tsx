@@ -24,7 +24,7 @@ export default function NewBlogPostPage() {
     setError(null)
     try {
       const post = await blogService.create(req)
-      router.push(`/blog/${post.id}/edit`)
+      router.push(`/blog/${post.id}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {

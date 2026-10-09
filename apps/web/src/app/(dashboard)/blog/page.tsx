@@ -89,6 +89,10 @@ export default function BlogListPage() {
             <Link key={p.id} href={`/blog/${p.id}`}>
               <Card className="transition hover:ring-indigo-300">
                 <div className="flex items-start justify-between gap-3">
+                  {p.thumbnail_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.thumbnail_url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-semibold text-slate-900">{p.title}</h2>

@@ -11,43 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addBlogPostImage = `-- name: AddBlogPostImage :one
-INSERT INTO blog_post_images (post_id, image_key, order_index)
-VALUES ($1, $2, $3)
-RETURNING id, post_id, image_key, order_index
+const adoptBlogImages = `-- name: AdoptBlogImages :exec
+UPDATE blog_post_images SET post_id = $1
+WHERE id = ANY($2::uuid[]) AND author_id = $3 AND post_id IS NULL
 `
 
-type AddBlogPostImageParams struct {
-	PostID     pgtype.UUID `json:"post_id"`
-	ImageKey   string      `json:"image_key"`
-	OrderIndex int32       `json:"order_index"`
+type AdoptBlogImagesParams struct {
+	PostID   pgtype.UUID   `json:"post_id"`
+	Ids      []pgtype.UUID `json:"ids"`
+	AuthorID pgtype.UUID   `json:"author_id"`
 }
 
-func (q *Queries) AddBlogPostImage(ctx context.Context, arg AddBlogPostImageParams) (BlogPostImage, error) {
-	row := q.db.QueryRow(ctx, addBlogPostImage, arg.PostID, arg.ImageKey, arg.OrderIndex)
-	var i BlogPostImage
-	err := row.Scan(
-		&i.ID,
-		&i.PostID,
-		&i.ImageKey,
-		&i.OrderIndex,
-	)
-	return i, err
-}
-
-const addBlogPostYoutubeLink = `-- name: AddBlogPostYoutubeLink :exec
-INSERT INTO blog_post_youtube_links (post_id, url, order_index)
-VALUES ($1, $2, $3)
-`
-
-type AddBlogPostYoutubeLinkParams struct {
-	PostID     pgtype.UUID `json:"post_id"`
-	Url        string      `json:"url"`
-	OrderIndex int32       `json:"order_index"`
-}
-
-func (q *Queries) AddBlogPostYoutubeLink(ctx context.Context, arg AddBlogPostYoutubeLinkParams) error {
-	_, err := q.db.Exec(ctx, addBlogPostYoutubeLink, arg.PostID, arg.Url, arg.OrderIndex)
+// Gắn các ảnh (do đúng author upload, CHƯA gắn bài nào) vào bài vừa lưu —
+// ảnh KHÔNG thuộc danh sách này (đã bị xoá khỏi content khi sửa bài) vẫn
+// giữ nguyên post_id cũ, chấp nhận trở thành rác mồ côi trên R2 (không có
+// cơ chế dọn tự động ở bản này).
+func (q *Queries) AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error {
+	_, err := q.db.Exec(ctx, adoptBlogImages, arg.PostID, arg.Ids, arg.AuthorID)
 	return err
 }
 
@@ -57,19 +37,6 @@ SELECT COUNT(*)::int FROM blog_post_dislikes WHERE post_id = $1
 
 func (q *Queries) CountBlogPostDislikes(ctx context.Context, postID pgtype.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countBlogPostDislikes, postID)
-	var column_1 int32
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const countBlogPostImages = `-- name: CountBlogPostImages :one
-
-SELECT COUNT(*)::int FROM blog_post_images WHERE post_id = $1
-`
-
-// ===== Ảnh đính kèm (upload qua R2) =====
-func (q *Queries) CountBlogPostImages(ctx context.Context, postID pgtype.UUID) (int32, error) {
-	row := q.db.QueryRow(ctx, countBlogPostImages, postID)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -144,6 +111,33 @@ func (q *Queries) CreateBlogComment(ctx context.Context, arg CreateBlogCommentPa
 	return i, err
 }
 
+const createBlogImage = `-- name: CreateBlogImage :one
+
+INSERT INTO blog_post_images (author_id, image_key)
+VALUES ($1, $2)
+RETURNING id, post_id, author_id, image_key
+`
+
+type CreateBlogImageParams struct {
+	AuthorID pgtype.UUID `json:"author_id"`
+	ImageKey string      `json:"image_key"`
+}
+
+// ===== Ảnh chèn trong content (upload qua R2, phục vụ qua /blog/images/:id) =====
+// post_id NULL lúc upload (có thể đang soạn bài MỚI, chưa có id) — Create/Update
+// bài sẽ "nhận" (AdoptBlogImages) các ảnh được tham chiếu trong content.
+func (q *Queries) CreateBlogImage(ctx context.Context, arg CreateBlogImageParams) (BlogPostImage, error) {
+	row := q.db.QueryRow(ctx, createBlogImage, arg.AuthorID, arg.ImageKey)
+	var i BlogPostImage
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.AuthorID,
+		&i.ImageKey,
+	)
+	return i, err
+}
+
 const createBlogPost = `-- name: CreateBlogPost :one
 
 INSERT INTO blog_posts (author_id, language_id, title, content, tags)
@@ -202,36 +196,6 @@ func (q *Queries) DeleteBlogPost(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
-const deleteBlogPostImage = `-- name: DeleteBlogPostImage :one
-DELETE FROM blog_post_images WHERE id = $1 AND post_id = $2
-RETURNING image_key
-`
-
-type DeleteBlogPostImageParams struct {
-	ID     pgtype.UUID `json:"id"`
-	PostID pgtype.UUID `json:"post_id"`
-}
-
-// Trả về image_key để service xoá luôn object trong R2.
-func (q *Queries) DeleteBlogPostImage(ctx context.Context, arg DeleteBlogPostImageParams) (string, error) {
-	row := q.db.QueryRow(ctx, deleteBlogPostImage, arg.ID, arg.PostID)
-	var image_key string
-	err := row.Scan(&image_key)
-	return image_key, err
-}
-
-const deleteBlogPostYoutubeLinks = `-- name: DeleteBlogPostYoutubeLinks :exec
-
-DELETE FROM blog_post_youtube_links WHERE post_id = $1
-`
-
-// ===== Link YouTube =====
-// Dùng trong ReplaceYoutubeLinks (xoá hết rồi insert lại theo mảng mới — giống ReplaceClassLessons).
-func (q *Queries) DeleteBlogPostYoutubeLinks(ctx context.Context, postID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, deleteBlogPostYoutubeLinks, postID)
-	return err
-}
-
 const dislikeBlogPost = `-- name: DislikeBlogPost :exec
 INSERT INTO blog_post_dislikes (user_id, post_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
@@ -262,6 +226,23 @@ func (q *Queries) GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogC
 		&i.IsHidden,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getBlogImageByID = `-- name: GetBlogImageByID :one
+SELECT id, post_id, author_id, image_key FROM blog_post_images WHERE id = $1
+`
+
+// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
+func (q *Queries) GetBlogImageByID(ctx context.Context, id pgtype.UUID) (BlogPostImage, error) {
+	row := q.db.QueryRow(ctx, getBlogImageByID, id)
+	var i BlogPostImage
+	err := row.Scan(
+		&i.ID,
+		&i.PostID,
+		&i.AuthorID,
+		&i.ImageKey,
 	)
 	return i, err
 }
@@ -471,9 +452,10 @@ func (q *Queries) ListBlogCommentsByPost(ctx context.Context, postID pgtype.UUID
 }
 
 const listBlogPostImages = `-- name: ListBlogPostImages :many
-SELECT id, post_id, image_key, order_index FROM blog_post_images WHERE post_id = $1 ORDER BY order_index
+SELECT id, post_id, author_id, image_key FROM blog_post_images WHERE post_id = $1
 `
 
+// Dùng khi xoá bài (lấy key để xoá object trên R2 trước khi xoá hàng DB).
 func (q *Queries) ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([]BlogPostImage, error) {
 	rows, err := q.db.Query(ctx, listBlogPostImages, postID)
 	if err != nil {
@@ -486,37 +468,8 @@ func (q *Queries) ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.PostID,
+			&i.AuthorID,
 			&i.ImageKey,
-			&i.OrderIndex,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBlogPostYoutubeLinks = `-- name: ListBlogPostYoutubeLinks :many
-SELECT id, post_id, url, order_index FROM blog_post_youtube_links WHERE post_id = $1 ORDER BY order_index
-`
-
-func (q *Queries) ListBlogPostYoutubeLinks(ctx context.Context, postID pgtype.UUID) ([]BlogPostYoutubeLink, error) {
-	rows, err := q.db.Query(ctx, listBlogPostYoutubeLinks, postID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BlogPostYoutubeLink
-	for rows.Next() {
-		var i BlogPostYoutubeLink
-		if err := rows.Scan(
-			&i.ID,
-			&i.PostID,
-			&i.Url,
-			&i.OrderIndex,
 		); err != nil {
 			return nil, err
 		}
