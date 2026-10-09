@@ -1,13 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { speechLang } from '@/features/course/components/LanguageCard'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
+import { MEANING_LANGUAGE_ID, speakText } from '@/lib/speech'
 import { useVoiceSettings } from '@/store/voiceSettings'
-
-// Nghĩa luôn là tiếng Việt trong dữ liệu từ vựng (bất kể ngôn ngữ đang học
-// hay locale giao diện) — đọc nghĩa dùng giọng vi, KHÔNG dùng languageId của từ.
-const MEANING_LANGUAGE_ID = 'vi'
 
 interface QueueItem {
   text: string
@@ -55,19 +51,6 @@ export function useWordAutoplay({
 
     let cancelled = false
 
-    const speak = (item: QueueItem) =>
-      new Promise<void>((resolve) => {
-        const utterance = new SpeechSynthesisUtterance(item.text)
-        utterance.lang = speechLang(item.languageId)
-        const chosen =
-          voices.find((v) => v.voiceURI === voiceByLang[item.languageId]) ??
-          voices.find((v) => v.lang.toLowerCase().startsWith(item.languageId.toLowerCase()))
-        if (chosen) utterance.voice = chosen
-        utterance.onend = () => resolve()
-        utterance.onerror = () => resolve()
-        window.speechSynthesis.speak(utterance)
-      })
-
     const wait = (ms: number) =>
       new Promise<void>((resolve) => {
         timerRef.current = setTimeout(resolve, ms)
@@ -76,7 +59,7 @@ export function useWordAutoplay({
     const run = async () => {
       for (const item of queue) {
         if (cancelled) return
-        await speak(item)
+        await speakText(item.text, item.languageId, voices, voiceByLang)
         if (cancelled) return
         await wait(gapSeconds * 1000)
       }

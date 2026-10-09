@@ -52,6 +52,7 @@ export interface ReviewDict {
     gapSecondsLabel: string
     shadowModeLabel: string
     autoplayRunningHint: string
+    srsAutoplayRunningHint: string
 
     loadingFavorites: string
     emptyFavoritesTitle: string
@@ -137,6 +138,7 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       gapSecondsLabel: 'Cách nhau (giây)',
       shadowModeLabel: 'Shadowing — xen đọc nghĩa giữa các lần đọc từ',
       autoplayRunningHint: '🔊 Đang tự động đọc — bấm ← → hoặc Trước/Tiếp để dừng và tự chuyển từ.',
+      srsAutoplayRunningHint: '🔊 Đang tự động đọc và lật thẻ — bạn vẫn tự bấm chọn mức độ nhớ như thường. Bấm "Dừng tự động" để tắt.',
 
       loadingFavorites: 'Đang lấy từ yêu thích...',
       emptyFavoritesTitle: 'Chưa có từ yêu thích nào',
@@ -219,6 +221,7 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       gapSecondsLabel: 'Gap (seconds)',
       shadowModeLabel: 'Shadowing — read the meaning between word repeats',
       autoplayRunningHint: '🔊 Auto-playing — press ← → or Previous/Next to stop and move manually.',
+      srsAutoplayRunningHint: '🔊 Auto-playing and auto-flipping — you still pick how well you remembered as usual. Press "Stop auto-play" to turn it off.',
 
       loadingFavorites: 'Loading favorites...',
       emptyFavoritesTitle: 'No favorite words yet',

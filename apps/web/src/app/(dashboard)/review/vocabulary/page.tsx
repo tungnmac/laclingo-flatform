@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -12,10 +12,13 @@ import { Flashcard } from '@/features/srs-review/components/Flashcard'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
 import { QUALITY_OPTIONS, QualityButtons } from '@/features/srs-review/components/QualityButtons'
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
+import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
 import { useKeypress } from '@/hooks/useKeypress'
+import { useSRSAutoplay } from '@/hooks/useSRSAutoplay'
 import { useTranslation } from '@/hooks/useTranslation'
 import { formatDate } from '@/lib/utils'
+import { useAutoplaySettings } from '@/store/autoplaySettings'
 
 /** ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
  * khi vào từ card "Ôn tập SRS" ở trang khoá học, thay vì gốc Ôn tập. */
@@ -46,6 +49,26 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
     [current, flipped, flip, grade],
   )
   useKeypress(onKey, !!current && !submitting)
+
+  // Tự động đọc thẻ hiện tại rồi tự lật (xem useSRSAutoplay) — KHÔNG tự chấm
+  // điểm, người học vẫn phải tự bấm mức độ nhớ sau khi lật.
+  const [autoplay, setAutoplay] = useState(false)
+  const repeatCount = useAutoplaySettings((s) => s.repeatCount)
+  const gapSeconds = useAutoplaySettings((s) => s.gapSeconds)
+  const shadowMode = useAutoplaySettings((s) => s.shadowMode)
+
+  useSRSAutoplay({
+    enabled: autoplay && !!current,
+    cardId: current?.vocabulary_id ?? '',
+    term: current?.term ?? '',
+    meaning: current?.meaning ?? '',
+    languageId: current?.language_id ?? language ?? 'en',
+    flipped,
+    onFlip: flip,
+    repeatCount,
+    gapSeconds,
+    shadowMode,
+  })
 
   if (session.loading) return <Spinner label={t.review.loadingReviewCards} />
   if (session.error && session.cards.length === 0) return <ErrorState error={session.error} onRetry={session.reload} />
@@ -122,6 +145,16 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
 
       <div className="flex flex-col items-center gap-6">
         <ProgressHeader done={session.index} total={session.cards.length} />
+
+        <div className="flex w-full flex-col gap-2 rounded-xl bg-slate-50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Button variant={autoplay ? 'danger' : 'secondary'} size="sm" onClick={() => setAutoplay((v) => !v)}>
+              {autoplay ? t.review.autoplayStopBtn : t.review.autoplayStartBtn}
+            </Button>
+            <AutoplaySettingsDropdown />
+          </div>
+          {autoplay && <p className="text-center text-xs font-medium text-indigo-600">{t.review.srsAutoplayRunningHint}</p>}
+        </div>
 
         {current && <Flashcard vocab={current} flipped={flipped} onFlip={flip} />}
 
