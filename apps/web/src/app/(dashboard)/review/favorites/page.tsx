@@ -8,11 +8,13 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 import type { VocabularyCard } from '@/types/api'
 
 /** Bộ sưu tập từ yêu thích của user — bỏ yêu thích thì từ vẫn ở lại đến khi tải lại trang */
 export default function FavoriteWordsPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
+  const t = useTranslation()
   const newWordsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const { data, error, loading, reload } = useApi(() => vocabularyService.listFavorites(language), [language])
@@ -22,23 +24,23 @@ export default function FavoriteWordsPage({ searchParams }: { searchParams: { la
   const update = (id: string, patch: Partial<VocabularyCard>) =>
     setWords((ws) => ws.map((w) => (w.vocabulary_id === id ? { ...w, ...patch } : w)))
 
-  if (loading) return <Spinner label="Đang lấy từ yêu thích..." />
+  if (loading) return <Spinner label={t.review.loadingFavorites} />
   if (error) return <ErrorState error={error} onRetry={reload} />
 
   return (
     <div className="space-y-6">
       <Link href={newWordsHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Chủ đề
+        {t.review.backToTopics}
       </Link>
-      <PageHeader title="Từ yêu thích" description="Những từ bạn đã đánh dấu ⭐ để xem lại." />
+      <PageHeader title={t.review.favoritesTitle} description={t.review.favoritesDesc} />
 
       {words.length === 0 ? (
         <>
-          <EmptyState icon="⭐" title="Chưa có từ yêu thích nào">
-            Bấm “Yêu thích” trên thẻ từ khi học theo chủ đề để lưu vào đây.
+          <EmptyState icon="⭐" title={t.review.emptyFavoritesTitle}>
+            {t.review.emptyFavoritesBody}
           </EmptyState>
           <div className="flex justify-center">
-            <ButtonLink href={newWordsHref}>Học từ mới</ButtonLink>
+            <ButtonLink href={newWordsHref}>{t.review.newWordsBtn}</ButtonLink>
           </div>
         </>
       ) : (

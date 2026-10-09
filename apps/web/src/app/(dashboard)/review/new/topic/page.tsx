@@ -7,12 +7,14 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useKeypress } from '@/hooks/useKeypress'
+import { useTranslation } from '@/hooks/useTranslation'
 import type { VocabularyCard } from '@/types/api'
 
 /** Học từ theo một chủ đề: lướt từng từ, like / yêu thích / thêm vào ôn tập */
 export default function TopicWordsPage({ searchParams }: { searchParams: { name?: string; language?: string } }) {
   const topic = searchParams.name ?? ''
   const language = searchParams.language
+  const t = useTranslation()
   const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const [words, setWords] = useState<VocabularyCard[]>([])
@@ -57,36 +59,34 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
     setWords((ws) => ws.map((w) => (w.vocabulary_id === current.vocabulary_id ? { ...w, ...patch } : w)))
   }
 
-  if (!topic) return <EmptyState icon="🧭" title="Chưa chọn chủ đề" />
-  if (loading) return <Spinner label="Đang lấy từ vựng..." />
+  if (!topic) return <EmptyState icon="🧭" title={t.review.emptyNoTopic} />
+  if (loading) return <Spinner label={t.review.loadingWords} />
   if (error) return <ErrorState error={error} onRetry={load} />
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <Link href={topicsHref} className="inline-flex items-center gap-1 self-start text-sm text-slate-500 hover:text-indigo-600">
-        ← Chủ đề
+        {t.review.backToTopics}
       </Link>
 
       {words.length === 0 || !current ? (
-        <EmptyState icon="📭" title={`Chủ đề "${topic}" chưa có từ nào`} />
+        <EmptyState icon="📭" title={t.review.emptyTopicNamed(topic)} />
       ) : (
         <>
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-xl font-bold text-slate-900">{topic}</h1>
-            <span className="text-sm text-slate-500">
-              Từ {index + 1}/{words.length} · Đã vào ôn tập <span className="font-semibold text-emerald-600">{learned}</span>
-            </span>
+            <span className="text-sm text-slate-500">{t.review.wordCounter(index + 1, words.length, learned)}</span>
           </div>
 
           <WordCard key={current.vocabulary_id} word={current} onChange={updateCurrent} />
 
           <div className="flex items-center justify-between gap-2">
             <Button variant="secondary" onClick={prev} disabled={index === 0}>
-              ← Trước
+              {t.review.prevBtn}
             </Button>
-            <span className="hidden text-xs text-slate-400 sm:inline">Dùng phím ← → để chuyển từ</span>
+            <span className="hidden text-xs text-slate-400 sm:inline">{t.review.arrowHint}</span>
             <Button onClick={next} disabled={index >= words.length - 1}>
-              Tiếp →
+              {t.review.nextBtn}
             </Button>
           </div>
         </>

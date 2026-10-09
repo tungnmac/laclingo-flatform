@@ -7,11 +7,13 @@ import { Card } from '@/components/ui/Card'
 import { courseService } from '@/features/course/course.service'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 
 /** Hub ôn tập: liệt kê các dạng ôn tập để người học chọn */
 export default function ReviewHubPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
+  const t = useTranslation()
   // Chỉ để hiện số từ đến hạn — lỗi thì ẩn badge, không chặn trang. Có
   // language thì đếm riêng ngôn ngữ đó, khớp với nơi "Ôn ngay" sẽ dẫn tới.
   const { data: due } = useApi(() => srsService.getDue(100, language), [language])
@@ -27,8 +29,8 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ôn tập"
-        description={currentLanguage ? `Đang học: ${currentLanguage.name} — chọn dạng ôn tập phù hợp với bạn hôm nay` : 'Chọn dạng ôn tập phù hợp với bạn hôm nay'}
+        title={t.review.pageTitle}
+        description={currentLanguage ? t.review.pageDescWithLang(currentLanguage.name) : t.review.pageDescNoLang}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -44,60 +46,54 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
                     : 'bg-emerald-50 text-emerald-700 ring-emerald-200',
                 )}
               >
-                {dueCount > 0 ? `${dueCount >= 100 ? '99+' : dueCount} từ đến hạn` : 'Đã ôn hết'}
+                {dueCount > 0 ? t.review.dueBadge(dueCount >= 100 ? '99+' : dueCount) : t.review.allDoneBadge}
               </span>
             )}
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-900">Ôn tập từ vựng (SRS)</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Flashcard theo thuật toán SM-2 — nhắc bạn ôn đúng lúc sắp quên.
-            </p>
+            <h2 className="text-lg font-semibold text-slate-900">{t.review.vocabReviewTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.review.vocabReviewDesc}</p>
           </div>
           <ButtonLink href={vocabularyHref} className="w-full">
-            Ôn ngay
+            {t.review.reviewNowBtn}
           </ButtonLink>
         </Card>
 
         <Card className="flex flex-col gap-3">
           <span className="text-4xl">✨</span>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-900">Học từ mới</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Chọn chủ đề, học từ qua hình minh họa và câu mẫu — thêm từ bạn muốn vào hàng đợi ôn tập.
-            </p>
+            <h2 className="text-lg font-semibold text-slate-900">{t.review.newWordsTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.review.newWordsDesc}</p>
           </div>
           <ButtonLink href={newWordsHref} variant="secondary" className="w-full">
-            Học từ mới
+            {t.review.newWordsBtn}
           </ButtonLink>
         </Card>
 
         <Card className="flex flex-col gap-3">
           <span className="text-4xl">📖</span>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-900">Luyện tập ngữ pháp</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Làm bài tập trắc nghiệm và điền từ trong từng bài học 12 thì.
-            </p>
+            <h2 className="text-lg font-semibold text-slate-900">{t.review.grammarPracticeTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.review.grammarPracticeDesc}</p>
           </div>
           <ButtonLink href={grammarHref} variant="secondary" className="w-full">
-            Chọn bài học
+            {t.review.chooseLessonBtn}
           </ButtonLink>
         </Card>
 
         <Card className="flex flex-col gap-3">
           <span className="text-4xl">⭐</span>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-slate-900">Từ yêu thích</h2>
-            <p className="mt-1 text-sm text-slate-600">Xem lại những từ bạn đã đánh dấu yêu thích khi học.</p>
+            <h2 className="text-lg font-semibold text-slate-900">{t.review.favoritesTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.review.favoritesDesc}</p>
           </div>
           <ButtonLink href={favoritesHref} variant="secondary" className="w-full">
-            Xem từ yêu thích
+            {t.review.viewFavoritesBtn}
           </ButtonLink>
         </Card>
       </div>
 
-      <Mascot message="Mỗi ngày một chút, chữ sẽ tự ở lại trong đầu! 🦩" />
+      <Mascot message={t.review.mascotHub} />
     </div>
   )
 }

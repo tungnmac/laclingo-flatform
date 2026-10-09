@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 /** Mục con của 1 chủ đề cha — "ngoài các từ chung thì chia theo mục con".
  * Mục đầu tiên trùng tên chủ đề cha (nếu có) là từ gắn trực tiếp vào chủ đề
@@ -13,24 +14,25 @@ import { useApi } from '@/hooks/useApi'
 export default function SubtopicsPage({ searchParams }: { searchParams: { parent?: string; language?: string } }) {
   const parent = searchParams.parent ?? ''
   const language = searchParams.language
+  const t = useTranslation()
   const languageQuery = language ? `&language=${encodeURIComponent(language)}` : ''
   const topicsHref = language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new'
 
   const { data: subtopics, error, loading, reload } = useApi(() => vocabularyService.listChildTopics(parent, language), [parent, language])
 
-  if (!parent) return <EmptyState icon="🧭" title="Chưa chọn chủ đề" />
-  if (loading) return <Spinner label="Đang lấy mục con..." />
+  if (!parent) return <EmptyState icon="🧭" title={t.review.emptyNoTopic} />
+  if (loading) return <Spinner label={t.review.loadingTopics} />
   if (error) return <ErrorState error={error} onRetry={reload} />
 
   return (
     <div className="space-y-6">
       <Link href={topicsHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Chủ đề
+        {t.review.backToTopics}
       </Link>
-      <PageHeader title={parent} description="Chọn mục con để học — hoặc xem từ chung của chủ đề này." />
+      <PageHeader title={parent} description={t.review.subtopicsDesc} />
 
       {!subtopics || subtopics.length === 0 ? (
-        <EmptyState icon="📭" title="Chủ đề này chưa có từ nào" />
+        <EmptyState icon="📭" title={t.review.emptySubtopicWords} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {subtopics.map((sub) => {
@@ -48,14 +50,14 @@ export default function SubtopicsPage({ searchParams }: { searchParams: { parent
                     <span className="text-4xl">{sub.icon}</span>
                     {done && (
                       <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                        Hoàn thành
+                        {t.review.doneBadge}
                       </span>
                     )}
                   </div>
-                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{isOwn ? 'Từ chung' : sub.name}</h2>
+                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{isOwn ? t.review.ownWordsLabel : sub.name}</h2>
                   <div>
                     <div className="mb-1 flex justify-between text-xs text-slate-500">
-                      <span>Đã học</span>
+                      <span>{t.review.learnedLabel}</span>
                       <span className="font-semibold">
                         {sub.learned}/{sub.total}
                       </span>

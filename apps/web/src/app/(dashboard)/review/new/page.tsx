@@ -7,36 +7,38 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
 /** Học từ mới: chọn một chủ đề để học — mỗi thẻ hiện tiến độ đã đưa vào ôn tập */
 export default function NewWordsTopicsPage({ searchParams }: { searchParams: { language?: string } }) {
   const language = searchParams.language
+  const t = useTranslation()
   const languageQuery = language ? `&language=${encodeURIComponent(language)}` : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const favoritesHref = language ? `/review/favorites?language=${encodeURIComponent(language)}` : '/review/favorites'
 
   const { data: topics, error, loading, reload } = useApi(() => vocabularyService.listTopics(language), [language])
 
-  if (loading) return <Spinner label="Đang lấy chủ đề..." />
+  if (loading) return <Spinner label={t.review.loadingTopics} />
   if (error) return <ErrorState error={error} onRetry={reload} />
 
   return (
     <div className="space-y-6">
       <Link href={reviewHref} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Các dạng ôn tập
+        {t.review.backToReviewTypes}
       </Link>
       <PageHeader
-        title="Học từ mới"
-        description="Chọn một chủ đề — xem hình, nghe phát âm, đọc câu mẫu rồi thêm từ vào ôn tập."
+        title={t.review.newWordsTitle}
+        description={t.review.newWordsPageDesc}
         action={
           <ButtonLink href={favoritesHref} variant="secondary">
-            ⭐ Từ yêu thích
+            {t.review.favoritesBtnShort}
           </ButtonLink>
         }
       />
 
       {!topics || topics.length === 0 ? (
-        <EmptyState icon="📭" title="Chưa có chủ đề từ vựng cho ngôn ngữ này" />
+        <EmptyState icon="📭" title={t.review.emptyTopics} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((topic) => {
@@ -56,12 +58,12 @@ export default function NewWordsTopicsPage({ searchParams }: { searchParams: { l
                     <span className="text-4xl">{topic.icon}</span>
                     {topic.has_children ? (
                       <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
-                        Có mục con
+                        {t.review.hasChildrenBadge}
                       </span>
                     ) : (
                       done && (
                         <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                          Hoàn thành
+                          {t.review.doneBadge}
                         </span>
                       )
                     )}
@@ -69,7 +71,7 @@ export default function NewWordsTopicsPage({ searchParams }: { searchParams: { l
                   <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>
                   <div>
                     <div className="mb-1 flex justify-between text-xs text-slate-500">
-                      <span>Đã học</span>
+                      <span>{t.review.learnedLabel}</span>
                       <span className="font-semibold">
                         {topic.learned}/{topic.total}
                       </span>

@@ -1,10 +1,18 @@
 import type { Locale } from '@/store/locale'
+import { learnTranslations, type LearnDict } from './dict/learn'
+import { reviewTranslations, type ReviewDict } from './dict/review'
 
-// Dịch TỪNG PHẦN theo module UI (nav, auth, profile...) — chưa phủ hết toàn
-// app (giai đoạn nền tảng). Phần chưa có trong dict này vẫn hiển thị tiếng
-// Việt cứng trong component, dịch tiếp dần ở các lần sau. Lưu ý: message lỗi
-// trả về từ backend (ApiError) luôn là tiếng Việt — i18n phía BE là phạm vi
-// khác, chưa làm ở đây.
+// Dịch TỪNG PHẦN theo module UI. Namespace lớn (learn/review/...) tách file
+// riêng trong ./dict/ để file này không phình quá lớn — ghép lại bằng `pick`
+// bên dưới. Theo yêu cầu hiện tại: ưu tiên dịch đủ vi+en trước, zh/ja/ko bổ
+// sung sau — `pick` tự fallback về en rồi vi nếu namespace đó chưa có bản
+// dịch cho locale đang chọn, để không bao giờ hiện undefined. Lưu ý: message
+// lỗi trả về từ backend (ApiError) luôn là tiếng Việt — i18n phía BE là phạm
+// vi khác, chưa làm ở đây.
+function pick<T>(dict: Partial<Record<Locale, T>>, locale: Locale): T {
+  return (dict[locale] ?? dict.en ?? dict.vi) as T
+}
+
 interface Dictionary {
   nav: {
     learn: string
@@ -62,7 +70,7 @@ interface Dictionary {
   }
 }
 
-export const translations: Record<Locale, Dictionary> = {
+const base: Record<Locale, Dictionary> = {
   vi: {
     nav: {
       learn: 'Học',
@@ -344,3 +352,16 @@ export const translations: Record<Locale, Dictionary> = {
     },
   },
 }
+
+const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
+
+export const translations: Record<Locale, Dictionary & LearnDict & ReviewDict> = Object.fromEntries(
+  LOCALE_LIST.map((locale) => [
+    locale,
+    {
+      ...base[locale],
+      ...pick(learnTranslations, locale),
+      ...pick(reviewTranslations, locale),
+    },
+  ]),
+) as Record<Locale, Dictionary & LearnDict & ReviewDict>
