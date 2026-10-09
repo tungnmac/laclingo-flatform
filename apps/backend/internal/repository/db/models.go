@@ -8,6 +8,68 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BlogComment struct {
+	ID              pgtype.UUID        `json:"id"`
+	PostID          pgtype.UUID        `json:"post_id"`
+	AuthorID        pgtype.UUID        `json:"author_id"`
+	ParentCommentID pgtype.UUID        `json:"parent_comment_id"`
+	Content         string             `json:"content"`
+	IsHidden        bool               `json:"is_hidden"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BlogPost struct {
+	ID         pgtype.UUID        `json:"id"`
+	AuthorID   pgtype.UUID        `json:"author_id"`
+	LanguageID pgtype.Text        `json:"language_id"`
+	Title      string             `json:"title"`
+	Content    string             `json:"content"`
+	Tags       []string           `json:"tags"`
+	ViewCount  int32              `json:"view_count"`
+	IsHidden   bool               `json:"is_hidden"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BlogPostDislike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostImage struct {
+	ID         pgtype.UUID `json:"id"`
+	PostID     pgtype.UUID `json:"post_id"`
+	ImageKey   string      `json:"image_key"`
+	OrderIndex int32       `json:"order_index"`
+}
+
+type BlogPostLike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostMarker struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostStar struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostYoutubeLink struct {
+	ID         pgtype.UUID `json:"id"`
+	PostID     pgtype.UUID `json:"post_id"`
+	Url        string      `json:"url"`
+	OrderIndex int32       `json:"order_index"`
+}
+
 type ChallengeQuestion struct {
 	ID           pgtype.UUID        `json:"id"`
 	LanguageID   pgtype.Text        `json:"language_id"`

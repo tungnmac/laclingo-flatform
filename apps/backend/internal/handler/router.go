@@ -31,6 +31,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2))
 	listeningHandler.RegisterRoutes(api)
 	classHandler := NewClassHandler(service.NewClassService(repo))
+	blogHandler := NewBlogHandler(service.NewBlogService(repo, r2))
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
 	// WS đăng ký trên "api", TRƯỚC khi tạo "protected": Fiber lưu route theo 1
@@ -55,6 +56,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	listeningHandler.RegisterProtectedRoutes(protected)
 	NewMissionHandler(missions).RegisterRoutes(protected)
 	classHandler.RegisterRoutes(protected)
+	blogHandler.RegisterRoutes(protected)
 
 	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,
 	// RequireModule tự suy module cần thiết từ path (xem lý do ở
@@ -68,6 +70,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	NewChallengeQuestionHandler(service.NewChallengeQuestionService(repo)).RegisterAdminRoutes(admin)
 	listeningHandler.RegisterAdminRoutes(admin)
 	classHandler.RegisterAdminRoutes(admin)
+	blogHandler.RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client

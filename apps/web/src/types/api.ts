@@ -671,3 +671,104 @@ export interface ClassLessonAdmin {
 export interface ReplaceClassLessonsRequest {
   lesson_ids: string[]
 }
+
+// --- Blog học viên ---
+
+export interface BlogPostRequest {
+  language_id?: string
+  title: string
+  content: string
+  tags: string[]
+  youtube_urls: string[]
+}
+
+export interface BlogPostImage {
+  id: string
+  url: string
+}
+
+export interface BlogPostSummary {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  language_id?: string
+  title: string
+  excerpt: string
+  tags: string[]
+  view_count: number
+  comment_count: number
+  star_count: number
+  marker_count: number
+  like_count: number
+  dislike_count: number
+  starred: boolean
+  marked: boolean
+  liked: boolean
+  disliked: boolean
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogPostDetail {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  language_id?: string
+  title: string
+  content: string
+  tags: string[]
+  images: BlogPostImage[]
+  youtube_urls: string[]
+  view_count: number
+  comment_count: number
+  star_count: number
+  marker_count: number
+  like_count: number
+  dislike_count: number
+  starred: boolean
+  marked: boolean
+  liked: boolean
+  disliked: boolean
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogPostAdmin {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  language_id?: string
+  title: string
+  view_count: number
+  comment_count: number
+  is_hidden: boolean
+  created_at: string
+}
+
+export interface BlogCommentRequest {
+  parent_comment_id?: string
+  content: string
+}
+
+export interface BlogCommentNode {
+  id: string
+  author_id: string
+  author_username: string
+  author_full_name?: string
+  author_avatar_url?: string
+  content: string
+  is_hidden: boolean
+  created_at: string
+  replies: BlogCommentNode[]
+}
+
+export interface BlogToggleResponse {
+  post_id: string
+  on: boolean
+  count: number
+}

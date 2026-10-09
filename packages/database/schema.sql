@@ -407,3 +407,87 @@ CREATE TABLE IF NOT EXISTS listening_topics (
     order_index INT NOT NULL DEFAULT 0,
     PRIMARY KEY (language_id, name)
 );
+
+-- Blog học viên: bài viết tự do (tag tự gõ), ảnh đính kèm upload qua R2,
+-- link YouTube, comment lồng nhau, 4 counter tương tác độc lập.
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    language_id VARCHAR(10) REFERENCES languages(id) ON DELETE SET NULL,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    tags TEXT[] NOT NULL DEFAULT '{}',
+    view_count INT NOT NULL DEFAULT 0,
+    is_hidden BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_posts_author ON blog_posts(author_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_language ON blog_posts(language_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_created ON blog_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_tags ON blog_posts USING GIN (tags);
+
+-- Object key trong bucket R2 (KHÔNG phải URL public), giống listening_passages.audio_key.
+CREATE TABLE IF NOT EXISTS blog_post_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    image_key VARCHAR(255) NOT NULL,
+    order_index INT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_post_images_post ON blog_post_images(post_id, order_index);
+
+CREATE TABLE IF NOT EXISTS blog_post_youtube_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    url VARCHAR(500) NOT NULL,
+    order_index INT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_post_youtube_links_post ON blog_post_youtube_links(post_id, order_index);
+
+-- Comment lồng nhau: parent_comment_id NULL = comment gốc.
+CREATE TABLE IF NOT EXISTS blog_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_comment_id UUID REFERENCES blog_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comments_post ON blog_comments(post_id);
+CREATE INDEX IF NOT EXISTS idx_blog_comments_parent ON blog_comments(parent_comment_id);
+
+-- 4 counter độc lập — mirror vocabulary_likes/vocabulary_favorites: junction
+-- table PK kép, không cột dư.
+CREATE TABLE IF NOT EXISTS blog_post_stars (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_markers (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_likes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blog_post_dislikes (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, post_id)
+);
