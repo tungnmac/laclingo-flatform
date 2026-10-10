@@ -80,6 +80,7 @@ interface Dictionary {
     voiceSettingsDesc: string
     systemDefault: string
     preview: string
+    meaningVoiceLabel: string
   }
 }
 
@@ -139,6 +140,7 @@ const base: Record<Locale, Dictionary> = {
       voiceSettingsDesc: 'Chọn giọng Web Speech cho từng ngôn ngữ — danh sách phụ thuộc giọng đã cài trên máy/trình duyệt của bạn.',
       systemDefault: 'Mặc định hệ thống',
       preview: 'Nghe thử',
+      meaningVoiceLabel: 'Tiếng Việt (đọc nghĩa)',
     },
   },
   en: {
@@ -196,6 +198,7 @@ const base: Record<Locale, Dictionary> = {
       voiceSettingsDesc: 'Pick a Web Speech voice per language — the list depends on voices installed on your device/browser.',
       systemDefault: 'System default',
       preview: 'Preview',
+      meaningVoiceLabel: 'Vietnamese (reads meaning)',
     },
   },
   zh: {
@@ -253,6 +256,7 @@ const base: Record<Locale, Dictionary> = {
       voiceSettingsDesc: '为每种语言选择 Web Speech 语音——列表取决于您设备/浏览器上已安装的语音。',
       systemDefault: '系统默认',
       preview: '试听',
+      meaningVoiceLabel: '越南语（朗读释义）',
     },
   },
   ja: {
@@ -310,6 +314,7 @@ const base: Record<Locale, Dictionary> = {
       voiceSettingsDesc: '言語ごとに Web Speech のボイスを選択します — 一覧はお使いのデバイス/ブラウザにインストールされているボイスによって異なります。',
       systemDefault: 'システム既定',
       preview: '試聴',
+      meaningVoiceLabel: 'ベトナム語（意味の読み上げ）',
     },
   },
   ko: {
@@ -367,6 +372,7 @@ const base: Record<Locale, Dictionary> = {
       voiceSettingsDesc: '언어별로 Web Speech 음성을 선택하세요 — 목록은 사용 중인 기기/브라우저에 설치된 음성에 따라 다릅니다.',
       systemDefault: '시스템 기본값',
       preview: '미리 듣기',
+      meaningVoiceLabel: '베트남어 (뜻 읽기)',
     },
   },
 }

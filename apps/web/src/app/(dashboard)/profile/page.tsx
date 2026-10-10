@@ -177,14 +177,18 @@ function VoiceSettingsCard() {
     window.speechSynthesis.speak(utterance)
   }
 
-  if (!languages || languages.length === 0) return null
+  // Giọng đọc nghĩa (tiếng Việt) LUÔN hiện sẵn, không phụ thuộc danh sách
+  // ngôn ngữ khoá học — "vi" không phải 1 ngôn ngữ để học, chỉ dùng để đọc
+  // nghĩa ở phần ôn tập (xem src/hooks/useWordAutoplay.ts), nên courseService
+  // không trả về nó. Ghép thêm thủ công vào đầu danh sách.
+  const rows = [{ id: 'vi', name: t.profile.meaningVoiceLabel }, ...(languages ?? []).filter((l) => l.id !== 'vi')]
 
   return (
     <Card>
       <h3 className="text-lg font-semibold text-slate-900">{t.profile.voiceSettingsTitle}</h3>
       <p className="mt-1 text-sm text-slate-500">{t.profile.voiceSettingsDesc}</p>
       <div className="mt-4 space-y-3">
-        {languages.map((lang) => {
+        {rows.map((lang) => {
           const matching = voices.filter((v) => v.lang.toLowerCase().startsWith(lang.id.toLowerCase()))
           return (
             <div key={lang.id} className="flex flex-wrap items-center gap-2">
