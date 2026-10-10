@@ -15,6 +15,9 @@ export interface ListeningDict {
     audioHint: string
     hideTranscript: string
     showTranscript: string
+    speedLabel: string
+    playBtn: string
+    stopBtn: string
     questionsTitle: string
     mascotListen: string
     submitting: string
@@ -36,6 +39,9 @@ export const listeningTranslations: Partial<Record<Locale, ListeningDict>> = {
       audioHint: 'Nhấn để nghe đoạn audio. Có thể nghe lại nhiều lần trước khi trả lời.',
       hideTranscript: 'Ẩn văn bản',
       showTranscript: 'Hiện văn bản (nếu cần)',
+      speedLabel: 'Tốc độ đọc',
+      playBtn: 'Nghe',
+      stopBtn: 'Dừng',
       questionsTitle: '❓ Câu hỏi',
       mascotListen: 'Nghe kỹ trước khi trả lời nha! 🦩',
       submitting: 'Đang chấm...',
@@ -55,6 +61,9 @@ export const listeningTranslations: Partial<Record<Locale, ListeningDict>> = {
       audioHint: 'Tap to play the audio. You can replay it as many times as you need before answering.',
       hideTranscript: 'Hide transcript',
       showTranscript: 'Show transcript (if needed)',
+      speedLabel: 'Reading speed',
+      playBtn: 'Play',
+      stopBtn: 'Stop',
       questionsTitle: '❓ Questions',
       mascotListen: 'Listen carefully before answering! 🦩',
       submitting: 'Checking...',

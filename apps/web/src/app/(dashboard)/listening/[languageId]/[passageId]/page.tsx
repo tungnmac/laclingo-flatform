@@ -1,15 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { AudioButton } from '@/components/audio/AudioButton'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
-import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ListeningQuestionCard } from '@/features/listening/components/ListeningQuestionCard'
+import { ScriptPlayer } from '@/features/listening/components/ScriptPlayer'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -17,7 +15,6 @@ import { useTranslation } from '@/hooks/useTranslation'
 export default function ListeningPassagePage({ params }: { params: { languageId: string; passageId: string } }) {
   const { data: passage, error, loading, reload } = useApi(() => listeningService.getPassage(params.passageId), [params.passageId])
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
-  const [showTranscript, setShowTranscript] = useState(false)
   const t = useTranslation()
 
   if (loading) return <Spinner />
@@ -42,16 +39,7 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
       </div>
 
       <Card className="flex flex-col items-center gap-4 text-center">
-        {passage.audio_url ? (
-          <audio controls src={passage.audio_url} className="w-full max-w-sm" />
-        ) : (
-          <AudioButton text={passage.script} languageId={params.languageId} className="h-16 w-16 text-3xl" />
-        )}
-        <p className="text-sm text-slate-500">{t.listening.audioHint}</p>
-        <Button variant="ghost" size="sm" onClick={() => setShowTranscript((v) => !v)}>
-          {showTranscript ? t.listening.hideTranscript : t.listening.showTranscript}
-        </Button>
-        {showTranscript && <p className="rounded-xl bg-slate-50 p-3 text-left text-sm leading-relaxed text-slate-700">{passage.script}</p>}
+        <ScriptPlayer script={passage.script} languageId={params.languageId} audioUrl={passage.audio_url} />
       </Card>
 
       {passage.questions.length > 0 && (
