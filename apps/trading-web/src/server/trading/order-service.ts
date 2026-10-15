@@ -7,12 +7,11 @@ import { D, Decimal, toApi, toDb } from './decimal'
 import { applyFill, limitReserve, type Pos, type Side, type Wallet } from './engine'
 import { positionOf, walletFrom } from './mappers'
 import { insertTrade, saveCash, savePosition } from './persist'
+import { MIN_NOTIONAL, usd, validateProtection } from './rules'
 import { settleAccount } from './settlement'
 import type { PlaceOrderInput, ProtectionInput } from './validation'
 
-const MIN_NOTIONAL = D(1)
 export const ORDER_NOTE_MAX = 1000
-const usd = (d: Decimal) => d.toFixed(2)
 
 export interface TradeDto {
   id: string
@@ -60,12 +59,6 @@ async function settledWallet(tx: Tx, account: AccountRow): Promise<{ account: Ac
   return { account: settled.account, wallet: walletFrom(settled.account, posRows) }
 }
 
-function validateProtection(pos: Pos, mark: Decimal, stopLoss: Decimal | null, takeProfit: Decimal | null) {
-  const isLong = pos.qty.gt(0)
-  const price = usd(mark)
-  if (stopLoss && (isLong ? stopLoss.gte(mark) : stopLoss.lte(mark))) throw new HttpError(400, 'SL_WRONG_SIDE', { price })
-  if (takeProfit && (isLong ? takeProfit.lte(mark) : takeProfit.gte(mark))) throw new HttpError(400, 'TP_WRONG_SIDE', { price })
-}
 
 async function cancelProtection(tx: Tx, accountId: string, symbol: string) {
   await tx

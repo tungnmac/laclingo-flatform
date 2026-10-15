@@ -25,12 +25,19 @@ export function OrderPanel({
   markPrice,
   account,
   onPlaced,
+  endpoint = '/api/trading/orders',
+  allowNote = true,
 }: {
   symbol: string
   base: string
   markPrice: number | null
   account: AccountSnapshot | null
-  onPlaced: () => void
+  /** Nhận response của API đặt lệnh (phiên thực hành dùng `session` trong đó thay vì gọi lại GET) */
+  onPlaced: (response: unknown) => void
+  /** Nơi gửi lệnh — phiên thực hành (phần 6) dùng API riêng, cùng định dạng body/response */
+  endpoint?: string
+  /** Ô "Lý do vào lệnh" (ghi vào Nhật ký) — tắt ở phiên thực hành */
+  allowNote?: boolean
 }) {
   const { t } = useT()
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
@@ -66,7 +73,7 @@ export function OrderPanel({
     setError(null)
     setSuccess(null)
     try {
-      const res = await api<{ order: { price: string | null }; trade?: TradeDto }>('/api/trading/orders', {
+      const res = await api<{ order: { price: string | null }; trade?: Pick<TradeDto, 'qty' | 'price'> }>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
           symbol,
@@ -89,7 +96,7 @@ export function OrderPanel({
       setTakeProfit('')
       setNote('')
       setNoteOpen(false)
-      onPlaced()
+      onPlaced(res)
     } catch (err) {
       setError(err)
     } finally {
@@ -173,7 +180,7 @@ export function OrderPanel({
         </div>
       )}
 
-      {noteOpen ? (
+      {!allowNote ? null : noteOpen ? (
         <label className="block text-xs font-medium text-slate-600">
           {t('journal.orderNote')} <span className="font-normal text-slate-400">({t('trading.optional')})</span>
           <textarea

@@ -6,12 +6,12 @@ import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
-// Phần 6 thêm mục Thực hành
 const NAV_ITEMS = [
   { href: '/markets', labelKey: 'nav.markets' },
   { href: '/portfolio', labelKey: 'nav.portfolio' },
   { href: '/journal', labelKey: 'nav.journal' },
   { href: '/learn', labelKey: 'nav.learn' },
+  { href: '/practice', labelKey: 'nav.practice' },
 ]
 const ADMIN_ITEMS = [{ href: '/admin/learn', labelKey: 'nav.admin' }]
 

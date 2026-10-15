@@ -4,7 +4,7 @@ import { D } from './decimal'
 // Message = MÃ LỖI (errors.* trong từ điển). Số gửi dạng CHUỖI để không mất chính xác.
 const DECIMAL = /^\d+(\.\d{1,8})?$/
 
-const decimalString = (code: string) =>
+export const decimalString = (code: string) =>
   z
     .string(code)
     .trim()

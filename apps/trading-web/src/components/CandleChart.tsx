@@ -16,8 +16,8 @@ import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { Candle, Interval } from '@/server/market/types'
 
-const UP = '#10b981'
-const DOWN = '#ef4444'
+export const UP = '#10b981'
+export const DOWN = '#ef4444'
 const toBar = (c: Candle) => ({ time: c.time as UTCTimestamp, open: c.open, high: c.high, low: c.low, close: c.close })
 const toVolume = (c: Candle) => ({ time: c.time as UTCTimestamp, value: c.volume, color: c.close >= c.open ? `${UP}66` : `${DOWN}66` })
 
