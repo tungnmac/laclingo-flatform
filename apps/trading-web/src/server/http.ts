@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { getLocale } from '@/i18n/server'
 import { hasKey, translate, type TranslateParams } from '@/i18n/translate'
+import { ERROR_PARAMS } from './journal/validation'
 import { MarketUnavailableError, UnsupportedMarketError } from './market/types'
 
 /** Lỗi nghiệp vụ trả cho client: `code` ổn định (client tự dịch) + `params` chèn vào câu. */
@@ -32,7 +33,7 @@ export function handleRoute<A extends unknown[]>(fn: (...args: A) => Promise<Res
       if (err instanceof HttpError) return jsonError(err.status, err.code, err.params)
       if (err instanceof ZodError) {
         const message = err.issues[0]?.message ?? ''
-        return jsonError(400, isErrorCode(message) ? message : 'INVALID_INPUT')
+        return isErrorCode(message) ? jsonError(400, message, ERROR_PARAMS[message]) : jsonError(400, 'INVALID_INPUT')
       }
       if (err instanceof UnsupportedMarketError) return jsonError(400, 'MARKET_UNSUPPORTED', { market: err.market })
       if (err instanceof MarketUnavailableError) return jsonError(503, err.code)

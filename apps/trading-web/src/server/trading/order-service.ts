@@ -23,6 +23,7 @@ export interface TradeDto {
   price: string
   fee: string
   realized_pnl: string
+  closed_qty: string
   kind: string
   executed_at: string
 }
@@ -36,6 +37,7 @@ export const toTradeDto = (t: TradeRow): TradeDto => ({
   price: toApi(D(t.price)),
   fee: toApi(D(t.fee)),
   realized_pnl: toApi(D(t.realizedPnl)),
+  closed_qty: toApi(D(t.closedQty)),
   kind: t.kind,
   executed_at: t.executedAt.toISOString(),
 })
