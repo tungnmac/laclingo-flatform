@@ -42,3 +42,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
+
+/**
+ * Media backend tự phục vụ (vd ảnh minh hoạ từ vựng "/vocab/images/...") được
+ * lưu dạng path tương đối để không dính domain API của môi trường — ghép
+ * API_URL khi render. URL tuyệt đối (ảnh ngoài) giữ nguyên.
+ */
+export function resolveMediaUrl(url: string): string {
+  return url.startsWith('/') && !url.startsWith('//') ? `${API_URL}${url}` : url
+}

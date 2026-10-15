@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"laclingo-backend/internal/repository/db"
+	"laclingo-backend/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -84,10 +85,11 @@ type FavoriteResponse struct {
 
 type VocabularyService struct {
 	repo VocabularyRepository
+	r2   *storage.R2Client // nil = R2 chưa cấu hình, upload ảnh minh hoạ tắt
 }
 
-func NewVocabularyService(repo VocabularyRepository) *VocabularyService {
-	return &VocabularyService{repo: repo}
+func NewVocabularyService(repo VocabularyRepository, r2 *storage.R2Client) *VocabularyService {
+	return &VocabularyService{repo: repo, r2: r2}
 }
 
 // ListTopics trả về các chủ đề CẤP CAO NHẤT của 1 ngôn ngữ (mặc định en) kèm

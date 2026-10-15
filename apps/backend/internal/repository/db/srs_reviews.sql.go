@@ -43,6 +43,7 @@ SELECT
     v.example_meaning,
     v.topic,
     v.image_emoji,
+    v.image_url,
     r.practice_count,
     r.id AS review_id,
     r.srs_stage,
@@ -75,6 +76,7 @@ type GetDueVocabulariesForUserRow struct {
 	ExampleMeaning pgtype.Text        `json:"example_meaning"`
 	Topic          pgtype.Text        `json:"topic"`
 	ImageEmoji     pgtype.Text        `json:"image_emoji"`
+	ImageUrl       pgtype.Text        `json:"image_url"`
 	PracticeCount  int32              `json:"practice_count"`
 	ReviewID       pgtype.UUID        `json:"review_id"`
 	SrsStage       pgtype.Int4        `json:"srs_stage"`
@@ -105,6 +107,7 @@ func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocab
 			&i.ExampleMeaning,
 			&i.Topic,
 			&i.ImageEmoji,
+			&i.ImageUrl,
 			&i.PracticeCount,
 			&i.ReviewID,
 			&i.SrsStage,

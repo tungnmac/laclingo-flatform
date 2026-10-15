@@ -61,6 +61,7 @@ type DueVocabulary struct {
 	Example        string   `json:"example"`
 	ExampleMeaning string   `json:"example_meaning"`
 	ImageEmoji     string   `json:"image_emoji"`
+	ImageURL       string   `json:"image_url"`
 	PracticeCount  int32    `json:"practice_count"`
 	Choices        []string `json:"choices"` // nghĩa đúng + tối đa 3 nghĩa nhiễu, đã xáo trộn
 }
@@ -126,6 +127,7 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 			Example:        r.Example.String,
 			ExampleMeaning: r.ExampleMeaning.String,
 			ImageEmoji:     r.ImageEmoji.String,
+			ImageURL:       r.ImageUrl.String,
 			PracticeCount:  r.PracticeCount,
 		})
 	}

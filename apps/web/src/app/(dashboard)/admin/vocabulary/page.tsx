@@ -13,10 +13,12 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { VocabularyImageInput } from '@/features/vocabulary/components/VocabularyImageInput'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { resolveMediaUrl } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
@@ -374,6 +376,25 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Option chủ đề cho form: cha trước, con thụt vào ngay dưới cha. Từ đang sửa
+  // có chủ đề cũ không còn trong danh sách thì vẫn giữ làm 1 option để không mất.
+  const topicOptions = topics
+    .filter((topic) => !topic.parent_name)
+    .flatMap((parent) => [
+      { value: parent.name, label: `${parent.icon} ${parent.name}` },
+      ...topics
+        .filter((child) => child.parent_name === parent.name)
+        .map((child) => ({ value: child.name, label: `\u00a0\u00a0\u00a0\u21b3 ${child.icon} ${child.name}` })),
+    ])
+  // Chủ đề con có cha không nằm trong danh sách cấp cao nhất — vẫn cho chọn
+  for (const topic of topics) {
+    if (!topicOptions.some((o) => o.value === topic.name)) topicOptions.push({ value: topic.name, label: `${topic.icon} ${topic.name}` })
+  }
+  if (editing?.topic && !topicOptions.some((o) => o.value === editing.topic)) {
+    topicOptions.push({ value: editing.topic, label: editing.topic })
+  }
 
   const onEdit = (v: VocabularyAdmin) => {
     setEditing(v)
@@ -406,6 +427,9 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       topic: String(form.get('topic') ?? '').trim() || undefined,
       level: String(form.get('level') ?? 'A1'),
       image_emoji: String(form.get('image_emoji') ?? '').trim() || undefined,
+      image_url: String(form.get('image_url') ?? '').trim() || undefined,
+      // Form không có ô audio — giữ nguyên giá trị cũ, không để lần sửa xoá mất
+      audio_url: editing?.audio_url || undefined,
     }
 
     setSaving(true)
@@ -508,7 +532,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
           <h3 className="text-base font-semibold text-slate-900">
             {editing ? t.adminVocabulary.editWordTitle(editing.term) : t.adminVocabulary.addWordTitle}
           </h3>
-          <form onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <form key={editing?.id ?? '__new__'} onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.termLabel}
               <input name="term" type="text" required defaultValue={editing?.term} className={inputClass} />
@@ -531,7 +555,14 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             </label>
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.topicFilterLabel}
-              <input name="topic" type="text" defaultValue={editing?.topic} className={inputClass} />
+              <select name="topic" defaultValue={editing?.topic ?? ''} className={inputClass}>
+                <option value="">{t.adminVocabulary.noTopicOption}</option>
+                {topicOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.levelFilterLabel}
@@ -541,6 +572,10 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
               {t.adminVocabulary.illustrationEmojiLabel}
               <IconPickerInput name="image_emoji" defaultValue={editing?.image_emoji ?? ''} />
             </label>
+            <div className="block text-sm font-medium text-slate-700">
+              {t.adminVocabulary.illustrationImageLabel}
+              <VocabularyImageInput name="image_url" defaultValue={editing?.image_url} onUploadingChange={setUploadingImage} />
+            </div>
 
             {formError && (
               <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200 sm:col-span-2">
@@ -549,7 +584,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             )}
 
             <div className="flex gap-2 sm:col-span-2">
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving || uploadingImage}>
                 {saving ? t.adminCommon.savingBtn : t.adminCommon.saveBtn}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
@@ -569,7 +604,11 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
           <ul className="divide-y divide-slate-100">
             {data.items.map((v) => (
               <li key={v.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
-                <span className="text-xl">{v.image_emoji || '📘'}</span>
+                {v.image_url ? (
+                  <img src={resolveMediaUrl(v.image_url)} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                ) : (
+                  <span className="text-xl">{v.image_emoji || '📘'}</span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">
                     {v.term} {v.phonetic && <span className="font-normal text-slate-400">/{v.phonetic}/</span>}

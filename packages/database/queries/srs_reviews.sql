@@ -12,6 +12,7 @@ SELECT
     v.example_meaning,
     v.topic,
     v.image_emoji,
+    v.image_url,
     r.practice_count,
     r.id AS review_id,
     r.srs_stage,

@@ -50,6 +50,13 @@ export const vocabularyService = {
   updateVocabulary: (id: string, body: VocabularyRequest) =>
     apiFetch<VocabularyAdmin>(`/admin/vocabularies/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteVocabulary: (id: string) => apiFetch<void>(`/admin/vocabularies/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  // Trả URL tương đối (/vocab/images/...) — gán thẳng vào image_url, render qua resolveMediaUrl
+  uploadImage: (file: File) => {
+    const form = new FormData()
+    form.append('image', file)
+    return apiFetch<{ url: string }>('/admin/vocabularies/images', { method: 'POST', body: form })
+  },
+
   bulkImportVocabularies: (items: VocabularyRequest[]) =>
     apiFetch<BulkImportResult[]>('/admin/vocabularies/bulk', { method: 'POST', body: JSON.stringify(items) }),
 

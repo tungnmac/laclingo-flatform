@@ -84,6 +84,7 @@ export interface DueVocabulary {
   example: string
   example_meaning: string
   image_emoji: string
+  image_url: string
   practice_count: number
   choices: string[] // nghĩa đúng + tối đa 3 nghĩa nhiễu, đã xáo trộn
 }

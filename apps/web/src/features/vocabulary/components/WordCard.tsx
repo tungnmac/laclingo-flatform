@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
@@ -72,7 +73,7 @@ export function WordCard({
 
       {word.image_url ? (
         <img
-          src={word.image_url}
+          src={resolveMediaUrl(word.image_url)}
           alt={word.term}
           className={cn('rounded-2xl object-cover', compact ? 'h-20 w-20' : 'h-36 w-36')}
         />

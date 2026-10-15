@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { Card } from '@/components/ui/Card'
 import { useTranslation } from '@/hooks/useTranslation'
+import { resolveMediaUrl } from '@/lib/api'
 import type { DueVocabulary } from '@/types/api'
 import { tokenize } from '../../practice'
 import { ChoiceExercise } from './ChoiceExercise'
@@ -74,7 +75,11 @@ export function PracticeSession({
       {/* Bài nghe-viết KHÔNG hiện từ — phải nghe để viết */}
       {step !== 'dictation' && (
         <div className="flex flex-col items-center gap-1 text-center">
-          {vocab.image_emoji && <span className="text-6xl leading-none">{vocab.image_emoji}</span>}
+          {vocab.image_url ? (
+            <img src={resolveMediaUrl(vocab.image_url)} alt={vocab.term} className="h-28 w-28 rounded-2xl object-cover" />
+          ) : (
+            vocab.image_emoji && <span className="text-6xl leading-none">{vocab.image_emoji}</span>
+          )}
           <h2 className="break-words text-3xl font-bold text-slate-900 sm:text-4xl">{vocab.term}</h2>
           {vocab.phonetic && <p className="text-slate-500">/{vocab.phonetic}/</p>}
           <AudioButton src={vocab.audio_url || undefined} text={vocab.term} languageId={vocab.language_id} />
