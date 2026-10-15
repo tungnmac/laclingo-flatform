@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useT } from '@/i18n/I18nProvider'
+import { questionsChanged } from '@/lib/admin-forms'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { AdminLessonDto } from '@/server/learn/admin-service'
@@ -19,14 +20,26 @@ let nextKey = 1
 const blank = (): Draft => ({ key: nextKey++, prompt: '', options: ['', ''], correct_index: 0, explanation: '' })
 
 /** Soạn toàn bộ câu hỏi của 1 bài — Lưu = thay thế cả danh sách (PUT) */
-export function QuestionsEditor({ lesson, onSaved }: { lesson: AdminLessonDto; onSaved: (l: AdminLessonDto) => void }) {
+export function QuestionsEditor({
+  lesson,
+  onSaved,
+  onDirtyChange,
+}: {
+  lesson: AdminLessonDto
+  onSaved: (l: AdminLessonDto) => void
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const { t } = useT()
   const [items, setItems] = useState<Draft[]>(() =>
     lesson.questions.map((q) => ({ key: nextKey++, prompt: q.prompt, options: q.options, correct_index: q.correct_index, explanation: q.explanation ?? '' })),
   )
+  const [savedQuestions, setSavedQuestions] = useState(lesson.questions)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
+
+  const dirty = questionsChanged(savedQuestions, items)
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange])
 
   const update = (i: number, patch: Partial<Draft>) => {
     setSaved(false)
@@ -54,6 +67,7 @@ export function QuestionsEditor({ lesson, onSaved }: { lesson: AdminLessonDto; o
     try {
       const body = items.map((q) => ({ prompt: q.prompt, options: q.options, correct_index: q.correct_index, explanation: q.explanation || null }))
       const res = await api<AdminLessonDto>(`/api/admin/learn/lessons/${lesson.id}/questions`, { method: 'PUT', body: JSON.stringify(body) })
+      setSavedQuestions(res.questions)
       setSaved(true)
       onSaved(res)
     } catch (err) {

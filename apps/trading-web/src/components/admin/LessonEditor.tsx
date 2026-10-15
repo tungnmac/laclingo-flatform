@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
 import { useT } from '@/i18n/I18nProvider'
+import { changedFields, insertAt } from '@/lib/admin-forms'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { AdminChapterDto, AdminLessonDto } from '@/server/learn/admin-service'
@@ -58,6 +59,7 @@ export function LessonEditor({
   const [lesson, setLesson] = useState<AdminLessonDto | null>(null)
   const [form, setForm] = useState<Form>({ title: '', slug: '', summary: '', chapter_id: chapterId, content_md: '', published: false })
   const [dirty, setDirty] = useState(false)
+  const [questionsDirty, setQuestionsDirty] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -72,7 +74,7 @@ export function LessonEditor({
     }, setError)
   }, [lessonId])
 
-  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange])
+  useEffect(() => onDirtyChange(dirty || questionsDirty), [dirty, questionsDirty, onDirtyChange])
 
   const set = (patch: Partial<Form>) => {
     setForm((f) => ({ ...f, ...patch }))
@@ -85,10 +87,14 @@ export function LessonEditor({
     setSaving(true)
     setError(null)
     try {
-      const body = JSON.stringify({ ...form, summary: form.summary || null })
-      const res = lessonId
-        ? await api<AdminLessonDto>(`/api/admin/learn/lessons/${lessonId}`, { method: 'PATCH', body })
-        : await api<AdminLessonDto>('/api/admin/learn/lessons', { method: 'POST', body })
+      // Sửa bài: chỉ gửi trường đã đổi — không ghi đè "Công bố/Ẩn" vừa bấm trên cây bằng giá trị cũ của form
+      const res =
+        lessonId && lesson
+          ? await api<AdminLessonDto>(`/api/admin/learn/lessons/${lessonId}`, {
+              method: 'PATCH',
+              body: JSON.stringify(changedFields(toForm(lesson), form)),
+            })
+          : await api<AdminLessonDto>('/api/admin/learn/lessons', { method: 'POST', body: JSON.stringify(form) })
       setLesson(res)
       setForm(toForm(res))
       setDirty(false)
@@ -107,10 +113,11 @@ export function LessonEditor({
     setError(null)
     try {
       const url = await uploadImage(file)
-      const el = textarea.current
-      const at = el?.selectionStart ?? form.content_md.length
-      const snippet = `![](${url})`
-      set({ content_md: form.content_md.slice(0, at) + snippet + form.content_md.slice(at) })
+      // Đọc con trỏ & nội dung SAU khi upload xong — giữ phần người dùng gõ thêm trong lúc chờ
+      const at = textarea.current?.selectionStart ?? Number.MAX_SAFE_INTEGER
+      setForm((f) => ({ ...f, content_md: insertAt(f.content_md, at, `![](${url})`) }))
+      setDirty(true)
+      setSaved(false)
     } catch (err) {
       setError(err)
     } finally {
@@ -191,7 +198,17 @@ export function LessonEditor({
           {saved && <span className="text-sm text-emerald-700">{t('admin.saved')}</span>}
         </div>
       </form>
-      {lesson && <QuestionsEditor key={lesson.id} lesson={lesson} onSaved={(l) => { setLesson(l); onSaved(l.id) }} />}
+      {lesson && (
+        <QuestionsEditor
+          key={lesson.id}
+          lesson={lesson}
+          onDirtyChange={setQuestionsDirty}
+          onSaved={(l) => {
+            setLesson(l)
+            onSaved(l.id)
+          }}
+        />
+      )}
     </div>
   )
 }

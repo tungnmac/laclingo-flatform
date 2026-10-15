@@ -56,7 +56,7 @@ async function visibleLessons(locale: Locale) {
     .from(lessons)
     .innerJoin(chapters, eq(lessons.chapterId, chapters.id))
     .where(and(eq(lessons.locale, locale), eq(lessons.published, true), eq(chapters.published, true)))
-    .orderBy(asc(chapters.position), asc(lessons.position))
+    .orderBy(asc(chapters.position), asc(chapters.id), asc(lessons.position), asc(lessons.id))
 }
 
 async function progressMap(userId: string, lessonIds: string[]) {
@@ -153,11 +153,20 @@ export async function submitQuiz(userId: string, locale: Locale, slug: string, a
       .where(and(eq(lessonProgress.userId, userId), eq(lessonProgress.lessonId, lesson.id)))
       .for('update')
     const next = applyAttempt(prev ?? null, result.score, new Date())
-    const values = { bestScore: next.bestScore, attempts: next.attempts, completedAt: next.completedAt, updatedAt: sql`now()` }
+    // Gộp ngay trong SQL: 2 lần nộp ĐẦU TIÊN cùng lúc (chưa có dòng để FOR UPDATE khoá) vẫn giữ điểm cao nhất
+    // và thời điểm hoàn thành đầu tiên thay vì lần sau ghi đè lần trước
     const [row] = await tx
       .insert(lessonProgress)
-      .values({ userId, lessonId: lesson.id, ...values })
-      .onConflictDoUpdate({ target: [lessonProgress.userId, lessonProgress.lessonId], set: values })
+      .values({ userId, lessonId: lesson.id, bestScore: next.bestScore, attempts: next.attempts, completedAt: next.completedAt })
+      .onConflictDoUpdate({
+        target: [lessonProgress.userId, lessonProgress.lessonId],
+        set: {
+          bestScore: sql`greatest(${lessonProgress.bestScore}, excluded.best_score)`,
+          attempts: prev ? next.attempts : sql`${lessonProgress.attempts} + 1`,
+          completedAt: sql`coalesce(${lessonProgress.completedAt}, excluded.completed_at)`,
+          updatedAt: sql`now()`,
+        },
+      })
       .returning()
     return row
   })

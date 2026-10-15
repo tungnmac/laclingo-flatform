@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
+import { changedFields } from '@/lib/admin-forms'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { AdminChapterDto } from '@/server/learn/admin-service'
@@ -12,10 +13,12 @@ export function ChapterForm({
   chapter,
   locale,
   onSaved,
+  onDirtyChange,
 }: {
   chapter: AdminChapterDto | null
   locale: string
   onSaved: (c: AdminChapterDto) => void
+  onDirtyChange: (dirty: boolean) => void
 }) {
   const { t } = useT()
   const [title, setTitle] = useState(chapter?.title ?? '')
@@ -23,6 +26,11 @@ export function ChapterForm({
   const [description, setDescription] = useState(chapter?.description ?? '')
   const [published, setPublished] = useState(chapter?.published ?? false)
   const [saving, setSaving] = useState(false)
+  const loaded = { title: chapter?.title ?? '', slug: chapter?.slug ?? '', description: chapter?.description ?? '', published: chapter?.published ?? false }
+  const current = { title, slug, description, published }
+  const changes = changedFields(loaded, current)
+  const dirty = Object.keys(changes).length > 0
+  useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange])
   const [error, setError] = useState<unknown>(null)
 
   const submit = async (e: FormEvent) => {
@@ -30,10 +38,11 @@ export function ChapterForm({
     setSaving(true)
     setError(null)
     try {
-      const body = { title, slug, description: description || null, published }
+      // Sửa: chỉ gửi trường đã đổi (không ghi đè trạng thái công bố vừa đổi trên cây)
       const saved = chapter
-        ? await api<AdminChapterDto>(`/api/admin/learn/chapters/${chapter.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-        : await api<AdminChapterDto>('/api/admin/learn/chapters', { method: 'POST', body: JSON.stringify({ ...body, locale }) })
+        ? await api<AdminChapterDto>(`/api/admin/learn/chapters/${chapter.id}`, { method: 'PATCH', body: JSON.stringify(changes) })
+        : await api<AdminChapterDto>('/api/admin/learn/chapters', { method: 'POST', body: JSON.stringify({ ...current, locale }) })
+      onDirtyChange(false)
       onSaved(saved)
     } catch (err) {
       setError(err)

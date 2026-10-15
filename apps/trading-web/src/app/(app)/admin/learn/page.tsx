@@ -27,7 +27,15 @@ export default function AdminLearnPage() {
   }, [locale])
   useEffect(load, [load])
 
-  /** Đổi lựa chọn — hỏi lại nếu bài đang sửa chưa lưu */
+  // Đóng/tải lại tab khi còn thay đổi chưa lưu → trình duyệt hỏi xác nhận
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  /** Đổi lựa chọn — hỏi lại nếu chương/bài/câu hỏi đang sửa chưa lưu */
   const select = (next: Selection) => {
     if (dirty && !window.confirm(t('admin.unsavedConfirm'))) return
     setDirty(false)
@@ -50,13 +58,19 @@ export default function AdminLearnPage() {
     window.confirm(t('admin.deleteChapterConfirm', { title: c.title })) &&
     act(async () => {
       await api(`/api/admin/learn/chapters/${c.id}`, { method: 'DELETE' })
-      if (selection && (selection.kind === 'chapter' ? selection.id === c.id : selection.chapterId === c.id)) setSelection(null)
+      if (selection && (selection.kind === 'chapter' ? selection.id === c.id : selection.chapterId === c.id)) {
+        setSelection(null)
+        setDirty(false)
+      }
     })
   const deleteLesson = (l: AdminLessonSummaryDto) =>
     window.confirm(t('admin.deleteLessonConfirm', { title: l.title })) &&
     act(async () => {
       await api(`/api/admin/learn/lessons/${l.id}`, { method: 'DELETE' })
-      if (selection?.kind === 'lesson' && selection.id === l.id) setSelection(null)
+      if (selection?.kind === 'lesson' && selection.id === l.id) {
+        setSelection(null)
+        setDirty(false)
+      }
     })
 
   const btn = 'rounded px-1.5 py-0.5 text-xs ring-1 ring-slate-200 hover:bg-slate-100 disabled:opacity-30'
@@ -156,6 +170,7 @@ export default function AdminLearnPage() {
               key={selection.id ?? `new-${locale}`}
               chapter={selectedChapter}
               locale={locale}
+              onDirtyChange={setDirty}
               onSaved={(c) => {
                 load()
                 setSelection({ kind: 'chapter', id: c.id })
