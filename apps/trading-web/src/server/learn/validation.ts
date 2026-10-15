@@ -15,24 +15,34 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((s) => s || null)
 
-export const chapterSchema = z.object({
-  locale: z.enum(LOCALES, 'INVALID_INPUT'),
+const chapterFields = {
   slug,
   title,
   description: optionalText(LIMITS.text),
-  published: z.boolean().default(false),
+  published: z.boolean(),
+}
+export const chapterSchema = z.object({
+  locale: z.enum(LOCALES, 'INVALID_INPUT'),
+  ...chapterFields,
+  published: chapterFields.published.default(false),
 })
-export const chapterPatchSchema = chapterSchema.omit({ locale: true }).partial()
+/** PATCH: chỉ các trường gửi lên — KHÔNG có default (zod 4 vẫn áp .default() sau .partial()) */
+export const chapterPatchSchema = z.object(chapterFields).partial()
 
-export const lessonSchema = z.object({
+const lessonFields = {
   chapter_id: z.uuid('INVALID_INPUT'),
   slug,
   title,
   summary: optionalText(LIMITS.text),
-  content_md: z.string().max(LIMITS.content, 'TEXT_TOO_LONG').default(''),
-  published: z.boolean().default(false),
+  content_md: z.string().max(LIMITS.content, 'TEXT_TOO_LONG'),
+  published: z.boolean(),
+}
+export const lessonSchema = z.object({
+  ...lessonFields,
+  content_md: lessonFields.content_md.default(''),
+  published: lessonFields.published.default(false),
 })
-export const lessonPatchSchema = lessonSchema.partial()
+export const lessonPatchSchema = z.object(lessonFields).partial()
 
 const question = z
   .object({

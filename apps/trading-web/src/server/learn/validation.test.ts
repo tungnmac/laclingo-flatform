@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chapterSchema, lessonSchema, moveSchema, questionsSchema } from './validation'
+import { chapterPatchSchema, chapterSchema, lessonPatchSchema, lessonSchema, moveSchema, questionsSchema } from './validation'
 
 const issue = (r: { success: boolean; error?: { issues: { message: string }[] } }) => r.error?.issues[0]?.message
 
@@ -46,5 +46,12 @@ describe('moveSchema', () => {
   it('accepts up/down only', () => {
     expect(moveSchema.parse({ direction: 'up' })).toEqual({ direction: 'up' })
     expect(moveSchema.safeParse({ direction: 'left' }).success).toBe(false)
+  })
+})
+
+describe('patch schemas', () => {
+  it('keep only the fields that were sent (no defaults)', () => {
+    expect(lessonPatchSchema.parse({ title: 'New' })).toEqual({ title: 'New' })
+    expect(chapterPatchSchema.parse({ published: true })).toEqual({ published: true })
   })
 })
