@@ -6,8 +6,11 @@ import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
-// Phần 3–6 thêm mục vào đây (Giao dịch, Nhật ký, Học, Thực hành)
-const NAV_ITEMS = [{ href: '/markets', labelKey: 'nav.markets' }]
+// Phần 4–6 thêm mục vào đây (Nhật ký, Học, Thực hành)
+const NAV_ITEMS = [
+  { href: '/markets', labelKey: 'nav.markets' },
+  { href: '/portfolio', labelKey: 'nav.portfolio' },
+]
 
 export function AppNav({ user }: { user: SessionUser }) {
   const pathname = usePathname()
