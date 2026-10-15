@@ -12,10 +12,10 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { DeckForm } from '@/features/deck/components/DeckForm'
 import { deckService } from '@/features/deck/deck.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { NextReviewBadge } from '@/features/srs-review/components/NextReviewBadge'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
 import type { DeckWord } from '@/types/api'
 
 /** Chi tiết 1 danh sách ôn tập: sửa/xoá list, học lại, chuyển/sao chép/bỏ từ */
@@ -122,12 +122,10 @@ export default function DeckDetailPage({ params }: { params: { id: string } }) {
                       {word.term} {word.phonetic && <span className="font-normal text-slate-400">/{word.phonetic}/</span>}
                     </p>
                     <p className="truncate text-sm text-slate-500">{word.meaning}</p>
-                    <p className="text-xs text-slate-400">
-                      {t.decks.practiceCount(word.practice_count)}
-                      {word.next_review_at && ` · ${t.decks.nextReview(formatDate(word.next_review_at))}`}
-                    </p>
+                    <p className="text-xs text-slate-400">{t.decks.practiceCount(word.practice_count)}</p>
                   </div>
                   <LevelBadge level={word.level} />
+                  {word.next_review_at && <NextReviewBadge nextReviewAt={word.next_review_at} />}
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"

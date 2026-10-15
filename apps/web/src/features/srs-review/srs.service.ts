@@ -1,5 +1,7 @@
 import { apiFetch } from '@/lib/api'
 import type {
+  PageResult,
+  ReviewWord,
   DueVocabulary,
   LearnVocabularyResponse,
   NewVocabulary,
@@ -16,6 +18,12 @@ export const srsService = {
   getDue: (limit = 20, language?: string, deck?: string) =>
     apiFetch<DueVocabulary[]>(
       `/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}${deck ? `&deck=${encodeURIComponent(deck)}` : ''}`,
+    ),
+
+  // Mọi từ đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn lại tới lúc ôn
+  listWords: (language?: string, page = 1, pageSize = 20) =>
+    apiFetch<PageResult<ReviewWord>>(
+      `/srs/words?page=${page}&page_size=${pageSize}${language ? `&language=${encodeURIComponent(language)}` : ''}`,
     ),
 
   // Hoàn thành bộ bài luyện tập của 1 từ: backend tự chấm SM-2 theo số lỗi và +1 practice_count

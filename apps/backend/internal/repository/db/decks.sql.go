@@ -136,7 +136,7 @@ JOIN user_decks d ON d.id = dv.deck_id
 JOIN vocabularies v ON v.id = dv.vocabulary_id
 LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = d.user_id
 WHERE d.id = $1 AND d.user_id = $2
-ORDER BY dv.added_at DESC
+ORDER BY r.next_review_at ASC NULLS LAST, v.term
 `
 
 type ListDeckVocabulariesParams struct {
@@ -159,6 +159,7 @@ type ListDeckVocabulariesRow struct {
 	NextReviewAt  pgtype.Timestamptz `json:"next_review_at"`
 }
 
+// Sắp đến hạn ôn trước (thời gian còn lại thấp → cao); từ chưa vào SRS xuống cuối
 func (q *Queries) ListDeckVocabularies(ctx context.Context, arg ListDeckVocabulariesParams) ([]ListDeckVocabulariesRow, error) {
 	rows, err := q.db.Query(ctx, listDeckVocabularies, arg.DeckID, arg.UserID)
 	if err != nil {

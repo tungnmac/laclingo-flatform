@@ -133,3 +133,29 @@ UPDATE user_vocabulary_reviews
 SET practice_count = practice_count + 1
 WHERE user_id = $1 AND vocabulary_id = $2
 RETURNING *;
+
+-- name: ListReviewVocabulariesForUser :many
+-- Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
+-- lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
+-- total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
+SELECT
+    v.id AS vocabulary_id,
+    v.language_id,
+    v.term,
+    v.phonetic,
+    v.meaning,
+    v.topic,
+    v.level,
+    v.image_url,
+    v.image_emoji,
+    r.practice_count,
+    r.srs_stage,
+    r.interval_days,
+    r.next_review_at,
+    COUNT(*) OVER() AS total_count
+FROM user_vocabulary_reviews r
+JOIN vocabularies v ON v.id = r.vocabulary_id
+WHERE r.user_id = sqlc.arg('user_id')
+  AND (sqlc.narg('language_id')::varchar IS NULL OR v.language_id = sqlc.narg('language_id'))
+ORDER BY r.next_review_at ASC, v.term
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');

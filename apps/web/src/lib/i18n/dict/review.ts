@@ -65,6 +65,15 @@ export interface ReviewDict {
     sessionDoneBody: (remembered: number, total: number) => string
     continueReviewBtn: string
     reviewAgainIn: (days: number) => string
+    srsWordsTitle: string
+    srsWordsDesc: string
+    srsWordsBtn: string
+    srsWordsEmpty: string
+    srsWordsEmptyHint: string
+    dueNow: string
+    dueInMinutes: (n: number) => string
+    dueInHours: (n: number) => string
+    dueInDays: (n: number) => string
     howWellRemember: string
     showMeaningBtn: string
   }
@@ -150,6 +159,15 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       sessionDoneBody: (remembered, total) => `Bạn nhớ ${remembered}/${total} từ.`,
       continueReviewBtn: 'Ôn tiếp',
       reviewAgainIn: (days) => `Ôn lại sau ${days} ngày`,
+      srsWordsTitle: 'Tất cả từ trong SRS',
+      srsWordsDesc: 'Mọi từ bạn đang ôn, sắp theo thời gian còn lại tới lúc cần ôn — từ đến hạn ở trên cùng.',
+      srsWordsBtn: 'Xem tất cả từ',
+      srsWordsEmpty: 'Chưa có từ nào trong hàng đợi ôn tập',
+      srsWordsEmptyHint: 'Vào Học từ mới và bấm "Thêm vào ôn tập" trên thẻ từ.',
+      dueNow: 'Đến hạn ôn',
+      dueInMinutes: (n) => `Còn ${n} phút`,
+      dueInHours: (n) => `Còn ${n} giờ`,
+      dueInDays: (n) => `Còn ${n} ngày`,
       howWellRemember: 'Bạn nhớ từ này thế nào?',
       showMeaningBtn: 'Xem nghĩa',
     },
@@ -233,6 +251,15 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       sessionDoneBody: (remembered, total) => `You remembered ${remembered}/${total} words.`,
       continueReviewBtn: 'Keep reviewing',
       reviewAgainIn: (days) => `Review again in ${days} days`,
+      srsWordsTitle: 'All words in SRS',
+      srsWordsDesc: 'Every word you are reviewing, sorted by time left until its next review — due words first.',
+      srsWordsBtn: 'View all words',
+      srsWordsEmpty: 'No words in your review queue yet',
+      srsWordsEmptyHint: 'Go to New words and tap "Add to review" on a word card.',
+      dueNow: 'Due now',
+      dueInMinutes: (n) => `In ${n} min`,
+      dueInHours: (n) => `In ${n} h`,
+      dueInDays: (n) => `In ${n} day${n === 1 ? '' : 's'}`,
       howWellRemember: 'How well did you remember this word?',
       showMeaningBtn: 'Show meaning',
     },

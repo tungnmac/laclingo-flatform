@@ -35,6 +35,7 @@ type SRSRepository interface {
 	GetDeckVocabulariesForPractice(ctx context.Context, arg db.GetDeckVocabulariesForPracticeParams) ([]db.GetDeckVocabulariesForPracticeRow, error)
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg db.IncrementVocabularyPracticeOnlyParams) (db.UserVocabularyReview, error)
 	GetDeckForUser(ctx context.Context, arg db.GetDeckForUserParams) (db.UserDeck, error)
+	ListReviewVocabulariesForUser(ctx context.Context, arg db.ListReviewVocabulariesForUserParams) ([]db.ListReviewVocabulariesForUserRow, error)
 }
 
 // NewVocabulary là một từ user chưa học, hiển thị ở flow "Học từ mới"
@@ -413,4 +414,47 @@ func (s *SRSService) LearnVocabulary(ctx context.Context, userID uuid.UUID, voca
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
+}
+
+// ReviewWord — 1 từ user đang ôn trong SRS kèm lịch ôn tiếp theo
+type ReviewWord struct {
+	VocabularyID  uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
+	LanguageID    string    `json:"language_id"`
+	Term          string    `json:"term"`
+	Phonetic      string    `json:"phonetic"`
+	Meaning       string    `json:"meaning"`
+	Topic         string    `json:"topic"`
+	Level         string    `json:"level"`
+	ImageURL      string    `json:"image_url"`
+	ImageEmoji    string    `json:"image_emoji"`
+	PracticeCount int32     `json:"practice_count"`
+	SRSStage      int32     `json:"srs_stage"`
+	IntervalDays  int32     `json:"interval_days"`
+	NextReviewAt  time.Time `json:"next_review_at"`
+}
+
+// ListReviewWords trả về 1 trang MỌI từ user đang ôn trong SRS (kể cả chưa
+// đến hạn), sắp theo thời gian còn lại tới lúc ôn. languageID rỗng = mọi ngôn ngữ.
+func (s *SRSService) ListReviewWords(ctx context.Context, userID uuid.UUID, languageID string, page, pageSize int32) (PageResult[ReviewWord], error) {
+	limit, offset := NormalizePage(page, pageSize)
+	rows, err := s.repo.ListReviewVocabulariesForUser(ctx, db.ListReviewVocabulariesForUserParams{
+		UserID:     toPgUUID(userID),
+		LanguageID: pgtype.Text{String: languageID, Valid: languageID != ""},
+		Limit:      limit,
+		Offset:     offset,
+	})
+	if err != nil {
+		return PageResult[ReviewWord]{}, err
+	}
+	result := PageResult[ReviewWord]{Items: make([]ReviewWord, 0, len(rows))}
+	for _, r := range rows {
+		result.Total = r.TotalCount
+		result.Items = append(result.Items, ReviewWord{
+			VocabularyID: uuid.UUID(r.VocabularyID.Bytes), LanguageID: r.LanguageID, Term: r.Term,
+			Phonetic: r.Phonetic.String, Meaning: r.Meaning, Topic: r.Topic.String, Level: r.Level.String,
+			ImageURL: r.ImageUrl.String, ImageEmoji: r.ImageEmoji.String, PracticeCount: r.PracticeCount,
+			SRSStage: r.SrsStage.Int32, IntervalDays: r.IntervalDays.Int32, NextReviewAt: r.NextReviewAt.Time,
+		})
+	}
+	return result, nil
 }

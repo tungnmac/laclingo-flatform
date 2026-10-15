@@ -21,6 +21,7 @@ func NewSRSHandler(svc *service.SRSService) *SRSHandler {
 func (h *SRSHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/srs")
 	api.Get("/due", h.GetDue)
+	api.Get("/words", h.ListWords)
 	api.Post("/reviews", h.Review)
 	api.Post("/practice", h.Practice)
 	api.Get("/new", h.GetNew)
@@ -164,5 +165,27 @@ func (h *SRSHandler) Practice(c *fiber.Ctx) error {
 		return err
 	}
 
+	return c.JSON(result)
+}
+
+// ListWords trả về mọi từ user đang ôn trong SRS kèm lịch ôn tiếp theo.
+//
+// @Summary      Tất cả từ trong SRS
+// @Description  Kể cả từ chưa đến hạn; sắp theo thời gian còn lại tới lúc ôn (đã đến hạn lên đầu). Phân trang.
+// @Tags         srs
+// @Produce      json
+// @Security     BearerAuth
+// @Param        language   query     string  false  "Chỉ lấy 1 ngôn ngữ (bỏ trống = tất cả)"  example(en)
+// @Param        page       query     int     false  "Trang (bắt đầu từ 1)"
+// @Param        page_size  query     int     false  "Số từ mỗi trang"
+// @Success      200        {object}  service.PageResult[service.ReviewWord]
+// @Failure      401        {object}  ErrorResponse
+// @Router       /srs/words [get]
+func (h *SRSHandler) ListWords(c *fiber.Ctx) error {
+	page, pageSize := pageParams(c)
+	result, err := h.svc.ListReviewWords(c.UserContext(), currentUserID(c), c.Query("language"), page, pageSize)
+	if err != nil {
+		return err
+	}
 	return c.JSON(result)
 }

@@ -840,3 +840,20 @@ export interface DeckWord {
 export interface DeckDetail extends DeckSummary {
   words: DeckWord[]
 }
+
+// 1 từ user đang ôn trong SRS (trang "Tất cả từ trong SRS")
+export interface ReviewWord {
+  vocabulary_id: string
+  language_id: string
+  term: string
+  phonetic: string
+  meaning: string
+  topic: string
+  level: string
+  image_url: string
+  image_emoji: string
+  practice_count: number
+  srs_stage: number
+  interval_days: number
+  next_review_at: string
+}

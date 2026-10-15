@@ -39,7 +39,6 @@ export interface DecksDict {
     moved: (deck: string) => string
     copied: (deck: string) => string
     practiceCount: (n: number) => string
-    nextReview: (date: string) => string
     // Hộp "Thêm vào ôn tập"
     dialogTitle: (term: string) => string
     dialogDesc: string
@@ -95,7 +94,6 @@ export const decksTranslations: Partial<Record<Locale, DecksDict>> = {
       moved: (deck) => `Đã chuyển sang "${deck}"`,
       copied: (deck) => `Đã sao chép sang "${deck}"`,
       practiceCount: (n) => `Đã luyện ${n} lần`,
-      nextReview: (date) => `Ôn lại: ${date}`,
       dialogTitle: (term) => `Thêm "${term}" vào ôn tập`,
       dialogDesc: 'Chọn danh sách để lưu từ — từ sẽ vào hàng đợi ôn tập SRS.',
       dialogNoDecks: 'Bạn chưa có danh sách nào — tạo danh sách đầu tiên bên dưới.',
@@ -147,7 +145,6 @@ export const decksTranslations: Partial<Record<Locale, DecksDict>> = {
       moved: (deck) => `Moved to "${deck}"`,
       copied: (deck) => `Copied to "${deck}"`,
       practiceCount: (n) => `Practiced ${n} time${n === 1 ? '' : 's'}`,
-      nextReview: (date) => `Next review: ${date}`,
       dialogTitle: (term) => `Add "${term}" to review`,
       dialogDesc: 'Pick the lists to save this word to — it also joins your SRS review queue.',
       dialogNoDecks: "You don't have any lists yet — create your first one below.",
