@@ -11,6 +11,8 @@ import type { AccountSnapshot } from '@/server/trading/account-service'
 import type { TradeDto } from '@/server/trading/order-service'
 
 const FEE_RATE = 0.001
+/** Khớp ORDER_NOTE_MAX phía server (không import để tránh kéo code server vào bundle client) */
+const ORDER_NOTE_MAX = 1000
 const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm tabular-nums ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600'
 
@@ -38,6 +40,8 @@ export function OrderPanel({
   const [limitPrice, setLimitPrice] = useState('')
   const [stopLoss, setStopLoss] = useState('')
   const [takeProfit, setTakeProfit] = useState('')
+  const [note, setNote] = useState('')
+  const [noteOpen, setNoteOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -72,6 +76,7 @@ export function OrderPanel({
           ...(type === 'limit' ? { price: priceInput(limitPrice) } : {}),
           ...(stopLoss.trim() ? { stop_loss: priceInput(stopLoss) } : {}),
           ...(takeProfit.trim() ? { take_profit: priceInput(takeProfit) } : {}),
+          ...(note.trim() ? { note: note.trim() } : {}),
         }),
       })
       setSuccess(
@@ -82,6 +87,8 @@ export function OrderPanel({
       setAmount('')
       setStopLoss('')
       setTakeProfit('')
+      setNote('')
+      setNoteOpen(false)
       onPlaced()
     } catch (err) {
       setError(err)
@@ -164,6 +171,24 @@ export function OrderPanel({
             <input inputMode="decimal" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className={inputClass} />
           </label>
         </div>
+      )}
+
+      {noteOpen ? (
+        <label className="block text-xs font-medium text-slate-600">
+          {t('journal.orderNote')} <span className="font-normal text-slate-400">({t('trading.optional')})</span>
+          <textarea
+            rows={2}
+            maxLength={ORDER_NOTE_MAX}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={t('journal.orderNotePlaceholder')}
+            className={inputClass}
+          />
+        </label>
+      ) : (
+        <button type="button" onClick={() => setNoteOpen(true)} className="text-xs font-semibold text-emerald-700 hover:underline">
+          {t('journal.addOrderNote')}
+        </button>
       )}
 
       <dl className="space-y-1 text-xs text-slate-500">

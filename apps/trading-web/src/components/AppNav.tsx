@@ -6,10 +6,11 @@ import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
-// Phần 4–6 thêm mục vào đây (Nhật ký, Học, Thực hành)
+// Phần 5–6 thêm mục vào đây (Học, Thực hành)
 const NAV_ITEMS = [
   { href: '/markets', labelKey: 'nav.markets' },
   { href: '/portfolio', labelKey: 'nav.portfolio' },
+  { href: '/journal', labelKey: 'nav.journal' },
 ]
 
 export function AppNav({ user }: { user: SessionUser }) {
