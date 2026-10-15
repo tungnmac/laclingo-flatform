@@ -110,7 +110,10 @@ export function settleSymbol(input: {
 }): { wallet: Wallet; events: EngineEvent[]; pending: PendingOrder[] } {
   const { symbol } = input
   let wallet = input.wallet
-  let pending = [...input.orders].sort((a, b) => a.createdAt - b.createdAt)
+  // Thứ tự xét trong 1 nến: theo thời điểm đặt; trùng thời điểm (cặp SL/TP chèn cùng lúc) → SL trước
+  // (quy ước bảo thủ — nến chạm cả 2 mức thì không biết giá đi đâu trước), cuối cùng theo id cho ổn định.
+  const rank = (o: PendingOrder) => (o.type === 'stop_loss' ? 0 : o.type === 'limit' ? 1 : 2)
+  let pending = [...input.orders].sort((a, b) => a.createdAt - b.createdAt || rank(a) - rank(b) || a.id.localeCompare(b.id))
   const events: EngineEvent[] = []
   const position = () => wallet.positions[symbol] ?? emptyPos()
 

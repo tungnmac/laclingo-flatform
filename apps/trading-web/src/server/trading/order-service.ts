@@ -78,15 +78,47 @@ async function cancelProtection(tx: Tx, accountId: string, symbol: string) {
     )
 }
 
-/** Thay SL/TP của vị thế: huỷ cặp cũ, tạo cặp mới cùng nhóm OCO (đóng toàn bộ vị thế khi kích hoạt). */
-async function replaceProtection(tx: Tx, accountId: string, symbol: string, pos: Pos, stopLoss: Decimal | null, takeProfit: Decimal | null) {
-  await cancelProtection(tx, accountId, symbol)
-  const side: Side = pos.qty.gt(0) ? 'sell' : 'buy'
+/**
+ * Đặt SL/TP cho vị thế (đóng toàn bộ vị thế khi kích hoạt), SL & TP chung 1 nhóm OCO.
+ * mode 'replace' (PUT /protection): thay cả cặp theo đúng giá trị gửi lên (null = bỏ).
+ * mode 'merge' (kèm lệnh đặt): chỉ thay loại được gửi, loại còn lại giữ nguyên và nhập chung nhóm OCO mới.
+ */
+async function replaceProtection(
+  tx: Tx,
+  accountId: string,
+  symbol: string,
+  pos: Pos,
+  stopLoss: Decimal | null,
+  takeProfit: Decimal | null,
+  mode: 'replace' | 'merge' = 'replace',
+) {
   const ocoGroup = crypto.randomUUID()
+  if (mode === 'replace') await cancelProtection(tx, accountId, symbol)
+  else {
+    const supplied = [...(stopLoss ? ['stop_loss'] : []), ...(takeProfit ? ['take_profit'] : [])]
+    const scope = and(eq(orders.accountId, accountId), eq(orders.symbol, symbol), eq(orders.status, 'pending'))
+    if (supplied.length > 0) await tx.update(orders).set({ status: 'cancelled' }).where(and(scope, inArray(orders.type, supplied)))
+    // Lệnh bảo vệ còn lại (loại không được gửi) nhập chung nhóm OCO với lệnh mới
+    await tx.update(orders).set({ ocoGroup }).where(and(scope, inArray(orders.type, ['stop_loss', 'take_profit'])))
+  }
+  const side: Side = pos.qty.gt(0) ? 'sell' : 'buy'
   const rows = [
     ...(stopLoss ? [{ type: 'stop_loss', price: stopLoss }] : []),
     ...(takeProfit ? [{ type: 'take_profit', price: takeProfit }] : []),
-  ].map((p) => ({ accountId, market: MARKET, symbol, side, type: p.type, qty: null, price: toDb(p.price), ocoGroup, checkedUntil: new Date() }))
+  ].map((p) => ({
+    accountId,
+    market: MARKET,
+    symbol,
+    side,
+    type: p.type,
+    qty: null,
+    price: toDb(p.price),
+    ocoGroup,
+    // created_at tường minh (KHÔNG dùng default now() = lúc BẮT ĐẦU transaction, trước khi quyết toán
+    // xong) — engine chỉ xét nến từ phút sau created_at
+    createdAt: new Date(),
+    checkedUntil: new Date(),
+  }))
   if (rows.length > 0) await tx.insert(orders).values(rows)
 }
 
@@ -117,6 +149,7 @@ async function fillNow(
       qty: toDb(fill.qty),
       price: fill.limitPrice ? toDb(fill.limitPrice) : null,
       status: 'filled',
+      createdAt: now,
       filledAt: now,
       fillPrice: toDb(fill.price),
       fee: toDb(r.fee),
@@ -173,7 +206,7 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
         type: input.type,
         limitPrice,
       })
-      if (stopLoss || takeProfit) await replaceProtection(tx, account.id, input.symbol, after, stopLoss, takeProfit)
+      if (stopLoss || takeProfit) await replaceProtection(tx, account.id, input.symbol, after, stopLoss, takeProfit, 'merge')
       return { order: toOrderDto(order), trade: toTradeDto(trade) }
     }
 
@@ -192,6 +225,7 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
         qty: toDb(qty),
         price: toDb(limitPrice!),
         reserved: toDb(reserve),
+        createdAt: new Date(), // xem ghi chú ở replaceProtection
         checkedUntil: new Date(),
       })
       .returning()
@@ -255,7 +289,8 @@ export function closePosition(userId: string, symbol: string): Promise<TradeDto>
 }
 
 export function history(userId: string, page: number, pageSize: number): Promise<{ items: TradeDto[]; total: number }> {
-  return withAccount(userId, async (tx, account) => {
+  return withAccount(userId, async (tx, locked) => {
+    const { account } = await settledWallet(tx, locked) // lệnh khớp lúc offline phải có trong lịch sử
     const where = eq(trades.accountId, account.id)
     const [{ total }] = await tx.select({ total: count() }).from(trades).where(where)
     const rows = await tx

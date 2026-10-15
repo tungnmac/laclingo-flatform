@@ -5,6 +5,7 @@ import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import { formatPrice } from '@/lib/format'
+import { normalizeDecimalInput, percentQty, qtyFromAmount } from '@/lib/order-qty'
 import { formatQty, formatUsd } from '@/lib/trading-format'
 import type { AccountSnapshot } from '@/server/trading/account-service'
 import type { TradeDto } from '@/server/trading/order-service'
@@ -13,8 +14,8 @@ const FEE_RATE = 0.001
 const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm tabular-nums ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600'
 
-/** Làm tròn XUỐNG 8 chữ số và in dạng thập phân thường (không bao giờ "1e-7") */
-const toQtyString = (n: number) => (Number.isFinite(n) && n > 0 ? (Math.floor(n * 1e8) / 1e8).toFixed(8).replace(/\.?0+$/, '') : '')
+/** Giá nhập (limit / SL / TP): chấp nhận "0,5"; không hợp lệ thì gửi nguyên văn để server trả mã lỗi */
+const priceInput = (raw: string) => normalizeDecimalInput(raw) ?? raw.trim()
 
 export function OrderPanel({
   symbol,
@@ -41,20 +42,18 @@ export function OrderPanel({
   const [error, setError] = useState<unknown>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const price = type === 'limit' ? Number(limitPrice) : (markPrice ?? 0)
-  const qtyNumber = mode === 'qty' ? Number(amount) : price > 0 ? Number(amount) / price : 0
-  const qty = toQtyString(qtyNumber)
-  const cash = Number(account?.account.cash ?? 0)
+  const price = type === 'limit' ? Number(normalizeDecimalInput(limitPrice) ?? NaN) : (markPrice ?? 0)
+  const qty = qtyFromAmount(mode, amount, price)
+  const cash = account?.account.cash ?? '0'
   const position = account?.positions.find((p) => p.symbol === symbol)
-  const longQty = position && position.side === 'long' ? Number(position.qty) : 0
+  const longQty = position && position.side === 'long' ? position.qty : '0'
   const fee = qty && price > 0 ? Number(qty) * price * FEE_RATE : 0
 
   const fillPercent = (pct: number) => {
-    if (price <= 0) return
-    // Mua: theo tiền khả dụng (đã tính phí). Bán: theo số Long đang giữ; chưa có Long → theo ký quỹ Short khả dụng
-    const target = side === 'sell' && longQty > 0 ? longQty * pct : ((cash / (price * (1 + FEE_RATE))) * pct)
-    const q = toQtyString(target)
-    setAmount(mode === 'qty' ? q : q ? (Number(q) * price).toFixed(2) : '')
+    const q = percentQty({ side, pct, cash, longQty, price })
+    // Chế độ USDT chỉ HIỂN THỊ giá trị tương ứng; chuyển sang chế độ số lượng để gửi đúng số đã tính
+    if (mode === 'usdt' && q) setMode('qty')
+    setAmount(q)
   }
 
   const submit = async (e: FormEvent) => {
@@ -70,15 +69,15 @@ export function OrderPanel({
           side,
           type,
           qty,
-          ...(type === 'limit' ? { price: limitPrice.trim() } : {}),
-          ...(stopLoss.trim() ? { stop_loss: stopLoss.trim() } : {}),
-          ...(takeProfit.trim() ? { take_profit: takeProfit.trim() } : {}),
+          ...(type === 'limit' ? { price: priceInput(limitPrice) } : {}),
+          ...(stopLoss.trim() ? { stop_loss: priceInput(stopLoss) } : {}),
+          ...(takeProfit.trim() ? { take_profit: priceInput(takeProfit) } : {}),
         }),
       })
       setSuccess(
         res.trade
           ? t('trading.filled', { qty: formatQty(res.trade.qty), base, price: formatPrice(Number(res.trade.price)) })
-          : t('trading.placed', { qty: formatQty(qty), base, price: formatPrice(Number(limitPrice)) }),
+          : t('trading.placed', { qty: formatQty(qty), base, price: formatPrice(price) }),
       )
       setAmount('')
       setStopLoss('')
@@ -177,7 +176,7 @@ export function OrderPanel({
           <dd className="tabular-nums">{formatUsd(String(fee))}</dd>
         </div>
       </dl>
-      {side === 'sell' && longQty <= 0 && <p className="text-xs text-amber-700">{t('trading.shortHint')}</p>}
+      {side === 'sell' && Number(longQty) <= 0 && <p className="text-xs text-amber-700">{t('trading.shortHint')}</p>}
 
       {error !== null && (
         <p role="alert" className="text-sm text-rose-600">

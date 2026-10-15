@@ -124,6 +124,14 @@ describe('settleSymbol', () => {
     expect(r.events.filter((e) => e.kind === 'fill')).toHaveLength(1)
     expect(r.pending).toHaveLength(0)
   })
+  it('prefers the stop-loss when SL and TP share a timestamp and both trigger', () => {
+    // TP xếp trước SL trong mảng + cùng createdAt (chèn cùng 1 câu lệnh) → vẫn phải khớp SL (quy ước bảo thủ)
+    const tp = order({ id: 'TP', side: 'sell', type: 'take_profit', price: 52000, ocoGroup: 'g' })
+    const sl = order({ id: 'SL', side: 'sell', type: 'stop_loss', price: 48000, ocoGroup: 'g' })
+    const r = run(wallet(0, { qty: '0.1', avg: 50000 }), [tp, sl], [candle(1, 50000, 53000, 47000)])
+    expect(r.events[0]).toMatchObject({ kind: 'fill', orderId: 'SL' })
+  })
+
   it('short take-profit fills when the low reaches it', () => {
     const tp = order({ id: 'TP', side: 'buy', type: 'take_profit', price: 45000 })
     const r = run(wallet(4995, { qty: '-0.1', avg: 50000, margin: 5000 }), [tp], [candle(1, 46000, 46100, 44000)])

@@ -183,7 +183,9 @@ export function getAccountSnapshot(userId: string): Promise<AccountSnapshot> {
 
 /** Reset: huỷ lệnh chờ của ví cũ, đóng ví cũ (giữ lịch sử), tạo ví mới 10.000 USDT. */
 export function resetAccount(userId: string): Promise<AccountSnapshot> {
-  return withAccount(userId, async (tx, account) => {
+  return withAccount(userId, async (tx, locked) => {
+    // Quyết toán trước khi đóng ví: lệnh khớp / thanh lý lúc offline phải nằm trong lịch sử ví cũ
+    const { account } = await settleAccount(tx, locked)
     const pending = await tx
       .select({ id: orders.id })
       .from(orders)
