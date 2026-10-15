@@ -23,7 +23,7 @@ import {
   type PracticeTrade,
   type Step,
 } from './session'
-import { pickStartMs, PRACTICE_CONTEXT, type PracticeInterval } from './time'
+import { candlesCoverStart, pickStartMs, PRACTICE_CONTEXT, type PracticeInterval } from './time'
 import { RANDOM_SYMBOL, type PracticeOrderInput } from './validation'
 
 const MARKET = 'crypto' as const
@@ -40,10 +40,9 @@ async function tradesOf(tx: Tx | typeof db, sessionId: string): Promise<Practice
   return rows.map(tradeFromRow)
 }
 
-async function insertTrades(tx: Tx, sessionId: string, trades: PracticeTrade[]) {
+/** created_at = base + thứ tự phát sinh → đọc lại đúng thứ tự trong cùng 1 nến (kể cả giữa 2 lượt ghi của 1 thao tác) */
+async function insertTrades(tx: Tx, sessionId: string, trades: PracticeTrade[], base: number) {
   if (trades.length === 0) return
-  // created_at tăng dần theo thứ tự phát sinh → đọc lại đúng thứ tự trong cùng 1 nến
-  const base = Date.now()
   await tx.insert(practiceTrades).values(
     trades.map((t, i) => ({
       sessionId,
@@ -66,13 +65,14 @@ async function insertTrades(tx: Tx, sessionId: string, trades: PracticeTrade[]) 
  */
 async function commit(tx: Tx, row: PracticeSessionRow, step: Step, forceFinish = false): Promise<SessionDto> {
   let state = step.state
-  await insertTrades(tx, row.id, step.trades)
+  const base = Date.now() // 1 mốc cho cả thao tác: lệnh khớp trước, lệnh đóng khi kết thúc sau
+  await insertTrades(tx, row.id, step.trades, base)
   let status = row.status
   let result: PracticeResult | null = null
   if (forceFinish || state.cursor >= state.length) {
     const done = finish(state)
     state = done.state
-    await insertTrades(tx, row.id, done.trades)
+    await insertTrades(tx, row.id, done.trades, base + step.trades.length)
     status = 'finished'
     result = computeResult(state, await tradesOf(tx, row.id))
   }
@@ -102,12 +102,15 @@ function withActive<T>(userId: string, fn: (tx: Tx, row: PracticeSessionRow, sta
 
 async function fetchCandles(symbol: string, interval: PracticeInterval, total: number): Promise<PracticeCandle[]> {
   const provider = getProvider(MARKET)
+  let notBefore = 0
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const start = pickStartMs(Date.now(), interval, total, Math.random)
+    const start = pickStartMs(Date.now(), interval, total, Math.random, notBefore)
+    if (start === null) break
     try {
       const candles = await provider.getCandlesSince(symbol, interval, start, total)
-      // mã niêm yết sau mốc đã chọn → thiếu nến → thử mốc khác
-      if (candles.length === total) {
+      // mã niêm yết sau mốc đã chọn → nến bắt đầu muộn hơn → lần sau chọn mốc từ ngày niêm yết trở đi
+      if (candles[0] && candles[0].time * 1000 > start) notBefore = candles[0].time * 1000
+      if (candlesCoverStart(candles, start, interval, total)) {
         return candles.map((c) => ({ time: c.time * 1000, open: D(c.open), high: D(c.high), low: D(c.low), close: D(c.close), volume: D(c.volume) }))
       }
     } catch {

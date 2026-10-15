@@ -69,14 +69,6 @@ export function PracticeBoard({ session, onChange }: { session: SessionDto; onCh
     }
   }, [auto, advance])
 
-  const reload = async () => {
-    try {
-      onChange(await api<SessionDto>(API))
-    } catch (err) {
-      setError(err)
-    }
-  }
-
   const last = session.candles[session.candles.length - 1]
   const position = session.account.positions[0]
   const acc = session.account.account
@@ -202,7 +194,11 @@ export function PracticeBoard({ session, onChange }: { session: SessionDto; onCh
           base={base}
           markPrice={last ? last.close : null}
           account={session.account}
-          onPlaced={() => void reload()}
+          // Dùng phiên trả về ngay trong response — không GET lại (có thể đọc trạng thái cũ khi đang tự chạy)
+          onPlaced={(res) => {
+            const next = (res as { session?: SessionDto }).session
+            if (next) onChange(next)
+          }}
           endpoint={`${API}/orders`}
           allowNote={false}
         />

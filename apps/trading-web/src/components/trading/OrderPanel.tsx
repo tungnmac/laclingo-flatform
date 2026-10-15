@@ -32,7 +32,8 @@ export function OrderPanel({
   base: string
   markPrice: number | null
   account: AccountSnapshot | null
-  onPlaced: () => void
+  /** Nhận response của API đặt lệnh (phiên thực hành dùng `session` trong đó thay vì gọi lại GET) */
+  onPlaced: (response: unknown) => void
   /** Nơi gửi lệnh — phiên thực hành (phần 6) dùng API riêng, cùng định dạng body/response */
   endpoint?: string
   /** Ô "Lý do vào lệnh" (ghi vào Nhật ký) — tắt ở phiên thực hành */
@@ -95,7 +96,7 @@ export function OrderPanel({
       setTakeProfit('')
       setNote('')
       setNoteOpen(false)
-      onPlaced()
+      onPlaced(res)
     } catch (err) {
       setError(err)
     } finally {
