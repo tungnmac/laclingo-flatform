@@ -135,3 +135,18 @@ export function computeStats(trades: StatTrade[], base: Decimal): Stats {
       .sort((a, b) => new Decimal(b.net_pnl).cmp(a.net_pnl)),
   }
 }
+
+/**
+ * Mốc drawdown của 1 ví: vốn ban đầu + lãi/lỗ ròng của MỌI trade (mọi mã) khớp TRƯỚC thời điểm bắt đầu lọc.
+ * Trade đúng thời điểm start thuộc khoảng lọc. start = null (Tất cả) → chỉ vốn ban đầu.
+ */
+export function drawdownBase(
+  startingBalance: Decimal,
+  start: number | null,
+  walletTrades: Pick<StatTrade, 'executedAt' | 'realizedPnl' | 'fee'>[],
+): Decimal {
+  if (start === null) return startingBalance
+  return walletTrades
+    .filter((t) => t.executedAt < start)
+    .reduce((acc, t) => acc.plus(t.realizedPnl).minus(t.fee), startingBalance)
+}

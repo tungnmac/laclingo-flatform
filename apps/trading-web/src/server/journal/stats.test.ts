@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { describe, expect, it } from 'vitest'
-import { computeStats, type StatTrade } from './stats'
+import { computeStats, type StatTrade, drawdownBase } from './stats'
 
 const D = (v: Decimal.Value) => new Decimal(v)
 const tr = (t: number, symbol: string, realized: Decimal.Value, fee: Decimal.Value, closed: Decimal.Value): StatTrade => ({
@@ -50,5 +50,18 @@ describe('computeStats', () => {
     expect(s.metrics).toMatchObject({ total_trades: 0, closing_trades: 0, win_rate: null, profit_factor: null, expectancy: null, avg_win: null, avg_loss: null, largest_win: null, largest_loss: null, max_drawdown: '0', max_drawdown_pct: '0.00', net_pnl: '0' })
     expect(s.curve).toEqual([])
     expect(computeStats([tr(1, 'BTCUSDT', 10, 0, 1)], D(10000)).metrics.profit_factor).toBeNull() // no losses
+  })
+})
+
+describe('drawdownBase', () => {
+  const t = (iso: string, pnl: string, fee: string) => ({ executedAt: new Date(iso).getTime(), realizedPnl: new Decimal(pnl), fee: new Decimal(fee) })
+  const wallet = [t('2026-01-01T00:00:00Z', '50', '1'), t('2026-01-05T00:00:00Z', '-20', '1'), t('2026-01-10T00:00:00Z', '30', '1')]
+
+  it('is the starting balance when there is no range', () => {
+    expect(drawdownBase(new Decimal(1000), null, wallet).toString()).toBe('1000')
+  })
+  it('adds net P/L of trades strictly before the range start', () => {
+    // 49 + (-21) = 28; the trade exactly at start belongs to the range
+    expect(drawdownBase(new Decimal(1000), new Date('2026-01-10T00:00:00Z').getTime(), wallet).toString()).toBe('1028')
   })
 })

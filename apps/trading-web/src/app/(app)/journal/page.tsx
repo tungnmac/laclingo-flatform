@@ -10,6 +10,7 @@ import { SymbolTable } from '@/components/journal/SymbolTable'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
+import { normalizeAccountFilter } from '@/lib/journal-filter'
 import type { AccountSummaryDto, JournalTradeDto, NoteDto } from '@/server/journal/journal-service'
 import type { Stats } from '@/server/journal/stats'
 import type { InstrumentDto } from '@/server/market/instruments'
@@ -44,7 +45,7 @@ function JournalView() {
   const filters = readFilters(params)
   const query = new URLSearchParams({ account: filters.account, range: filters.range, ...(filters.symbol ? { symbol: filters.symbol } : {}) }).toString()
 
-  const [accounts, setAccounts] = useState<AccountSummaryDto[]>([])
+  const [accounts, setAccounts] = useState<AccountSummaryDto[] | null>(null)
   const [symbols, setSymbols] = useState<string[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [trades, setTrades] = useState<{ items: JournalTradeDto[]; total: number } | null>(null)
@@ -56,6 +57,12 @@ function JournalView() {
     api<AccountSummaryDto[]>('/api/journal/accounts').then(setAccounts, () => {})
     api<InstrumentDto[]>('/api/market/instruments?market=crypto').then((list) => setSymbols(list.map((i) => i.symbol)), () => {})
   }, [])
+
+  // account trên URL không khớp lựa chọn nào (link của người khác, id ví đang dùng…) → về Ví hiện tại
+  useEffect(() => {
+    if (accounts && normalizeAccountFilter(filters.account, accounts) !== filters.account) update({ account: 'current' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, filters.account])
 
   // Đổi bộ lọc → về trang 1
   useEffect(() => setPage(1), [query])
@@ -110,7 +117,7 @@ function JournalView() {
         <p className="text-sm text-slate-500">{t('journal.subtitle')}</p>
       </div>
 
-      <JournalFilters value={filters} onChange={update} accounts={accounts} symbols={symbolOptions} />
+      <JournalFilters value={filters} onChange={update} accounts={accounts ?? []} symbols={symbolOptions} />
 
       {error !== null && (
         <div className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">

@@ -6,7 +6,7 @@ import { withAccount } from '../trading/account-service'
 import { D, toApi } from '../trading/decimal'
 import { toTradeDto, type TradeDto } from '../trading/order-service'
 import { settleAccount } from '../trading/settlement'
-import { computeStats, type Stats } from './stats'
+import { computeStats, drawdownBase, type Stats } from './stats'
 import type { JournalFilter, NoteInput } from './validation'
 
 const ALL_WALLETS_BASE = D(10000)
@@ -75,6 +75,7 @@ async function resolveAccounts(userId: string, account: string): Promise<{ accou
     .from(tradingAccounts)
     .where(and(eq(tradingAccounts.id, account), eq(tradingAccounts.userId, userId)))
   if (!row) throw new HttpError(404, 'NOT_FOUND')
+  if (row.isActive) return resolveAccounts(userId, 'current') // id ví đang dùng = current (quyết toán trước)
   return { accounts: [row], single: row }
 }
 
@@ -100,17 +101,20 @@ export async function getStats(userId: string, filter: JournalFilter): Promise<S
     .where(tradeConditions(accounts.map((a) => a.id), filter, start))
     .orderBy(asc(trades.executedAt))
 
-  // Mốc gốc drawdown: 1 ví → vốn ban đầu + lãi/lỗ ròng (mọi mã) của ví trước khoảng lọc; tất cả ví → 10.000
+  // Mốc gốc drawdown: 1 ví → drawdownBase (vốn ban đầu + lãi/lỗ trước khoảng lọc, mọi mã); tất cả ví → 10.000
   let base = ALL_WALLETS_BASE
   if (single) {
-    base = D(single.startingBalance)
-    if (start) {
-      const [before] = await db
-        .select({ net: sql<string>`coalesce(sum(${trades.realizedPnl} - ${trades.fee}), 0)` })
-        .from(trades)
-        .where(and(eq(trades.accountId, single.id), lt(trades.executedAt, start)))
-      base = base.plus(D(before.net))
-    }
+    const before = start
+      ? await db
+          .select({ executedAt: trades.executedAt, realizedPnl: trades.realizedPnl, fee: trades.fee })
+          .from(trades)
+          .where(and(eq(trades.accountId, single.id), lt(trades.executedAt, start)))
+      : []
+    base = drawdownBase(
+      D(single.startingBalance),
+      start ? start.getTime() : null,
+      before.map((t) => ({ executedAt: t.executedAt.getTime(), realizedPnl: D(t.realizedPnl), fee: D(t.fee) })),
+    )
   }
 
   return computeStats(
