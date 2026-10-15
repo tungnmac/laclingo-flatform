@@ -6,8 +6,9 @@ const g = globalThis as unknown as { tradingRedis?: Redis }
 
 function client(): Redis {
   if (!g.tradingRedis) {
-    // enableOfflineQueue=false: Redis chết thì lệnh lỗi NGAY (không treo request) — cache tự bỏ qua
-    g.tradingRedis = new Redis(env.redisUrl(), { maxRetriesPerRequest: 1, enableOfflineQueue: false })
+    // Giữ offline queue (lệnh gửi lúc vừa khởi động, chưa kịp kết nối vẫn chạy được) nhưng
+    // commandTimeout chặn mỗi lệnh tối đa 500ms — Redis chết thì cache tự bỏ qua, request không bị treo.
+    g.tradingRedis = new Redis(env.redisUrl(), { maxRetriesPerRequest: 1, commandTimeout: 500 })
     g.tradingRedis.on('error', (err) => console.warn('⚠️ redis:', err.message))
   }
   return g.tradingRedis
