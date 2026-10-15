@@ -184,6 +184,10 @@ type Querier interface {
 	// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
 	ListListeningTopics(ctx context.Context, languageID string) ([]ListListeningTopicsRow, error)
 	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error)
+	// 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
+	// chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
+	// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
+	ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]ListMeaningDistractorsForVocabulariesRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
@@ -220,6 +224,10 @@ type Querier interface {
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
+	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
+	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
+	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	// ===== 4 counter độc lập (bài viết) =====
 	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)

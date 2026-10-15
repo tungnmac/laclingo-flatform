@@ -80,6 +80,12 @@ export interface DueVocabulary {
   audio_url: string
   srs_stage: number
   next_review_at: string
+  // Dữ liệu cho bài luyện tập khi ôn (chọn nghĩa / ghép câu / ghép nghĩa câu / nghe-viết)
+  example: string
+  example_meaning: string
+  image_emoji: string
+  practice_count: number
+  choices: string[] // nghĩa đúng + tối đa 3 nghĩa nhiễu, đã xáo trộn
 }
 
 // user được backend lấy từ access token, không gửi trong body
@@ -174,6 +180,16 @@ export interface VocabularyReviewResponse {
   new_stage: number
   interval_days: number
   next_review_at: string
+}
+
+export interface VocabularyPracticeRequest {
+  vocabulary_id: string
+  mistakes: number // tổng số lần trả lời sai trong các bài luyện tập
+}
+
+export interface VocabularyPracticeResponse extends VocabularyReviewResponse {
+  quality: number // điểm SM-2 (0 -> 5) backend đã chấm theo số lỗi
+  practice_count: number
 }
 
 export interface ErrorResponse {
@@ -574,6 +590,7 @@ export interface VocabularyRequest {
   phonetic?: string
   meaning: string
   example?: string
+  example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
   level: string
   audio_url?: string
@@ -588,6 +605,7 @@ export interface VocabularyAdmin {
   phonetic?: string
   meaning: string
   example?: string
+  example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
   level: string
   audio_url?: string

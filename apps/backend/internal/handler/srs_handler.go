@@ -21,6 +21,7 @@ func (h *SRSHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/srs")
 	api.Get("/due", h.GetDue)
 	api.Post("/reviews", h.Review)
+	api.Post("/practice", h.Practice)
 	api.Get("/new", h.GetNew)
 	api.Post("/learn", h.Learn)
 }
@@ -117,6 +118,34 @@ func (h *SRSHandler) Review(c *fiber.Ctx) error {
 	}
 
 	result, err := h.svc.ReviewVocabulary(c.UserContext(), currentUserID(c), req)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(result)
+}
+
+// Practice ghi nhận user đã làm xong bộ bài luyện tập của 1 từ đang ôn.
+//
+// @Summary      Hoàn thành bài luyện tập từ vựng
+// @Description  Chấm SM-2 tự động theo số lần sai (0→5, 1→4, 2→3, ≥3→2) và +1 practice_count. Từ phải đã có trong hàng đợi ôn tập.
+// @Tags         srs
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      domain.VocabularyPracticeRequest  true  "Kết quả luyện tập"
+// @Success      200   {object}  domain.VocabularyPracticeResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Router       /srs/practice [post]
+func (h *SRSHandler) Practice(c *fiber.Ctx) error {
+	var req domain.VocabularyPracticeRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+
+	result, err := h.svc.PracticeVocabulary(c.UserContext(), currentUserID(c), req)
 	if err != nil {
 		return err
 	}

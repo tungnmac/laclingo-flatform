@@ -12,6 +12,7 @@ import { commonTranslations, type CommonDict } from './dict/common'
 import { homeTranslations, type HomeDict } from './dict/home'
 import { learnTranslations, type LearnDict } from './dict/learn'
 import { listeningTranslations, type ListeningDict } from './dict/listening'
+import { practiceTranslations, type PracticeDict } from './dict/practice'
 import { reviewTranslations, type ReviewDict } from './dict/review'
 
 // Dịch TỪNG PHẦN theo module UI. Namespace lớn (learn/review/...) tách file
@@ -384,6 +385,7 @@ const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
 type AllDicts = Dictionary &
   LearnDict &
   ReviewDict &
+  PracticeDict &
   ChallengesDict &
   ListeningDict &
   HomeDict &
@@ -404,6 +406,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...base[locale],
       ...pick(learnTranslations, locale),
       ...pick(reviewTranslations, locale),
+      ...pick(practiceTranslations, locale),
       ...pick(challengesTranslations, locale),
       ...pick(listeningTranslations, locale),
       ...pick(homeTranslations, locale),

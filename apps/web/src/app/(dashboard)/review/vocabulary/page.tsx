@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -10,11 +10,10 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { Flashcard } from '@/features/srs-review/components/Flashcard'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
-import { QUALITY_OPTIONS, QualityButtons } from '@/features/srs-review/components/QualityButtons'
+import { PracticeSession } from '@/features/srs-review/components/practice/PracticeSession'
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
-import { useKeypress } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { formatDate } from '@/lib/utils'
@@ -31,24 +30,7 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const newWordsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
   const session = useSRSReviewSession(language)
-  const { current, flipped, flip, grade, submitting } = session
-
-  const onKey = useCallback(
-    (key: string) => {
-      if (!current) return false
-      if (key === ' ') {
-        flip()
-        return true
-      }
-      if (!flipped) return false
-      const opt = QUALITY_OPTIONS.find((o) => o.hint === key)
-      if (!opt) return false
-      grade(opt.quality)
-      return true
-    },
-    [current, flipped, flip, grade],
-  )
-  useKeypress(onKey, !!current && !submitting)
+  const { current, flipped, flip, practice, submitting } = session
 
   // Tự động đọc: lật thẻ ngay (bỏ qua bước tự kiểm tra bản thân) rồi đọc
   // từ/nghĩa lặp lại `repeatCount` lần, xong tự skip() sang thẻ tiếp theo —
@@ -121,6 +103,11 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">{r.vocab.term}</p>
                   <p className="truncate text-sm text-slate-500">{r.vocab.meaning}</p>
+                  {r.mistakes !== undefined && 'practice_count' in r.response && (
+                    <p className="text-xs text-slate-400">
+                      {t.practice.mistakesLabel(r.mistakes)} · {t.practice.practiceCount(r.response.practice_count)}
+                    </p>
+                  )}
                 </div>
                 <span className="shrink-0 text-right text-xs text-slate-500">
                   {t.review.reviewAgainIn(r.response.interval_days)}
@@ -161,24 +148,18 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
           {autoplay && <p className="text-center text-xs font-medium text-indigo-600">{t.review.srsAutoplayRunningHint}</p>}
         </div>
 
-        {current && <Flashcard vocab={current} flipped={flipped} onFlip={flip} />}
+        {/* Tự động đọc = nghe lại bằng flashcard, skip() tự chuyển thẻ, không
+            chấm điểm. Ôn bình thường = bộ bài luyện tập (chọn nghĩa, ghép câu,
+            ghép nghĩa câu, nghe-viết) — xong thì backend tự chấm SM-2 theo số
+            lỗi và +1 lần luyện tập cho từ. */}
+        {current &&
+          (autoplay ? (
+            <Flashcard vocab={current} flipped={flipped} onFlip={flip} />
+          ) : (
+            <PracticeSession key={current.vocabulary_id} vocab={current} submitting={submitting} onComplete={practice} />
+          ))}
 
         {session.error && <p className="text-sm text-rose-600">{session.error.message}</p>}
-
-        {/* Tự động đọc thì bỏ hẳn bước tự chấm điểm — skip() tự chuyển thẻ,
-            không cần hỏi "Bạn nhớ từ này thế nào?" vì đây là nghe lại, không
-            phải tự kiểm tra bản thân. */}
-        {!autoplay &&
-          (flipped ? (
-            <div className="w-full space-y-2">
-              <p className="text-center text-sm text-slate-500">{t.review.howWellRemember}</p>
-              <QualityButtons onGrade={grade} disabled={submitting} />
-            </div>
-          ) : (
-            <Button size="lg" className="w-full sm:w-auto sm:min-w-48" onClick={flip}>
-              {t.review.showMeaningBtn}
-            </Button>
-          ))}
       </div>
     </div>
   )

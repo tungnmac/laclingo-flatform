@@ -73,6 +73,7 @@ seed:
 	# 0008 chạy SAU seeds_zh.sql — cần language 'zh' đã tồn tại (listening seed
 	# có 1 bài tiếng Trung, FK vào languages.id).
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0008_listening_seed.sql
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0009_vocabulary_example_meaning_seed.sql
 	@echo "✅ Seed dữ liệu hoàn tất!"
 
 # Cấp quyền admin cho 1 user theo email — không có UI để cấp quyền admin đầu

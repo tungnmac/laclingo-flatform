@@ -402,6 +402,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       phonetic: String(form.get('phonetic') ?? '').trim() || undefined,
       meaning: String(form.get('meaning') ?? '').trim(),
       example: String(form.get('example') ?? '').trim() || undefined,
+      example_meaning: String(form.get('example_meaning') ?? '').trim() || undefined,
       topic: String(form.get('topic') ?? '').trim() || undefined,
       level: String(form.get('level') ?? 'A1'),
       image_emoji: String(form.get('image_emoji') ?? '').trim() || undefined,
@@ -523,6 +524,10 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
               {t.adminVocabulary.exampleLabel}
               <input name="example" type="text" defaultValue={editing?.example} className={inputClass} />
+            </label>
+            <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
+              {t.adminVocabulary.exampleMeaningLabel}
+              <input name="example_meaning" type="text" defaultValue={editing?.example_meaning} className={inputClass} />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.topicFilterLabel}

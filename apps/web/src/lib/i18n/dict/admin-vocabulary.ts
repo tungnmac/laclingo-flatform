@@ -38,6 +38,7 @@ export interface AdminVocabularyDict {
     phoneticLabel: string
     meaningLabel: string
     exampleLabel: string
+    exampleMeaningLabel: string
     illustrationEmojiLabel: string
     emptyWords: string
     deleteWordConfirm: (term: string) => string
@@ -84,6 +85,7 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       phoneticLabel: 'Phiên âm',
       meaningLabel: 'Nghĩa',
       exampleLabel: 'Ví dụ',
+      exampleMeaningLabel: 'Nghĩa của câu ví dụ',
       illustrationEmojiLabel: 'Emoji minh họa',
       emptyWords: 'Chưa có từ vựng nào',
       deleteWordConfirm: (term) => `Xoá từ "${term}"?`,
@@ -128,6 +130,7 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       phoneticLabel: 'Phonetic',
       meaningLabel: 'Meaning',
       exampleLabel: 'Example',
+      exampleMeaningLabel: 'Example translation (Vietnamese)',
       illustrationEmojiLabel: 'Illustration emoji',
       emptyWords: 'No vocabulary yet',
       deleteWordConfirm: (term) => `Delete word "${term}"?`,

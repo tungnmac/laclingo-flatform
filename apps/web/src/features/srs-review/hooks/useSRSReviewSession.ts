@@ -1,14 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import type { DueVocabulary, VocabularyReviewResponse } from '@/types/api'
+import type { DueVocabulary, VocabularyPracticeResponse, VocabularyReviewResponse } from '@/types/api'
 import { srsService } from '../srs.service'
 
 export interface ReviewResult {
   vocab: DueVocabulary
   quality: number
-  response: VocabularyReviewResponse
+  response: VocabularyReviewResponse | VocabularyPracticeResponse
+  mistakes?: number // chỉ có khi ôn bằng bộ bài luyện tập
 }
+
 
 /** Quản lý một phiên ôn tập: tải thẻ đến hạn, lật thẻ, chấm điểm, chuyển thẻ */
 export function useSRSReviewSession(language?: string) {
@@ -69,6 +71,27 @@ export function useSRSReviewSession(language?: string) {
     [current, submitting],
   )
 
+  // Hoàn thành bộ bài luyện tập của thẻ hiện tại — backend tự chấm SM-2 theo
+  // số lỗi và +1 practice_count, rồi chuyển sang thẻ tiếp theo.
+  const practice = useCallback(
+    async (mistakes: number) => {
+      if (!current || submitting) return
+      setSubmitting(true)
+      setError(null)
+      try {
+        const response = await srsService.practice({ vocabulary_id: current.vocabulary_id, mistakes })
+        setResults((r) => [...r, { vocab: current, quality: response.quality, response, mistakes }])
+        setIndex((i) => i + 1)
+        setFlipped(false)
+      } catch (err) {
+        setError(err as Error)
+      } finally {
+        setSubmitting(false)
+      }
+    },
+    [current, submitting],
+  )
+
   return {
     cards,
     current,
@@ -82,6 +105,7 @@ export function useSRSReviewSession(language?: string) {
     flip,
     skip,
     grade,
+    practice,
     reload: load,
   }
 }

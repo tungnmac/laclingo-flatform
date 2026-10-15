@@ -8,6 +8,11 @@ SELECT
     v.phonetic,
     v.meaning,
     v.audio_url,
+    v.example,
+    v.example_meaning,
+    v.topic,
+    v.image_emoji,
+    r.practice_count,
     r.id AS review_id,
     r.srs_stage,
     r.ease_factor,
@@ -56,3 +61,37 @@ INSERT INTO user_vocabulary_reviews (
     user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at
 ) VALUES ($1, $2, 0, 2.5, 0, NOW())
 ON CONFLICT (user_id, vocabulary_id) DO NOTHING;
+
+-- name: ListMeaningDistractorsForVocabularies :many
+-- 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
+-- chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
+-- để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
+SELECT c.id AS vocabulary_id, d.meaning::text AS meaning
+FROM vocabularies c
+CROSS JOIN LATERAL (
+    SELECT x.meaning FROM (
+        SELECT DISTINCT ON (lower(trim(v.meaning))) v.meaning, v.topic IS NOT DISTINCT FROM c.topic AS same_topic
+        FROM vocabularies v
+        WHERE v.language_id = c.language_id
+          AND v.id <> c.id
+          AND lower(trim(v.meaning)) <> lower(trim(c.meaning))
+        ORDER BY lower(trim(v.meaning)), (v.topic IS NOT DISTINCT FROM c.topic) DESC
+    ) x
+    ORDER BY x.same_topic DESC, random()
+    LIMIT 3
+) d
+WHERE c.id = ANY(sqlc.arg('vocabulary_ids')::uuid[]);
+
+-- name: PracticeVocabularyReview :one
+-- Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
+-- lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
+-- có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+UPDATE user_vocabulary_reviews
+SET srs_stage = $3,
+    ease_factor = $4,
+    interval_days = $5,
+    next_review_at = $6,
+    last_reviewed_at = NOW(),
+    practice_count = practice_count + 1
+WHERE user_id = $1 AND vocabulary_id = $2
+RETURNING *;
