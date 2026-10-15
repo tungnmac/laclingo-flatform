@@ -10,4 +10,9 @@ describe('safeNextPath', () => {
       expect(safeNextPath(bad)).toBe('/markets')
     }
   })
+  it('rejects tab/newline tricks that the URL parser strips into //evil.com', () => {
+    for (const bad of ['/\t/evil.com', '/\n/evil.com', '/\r/evil.com', '/\t\\evil.com']) {
+      expect(safeNextPath(bad)).toBe('/markets')
+    }
+  })
 })

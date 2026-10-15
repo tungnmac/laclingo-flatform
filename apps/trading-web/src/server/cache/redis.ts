@@ -14,10 +14,23 @@ function client(): Redis {
   return g.tradingRedis
 }
 
+/** Đang mất kết nối (reconnecting/close/end) → lỗi NGAY, không xếp hàng chờ timeout. */
+function connected(): Redis {
+  const c = client()
+  if (c.status !== 'ready' && c.status !== 'connecting' && c.status !== 'connect') {
+    throw new Error(`redis ${c.status}`)
+  }
+  return c
+}
+
 export const redisStore: CacheStore = {
-  get: (key) => client().get(key),
+  get: async (key) => connected().get(key),
+  mget: async (keys) => (keys.length ? connected().mget(...keys) : []),
   set: async (key, value, ttl) => {
-    await client().set(key, value, 'EX', ttl)
+    await connected().set(key, value, 'EX', ttl)
   },
-  setNX: async (key, value, ttl) => (await client().set(key, value, 'EX', ttl, 'NX')) === 'OK',
+  setNX: async (key, value, ttl) => (await connected().set(key, value, 'EX', ttl, 'NX')) === 'OK',
+  del: async (key) => {
+    await connected().del(key)
+  },
 }
