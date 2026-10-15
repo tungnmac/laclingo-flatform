@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -8,19 +8,20 @@ import { ExerciseCard } from '@/features/grammar/components/ExerciseCard'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 import type { GrammarLessonContent } from '@/types/api'
-
-const formulaLabels: Record<string, string> = {
-  AFFIRMATIVE: 'Khẳng định',
-  NEGATIVE: 'Phủ định',
-  INTERROGATIVE: 'Nghi vấn',
-}
 
 export default function GrammarLessonPage({ params }: { params: { courseId: string; lessonCode: string } }) {
   const { data: lesson, error, loading, reload } = useApi(
     () => grammarService.getLesson(params.lessonCode),
     [params.lessonCode],
   )
+  const t = useTranslation()
+  const formulaLabels: Record<string, string> = {
+    AFFIRMATIVE: t.grammar.formulaAffirmative,
+    NEGATIVE: t.grammar.formulaNegative,
+    INTERROGATIVE: t.grammar.formulaInterrogative,
+  }
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -33,12 +34,13 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
 
   return (
     <div className="space-y-6">
-      <Link
-        href={`/learn/${encodeURIComponent(params.courseId)}`}
-        className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600"
-      >
-        ← Danh sách bài học
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: t.nav.learn, href: '/learn' },
+          { label: t.learn.grammarSectionTitle, href: `/learn/${encodeURIComponent(params.courseId)}/grammar` },
+          { label: lesson.title },
+        ]}
+      />
 
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold text-slate-900">{lesson.title}</h1>
@@ -47,14 +49,14 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
 
       {content.summary && (
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">📌 Cách dùng</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.grammar.usageTitle}</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">{content.summary}</p>
         </Card>
       )}
 
       {formulas.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">🧮 Công thức</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.grammar.formulaTitle}</h2>
           <div className="mt-3 space-y-3">
             {formulas.map((formula, index) => (
               <div key={`${index}-${formula.type}`} className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
@@ -62,7 +64,9 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
                   {formulaLabels[formula.type] ?? formula.type}
                 </p>
                 <p className="mt-1 font-mono text-sm font-semibold text-slate-900">{formula.pattern}</p>
-                <p className="mt-1 text-sm italic text-slate-500">Ví dụ: {formula.example}</p>
+                <p className="mt-1 text-sm italic text-slate-500">
+                  {t.grammar.examplePrefix}: {formula.example}
+                </p>
               </div>
             ))}
           </div>
@@ -71,7 +75,7 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
 
       {signals.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold text-slate-900">🔍 Dấu hiệu nhận biết</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.grammar.signalsTitle}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {signals.map((signal, index) => (
               <span
@@ -87,14 +91,14 @@ export default function GrammarLessonPage({ params }: { params: { courseId: stri
 
       {lesson.exercises.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">✏️ Luyện tập</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t.grammar.exercisesTitle}</h2>
           {lesson.exercises.map((exercise, index) => (
             <ExerciseCard key={exercise.id} exercise={exercise} index={index} />
           ))}
         </section>
       )}
 
-      <Mascot message="Làm hết bài tập rồi hẵng lướt tiếp nha! 🦩" />
+      <Mascot message={t.grammar.mascotExercise} />
     </div>
   )
 }

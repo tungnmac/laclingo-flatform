@@ -20,8 +20,10 @@ export class ApiError extends Error {
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = useSession.getState().token
   const headers = new Headers(init?.headers)
-  // Chỉ gắn Content-Type khi có body — GET không cần, tránh preflight CORS thừa
-  if (init?.body) headers.set('Content-Type', 'application/json')
+  // Chỉ gắn Content-Type khi có body JSON — GET không cần, tránh preflight CORS
+  // thừa; body là FormData (upload file) thì ĐỂ BROWSER tự set (kèm boundary),
+  // tự set cứng application/json sẽ làm hỏng multipart request.
+  if (init?.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   let res: Response

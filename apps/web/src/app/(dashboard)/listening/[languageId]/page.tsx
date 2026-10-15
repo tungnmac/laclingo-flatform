@@ -1,53 +1,54 @@
 'use client'
 
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
+import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
-import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 
-export default function ListeningPassageListPage({ params }: { params: { languageId: string } }) {
-  const { data, error, loading, reload } = useApi(() => listeningService.listPassages(params.languageId), [params.languageId])
+/** Chọn chủ đề luyện nghe — mỗi thẻ hiện số bài trong chủ đề đó (giống trang
+ * chọn chủ đề từ vựng, nhưng không có tiến độ "đã học" vì luyện nghe chưa có
+ * theo dõi tiến độ riêng). */
+export default function ListeningTopicsPage({ params }: { params: { languageId: string } }) {
+  const { data, error, loading, reload } = useApi(() => listeningService.listTopics(params.languageId), [params.languageId])
+  const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
+  const t = useTranslation()
 
   return (
     <div className="space-y-6">
-      <Link href="/listening" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
-        ← Tất cả ngôn ngữ
-      </Link>
+      <Breadcrumbs items={[{ label: t.nav.listening, href: '/listening' }, { label: language?.name ?? params.languageId }]} />
 
       <div className="flex items-center gap-2">
         <span className="text-3xl">{languageFlag(params.languageId)}</span>
-        <h1 className="text-2xl font-bold text-slate-900">Luyện nghe</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t.listening.topicsTitle}</h1>
       </div>
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState icon="🎧" title="Chưa có bài luyện nghe cho ngôn ngữ này" />}
+      {data && data.length === 0 && <EmptyState icon="🎧" title={t.listening.emptyTopics} />}
 
       {data && data.length > 0 && (
-        <Card className="p-0 sm:p-0">
-          <ul className="divide-y divide-slate-100">
-            {data.map((passage, index) => (
-              <li key={passage.id}>
-                <Link href={`/listening/${params.languageId}/${passage.id}`} className="group flex items-center gap-3 px-4 py-3.5 sm:px-6">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-700 group-hover:text-indigo-600">{passage.title}</p>
-                    {passage.topic && <p className="truncate text-xs text-slate-400">{passage.topic}</p>}
-                  </div>
-                  <LevelBadge level={passage.level} />
-                  <span aria-hidden className="text-slate-300 group-hover:text-indigo-500">
-                    →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {data.map((topic) => (
+            <Link
+              key={topic.name}
+              href={`/listening/${params.languageId}/topic?name=${encodeURIComponent(topic.name)}`}
+              className="group rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              <Card className="flex h-full flex-col gap-2 transition group-hover:ring-indigo-300">
+                <span className="text-4xl">{topic.icon}</span>
+                <h2 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>
+                <p className="text-sm text-slate-500">
+                  {topic.total} {t.listening.passageCountSuffix}
+                </p>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   )

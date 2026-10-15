@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const completeExercise = `-- name: CompleteExercise :exec
+INSERT INTO user_exercise_completions (user_id, exercise_id)
+VALUES ($1, $2)
+ON CONFLICT (user_id, exercise_id) DO NOTHING
+`
+
+type CompleteExerciseParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	ExerciseID pgtype.UUID `json:"exercise_id"`
+}
+
+// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+func (q *Queries) CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error {
+	_, err := q.db.Exec(ctx, completeExercise, arg.UserID, arg.ExerciseID)
+	return err
+}
+
 const createGrammarExercise = `-- name: CreateGrammarExercise :one
 INSERT INTO grammar_exercises (lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -249,6 +267,75 @@ func (q *Queries) GetGrammarTopicByID(ctx context.Context, id pgtype.UUID) (Gram
 	return i, err
 }
 
+const listGrammarExercisesAdminPaged = `-- name: ListGrammarExercisesAdminPaged :many
+SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward, COUNT(*) OVER() AS total_count FROM grammar_exercises
+WHERE lesson_id = $1
+  AND ($2::text IS NULL OR question ILIKE '%' || $2::text || '%')
+ORDER BY order_index
+LIMIT $4 OFFSET $3
+`
+
+type ListGrammarExercisesAdminPagedParams struct {
+	LessonID pgtype.UUID `json:"lesson_id"`
+	Search   pgtype.Text `json:"search"`
+	Offset   int32       `json:"offset"`
+	Limit    int32       `json:"limit"`
+}
+
+type ListGrammarExercisesAdminPagedRow struct {
+	ID            pgtype.UUID `json:"id"`
+	LessonID      pgtype.UUID `json:"lesson_id"`
+	Type          string      `json:"type"`
+	Question      string      `json:"question"`
+	Options       []byte      `json:"options"`
+	CorrectAnswer string      `json:"correct_answer"`
+	Explanation   pgtype.Text `json:"explanation"`
+	OrderIndex    pgtype.Int4 `json:"order_index"`
+	Level         pgtype.Int4 `json:"level"`
+	Hint          pgtype.Text `json:"hint"`
+	XpReward      pgtype.Int4 `json:"xp_reward"`
+	TotalCount    int64       `json:"total_count"`
+}
+
+// Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
+func (q *Queries) ListGrammarExercisesAdminPaged(ctx context.Context, arg ListGrammarExercisesAdminPagedParams) ([]ListGrammarExercisesAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarExercisesAdminPaged,
+		arg.LessonID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarExercisesAdminPagedRow
+	for rows.Next() {
+		var i ListGrammarExercisesAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LessonID,
+			&i.Type,
+			&i.Question,
+			&i.Options,
+			&i.CorrectAnswer,
+			&i.Explanation,
+			&i.OrderIndex,
+			&i.Level,
+			&i.Hint,
+			&i.XpReward,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGrammarExercisesByLesson = `-- name: ListGrammarExercisesByLesson :many
 SELECT id, lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward FROM grammar_exercises
 WHERE lesson_id = $1
@@ -276,6 +363,79 @@ func (q *Queries) ListGrammarExercisesByLesson(ctx context.Context, lessonID pgt
 			&i.Level,
 			&i.Hint,
 			&i.XpReward,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarLessonsAdminPaged = `-- name: ListGrammarLessonsAdminPaged :many
+SELECT l.id, l.topic_id, l.code, l.title, l.level, l.order_index, l.content, l.created_at, l.updated_at, COUNT(*) OVER() AS total_count
+FROM grammar_lessons l
+JOIN grammar_topics t ON t.id = l.topic_id
+WHERE t.language_id = $1
+  AND ($2::uuid IS NULL OR l.topic_id = $2::uuid)
+  AND ($3::text IS NULL OR l.level = $3::text)
+  AND ($4::text IS NULL OR l.title ILIKE '%' || $4::text || '%' OR l.code ILIKE '%' || $4::text || '%')
+ORDER BY l.order_index, l.created_at
+LIMIT $6 OFFSET $5
+`
+
+type ListGrammarLessonsAdminPagedParams struct {
+	LanguageID string      `json:"language_id"`
+	TopicID    pgtype.UUID `json:"topic_id"`
+	Level      pgtype.Text `json:"level"`
+	Search     pgtype.Text `json:"search"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListGrammarLessonsAdminPagedRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	TopicID    pgtype.UUID        `json:"topic_id"`
+	Code       string             `json:"code"`
+	Title      string             `json:"title"`
+	Level      pgtype.Text        `json:"level"`
+	OrderIndex pgtype.Int4        `json:"order_index"`
+	Content    []byte             `json:"content"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	TotalCount int64              `json:"total_count"`
+}
+
+// Tách riêng khỏi ListGrammarLessonsByLanguage (learner dùng, không phân trang).
+func (q *Queries) ListGrammarLessonsAdminPaged(ctx context.Context, arg ListGrammarLessonsAdminPagedParams) ([]ListGrammarLessonsAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarLessonsAdminPaged,
+		arg.LanguageID,
+		arg.TopicID,
+		arg.Level,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarLessonsAdminPagedRow
+	for rows.Next() {
+		var i ListGrammarLessonsAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TopicID,
+			&i.Code,
+			&i.Title,
+			&i.Level,
+			&i.OrderIndex,
+			&i.Content,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -320,6 +480,68 @@ func (q *Queries) ListGrammarLessonsByLanguage(ctx context.Context, languageID s
 			&i.Title,
 			&i.Level,
 			&i.OrderIndex,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarTopicsAdminPaged = `-- name: ListGrammarTopicsAdminPaged :many
+SELECT id, language_id, code, title, description, order_index, created_at, COUNT(*) OVER() AS total_count FROM grammar_topics
+WHERE language_id = $1
+  AND ($2::text IS NULL OR title ILIKE '%' || $2::text || '%' OR code ILIKE '%' || $2::text || '%')
+ORDER BY order_index, created_at
+LIMIT $4 OFFSET $3
+`
+
+type ListGrammarTopicsAdminPagedParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListGrammarTopicsAdminPagedRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	LanguageID  string             `json:"language_id"`
+	Code        string             `json:"code"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	OrderIndex  pgtype.Int4        `json:"order_index"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	TotalCount  int64              `json:"total_count"`
+}
+
+// Tách riêng khỏi ListGrammarTopicsByLanguage (learner dùng, không phân trang)
+// để không đổi hành vi hiện có của learner.
+func (q *Queries) ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarTopicsAdminPaged,
+		arg.LanguageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarTopicsAdminPagedRow
+	for rows.Next() {
+		var i ListGrammarTopicsAdminPagedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LanguageID,
+			&i.Code,
+			&i.Title,
+			&i.Description,
+			&i.OrderIndex,
+			&i.CreatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

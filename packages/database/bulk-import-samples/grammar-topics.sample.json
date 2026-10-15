@@ -1,0 +1,4 @@
+[
+  { "language_id": "en", "code": "conditionals", "title": "Câu điều kiện", "description": "Các loại câu điều kiện 0, 1, 2, 3 trong tiếng Anh.", "order_index": 20 },
+  { "language_id": "en", "code": "reported_speech", "title": "Câu gián tiếp", "description": "Cách chuyển câu trực tiếp sang gián tiếp.", "order_index": 21 }
+]

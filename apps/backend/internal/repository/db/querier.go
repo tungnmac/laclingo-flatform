@@ -11,13 +11,39 @@ import (
 )
 
 type Querier interface {
+	AddClassLesson(ctx context.Context, arg AddClassLessonParams) error
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
+	// Gắn các ảnh (do đúng author upload, CHƯA gắn bài nào) vào bài vừa lưu —
+	// ảnh KHÔNG thuộc danh sách này (đã bị xoá khỏi content khi sửa bài) vẫn
+	// giữ nguyên post_id cũ, chấp nhận trở thành rác mồ côi trên R2 (không có
+	// cơ chế dọn tự động ở bản này).
+	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
+	CountBlogCommentDislikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
+	CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
+	CountBlogPostDislikes(ctx context.Context, postID pgtype.UUID) (int32, error)
+	CountBlogPostLikes(ctx context.Context, postID pgtype.UUID) (int32, error)
+	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
+	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
+	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
+	// ===== Comment (lồng nhau) =====
+	CreateBlogComment(ctx context.Context, arg CreateBlogCommentParams) (BlogComment, error)
+	// ===== Ảnh chèn trong content (upload qua R2, phục vụ qua /blog/images/:id) =====
+	// post_id NULL lúc upload (có thể đang soạn bài MỚI, chưa có id) — Create/Update
+	// bài sẽ "nhận" (AdoptBlogImages) các ảnh được tham chiếu trong content.
+	CreateBlogImage(ctx context.Context, arg CreateBlogImageParams) (BlogPostImage, error)
+	// ===== Posts =====
+	CreateBlogPost(ctx context.Context, arg CreateBlogPostParams) (BlogPost, error)
 	// ===== Admin CRUD (quản lý ngân hàng câu hỏi thách đấu) =====
 	CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error)
+	// ===== Admin CRUD =====
+	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateGrammarExercise(ctx context.Context, arg CreateGrammarExerciseParams) (GrammarExercise, error)
 	CreateGrammarLesson(ctx context.Context, arg CreateGrammarLessonParams) (GrammarLesson, error)
@@ -26,6 +52,7 @@ type Querier interface {
 	// ===== Admin CRUD (quản lý nội dung luyện nghe) =====
 	CreateListeningPassage(ctx context.Context, arg CreateListeningPassageParams) (ListeningPassage, error)
 	CreateListeningQuestion(ctx context.Context, arg CreateListeningQuestionParams) (ListeningQuestion, error)
+	CreateListeningTopic(ctx context.Context, arg CreateListeningTopicParams) (ListeningTopic, error)
 	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// ===== Admin CRUD (quản lý nội dung từ vựng) =====
@@ -34,17 +61,34 @@ type Querier interface {
 	CreateVocabularyTopic(ctx context.Context, arg CreateVocabularyTopicParams) (VocabularyTopic, error)
 	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
+	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
+	DeleteBlogPost(ctx context.Context, id pgtype.UUID) error
 	DeleteChallengeQuestion(ctx context.Context, id pgtype.UUID) error
+	DeleteClass(ctx context.Context, id pgtype.UUID) error
+	// Dùng trong ReplaceClassLessons (xoá hết rồi insert lại theo thứ tự mảng mới).
+	DeleteClassLessons(ctx context.Context, classID pgtype.UUID) error
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
 	DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error
 	DeleteGrammarTopic(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
+	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
+	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
+	DislikeBlogPost(ctx context.Context, arg DislikeBlogPostParams) error
+	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
+	// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
+	GetBlogImageByID(ctx context.Context, id pgtype.UUID) (BlogPostImage, error)
+	// Bản gọn, dùng cho ownership check trước khi Update/Delete — không join gì thêm.
+	GetBlogPostByID(ctx context.Context, id pgtype.UUID) (BlogPost, error)
+	// Bản đầy đủ cho trang chi tiết: thông tin tác giả + count/flag theo user hiện tại.
+	GetBlogPostDetailByID(ctx context.Context, arg GetBlogPostDetailByIDParams) (GetBlogPostDetailByIDRow, error)
+	GetClassByID(ctx context.Context, id pgtype.UUID) (Class, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
@@ -65,67 +109,157 @@ type Querier interface {
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
+	GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopicParams) (VocabularyTopic, error)
+	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
+	// chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
+	GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabularyTopicOwnStatsParams) (GetVocabularyTopicOwnStatsRow, error)
+	HideBlogComment(ctx context.Context, id pgtype.UUID) error
+	HideBlogPost(ctx context.Context, id pgtype.UUID) error
+	IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID) error
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
 	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
+	// ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
+	LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) error
+	LikeBlogPost(ctx context.Context, arg LikeBlogPostParams) error
 	LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error
 	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]Mission, error)
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
 	ListAllMissions(ctx context.Context) ([]Mission, error)
-	ListChallengeQuestionsByLanguage(ctx context.Context, languageID pgtype.Text) ([]ChallengeQuestion, error)
+	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
+	// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
+	ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error)
+	// Dùng khi xoá bài (lấy key để xoá object trên R2 trước khi xoá hàng DB).
+	ListBlogPostImages(ctx context.Context, postID pgtype.UUID) ([]BlogPostImage, error)
+	// Trang quản trị: thấy mọi bài (ẩn hoặc không), filter "chỉ bài đã ẩn" qua hidden_only.
+	ListBlogPostsAdminPaged(ctx context.Context, arg ListBlogPostsAdminPagedParams) ([]ListBlogPostsAdminPagedRow, error)
+	// Learner-facing: ẩn bài is_hidden của người khác, nhưng tác giả vẫn thấy bài
+	// (đã bị ẩn) của chính mình kèm badge. Lọc theo ngôn ngữ/tag/tác giả (mine).
+	ListBlogPostsPaged(ctx context.Context, arg ListBlogPostsPagedParams) ([]ListBlogPostsPagedRow, error)
+	ListChallengeQuestionsByLanguage(ctx context.Context, arg ListChallengeQuestionsByLanguageParams) ([]ListChallengeQuestionsByLanguageRow, error)
+	// Giáo án đầy đủ của 1 lớp, kèm thông tin bài học — dùng cho cả admin (sửa
+	// giáo án) và learner detail (learner query riêng có thêm completion, xem dưới).
+	ListClassLessonsByClass(ctx context.Context, classID pgtype.UUID) ([]ListClassLessonsByClassRow, error)
+	// Giống ListClassLessonsByClass nhưng kèm completed_exercises/total_exercises
+	// của 1 user cụ thể — dùng cho trang chi tiết lớp (learner).
+	ListClassLessonsWithProgress(ctx context.Context, arg ListClassLessonsWithProgressParams) ([]ListClassLessonsWithProgressRow, error)
+	// 1 query gộp cho TOÀN BỘ lớp của 1 ngôn ngữ — tránh N+1 khi liệt kê lớp. Mỗi
+	// dòng = 1 bài trong giáo án, nên COUNT(*) dòng theo class_id ở Go cũng chính
+	// là lesson_count (lớp chưa có bài nào thì không có dòng, tự hiểu count=0).
+	// Gộp thành % tiến độ ở Go (lesson "done" khi completed_exercises >= total_exercises và total > 0).
+	ListClassProgressByLanguage(ctx context.Context, arg ListClassProgressByLanguageParams) ([]ListClassProgressByLanguageRow, error)
+	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
+	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
+	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
 	// language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
 	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
+	// Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
+	ListGrammarExercisesAdminPaged(ctx context.Context, arg ListGrammarExercisesAdminPagedParams) ([]ListGrammarExercisesAdminPagedRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
+	// Tách riêng khỏi ListGrammarLessonsByLanguage (learner dùng, không phân trang).
+	ListGrammarLessonsAdminPaged(ctx context.Context, arg ListGrammarLessonsAdminPagedParams) ([]ListGrammarLessonsAdminPagedRow, error)
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
+	// Tách riêng khỏi ListGrammarTopicsByLanguage (learner dùng, không phân trang)
+	// để không đổi hành vi hiện có của learner.
+	ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
-	ListListeningPassagesByLanguage(ctx context.Context, languageID string) ([]ListListeningPassagesByLanguageRow, error)
+	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
+	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
+	ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error)
+	// topic để NULL thì lấy mọi chủ đề (trang chọn ngôn ngữ cũ); truyền topic thì
+	// chỉ lấy bài của đúng chủ đề đó (trang chọn chủ đề mới, xem ListTopics).
+	ListListeningPassagesByLanguage(ctx context.Context, arg ListListeningPassagesByLanguageParams) ([]ListListeningPassagesByLanguageRow, error)
 	// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
 	// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
 	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error)
 	// Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
-	ListListeningQuestionsByPassageAdmin(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error)
+	ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error)
+	// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
+	ListListeningTopics(ctx context.Context, languageID string) ([]ListListeningTopicsRow, error)
+	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
+	// Trả về class_id user đã ghi danh, lọc theo ngôn ngữ — dùng đánh dấu "enrolled" khi liệt kê lớp.
+	ListMyEnrollmentsByLanguage(ctx context.Context, arg ListMyEnrollmentsByLanguageParams) ([]pgtype.UUID, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
 	ListUsers(ctx context.Context) ([]User, error)
-	ListUsersByLevel(ctx context.Context, limit int32) ([]User, error)
-	ListUsersByPoints(ctx context.Context, limit int32) ([]User, error)
-	ListUsersByStreak(ctx context.Context, limit int32) ([]User, error)
-	ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]Vocabulary, error)
+	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
+	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
+	// Thứ tự ưu tiên: owner → admin → user, mỗi nhóm sort theo created_at DESC.
+	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
+	ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error)
+	ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error)
+	// Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
+	// theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
+	ListUsersByStreak(ctx context.Context, arg ListUsersByStreakParams) ([]ListUsersByStreakRow, error)
+	// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
+	// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
+	ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error)
 	// Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
 	ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error)
+	// Chủ đề con của 1 chủ đề cha (learner drill-down, GET /vocab/topics/children)
+	// — total/learned chỉ tính từ gắn trực tiếp vào từng chủ đề con.
+	ListVocabularyChildTopics(ctx context.Context, arg ListVocabularyChildTopicsParams) ([]ListVocabularyChildTopicsRow, error)
+	// Toàn bộ quan hệ cha/con của 1 ngôn ngữ (không phân trang — chỉ vài chục
+	// dòng) — dùng để dựng cây 2 cấp cho learner, xem VocabularyService.ListTopics.
+	ListVocabularyTopicRelations(ctx context.Context, languageID string) ([]ListVocabularyTopicRelationsRow, error)
 	// Chủ đề lấy từ vocabularies.topic; icon/thứ tự từ vocabulary_topics nếu có.
 	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
 	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)
-	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]VocabularyTopic, error)
+	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
+	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
+	// ===== 4 counter độc lập (bài viết) =====
+	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	// Atomic: insert câu trả lời + cộng điểm participant trong 1 statement (CTE),
 	// tránh cần transaction Go riêng. Nếu đã trả lời câu này rồi (ON CONFLICT DO
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error
+	UndislikeBlogPost(ctx context.Context, arg UndislikeBlogPostParams) error
 	UnfavoriteVocabulary(ctx context.Context, arg UnfavoriteVocabularyParams) error
+	UnhideBlogComment(ctx context.Context, id pgtype.UUID) error
+	UnhideBlogPost(ctx context.Context, id pgtype.UUID) error
+	UnlikeBlogComment(ctx context.Context, arg UnlikeBlogCommentParams) error
+	UnlikeBlogPost(ctx context.Context, arg UnlikeBlogPostParams) error
 	UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error
+	UnmarkBlogPost(ctx context.Context, arg UnmarkBlogPostParams) error
+	UnstarBlogPost(ctx context.Context, arg UnstarBlogPostParams) error
+	UpdateBlogComment(ctx context.Context, arg UpdateBlogCommentParams) (BlogComment, error)
+	UpdateBlogPost(ctx context.Context, arg UpdateBlogPostParams) (BlogPost, error)
 	UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error)
+	UpdateClass(ctx context.Context, arg UpdateClassParams) (Class, error)
 	UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error)
 	UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error)
 	UpdateGrammarTopic(ctx context.Context, arg UpdateGrammarTopicParams) (GrammarTopic, error)
 	UpdateListeningPassage(ctx context.Context, arg UpdateListeningPassageParams) (ListeningPassage, error)
+	// audio_key để NULL thì xoá audio hiện tại (gỡ file khỏi bucket ở service, xem UploadAudio/DeleteAudio).
+	UpdateListeningPassageAudioKey(ctx context.Context, arg UpdateListeningPassageAudioKeyParams) (ListeningPassage, error)
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
+	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
+	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
+	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)
+	UpdateUserModules(ctx context.Context, arg UpdateUserModulesParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý
+	// nghĩa giữ module cũ (RequireModule chặn từ role trước khi xét module).
+	// ::varchar ở cả 2 chỗ dùng $1 — Postgres cần suy ra CÙNG 1 kiểu cho 1 param
+	// qua extended query protocol, không cast sẽ lỗi 42P08 "inconsistent types".
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 	UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error)
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
 	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).

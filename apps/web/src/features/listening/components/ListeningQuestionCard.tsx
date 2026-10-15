@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { listeningService } from '@/features/listening/listening.service'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { ListeningQuestion, SubmitListeningAnswerResponse } from '@/types/api'
 
@@ -12,6 +13,7 @@ export function ListeningQuestionCard({ question, index }: { question: Listening
   const [result, setResult] = useState<SubmitListeningAnswerResponse | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslation()
 
   const onSubmit = async () => {
     if (!selected) return
@@ -38,7 +40,9 @@ export function ListeningQuestionCard({ question, index }: { question: Listening
       )}
     >
       <p className="text-sm font-medium text-slate-900">
-        <span className="mr-2 text-slate-400">Câu {index + 1}.</span>
+        <span className="mr-2 text-slate-400">
+          {t.grammar.questionPrefix} {index + 1}.
+        </span>
         {question.question}
       </p>
 
@@ -70,7 +74,7 @@ export function ListeningQuestionCard({ question, index }: { question: Listening
 
       {!checked && (
         <Button size="sm" className="mt-4" disabled={!selected || submitting} onClick={onSubmit}>
-          {submitting ? 'Đang chấm...' : 'Nộp đáp án'}
+          {submitting ? t.listening.submitting : t.listening.submitAnswer}
         </Button>
       )}
 
@@ -81,7 +85,7 @@ export function ListeningQuestionCard({ question, index }: { question: Listening
             result.correct ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-rose-200',
           )}
         >
-          <p className="font-semibold">{result.correct ? '✅ Chính xác!' : `❌ Chưa đúng — đáp án: ${result.correct_answer}`}</p>
+          <p className="font-semibold">{result.correct ? t.grammar.correct : t.grammar.incorrect(result.correct_answer)}</p>
           {result.explanation && <p className="mt-1">{result.explanation}</p>}
         </div>
       )}

@@ -9,6 +9,9 @@ const levelColors: Record<string, string> = {
   C2: 'bg-purple-50 text-purple-700 ring-purple-200',
 }
 
+/** Danh sách cấp độ CEFR chuẩn — dùng cho select lọc/nhập ở các trang admin */
+export const CEFR_LEVELS = Object.keys(levelColors)
+
 export function LevelBadge({ level }: { level: string }) {
   return (
     <span

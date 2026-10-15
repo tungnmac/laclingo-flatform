@@ -15,6 +15,7 @@ import (
 	"laclingo-backend/internal/handler"
 	"laclingo-backend/internal/repository"
 	"laclingo-backend/internal/service"
+	"laclingo-backend/internal/storage"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -51,6 +52,8 @@ func main() {
 	app := fiber.New(fiber.Config{
 		AppName:      "LacLingo API Engine v1.0",
 		ErrorHandler: handler.ErrorHandler,
+		// Mặc định Fiber 4MB — audio luyện nghe (vài phút, nén) dễ vượt mức này.
+		BodyLimit: 25 * 1024 * 1024,
 	})
 
 	app.Use(logger.New())
@@ -73,7 +76,16 @@ func main() {
 
 	missionService := service.NewMissionService(repo)
 	hub := game.NewHub(repo, missionService)
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService)
+
+	var r2 *storage.R2Client
+	if cfg.R2Configured() {
+		r2 = storage.NewR2Client(cfg.R2AccountID, cfg.R2Bucket, cfg.R2AccessKeyID, cfg.R2SecretAccessKey)
+		log.Println("✅ R2 storage đã cấu hình — bật tính năng upload audio luyện nghe")
+	} else {
+		log.Println("⚠️  R2 storage chưa cấu hình — tính năng upload audio luyện nghe tắt")
+	}
+
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

@@ -1,0 +1,21 @@
+[
+  {
+    "type": "MULTIPLE_CHOICE",
+    "question": "By next year, I _______ my degree.",
+    "options": ["finish", "will finish", "will have finished", "finished"],
+    "correct_answer": "will have finished",
+    "explanation": "Mốc tương lai \"by next year\" + hành động hoàn thành trước đó → tương lai hoàn thành.",
+    "order_index": 0,
+    "level": 3,
+    "xp_reward": 10
+  },
+  {
+    "type": "FILL_BLANK",
+    "question": "She _______ (finish) the report by Friday.",
+    "correct_answer": "will have finished",
+    "explanation": "Dùng tương lai hoàn thành vì có mốc thời gian \"by Friday\".",
+    "order_index": 1,
+    "level": 3,
+    "xp_reward": 10
+  }
+]

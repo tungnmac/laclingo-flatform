@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from '@/hooks/useTranslation'
 import type { ChallengeParticipant } from '@/types/api'
 import type { ReactionEntry } from '../hooks/useChallengeSocket'
 import { participantName } from '../utils'
@@ -26,6 +27,7 @@ export function ReactionBar({ onReact }: { onReact: (emoji: string) => void }) {
 
 /** Lớp phủ nổi hiện các reaction gần nhất rồi tự biến mất (prune ở hook). */
 export function ReactionOverlay({ reactions, participants }: { reactions: ReactionEntry[]; participants: ChallengeParticipant[] }) {
+  const t = useTranslation()
   if (reactions.length === 0) return null
 
   return (
@@ -35,7 +37,7 @@ export function ReactionOverlay({ reactions, participants }: { reactions: Reacti
         return (
           <div key={r.id} className="animate-pop-in rounded-full bg-white px-3 py-1 text-sm shadow-md ring-1 ring-slate-200">
             <span className="mr-1 text-lg">{r.emoji}</span>
-            <span className="text-slate-600">{p ? participantName(p) : 'Người chơi'}</span>
+            <span className="text-slate-600">{p ? participantName(p, t.challenges.defaultPlayerName) : t.challenges.defaultPlayerName}</span>
           </div>
         )
       })}

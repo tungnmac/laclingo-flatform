@@ -5,15 +5,9 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { missionService } from '@/features/mission/mission.service'
 import { useApi } from '@/hooks/useApi'
+import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { MissionPeriod, MyMission } from '@/types/api'
-
-const periodLabels: Record<MissionPeriod, string> = {
-  daily: '📅 Hàng ngày',
-  weekly: '🗓️ Hàng tuần',
-  monthly: '📆 Hàng tháng',
-  event: '🎉 Sự kiện',
-}
 
 const periodOrder: MissionPeriod[] = ['daily', 'weekly', 'monthly', 'event']
 
@@ -28,6 +22,13 @@ const actionIcons: Record<MyMission['action_type'], string> = {
 
 export default function MissionsPage() {
   const { data, error, loading, reload } = useApi(missionService.listMine, [])
+  const t = useTranslation()
+  const periodLabels: Record<MissionPeriod, string> = {
+    daily: t.missions.periodDaily,
+    weekly: t.missions.periodWeekly,
+    monthly: t.missions.periodMonthly,
+    event: t.missions.periodEvent,
+  }
 
   const grouped = periodOrder
     .map((period) => ({ period, missions: data?.filter((m) => m.period === period) ?? [] }))
@@ -35,11 +36,11 @@ export default function MissionsPage() {
 
   return (
     <>
-      <PageHeader title="Nhiệm vụ" description="Hoàn thành nhiệm vụ để nhận EXP (lên level) và điểm (xếp hạng)." />
+      <PageHeader title={t.missions.pageTitle} description={t.missions.pageDesc} />
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState title="Chưa có nhiệm vụ nào" icon="🎯" />}
+      {data && data.length === 0 && <EmptyState title={t.missions.emptyTitle} icon="🎯" />}
 
       <div className="space-y-6">
         {grouped.map((g) => (
@@ -59,6 +60,7 @@ export default function MissionsPage() {
 
 function MissionCard({ mission }: { mission: MyMission }) {
   const percent = Math.min(100, Math.round((mission.progress_count / mission.target_count) * 100))
+  const t = useTranslation()
 
   return (
     <Card className={cn('flex flex-col gap-3', mission.completed && 'bg-emerald-50 ring-emerald-200')}>
@@ -74,7 +76,7 @@ function MissionCard({ mission }: { mission: MyMission }) {
 
       <div>
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-          <span>Tiến độ</span>
+          <span>{t.missions.progressLabel}</span>
           <span className="font-semibold">
             {mission.progress_count}/{mission.target_count}
           </span>
@@ -87,9 +89,7 @@ function MissionCard({ mission }: { mission: MyMission }) {
         </div>
       </div>
 
-      <p className="text-sm font-medium text-slate-600">
-        Phần thưởng: ⭐ {mission.reward_exp} EXP · 🏆 {mission.reward_points} điểm
-      </p>
+      <p className="text-sm font-medium text-slate-600">{t.missions.rewardLine(mission.reward_exp, mission.reward_points)}</p>
     </Card>
   )
 }

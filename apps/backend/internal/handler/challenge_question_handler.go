@@ -16,7 +16,7 @@ func NewChallengeQuestionHandler(svc *service.ChallengeQuestionService) *Challen
 }
 
 // RegisterAdminRoutes gắn route quản lý ngân hàng câu hỏi thách đấu — PHẢI nằm
-// sau RequireAdmin trong chain (đăng ký ở router.go).
+// sau RequireModule trong chain (đăng ký ở router.go).
 func (h *ChallengeQuestionHandler) RegisterAdminRoutes(router fiber.Router) {
 	q := router.Group("/admin/challenge-questions")
 	q.Post("", h.Create)
@@ -57,7 +57,9 @@ func (h *ChallengeQuestionHandler) Create(c *fiber.Ctx) error {
 // @Success      200          {array}   service.ChallengeQuestionResponse
 // @Router       /admin/challenge-questions [get]
 func (h *ChallengeQuestionHandler) List(c *fiber.Ctx) error {
-	results, err := h.svc.ListQuestions(c.UserContext(), c.Query("language_id"))
+	page, pageSize := pageParams(c)
+	difficulty := int32(c.QueryInt("difficulty", 0))
+	results, err := h.svc.ListQuestions(c.UserContext(), c.Query("language_id"), c.Query("q"), difficulty, page, pageSize)
 	if err != nil {
 		return err
 	}

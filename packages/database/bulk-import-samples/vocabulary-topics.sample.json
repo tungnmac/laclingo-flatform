@@ -1,0 +1,5 @@
+[
+  { "language_id": "en", "name": "Du lịch & Khách sạn", "icon": "✈️", "order_index": 10 },
+  { "language_id": "en", "name": "Thể thao", "icon": "⚽", "order_index": 11 },
+  { "language_id": "en", "name": "Sức khỏe & Y tế", "icon": "🏥", "order_index": 12 }
+]

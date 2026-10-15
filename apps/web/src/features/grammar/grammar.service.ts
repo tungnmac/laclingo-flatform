@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api'
+import { buildQuery } from '@/lib/query'
 import type {
   BulkImportResult,
   GrammarExercise,
@@ -9,6 +10,7 @@ import type {
   GrammarTopic,
   GrammarTopicAdmin,
   GrammarTopicRequest,
+  PageResult,
 } from '@/types/api'
 
 export const grammarService = {
@@ -20,8 +22,10 @@ export const grammarService = {
   // Admin
   createTopic: (body: GrammarTopicRequest) =>
     apiFetch<GrammarTopicAdmin>('/admin/grammar/topics', { method: 'POST', body: JSON.stringify(body) }),
-  listTopicsAdmin: (languageId: string) =>
-    apiFetch<GrammarTopicAdmin[]>(`/admin/grammar/topics?language_id=${encodeURIComponent(languageId)}`),
+  listTopicsAdmin: (languageId: string, params: { page?: number; pageSize?: number; q?: string } = {}) =>
+    apiFetch<PageResult<GrammarTopicAdmin>>(
+      `/admin/grammar/topics${buildQuery({ language_id: languageId, page: params.page, page_size: params.pageSize, q: params.q })}`,
+    ),
   updateTopic: (id: string, body: GrammarTopicRequest) =>
     apiFetch<GrammarTopicAdmin>(`/admin/grammar/topics/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteTopic: (id: string) => apiFetch<void>(`/admin/grammar/topics/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -30,8 +34,13 @@ export const grammarService = {
 
   createLesson: (body: GrammarLessonRequest) =>
     apiFetch<GrammarLessonAdmin>('/admin/grammar/lessons', { method: 'POST', body: JSON.stringify(body) }),
-  listLessonsAdmin: (languageId: string) =>
-    apiFetch<GrammarLessonAdmin[]>(`/admin/grammar/lessons?language_id=${encodeURIComponent(languageId)}`),
+  listLessonsAdmin: (
+    languageId: string,
+    params: { page?: number; pageSize?: number; q?: string; topicId?: string; level?: string } = {},
+  ) =>
+    apiFetch<PageResult<GrammarLessonAdmin>>(
+      `/admin/grammar/lessons${buildQuery({ language_id: languageId, page: params.page, page_size: params.pageSize, q: params.q, topic_id: params.topicId, level: params.level })}`,
+    ),
   updateLesson: (id: string, body: GrammarLessonRequest) =>
     apiFetch<GrammarLessonAdmin>(`/admin/grammar/lessons/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLesson: (id: string) => apiFetch<void>(`/admin/grammar/lessons/${encodeURIComponent(id)}`, { method: 'DELETE' }),
@@ -40,8 +49,10 @@ export const grammarService = {
 
   createExercise: (body: GrammarExerciseRequest) =>
     apiFetch<GrammarExercise>('/admin/grammar/exercises', { method: 'POST', body: JSON.stringify(body) }),
-  listExercisesAdmin: (lessonId: string) =>
-    apiFetch<GrammarExercise[]>(`/admin/grammar/exercises?lesson_id=${encodeURIComponent(lessonId)}`),
+  listExercisesAdmin: (lessonId: string, params: { page?: number; pageSize?: number; q?: string } = {}) =>
+    apiFetch<PageResult<GrammarExercise>>(
+      `/admin/grammar/exercises${buildQuery({ lesson_id: lessonId, page: params.page, page_size: params.pageSize, q: params.q })}`,
+    ),
   updateExercise: (id: string, body: GrammarExerciseRequest) =>
     apiFetch<GrammarExercise>(`/admin/grammar/exercises/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteExercise: (id: string) => apiFetch<void>(`/admin/grammar/exercises/${encodeURIComponent(id)}`, { method: 'DELETE' }),

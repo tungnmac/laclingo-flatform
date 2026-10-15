@@ -8,6 +8,73 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BlogComment struct {
+	ID              pgtype.UUID        `json:"id"`
+	PostID          pgtype.UUID        `json:"post_id"`
+	AuthorID        pgtype.UUID        `json:"author_id"`
+	ParentCommentID pgtype.UUID        `json:"parent_comment_id"`
+	Content         string             `json:"content"`
+	IsHidden        bool               `json:"is_hidden"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BlogCommentDislike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	CommentID pgtype.UUID        `json:"comment_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogCommentLike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	CommentID pgtype.UUID        `json:"comment_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPost struct {
+	ID         pgtype.UUID        `json:"id"`
+	AuthorID   pgtype.UUID        `json:"author_id"`
+	LanguageID pgtype.Text        `json:"language_id"`
+	Title      string             `json:"title"`
+	Content    string             `json:"content"`
+	Tags       []string           `json:"tags"`
+	ViewCount  int32              `json:"view_count"`
+	IsHidden   bool               `json:"is_hidden"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BlogPostDislike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostImage struct {
+	ID       pgtype.UUID `json:"id"`
+	PostID   pgtype.UUID `json:"post_id"`
+	AuthorID pgtype.UUID `json:"author_id"`
+	ImageKey string      `json:"image_key"`
+}
+
+type BlogPostLike struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostMarker struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlogPostStar struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PostID    pgtype.UUID        `json:"post_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type ChallengeQuestion struct {
 	ID           pgtype.UUID        `json:"id"`
 	LanguageID   pgtype.Text        `json:"language_id"`
@@ -17,6 +84,24 @@ type ChallengeQuestion struct {
 	Explanation  pgtype.Text        `json:"explanation"`
 	Difficulty   int32              `json:"difficulty"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Class struct {
+	ID          pgtype.UUID        `json:"id"`
+	LanguageID  string             `json:"language_id"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	Level       string             `json:"level"`
+	OrderIndex  int32              `json:"order_index"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ClassLesson struct {
+	ID         pgtype.UUID `json:"id"`
+	ClassID    pgtype.UUID `json:"class_id"`
+	LessonID   pgtype.UUID `json:"lesson_id"`
+	OrderIndex int32       `json:"order_index"`
 }
 
 type DeckVocabulary struct {
@@ -133,6 +218,7 @@ type ListeningPassage struct {
 	Topic      pgtype.Text        `json:"topic"`
 	Level      pgtype.Text        `json:"level"`
 	OrderIndex pgtype.Int4        `json:"order_index"`
+	AudioKey   pgtype.Text        `json:"audio_key"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
@@ -145,6 +231,13 @@ type ListeningQuestion struct {
 	CorrectAnswer string      `json:"correct_answer"`
 	Explanation   pgtype.Text `json:"explanation"`
 	OrderIndex    pgtype.Int4 `json:"order_index"`
+}
+
+type ListeningTopic struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
 }
 
 type Mission struct {
@@ -173,11 +266,20 @@ type User struct {
 	AvatarUrl    pgtype.Text        `json:"avatar_url"`
 	StreakCount  pgtype.Int4        `json:"streak_count"`
 	Role         string             `json:"role"`
+	AdminModules []string           `json:"admin_modules"`
+	IsActive     bool               `json:"is_active"`
 	Exp          int64              `json:"exp"`
 	Level        int32              `json:"level"`
 	Points       int64              `json:"points"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserClassEnrollment struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	ClassID    pgtype.UUID        `json:"class_id"`
+	EnrolledAt pgtype.Timestamptz `json:"enrolled_at"`
 }
 
 type UserDeck struct {
@@ -191,6 +293,12 @@ type UserDeck struct {
 	IsSystem    pgtype.Bool        `json:"is_system"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserExerciseCompletion struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	ExerciseID  pgtype.UUID        `json:"exercise_id"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
 type UserGrammarProgress struct {
@@ -274,8 +382,9 @@ type VocabularyLike struct {
 }
 
 type VocabularyTopic struct {
-	LanguageID string `json:"language_id"`
-	Name       string `json:"name"`
-	Icon       string `json:"icon"`
-	OrderIndex int32  `json:"order_index"`
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	ParentName pgtype.Text `json:"parent_name"`
 }

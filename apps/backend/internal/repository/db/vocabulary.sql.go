@@ -22,6 +22,22 @@ func (q *Queries) CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.
 	return column_1, err
 }
 
+const countVocabularyTopicChildren = `-- name: CountVocabularyTopicChildren :one
+SELECT COUNT(*) FROM vocabulary_topics WHERE language_id = $1 AND parent_name = $2
+`
+
+type CountVocabularyTopicChildrenParams struct {
+	LanguageID string      `json:"language_id"`
+	ParentName pgtype.Text `json:"parent_name"`
+}
+
+func (q *Queries) CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countVocabularyTopicChildren, arg.LanguageID, arg.ParentName)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createVocabulary = `-- name: CreateVocabulary :one
 
 INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji)
@@ -75,17 +91,18 @@ func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyPara
 }
 
 const createVocabularyTopic = `-- name: CreateVocabularyTopic :one
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
-RETURNING language_id, name, icon, order_index
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name
+RETURNING language_id, name, icon, order_index, parent_name
 `
 
 type CreateVocabularyTopicParams struct {
-	LanguageID string `json:"language_id"`
-	Name       string `json:"name"`
-	Icon       string `json:"icon"`
-	OrderIndex int32  `json:"order_index"`
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	ParentName pgtype.Text `json:"parent_name"`
 }
 
 func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabularyTopicParams) (VocabularyTopic, error) {
@@ -94,6 +111,7 @@ func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabular
 		arg.Name,
 		arg.Icon,
 		arg.OrderIndex,
+		arg.ParentName,
 	)
 	var i VocabularyTopic
 	err := row.Scan(
@@ -101,6 +119,7 @@ func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabular
 		&i.Name,
 		&i.Icon,
 		&i.OrderIndex,
+		&i.ParentName,
 	)
 	return i, err
 }
@@ -141,6 +160,57 @@ type FavoriteVocabularyParams struct {
 func (q *Queries) FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error {
 	_, err := q.db.Exec(ctx, favoriteVocabulary, arg.UserID, arg.VocabularyID)
 	return err
+}
+
+const getVocabularyTopic = `-- name: GetVocabularyTopic :one
+SELECT language_id, name, icon, order_index, parent_name FROM vocabulary_topics WHERE language_id = $1 AND name = $2
+`
+
+type GetVocabularyTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+}
+
+func (q *Queries) GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopicParams) (VocabularyTopic, error) {
+	row := q.db.QueryRow(ctx, getVocabularyTopic, arg.LanguageID, arg.Name)
+	var i VocabularyTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.OrderIndex,
+		&i.ParentName,
+	)
+	return i, err
+}
+
+const getVocabularyTopicOwnStats = `-- name: GetVocabularyTopicOwnStats :one
+SELECT
+    COUNT(v.id)::int AS total,
+    COUNT(r.id)::int AS learned
+FROM vocabularies v
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = $1
+WHERE v.language_id = $2 AND v.topic = $3
+`
+
+type GetVocabularyTopicOwnStatsParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID string      `json:"language_id"`
+	Topic      pgtype.Text `json:"topic"`
+}
+
+type GetVocabularyTopicOwnStatsRow struct {
+	Total   int32 `json:"total"`
+	Learned int32 `json:"learned"`
+}
+
+// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
+// chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
+func (q *Queries) GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabularyTopicOwnStatsParams) (GetVocabularyTopicOwnStatsRow, error) {
+	row := q.db.QueryRow(ctx, getVocabularyTopicOwnStats, arg.UserID, arg.LanguageID, arg.Topic)
+	var i GetVocabularyTopicOwnStatsRow
+	err := row.Scan(&i.Total, &i.Learned)
+	return i, err
 }
 
 const likeVocabulary = `-- name: LikeVocabulary :exec
@@ -247,20 +317,58 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 }
 
 const listVocabulariesByLanguageAdmin = `-- name: ListVocabulariesByLanguageAdmin :many
-SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at FROM vocabularies
+SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at, COUNT(*) OVER() AS total_count FROM vocabularies
 WHERE language_id = $1
+  AND ($2::text IS NULL OR term ILIKE '%' || $2::text || '%' OR meaning ILIKE '%' || $2::text || '%')
+  AND ($3::text IS NULL OR topic = $3::text)
+  AND ($4::text IS NULL OR level = $4::text)
 ORDER BY topic, term
+LIMIT $6 OFFSET $5
 `
 
-func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, languageID string) ([]Vocabulary, error) {
-	rows, err := q.db.Query(ctx, listVocabulariesByLanguageAdmin, languageID)
+type ListVocabulariesByLanguageAdminParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Topic      pgtype.Text `json:"topic"`
+	Level      pgtype.Text `json:"level"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListVocabulariesByLanguageAdminRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	LanguageID string             `json:"language_id"`
+	Term       string             `json:"term"`
+	Phonetic   pgtype.Text        `json:"phonetic"`
+	Meaning    string             `json:"meaning"`
+	Example    pgtype.Text        `json:"example"`
+	Topic      pgtype.Text        `json:"topic"`
+	Level      pgtype.Text        `json:"level"`
+	AudioUrl   pgtype.Text        `json:"audio_url"`
+	ImageUrl   pgtype.Text        `json:"image_url"`
+	ImageEmoji pgtype.Text        `json:"image_emoji"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TotalCount int64              `json:"total_count"`
+}
+
+// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
+// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
+func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listVocabulariesByLanguageAdmin,
+		arg.LanguageID,
+		arg.Search,
+		arg.Topic,
+		arg.Level,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Vocabulary
+	var items []ListVocabulariesByLanguageAdminRow
 	for rows.Next() {
-		var i Vocabulary
+		var i ListVocabulariesByLanguageAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.LanguageID,
@@ -274,6 +382,7 @@ func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, languageI
 			&i.ImageUrl,
 			&i.ImageEmoji,
 			&i.CreatedAt,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}
@@ -373,6 +482,92 @@ func (q *Queries) ListVocabulariesByTopic(ctx context.Context, arg ListVocabular
 	return items, nil
 }
 
+const listVocabularyChildTopics = `-- name: ListVocabularyChildTopics :many
+SELECT
+    t.name::varchar AS name,
+    COALESCE(t.icon, '📘')::varchar AS icon,
+    COUNT(v.id)::int AS total,
+    COUNT(r.id)::int AS learned
+FROM vocabulary_topics t
+LEFT JOIN vocabularies v ON v.language_id = t.language_id AND v.topic = t.name
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = $1
+WHERE t.language_id = $2 AND t.parent_name = $3
+GROUP BY t.name, t.icon, t.order_index
+ORDER BY t.order_index, t.name
+`
+
+type ListVocabularyChildTopicsParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID string      `json:"language_id"`
+	ParentName pgtype.Text `json:"parent_name"`
+}
+
+type ListVocabularyChildTopicsRow struct {
+	Name    string `json:"name"`
+	Icon    string `json:"icon"`
+	Total   int32  `json:"total"`
+	Learned int32  `json:"learned"`
+}
+
+// Chủ đề con của 1 chủ đề cha (learner drill-down, GET /vocab/topics/children)
+// — total/learned chỉ tính từ gắn trực tiếp vào từng chủ đề con.
+func (q *Queries) ListVocabularyChildTopics(ctx context.Context, arg ListVocabularyChildTopicsParams) ([]ListVocabularyChildTopicsRow, error) {
+	rows, err := q.db.Query(ctx, listVocabularyChildTopics, arg.UserID, arg.LanguageID, arg.ParentName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVocabularyChildTopicsRow
+	for rows.Next() {
+		var i ListVocabularyChildTopicsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Icon,
+			&i.Total,
+			&i.Learned,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVocabularyTopicRelations = `-- name: ListVocabularyTopicRelations :many
+SELECT name, parent_name, icon FROM vocabulary_topics WHERE language_id = $1
+`
+
+type ListVocabularyTopicRelationsRow struct {
+	Name       string      `json:"name"`
+	ParentName pgtype.Text `json:"parent_name"`
+	Icon       string      `json:"icon"`
+}
+
+// Toàn bộ quan hệ cha/con của 1 ngôn ngữ (không phân trang — chỉ vài chục
+// dòng) — dùng để dựng cây 2 cấp cho learner, xem VocabularyService.ListTopics.
+func (q *Queries) ListVocabularyTopicRelations(ctx context.Context, languageID string) ([]ListVocabularyTopicRelationsRow, error) {
+	rows, err := q.db.Query(ctx, listVocabularyTopicRelations, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVocabularyTopicRelationsRow
+	for rows.Next() {
+		var i ListVocabularyTopicRelationsRow
+		if err := rows.Scan(&i.Name, &i.ParentName, &i.Icon); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVocabularyTopics = `-- name: ListVocabularyTopics :many
 SELECT
     v.topic::varchar AS name,
@@ -428,25 +623,50 @@ func (q *Queries) ListVocabularyTopics(ctx context.Context, arg ListVocabularyTo
 }
 
 const listVocabularyTopicsByLanguageAdmin = `-- name: ListVocabularyTopicsByLanguageAdmin :many
-SELECT language_id, name, icon, order_index FROM vocabulary_topics
+SELECT language_id, name, icon, order_index, parent_name, COUNT(*) OVER() AS total_count FROM vocabulary_topics
 WHERE language_id = $1
+  AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
 ORDER BY order_index, name
+LIMIT $4 OFFSET $3
 `
 
-func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, languageID string) ([]VocabularyTopic, error) {
-	rows, err := q.db.Query(ctx, listVocabularyTopicsByLanguageAdmin, languageID)
+type ListVocabularyTopicsByLanguageAdminParams struct {
+	LanguageID string      `json:"language_id"`
+	Search     pgtype.Text `json:"search"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListVocabularyTopicsByLanguageAdminRow struct {
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	ParentName pgtype.Text `json:"parent_name"`
+	TotalCount int64       `json:"total_count"`
+}
+
+func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error) {
+	rows, err := q.db.Query(ctx, listVocabularyTopicsByLanguageAdmin,
+		arg.LanguageID,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []VocabularyTopic
+	var items []ListVocabularyTopicsByLanguageAdminRow
 	for rows.Next() {
-		var i VocabularyTopic
+		var i ListVocabularyTopicsByLanguageAdminRow
 		if err := rows.Scan(
 			&i.LanguageID,
 			&i.Name,
 			&i.Icon,
 			&i.OrderIndex,
+			&i.ParentName,
+			&i.TotalCount,
 		); err != nil {
 			return nil, err
 		}

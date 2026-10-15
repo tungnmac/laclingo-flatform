@@ -73,3 +73,39 @@ RETURNING *;
 
 -- name: DeleteGrammarExercise :exec
 DELETE FROM grammar_exercises WHERE id = $1;
+
+-- name: ListGrammarTopicsAdminPaged :many
+-- Tách riêng khỏi ListGrammarTopicsByLanguage (learner dùng, không phân trang)
+-- để không đổi hành vi hiện có của learner.
+SELECT *, COUNT(*) OVER() AS total_count FROM grammar_topics
+WHERE language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%' OR code ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY order_index, created_at
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: ListGrammarLessonsAdminPaged :many
+-- Tách riêng khỏi ListGrammarLessonsByLanguage (learner dùng, không phân trang).
+SELECT l.*, COUNT(*) OVER() AS total_count
+FROM grammar_lessons l
+JOIN grammar_topics t ON t.id = l.topic_id
+WHERE t.language_id = sqlc.arg('language_id')
+  AND (sqlc.narg('topic_id')::uuid IS NULL OR l.topic_id = sqlc.narg('topic_id')::uuid)
+  AND (sqlc.narg('level')::text IS NULL OR l.level = sqlc.narg('level')::text)
+  AND (sqlc.narg('search')::text IS NULL OR l.title ILIKE '%' || sqlc.narg('search')::text || '%' OR l.code ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY l.order_index, l.created_at
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: ListGrammarExercisesAdminPaged :many
+-- Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
+SELECT *, COUNT(*) OVER() AS total_count FROM grammar_exercises
+WHERE lesson_id = sqlc.arg('lesson_id')
+  AND (sqlc.narg('search')::text IS NULL OR question ILIKE '%' || sqlc.narg('search')::text || '%')
+ORDER BY order_index
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: CompleteExercise :exec
+-- Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
+-- PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
+INSERT INTO user_exercise_completions (user_id, exercise_id)
+VALUES ($1, $2)
+ON CONFLICT (user_id, exercise_id) DO NOTHING;

@@ -1,0 +1,18 @@
+[
+  {
+    "topic_id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "code": "future_perfect_demo",
+    "title": "Thì Tương Lai Hoàn Thành (Future Perfect)",
+    "level": "B2",
+    "order_index": 13,
+    "content": {
+      "summary": "Diễn tả hành động sẽ hoàn thành trước một thời điểm xác định trong tương lai.",
+      "formulas": [
+        { "type": "AFFIRMATIVE", "pattern": "S + will have + V3/ed", "example": "By 2030, I will have graduated." },
+        { "type": "NEGATIVE", "pattern": "S + will not have + V3/ed", "example": "She will not have finished by then." },
+        { "type": "INTERROGATIVE", "pattern": "Will + S + have + V3/ed?", "example": "Will you have arrived by noon?" }
+      ],
+      "signals": ["by the time", "by next year", "before"]
+    }
+  }
+]

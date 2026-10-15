@@ -20,7 +20,7 @@ func (h *MissionHandler) RegisterRoutes(router fiber.Router) {
 	router.Get("/missions", h.ListMyMissions)
 }
 
-// RegisterAdminRoutes gắn route quản lý nhiệm vụ — PHẢI nằm sau RequireAdmin
+// RegisterAdminRoutes gắn route quản lý nhiệm vụ — PHẢI nằm sau RequireModule
 // trong chain (đăng ký ở router.go, không tự chặn ở đây).
 func (h *MissionHandler) RegisterAdminRoutes(router fiber.Router) {
 	api := router.Group("/admin/missions")

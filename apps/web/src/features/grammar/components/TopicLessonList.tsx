@@ -1,13 +1,17 @@
+'use client'
+
 import Link from 'next/link'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/States'
+import { useTranslation } from '@/hooks/useTranslation'
 import type { GrammarTopic } from '@/types/api'
 import { LevelBadge } from './LevelBadge'
 
 /** Danh sách chủ đề ngữ pháp, mỗi chủ đề liệt kê các bài học dẫn tới trang bài học */
 export function TopicLessonList({ topics, courseId }: { topics: GrammarTopic[]; courseId: string }) {
+  const t = useTranslation()
   if (topics.length === 0) {
-    return <EmptyState icon="📖" title="Chưa có bài học ngữ pháp cho ngôn ngữ này" />
+    return <EmptyState icon="📖" title={t.grammar.emptyLessons} />
   }
 
   return (
