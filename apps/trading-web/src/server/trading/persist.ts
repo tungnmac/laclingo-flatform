@@ -40,6 +40,7 @@ export async function insertTrade(
     price: Decimal
     fee: Decimal
     realizedPnl: Decimal
+    closedQty: Decimal
     kind: 'order' | 'liquidation'
     executedAt: Date
   },
@@ -56,6 +57,7 @@ export async function insertTrade(
       price: toDb(t.price),
       fee: toDb(t.fee),
       realizedPnl: toDb(t.realizedPnl),
+      closedQty: toDb(t.closedQty),
       kind: t.kind,
       executedAt: t.executedAt,
     })

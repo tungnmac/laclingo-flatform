@@ -154,6 +154,12 @@ export const vi = {
     ORDER_NOT_FOUND: 'Không tìm thấy lệnh',
     ORDER_NOT_PENDING: 'Lệnh không còn ở trạng thái chờ',
     PRICE_UNAVAILABLE: 'Chưa lấy được giá hiện tại, vui lòng thử lại',
+    NOT_FOUND: 'Không tìm thấy dữ liệu',
+    INVALID_EMOTION: 'Cảm xúc không hợp lệ',
+    INVALID_RATING: 'Điểm tự chấm phải từ 1 đến 5',
+    TOO_MANY_TAGS: 'Tối đa {max} tag',
+    TAG_TOO_LONG: 'Mỗi tag tối đa {max} ký tự',
+    NOTE_TOO_LONG: 'Ghi chú tối đa {max} ký tự',
   },
 }
 

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, numeric, pgTable, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, numeric, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -87,6 +87,7 @@ export const orders = pgTable(
     filledAt: timestamp('filled_at', { withTimezone: true }),
     fillPrice: money('fill_price'),
     fee: money('fee').notNull().default('0'),
+    note: text('note'), // lý do nhập lúc đặt lệnh — hiện sẵn trong nhật ký
   },
   (t) => [index('orders_account_status_idx').on(t.accountId, t.status)],
 )
@@ -106,11 +107,25 @@ export const trades = pgTable(
     price: money('price').notNull(),
     fee: money('fee').notNull(),
     realizedPnl: money('realized_pnl').notNull(),
+    closedQty: money('closed_qty').notNull().default('0'), // phần đóng vị thế — > 0 = lệnh chốt
     kind: varchar('kind', { length: 12 }).notNull(), // 'order' | 'liquidation'
     executedAt: timestamp('executed_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('trades_account_time_idx').on(t.accountId, t.executedAt)],
 )
+
+/** Nhật ký cho từng lần khớp (phần 4) */
+export const tradeNotes = pgTable('trade_notes', {
+  tradeId: uuid('trade_id')
+    .primaryKey()
+    .references(() => trades.id, { onDelete: 'cascade' }),
+  reason: text('reason'),
+  lesson: text('lesson'),
+  emotion: varchar('emotion', { length: 12 }), // calm | confident | fearful | greedy | fomo | revenge
+  rating: integer('rating'), // 1–5
+  tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
@@ -118,3 +133,4 @@ export type AccountRow = typeof tradingAccounts.$inferSelect
 export type PositionRow = typeof positions.$inferSelect
 export type OrderRow = typeof orders.$inferSelect
 export type TradeRow = typeof trades.$inferSelect
+export type TradeNoteRow = typeof tradeNotes.$inferSelect

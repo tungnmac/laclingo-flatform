@@ -20,6 +20,8 @@ export const placeOrderSchema = z
     price: decimalString('INVALID_PRICE').optional(),
     stop_loss: decimalString('INVALID_PRICE').nullish(),
     take_profit: decimalString('INVALID_PRICE').nullish(),
+    // Lý do vào lệnh (nhật ký) — giới hạn độ dài kiểm ở order-service để trả NOTE_TOO_LONG kèm {max}
+    note: z.string('INVALID_INPUT').trim().nullish(),
   })
   .refine((v) => v.type !== 'limit' || v.price !== undefined, { message: 'PRICE_REQUIRED', path: ['price'] })
 

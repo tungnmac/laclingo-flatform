@@ -79,9 +79,9 @@ export async function settleAccount(tx: Tx, account: AccountRow): Promise<{ acco
           .update(orders)
           .set({ status: 'filled', filledAt: at, fillPrice: toDb(e.price), fee: toDb(e.fee), qty: toDb(e.qty), reserved: toDb(D(0)) })
           .where(eq(orders.id, e.orderId))
-        await insertTrade(tx, { accountId: account.id, orderId: e.orderId, symbol, side: e.side, qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, kind: 'order', executedAt: at })
+        await insertTrade(tx, { accountId: account.id, orderId: e.orderId, symbol, side: e.side, qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, closedQty: e.closedQty, kind: 'order', executedAt: at })
       } else if (e.kind === 'liquidation') {
-        await insertTrade(tx, { accountId: account.id, orderId: null, symbol, side: 'buy', qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, kind: 'liquidation', executedAt: at })
+        await insertTrade(tx, { accountId: account.id, orderId: null, symbol, side: 'buy', qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, closedQty: e.closedQty, kind: 'liquidation', executedAt: at })
       } else {
         await tx.update(orders).set({ status: 'cancelled', reserved: toDb(D(0)) }).where(eq(orders.id, e.orderId))
       }

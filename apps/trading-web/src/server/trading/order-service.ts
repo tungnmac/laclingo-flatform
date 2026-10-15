@@ -11,6 +11,7 @@ import { settleAccount } from './settlement'
 import type { PlaceOrderInput, ProtectionInput } from './validation'
 
 const MIN_NOTIONAL = D(1)
+export const ORDER_NOTE_MAX = 1000
 const usd = (d: Decimal) => d.toFixed(2)
 
 export interface TradeDto {
@@ -129,7 +130,7 @@ async function fillNow(
   tx: Tx,
   account: AccountRow,
   wallet: Wallet,
-  fill: { symbol: string; side: Side; qty: Decimal; price: Decimal; type: string; limitPrice: Decimal | null },
+  fill: { symbol: string; side: Side; qty: Decimal; price: Decimal; type: string; limitPrice: Decimal | null; note?: string | null },
   opts: { capFeeAtCash?: boolean } = {},
 ) {
   const before = positionOf(wallet, fill.symbol)
@@ -153,6 +154,7 @@ async function fillNow(
       filledAt: now,
       fillPrice: toDb(fill.price),
       fee: toDb(r.fee),
+      note: fill.note || null,
     })
     .returning()
   const trade = await insertTrade(tx, {
@@ -164,6 +166,7 @@ async function fillNow(
     price: fill.price,
     fee: r.fee,
     realizedPnl: r.realizedPnl,
+    closedQty: r.closedQty,
     kind: 'order',
     executedAt: now,
   })
@@ -184,6 +187,8 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
     const limitPrice = input.price ? D(input.price) : null
     const stopLoss = input.stop_loss ? D(input.stop_loss) : null
     const takeProfit = input.take_profit ? D(input.take_profit) : null
+    const note = input.note || null
+    if (note && note.length > ORDER_NOTE_MAX) throw new HttpError(400, 'NOTE_TOO_LONG', { max: ORDER_NOTE_MAX })
 
     if (qty.times(limitPrice ?? mark).lt(MIN_NOTIONAL)) throw new HttpError(400, 'MIN_NOTIONAL', { min: toApi(MIN_NOTIONAL) })
 
@@ -205,6 +210,7 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
         price: mark,
         type: input.type,
         limitPrice,
+        note,
       })
       if (stopLoss || takeProfit) await replaceProtection(tx, account.id, input.symbol, after, stopLoss, takeProfit, 'merge')
       return { order: toOrderDto(order), trade: toTradeDto(trade) }
@@ -225,6 +231,7 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
         qty: toDb(qty),
         price: toDb(limitPrice!),
         reserved: toDb(reserve),
+        note,
         createdAt: new Date(), // xem ghi chú ở replaceProtection
         checkedUntil: new Date(),
       })

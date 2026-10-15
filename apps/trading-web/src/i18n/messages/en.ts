@@ -154,5 +154,11 @@ export const en: Messages = {
     ORDER_NOT_FOUND: 'Order not found',
     ORDER_NOT_PENDING: 'This order is no longer open',
     PRICE_UNAVAILABLE: 'Current price is unavailable, please try again',
+    NOT_FOUND: 'Not found',
+    INVALID_EMOTION: 'Invalid emotion',
+    INVALID_RATING: 'Rating must be between 1 and 5',
+    TOO_MANY_TAGS: 'At most {max} tags',
+    TAG_TOO_LONG: 'Each tag must be at most {max} characters',
+    NOTE_TOO_LONG: 'Notes must be at most {max} characters',
   },
 }

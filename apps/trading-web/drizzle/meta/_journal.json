@@ -15,6 +15,13 @@
       "when": 1792057312679,
       "tag": "0001_paper_trading",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792059729073,
+      "tag": "0002_journal",
+      "breakpoints": true
     }
   ]
 }
