@@ -1,0 +1,5 @@
+[
+  {"symbol":"BTCUSDT","priceChangePercent":"-3.047","lastPrice":"81265.73000000","highPrice":"83933.00000000","lowPrice":"80226.35000000","quoteVolume":"1949543610.84965640","closeTime":1792052984004},
+  {"symbol":"TONUSDT","priceChangePercent":"0.946","lastPrice":"1.60000000","highPrice":"1.64100000","lowPrice":"1.55000000","quoteVolume":"5123456.7","closeTime":1792052984004},
+  {"symbol":"BADUSDT","priceChangePercent":"x","lastPrice":"0","highPrice":"1","lowPrice":"1","quoteVolume":"1","closeTime":1792052984004}
+]

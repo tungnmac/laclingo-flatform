@@ -14,6 +14,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Chỉ chạy khi volume trống (lần khởi tạo đầu) — DB có sẵn thì dùng `make trading-db-create`
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
 
   redis:
     image: redis:7-alpine

@@ -1,0 +1,16 @@
+const DEV_JWT_SECRET = 'trading-dev-secret-do-not-use-in-production'
+
+/** Đọc lúc gọi (không phải lúc import) để `next build` không cần đủ biến môi trường. */
+export const env = {
+  redisUrl: () => process.env.REDIS_URL || 'redis://localhost:6379',
+  binanceBaseUrl: () => process.env.BINANCE_BASE_URL || 'https://data-api.binance.vision',
+}
+
+export function jwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET bắt buộc khi NODE_ENV=production')
+    return new TextEncoder().encode(DEV_JWT_SECRET)
+  }
+  return new TextEncoder().encode(secret)
+}
