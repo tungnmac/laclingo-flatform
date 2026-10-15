@@ -22,3 +22,9 @@ export async function requireUser(): Promise<SessionUser> {
   if (!user) throw new HttpError(401, 'UNAUTHORIZED')
   return user
 }
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser()
+  if (user.role !== 'admin') throw new HttpError(403, 'FORBIDDEN')
+  return user
+}

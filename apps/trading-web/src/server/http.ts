@@ -3,6 +3,7 @@ import { ZodError } from 'zod'
 import { getLocale } from '@/i18n/server'
 import { hasKey, translate, type TranslateParams } from '@/i18n/translate'
 import { ERROR_PARAMS } from './journal/validation'
+import { LEARN_ERROR_PARAMS } from './learn/validation'
 import { MarketUnavailableError, UnsupportedMarketError } from './market/types'
 
 /** Lỗi nghiệp vụ trả cho client: `code` ổn định (client tự dịch) + `params` chèn vào câu. */
@@ -32,8 +33,12 @@ export function handleRoute<A extends unknown[]>(fn: (...args: A) => Promise<Res
     } catch (err) {
       if (err instanceof HttpError) return jsonError(err.status, err.code, err.params)
       if (err instanceof ZodError) {
-        const message = err.issues[0]?.message ?? ''
-        return isErrorCode(message) ? jsonError(400, message, ERROR_PARAMS[message]) : jsonError(400, 'INVALID_INPUT')
+        const issue = err.issues[0]
+        const message = issue?.message ?? ''
+        if (!isErrorCode(message)) return jsonError(400, 'INVALID_INPUT')
+        const fixed = ERROR_PARAMS[message] ?? LEARN_ERROR_PARAMS[message]
+        const max = issue?.code === 'too_big' ? Number(issue.maximum) : undefined
+        return jsonError(400, message, fixed ?? (max !== undefined ? { max } : undefined))
       }
       if (err instanceof UnsupportedMarketError) return jsonError(400, 'MARKET_UNSUPPORTED', { market: err.market })
       if (err instanceof MarketUnavailableError) return jsonError(503, err.code)

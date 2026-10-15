@@ -218,6 +218,18 @@ export const vi = {
     TOO_MANY_TAGS: 'Tối đa {max} tag',
     TAG_TOO_LONG: 'Mỗi tag tối đa {max} ký tự',
     NOTE_TOO_LONG: 'Ghi chú tối đa {max} ký tự',
+    FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này',
+    INVALID_SLUG: 'Slug chỉ gồm chữ thường, số và dấu gạch ngang (tối đa 80 ký tự)',
+    SLUG_TAKEN: 'Slug này đã được dùng',
+    TITLE_REQUIRED: 'Vui lòng nhập tiêu đề / nội dung',
+    TEXT_TOO_LONG: 'Nội dung tối đa {max} ký tự',
+    INVALID_OPTIONS: 'Mỗi câu hỏi cần {min}–{max} đáp án, không để trống',
+    INVALID_CORRECT_INDEX: 'Hãy chọn đáp án đúng',
+    TOO_MANY_QUESTIONS: 'Tối đa {max} câu hỏi mỗi bài',
+    INVALID_ANSWERS: 'Câu trả lời không hợp lệ, vui lòng tải lại bài',
+    INVALID_IMAGE: 'Chỉ nhận ảnh JPG, PNG, WEBP hoặc GIF',
+    IMAGE_TOO_LARGE: 'Ảnh tối đa {max}MB',
+    UPLOAD_UNAVAILABLE: 'Chưa cấu hình lưu trữ ảnh (R2)',
   },
 }
 
