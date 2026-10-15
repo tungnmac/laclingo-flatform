@@ -301,5 +301,8 @@ export const en: Messages = {
     INVALID_IMAGE: 'Only JPG, PNG, WEBP or GIF images are accepted',
     IMAGE_TOO_LARGE: 'Images must be at most {max}MB',
     UPLOAD_UNAVAILABLE: 'Image storage (R2) is not configured',
+    NO_ACTIVE_SESSION: 'No practice session in progress',
+    PRACTICE_DATA_UNAVAILABLE: 'Historical candles are unavailable, please try again',
+    INVALID_LENGTH: 'Session length must be 50, 100 or 200 candles',
   },
 }

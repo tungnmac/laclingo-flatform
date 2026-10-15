@@ -301,6 +301,9 @@ export const vi = {
     INVALID_IMAGE: 'Chỉ nhận ảnh JPG, PNG, WEBP hoặc GIF',
     IMAGE_TOO_LARGE: 'Ảnh tối đa {max}MB',
     UPLOAD_UNAVAILABLE: 'Chưa cấu hình lưu trữ ảnh (R2)',
+    NO_ACTIVE_SESSION: 'Chưa có phiên thực hành nào đang chạy',
+    PRACTICE_DATA_UNAVAILABLE: 'Không lấy được dữ liệu nến lịch sử, vui lòng thử lại',
+    INVALID_LENGTH: 'Độ dài phiên phải là 50, 100 hoặc 200 nến',
   },
 }
 
