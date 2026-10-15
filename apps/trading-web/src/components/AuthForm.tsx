@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
+import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/error-message'
 import { safeNextPath } from '@/lib/safe-next'
 
 const inputClass =
@@ -11,7 +13,8 @@ const inputClass =
 
 export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: string }) {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
+  const { t } = useT()
+  const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
   const isLogin = mode === 'login'
 
@@ -30,26 +33,26 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: st
       router.replace(safeNextPath(next))
       router.refresh()
     } catch (err) {
-      setError((err as Error).message)
+      setError(err)
       setLoading(false)
     }
   }
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <h1 className="text-2xl font-bold">{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</h1>
+      <h1 className="text-2xl font-bold">{t(isLogin ? 'auth.loginTitle' : 'auth.registerTitle')}</h1>
       {!isLogin && (
         <label className="block text-sm font-medium text-slate-700">
-          Tên hiển thị
+          {t('auth.displayName')}
           <input name="display_name" required maxLength={100} className={inputClass} />
         </label>
       )}
       <label className="block text-sm font-medium text-slate-700">
-        Email
+        {t('auth.email')}
         <input name="email" type="email" required autoComplete="email" className={inputClass} />
       </label>
       <label className="block text-sm font-medium text-slate-700">
-        Mật khẩu
+        {t('auth.password')}
         <input
           name="password"
           type="password"
@@ -60,9 +63,9 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: st
           className={inputClass}
         />
       </label>
-      {error && (
+      {error !== null && (
         <p role="alert" className="text-sm text-rose-600">
-          {error}
+          {errorMessage(error, t)}
         </p>
       )}
       <button
@@ -70,15 +73,15 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: st
         disabled={loading}
         className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
       >
-        {loading ? 'Đang xử lý...' : isLogin ? 'Đăng nhập' : 'Đăng ký'}
+        {loading ? t('auth.submitting') : t(isLogin ? 'auth.submitLogin' : 'auth.submitRegister')}
       </button>
       <p className="text-center text-sm text-slate-500">
-        {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
+        {t(isLogin ? 'auth.noAccount' : 'auth.haveAccount')}
         <Link
           href={`${isLogin ? '/register' : '/login'}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
           className="font-semibold text-emerald-700 hover:underline"
         >
-          {isLogin ? 'Đăng ký' : 'Đăng nhập'}
+          {t(isLogin ? 'auth.goRegister' : 'auth.goLogin')}
         </Link>
       </p>
     </form>

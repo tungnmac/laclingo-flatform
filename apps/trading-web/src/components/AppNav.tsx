@@ -2,14 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useT } from '@/i18n/I18nProvider'
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
 // Phần 3–6 thêm mục vào đây (Giao dịch, Nhật ký, Học, Thực hành)
-const NAV_ITEMS = [{ href: '/markets', label: 'Thị trường' }]
+const NAV_ITEMS = [{ href: '/markets', labelKey: 'nav.markets' }]
 
 export function AppNav({ user }: { user: SessionUser }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useT()
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -33,14 +36,15 @@ export function AppNav({ user }: { user: SessionUser }) {
                 aria-current={active ? 'page' : undefined}
                 className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             )
           })}
         </nav>
-        <span className="hidden text-sm text-slate-600 sm:inline">{user.display_name}</span>
+        <LanguageSwitcher className="hidden sm:block" />
+        <span className="hidden text-sm text-slate-600 md:inline">{user.display_name}</span>
         <button onClick={logout} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">
-          Đăng xuất
+          {t('nav.logout')}
         </button>
       </div>
     </header>

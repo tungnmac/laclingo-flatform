@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ChangeBadge } from '@/components/ChangeBadge'
 import { usePolling } from '@/hooks/usePolling'
+import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { formatCompact, formatPrice } from '@/lib/format'
 import type { InstrumentDto } from '@/server/market/instruments'
@@ -15,6 +16,7 @@ const CandleChart = dynamic(() => import('@/components/CandleChart').then((m) =>
 
 export default function InstrumentPage({ params }: { params: { symbol: string } }) {
   const symbol = decodeURIComponent(params.symbol).toUpperCase()
+  const { t } = useT()
   const [instrument, setInstrument] = useState<InstrumentDto | null | undefined>(undefined)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [stale, setStale] = useState(false)
@@ -42,13 +44,13 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
     [instrument, symbol],
   )
 
-  if (instrument === undefined) return <p className="py-10 text-center text-slate-400">Đang tải...</p>
+  if (instrument === undefined) return <p className="py-10 text-center text-slate-400">{t('common.loading')}</p>
   if (instrument === null)
     return (
       <div className="py-10 text-center">
-        <p className="text-slate-600">Không tìm thấy mã “{symbol}”.</p>
+        <p className="text-slate-600">{t('markets.notFound', { symbol })}</p>
         <Link href="/markets" className="mt-2 inline-block font-semibold text-emerald-700 hover:underline">
-          ← Về Thị trường
+          {t('markets.backHome')}
         </Link>
       </div>
     )
@@ -56,7 +58,7 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
   return (
     <div className="space-y-4">
       <Link href="/markets" className="text-sm text-slate-500 hover:text-emerald-700">
-        ← Thị trường
+        {t('markets.back')}
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -72,10 +74,15 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
           </div>
           {quote && (
             <p className="mt-1 text-xs text-slate-500">
-              Cao {formatPrice(quote.high24h)} · Thấp {formatPrice(quote.low24h)} · KL {formatCompact(quote.volume24h)} {instrument.quote}
+              {t('markets.stats', {
+                high: formatPrice(quote.high24h),
+                low: formatPrice(quote.low24h),
+                volume: formatCompact(quote.volume24h),
+                quote: instrument.quote,
+              })}
             </p>
           )}
-          {stale && <p className="mt-1 text-xs text-amber-700">⚠️ Giá có thể bị trễ</p>}
+          {stale && <p className="mt-1 text-xs text-amber-700">{t('markets.staleShort')}</p>}
         </div>
         <button
           disabled

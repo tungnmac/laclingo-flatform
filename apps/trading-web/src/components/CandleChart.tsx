@@ -10,7 +10,9 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/error-message'
 import type { Candle, Interval } from '@/server/market/types'
 
 const UP = '#10b981'
@@ -20,11 +22,12 @@ const toVolume = (c: Candle) => ({ time: c.time as UTCTimestamp, value: c.volume
 
 /** Nến + khối lượng; tải lại nến mỗi 60 s, nến cuối cập nhật theo livePrice (poll giá 3 s ở trang cha). */
 export function CandleChart({ symbol, interval, livePrice }: { symbol: string; interval: Interval; livePrice: number | null }) {
+  const { t } = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<{ chart: IChartApi; candles: ISeriesApi<'Candlestick'>; volume: ISeriesApi<'Histogram'> } | null>(null)
   const lastCandle = useRef<Candle | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [stale, setStale] = useState(false)
   const [retry, setRetry] = useState(0)
 
@@ -70,7 +73,7 @@ export function CandleChart({ symbol, interval, livePrice }: { symbol: string; i
         setStatus('ready')
       } catch (err) {
         if (cancelled) return
-        setError((err as Error).message)
+        setError(err)
         if (first) setStatus('error')
       }
     }
@@ -94,19 +97,19 @@ export function CandleChart({ symbol, interval, livePrice }: { symbol: string; i
     <div className="relative h-[420px] w-full">
       <div ref={containerRef} className="h-full w-full" />
       {status === 'loading' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm text-slate-500">Đang tải biểu đồ...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm text-slate-500">{t('chart.loading')}</div>
       )}
       {status === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/90 text-sm text-rose-700">
-          <p>{error}</p>
+          <p>{errorMessage(error, t)}</p>
           <button onClick={() => setRetry((r) => r + 1)} className="font-semibold underline">
-            Thử lại
+            {t('common.retry')}
           </button>
         </div>
       )}
       {stale && status === 'ready' && (
         <p className="absolute left-2 top-2 rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800 ring-1 ring-amber-200">
-          Dữ liệu có thể bị trễ
+          {t('chart.stale')}
         </p>
       )}
     </div>

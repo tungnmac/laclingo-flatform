@@ -4,23 +4,26 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ChangeBadge } from '@/components/ChangeBadge'
 import { usePolling } from '@/hooks/usePolling'
+import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/error-message'
 import { formatCompact, formatPrice } from '@/lib/format'
 import type { InstrumentDto } from '@/server/market/instruments'
 import type { Quote } from '@/server/market/types'
 
 export default function MarketsPage() {
   const router = useRouter()
+  const { t } = useT()
   const [instruments, setInstruments] = useState<InstrumentDto[] | null>(null)
   const [quotes, setQuotes] = useState<Record<string, Quote>>({})
   const [stale, setStale] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [retry, setRetry] = useState(0)
 
   useEffect(() => {
     api<InstrumentDto[]>('/api/market/instruments?market=crypto')
       .then(setInstruments)
-      .catch((err: Error) => setError(err.message))
+      .catch(setError)
   }, [retry])
 
   usePolling(
@@ -33,7 +36,7 @@ export default function MarketsPage() {
         setStale(res.stale)
         setError(null)
       } catch (err) {
-        setError((err as Error).message)
+        setError(err)
       }
     },
     3000,
@@ -43,20 +46,20 @@ export default function MarketsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Thị trường</h1>
-        <p className="text-sm text-slate-500">Giá crypto cập nhật mỗi 3 giây · nguồn Binance</p>
+        <h1 className="text-2xl font-bold">{t('markets.title')}</h1>
+        <p className="text-sm text-slate-500">{t('markets.subtitle')}</p>
       </div>
 
       {stale && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
-          ⚠️ Giá có thể bị trễ — nguồn dữ liệu đang gián đoạn.
+          {t('markets.staleWarning')}
         </p>
       )}
-      {error && (
+      {error !== null && (
         <div className="flex items-center justify-between gap-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-          <span>{error}</span>
+          <span>{errorMessage(error, t)}</span>
           <button onClick={() => setRetry((r) => r + 1)} className="font-semibold underline">
-            Thử lại
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -65,18 +68,18 @@ export default function MarketsPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
             <tr>
-              <th className="px-4 py-3">Mã</th>
-              <th className="px-4 py-3 text-right">Giá</th>
-              <th className="px-4 py-3 text-right">24h</th>
-              <th className="hidden px-4 py-3 text-right sm:table-cell">Cao / Thấp 24h</th>
-              <th className="hidden px-4 py-3 text-right md:table-cell">Khối lượng 24h</th>
+              <th className="px-4 py-3">{t('markets.colSymbol')}</th>
+              <th className="px-4 py-3 text-right">{t('markets.colPrice')}</th>
+              <th className="px-4 py-3 text-right">{t('markets.col24h')}</th>
+              <th className="hidden px-4 py-3 text-right sm:table-cell">{t('markets.colHighLow')}</th>
+              <th className="hidden px-4 py-3 text-right md:table-cell">{t('markets.colVolume')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {!instruments && !error && (
+            {!instruments && error === null && (
               <tr>
                 <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                  Đang tải...
+                  {t('common.loading')}
                 </td>
               </tr>
             )}
