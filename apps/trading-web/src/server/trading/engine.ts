@@ -7,7 +7,15 @@ export type Side = 'buy' | 'sell'
 export interface Pos { qty: Decimal; avgPrice: Decimal; margin: Decimal; realizedPnl: Decimal }
 export interface Wallet { cash: Decimal; positions: Record<string, Pos> }
 export interface Fill { symbol: string; side: Side; qty: Decimal; price: Decimal }
-export interface FillResult { wallet: Wallet; fee: Decimal; realizedPnl: Decimal; positionClosed: boolean; reversed: boolean }
+export interface FillResult {
+  wallet: Wallet
+  fee: Decimal
+  realizedPnl: Decimal
+  /** Phần khối lượng ĐÓNG vị thế trong lần khớp (0 khi chỉ mở/thêm) — nhật ký dùng để nhận diện lệnh chốt */
+  closedQty: Decimal
+  positionClosed: boolean
+  reversed: boolean
+}
 
 export const emptyPos = (): Pos => ({ qty: ZERO, avgPrice: ZERO, margin: ZERO, realizedPnl: ZERO })
 
@@ -19,6 +27,7 @@ export function applyFill(w: Wallet, f: Fill, opts: { capFeeAtCash?: boolean } =
   let { qty, avgPrice, margin } = prev
   let cash = w.cash
   let realized = ZERO
+  let closed = ZERO
   let remaining = f.qty
 
   if (f.side === 'buy' && qty.lt(0)) {
@@ -29,12 +38,14 @@ export function applyFill(w: Wallet, f: Fill, opts: { capFeeAtCash?: boolean } =
     margin = margin.minus(release)
     qty = qty.plus(close)
     realized = pnl
+    closed = close
     remaining = remaining.minus(close)
   } else if (f.side === 'sell' && qty.gt(0)) {
     const close = Decimal.min(remaining, qty)
     realized = f.price.minus(avgPrice).times(close)
     cash = cash.plus(f.price.times(close))
     qty = qty.minus(close)
+    closed = close
     remaining = remaining.minus(close)
   }
   if (qty.isZero()) {
@@ -63,6 +74,7 @@ export function applyFill(w: Wallet, f: Fill, opts: { capFeeAtCash?: boolean } =
     wallet: { cash, positions: { ...w.positions, [f.symbol]: { qty, avgPrice, margin, realizedPnl: prev.realizedPnl.plus(realized) } } },
     fee,
     realizedPnl: realized,
+    closedQty: closed,
     positionClosed: !prev.qty.isZero() && qty.isZero(),
     reversed,
   }
@@ -87,8 +99,8 @@ export interface PendingOrder {
 }
 export interface MinuteCandle { time: number; open: Decimal; high: Decimal; low: Decimal }
 export type EngineEvent =
-  | { kind: 'fill'; orderId: string; side: Side; qty: Decimal; price: Decimal; fee: Decimal; realizedPnl: Decimal; at: number }
-  | { kind: 'liquidation'; side: 'buy'; qty: Decimal; price: Decimal; fee: Decimal; realizedPnl: Decimal; at: number }
+  | { kind: 'fill'; orderId: string; side: Side; qty: Decimal; price: Decimal; fee: Decimal; realizedPnl: Decimal; closedQty: Decimal; at: number }
+  | { kind: 'liquidation'; side: 'buy'; qty: Decimal; price: Decimal; fee: Decimal; realizedPnl: Decimal; closedQty: Decimal; at: number }
   | { kind: 'cancel'; orderId: string; reason: 'oco' | 'position_closed'; at: number }
 
 /** Giá khớp nếu nến kích hoạt lệnh, ngược lại null. SL/TP: side 'sell' đóng Long, 'buy' đóng Short. */
@@ -138,7 +150,7 @@ export function settleSymbol(input: {
     if (liq && at >= input.liquidationFrom && c.high.gte(liq)) {
       const r = applyFill(wallet, { symbol, side: 'buy', qty: p.qty.abs(), price: liq }, { capFeeAtCash: true })
       wallet = r.wallet
-      events.push({ kind: 'liquidation', side: 'buy', qty: p.qty.abs(), price: liq, fee: r.fee, realizedPnl: r.realizedPnl, at })
+      events.push({ kind: 'liquidation', side: 'buy', qty: p.qty.abs(), price: liq, fee: r.fee, realizedPnl: r.realizedPnl, closedQty: r.closedQty, at })
       cancel(protectionIds(), 'position_closed', at)
     }
 
@@ -159,7 +171,7 @@ export function settleSymbol(input: {
       const r = applyFill(wallet, { symbol, side: o.side, qty, price })
       wallet = r.wallet
       pending = pending.filter((x) => x.id !== o.id)
-      events.push({ kind: 'fill', orderId: o.id, side: o.side, qty, price, fee: r.fee, realizedPnl: r.realizedPnl, at })
+      events.push({ kind: 'fill', orderId: o.id, side: o.side, qty, price, fee: r.fee, realizedPnl: r.realizedPnl, closedQty: r.closedQty, at })
       if (o.ocoGroup) cancel(pending.filter((x) => x.ocoGroup === o.ocoGroup).map((x) => x.id), 'oco', at)
       afterPositionChange(before, at)
     }

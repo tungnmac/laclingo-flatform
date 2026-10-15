@@ -157,3 +157,19 @@ describe('settleSymbol', () => {
     expect(r.events).toHaveLength(0)
   })
 })
+
+describe('closedQty', () => {
+  it('is zero when opening and equals the reduced amount when closing or reversing', () => {
+    expect(str(applyFill(wallet(10000), buy('0.1', 50000)).closedQty)).toBe('0')
+    expect(str(applyFill(wallet(0, { qty: '0.1', avg: 50000 }), sell('0.1', 55000)).closedQty)).toBe('0.1')
+    expect(str(applyFill(wallet(20000, { qty: '0.1', avg: 50000 }), sell('0.3', 55000)).closedQty)).toBe('0.1')
+    expect(str(applyFill(wallet(0, { qty: '-0.2', avg: 50000, margin: 10000 }), buy('0.05', 45000)).closedQty)).toBe('0.05')
+  })
+  it('is reported on fill and liquidation events', () => {
+    const sl = order({ id: 'SL', side: 'sell', type: 'stop_loss', price: 48000 })
+    const r1 = settleSymbol({ wallet: wallet(0, { qty: '0.1', avg: 50000 }), symbol: 'BTCUSDT', orders: [sl], candles: [candle(1, 47000, 47500, 46000)], liquidationFrom: 0 })
+    expect(str((r1.events[0] as { closedQty: Decimal }).closedQty)).toBe('0.1')
+    const r2 = settleSymbol({ wallet: wallet(10, { qty: '-0.1', avg: 50000, margin: 5000 }), symbol: 'BTCUSDT', orders: [], candles: [candle(1, 90000, 130000, 90000)], liquidationFrom: 0 })
+    expect(str((r2.events[0] as { closedQty: Decimal }).closedQty)).toBe('0.1')
+  })
+})
