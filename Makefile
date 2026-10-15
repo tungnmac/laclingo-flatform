@@ -1,7 +1,7 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 N ?= 1
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test
 
 # ========================
 # SETUP
@@ -124,3 +124,26 @@ clean:
 	rm -rf apps/backend/bin/ apps/backend/tmp/ apps/backend/build-errors.log
 	rm -rf apps/web/.next
 	@echo "🧹 Đã dọn build artifacts!"
+
+# ========================
+# TRADING WEB (apps/trading-web)
+# ========================
+trading-install:
+	cd apps/trading-web && npm install
+
+# DB đã khởi tạo từ trước thì script init không chạy lại — tạo trading_db thủ công (idempotent)
+trading-db-create:
+	@docker exec laclingo_postgres psql -U laclingo_user -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='trading_db'" | grep -q 1 \
+		|| docker exec laclingo_postgres psql -U laclingo_user -d postgres -c "CREATE DATABASE trading_db"
+
+trading-migrate:
+	cd apps/trading-web && npm run db:migrate
+
+trading-seed:
+	cd apps/trading-web && npm run db:seed
+
+trading-dev:
+	cd apps/trading-web && npm run dev
+
+trading-test:
+	cd apps/trading-web && npm test
