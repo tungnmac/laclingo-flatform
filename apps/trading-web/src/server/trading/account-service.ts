@@ -1,0 +1,204 @@
+import { and, eq, inArray } from 'drizzle-orm'
+import { db } from '../db/client'
+import { orders, positions, tradingAccounts, type AccountRow, type OrderRow } from '../db/schema'
+import { redisStore } from '../cache/redis'
+import { getQuotesCached } from '../market/cache'
+import { getProvider } from '../market/registry'
+import { D, Decimal, toApi, toDb } from './decimal'
+import { computeEquity, liquidationPrice } from './engine'
+import { walletFrom } from './mappers'
+import { settleAccount } from './settlement'
+
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+export const STARTING_BALANCE = D(10000)
+export const MARKET = 'crypto' as const
+
+/**
+ * Chạy fn trong 1 transaction, giữ khoá dòng ví đang hoạt động của user (SELECT … FOR UPDATE)
+ * → các thao tác đồng thời trên cùng ví xếp hàng, không tiêu trùng tiền. Chưa có ví → tạo 10.000 USDT.
+ */
+export async function withAccount<T>(userId: string, fn: (tx: Tx, account: AccountRow) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    const lock = () =>
+      tx
+        .select()
+        .from(tradingAccounts)
+        .where(and(eq(tradingAccounts.userId, userId), eq(tradingAccounts.isActive, true)))
+        .for('update')
+    let [account] = await lock()
+    if (!account) {
+      // ON CONFLICT DO NOTHING (không target) bắt cả unique index một phần — 2 request đầu tiên cùng lúc không lỗi
+      await tx
+        .insert(tradingAccounts)
+        .values({ userId, startingBalance: toDb(STARTING_BALANCE), cash: toDb(STARTING_BALANCE) })
+        .onConflictDoNothing()
+      ;[account] = await lock()
+    }
+    return fn(tx, account)
+  })
+}
+
+export interface PositionDto {
+  market: string
+  symbol: string
+  side: 'long' | 'short'
+  qty: string
+  avg_price: string
+  margin: string
+  mark_price: string
+  unrealized_pnl: string
+  realized_pnl: string
+  liquidation_price: string | null
+  stop_loss: string | null
+  take_profit: string | null
+}
+
+export interface OrderDto {
+  id: string
+  market: string
+  symbol: string
+  side: string
+  type: string
+  qty: string | null
+  price: string | null
+  reserved: string
+  status: string
+  oco_group: string | null
+  created_at: string
+  filled_at: string | null
+  fill_price: string | null
+  fee: string
+}
+
+export interface AccountSnapshot {
+  account: {
+    id: string
+    cash: string
+    reserved: string
+    equity: string
+    starting_balance: string
+    pnl: string
+    pnl_pct: string
+  }
+  positions: PositionDto[]
+  open_orders: OrderDto[]
+  settlement_delayed: boolean
+}
+
+export const toOrderDto = (o: OrderRow): OrderDto => ({
+  id: o.id,
+  market: o.market,
+  symbol: o.symbol,
+  side: o.side,
+  type: o.type,
+  qty: o.qty === null ? null : toApi(D(o.qty)),
+  price: o.price === null ? null : toApi(D(o.price)),
+  reserved: toApi(D(o.reserved)),
+  status: o.status,
+  oco_group: o.ocoGroup,
+  created_at: o.createdAt.toISOString(),
+  filled_at: o.filledAt?.toISOString() ?? null,
+  fill_price: o.fillPrice === null ? null : toApi(D(o.fillPrice)),
+  fee: toApi(D(o.fee)),
+})
+
+/** Giá hiện tại (server) cho các mã; lỗi nguồn giá → null (snapshot dùng giá vào làm giá tạm). */
+export async function markPrices(symbols: string[]): Promise<Record<string, Decimal> | null> {
+  if (symbols.length === 0) return {}
+  try {
+    const { quotes } = await getQuotesCached(redisStore, getProvider(MARKET), symbols)
+    return Object.fromEntries(quotes.map((q) => [q.symbol, D(q.price)]))
+  } catch {
+    return null
+  }
+}
+
+export async function snapshot(tx: Tx, account: AccountRow, settlementDelayed: boolean): Promise<AccountSnapshot> {
+  const posRows = (await tx.select().from(positions).where(eq(positions.accountId, account.id))).filter((p) => !D(p.qty).isZero())
+  const openRows = await tx
+    .select()
+    .from(orders)
+    .where(and(eq(orders.accountId, account.id), eq(orders.status, 'pending')))
+    .orderBy(orders.createdAt)
+
+  const marks = await markPrices(posRows.map((p) => p.symbol))
+  const wallet = walletFrom(account, posRows)
+  const markOf = (symbol: string, avg: Decimal) => marks?.[symbol] ?? avg
+  const reserved = openRows.reduce((sum, o) => sum.plus(D(o.reserved)), D(0))
+  const equity = computeEquity(
+    wallet,
+    reserved,
+    Object.fromEntries(posRows.map((p) => [p.symbol, markOf(p.symbol, D(p.avgPrice))])),
+  )
+  const pnl = equity.minus(D(account.startingBalance))
+  const protectionPrice = (symbol: string, type: string) => {
+    const o = openRows.find((r) => r.symbol === symbol && r.type === type)
+    return o?.price ? toApi(D(o.price)) : null
+  }
+
+  return {
+    account: {
+      id: account.id,
+      cash: toApi(D(account.cash)),
+      reserved: toApi(reserved),
+      equity: toApi(equity),
+      starting_balance: toApi(D(account.startingBalance)),
+      pnl: toApi(pnl),
+      pnl_pct: pnl.div(D(account.startingBalance)).times(100).toFixed(2),
+    },
+    positions: posRows.map((p) => {
+      const pos = wallet.positions[p.symbol]
+      const mark = markOf(p.symbol, pos.avgPrice)
+      const isLong = pos.qty.gt(0)
+      const unrealized = (isLong ? mark.minus(pos.avgPrice) : pos.avgPrice.minus(mark)).times(pos.qty.abs())
+      const liq = liquidationPrice(pos)
+      return {
+        market: p.market,
+        symbol: p.symbol,
+        side: isLong ? 'long' : 'short',
+        qty: toApi(pos.qty),
+        avg_price: toApi(pos.avgPrice),
+        margin: toApi(pos.margin),
+        mark_price: toApi(mark),
+        unrealized_pnl: toApi(unrealized),
+        realized_pnl: toApi(pos.realizedPnl),
+        liquidation_price: liq ? toApi(liq) : null,
+        stop_loss: protectionPrice(p.symbol, 'stop_loss'),
+        take_profit: protectionPrice(p.symbol, 'take_profit'),
+      }
+    }),
+    open_orders: openRows.map(toOrderDto),
+    settlement_delayed: settlementDelayed || marks === null,
+  }
+}
+
+/** Xem ví: quyết toán lệnh chờ trước, rồi dựng snapshot. */
+export function getAccountSnapshot(userId: string): Promise<AccountSnapshot> {
+  return withAccount(userId, async (tx, account) => {
+    const settled = await settleAccount(tx, account)
+    return snapshot(tx, settled.account, settled.delayed)
+  })
+}
+
+/** Reset: huỷ lệnh chờ của ví cũ, đóng ví cũ (giữ lịch sử), tạo ví mới 10.000 USDT. */
+export function resetAccount(userId: string): Promise<AccountSnapshot> {
+  return withAccount(userId, async (tx, account) => {
+    const pending = await tx
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.accountId, account.id), eq(orders.status, 'pending')))
+    if (pending.length > 0) {
+      await tx
+        .update(orders)
+        .set({ status: 'cancelled', reserved: toDb(D(0)) })
+        .where(inArray(orders.id, pending.map((o) => o.id)))
+    }
+    await tx.update(tradingAccounts).set({ isActive: false, closedAt: new Date() }).where(eq(tradingAccounts.id, account.id))
+    const [fresh] = await tx
+      .insert(tradingAccounts)
+      .values({ userId, startingBalance: toDb(STARTING_BALANCE), cash: toDb(STARTING_BALANCE) })
+      .returning()
+    return snapshot(tx, fresh, false)
+  })
+}

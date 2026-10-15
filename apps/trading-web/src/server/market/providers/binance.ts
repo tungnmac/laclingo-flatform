@@ -74,5 +74,12 @@ export function createBinanceProvider(opts: { baseUrl?: string; fetchFn?: typeof
     return (Array.isArray(data) ? (data as unknown[][]) : []).map(parseKline).filter(notNull)
   }
 
-  return { market: 'crypto', getQuotes, getCandles }
+  async function getCandlesSince(symbol: string, interval: Interval, startTimeMs: number, limit: number): Promise<Candle[]> {
+    const data = await getJson(
+      `/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&startTime=${startTimeMs}&limit=${limit}`,
+    )
+    return (Array.isArray(data) ? (data as unknown[][]) : []).map(parseKline).filter(notNull)
+  }
+
+  return { market: 'crypto', getQuotes, getCandles, getCandlesSince }
 }

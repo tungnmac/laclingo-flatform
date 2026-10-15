@@ -30,6 +30,13 @@ describe('binance provider', () => {
     await expect(createBinanceProvider({ baseUrl: 'http://b', fetchFn }).getQuotes(['BTCUSDT'])).rejects.toThrow()
   })
 
+  it('fetches candles from a start time for settlement', async () => {
+    const fetchFn = vi.fn(async (_url: string | URL | Request) => json(klines))
+    const candles = await createBinanceProvider({ baseUrl: 'http://b', fetchFn }).getCandlesSince('BTCUSDT', '1m', 1792047600000, 1000)
+    expect(candles).toHaveLength(2)
+    expect(String(fetchFn.mock.calls[0][0])).toContain('/api/v3/klines?symbol=BTCUSDT&interval=1m&startTime=1792047600000&limit=1000')
+  })
+
   it('parses klines into candles (seconds) and drops invalid rows', async () => {
     const fetchFn = vi.fn(async (_url: string | URL | Request) => json(klines))
     const candles = await createBinanceProvider({ baseUrl: 'http://b', fetchFn }).getCandles('BTCUSDT', '1h', 3)

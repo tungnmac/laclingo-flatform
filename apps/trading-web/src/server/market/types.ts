@@ -28,6 +28,8 @@ export interface MarketDataProvider {
   market: Market
   getQuotes(symbols: string[]): Promise<Quote[]>
   getCandles(symbol: string, interval: Interval, limit: number): Promise<Candle[]>
+  /** Nến từ startTimeMs trở đi (tối đa limit) — dùng cho quyết toán lệnh chờ, KHÔNG cache. */
+  getCandlesSince(symbol: string, interval: Interval, startTimeMs: number, limit: number): Promise<Candle[]>
 }
 
 export class UnsupportedMarketError extends Error {

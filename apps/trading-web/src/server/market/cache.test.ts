@@ -45,6 +45,7 @@ function provider(over: Partial<MarketDataProvider> = {}): MarketDataProvider {
     market: 'crypto',
     getQuotes: vi.fn(async (symbols: string[]) => symbols.map((s) => quote(s))),
     getCandles: vi.fn(async () => [{ time: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]),
+    getCandlesSince: vi.fn(async () => []),
     ...over,
   }
 }
