@@ -94,7 +94,7 @@ export async function getQuotesCached(
       const before = found.size
       await readInto(unresolved, staleKey)
       if (found.size > before) stale = true
-      if (found.size === 0) throw new MarketUnavailableError('Không lấy được giá thị trường, vui lòng thử lại')
+      if (found.size === 0) throw new MarketUnavailableError('MARKET_UNAVAILABLE')
     }
   }
 
@@ -140,6 +140,6 @@ export async function getCandlesCached(
     console.warn('⚠️ market provider:', (err as Error).message)
     const old = parse<Candle[]>(await safe(() => store.get(staleKey), null))
     if (old) return { candles: old, stale: true }
-    throw new MarketUnavailableError('Không lấy được dữ liệu biểu đồ, vui lòng thử lại')
+    throw new MarketUnavailableError('CHART_UNAVAILABLE')
   }
 }

@@ -6,7 +6,7 @@ import { listActiveInstruments } from '@/server/market/instruments'
 import { MARKETS } from '@/server/market/types'
 
 export const dynamic = 'force-dynamic'
-const query = z.object({ market: z.enum(MARKETS, 'Thị trường không hợp lệ').default('crypto') })
+const query = z.object({ market: z.enum(MARKETS, 'INVALID_MARKET').default('crypto') })
 
 export const GET = handleRoute(async (req: Request) => {
   await requireUser()

@@ -1,14 +1,16 @@
 import { z } from 'zod'
 
-const email = z.string().trim().toLowerCase().email('Email không hợp lệ').max(255, 'Email quá dài')
+// Message = MÃ LỖI (errors.* trong từ điển) — handleRoute trả nguyên mã, client tự dịch.
+
+const email = z.string('INVALID_EMAIL').trim().toLowerCase().email('INVALID_EMAIL').max(255, 'EMAIL_TOO_LONG')
 
 export const registerSchema = z.object({
   email,
-  password: z.string().min(8, 'Mật khẩu tối thiểu 8 ký tự').max(72, 'Mật khẩu tối đa 72 ký tự'),
-  display_name: z.string().trim().min(1, 'Vui lòng nhập tên hiển thị').max(100, 'Tên tối đa 100 ký tự'),
+  password: z.string('PASSWORD_TOO_SHORT').min(8, 'PASSWORD_TOO_SHORT').max(72, 'PASSWORD_TOO_LONG'),
+  display_name: z.string('NAME_REQUIRED').trim().min(1, 'NAME_REQUIRED').max(100, 'NAME_TOO_LONG'),
 })
 
 export const loginSchema = z.object({
   email,
-  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
+  password: z.string('PASSWORD_REQUIRED').min(1, 'PASSWORD_REQUIRED'),
 })

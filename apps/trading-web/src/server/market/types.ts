@@ -30,5 +30,15 @@ export interface MarketDataProvider {
   getCandles(symbol: string, interval: Interval, limit: number): Promise<Candle[]>
 }
 
-export class UnsupportedMarketError extends Error {}
-export class MarketUnavailableError extends Error {}
+export class UnsupportedMarketError extends Error {
+  constructor(public market: string) {
+    super(`Market "${market}" is not supported`)
+  }
+}
+
+/** Nguồn giá lỗi và không có bản cũ — code là mã lỗi API (MARKET_UNAVAILABLE | CHART_UNAVAILABLE). */
+export class MarketUnavailableError extends Error {
+  constructor(public code: 'MARKET_UNAVAILABLE' | 'CHART_UNAVAILABLE') {
+    super(code)
+  }
+}

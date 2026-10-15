@@ -12,7 +12,7 @@ export const POST = handleRoute(async (req: Request) => {
   const body = loginSchema.parse(await readJson(req))
   const [user] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
   const ok = await verifyPassword(body.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
-  if (!user || !ok) throw new HttpError(401, 'Email hoặc mật khẩu không đúng')
+  if (!user || !ok) throw new HttpError(401, 'INVALID_CREDENTIALS')
 
   const res = NextResponse.json(toSessionUser(user))
   res.cookies.set(SESSION_COOKIE, await signSession(user.id), sessionCookieOptions())

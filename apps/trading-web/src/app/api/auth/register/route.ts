@@ -11,7 +11,7 @@ import { handleRoute, HttpError, isUniqueViolation, readJson } from '@/server/ht
 export const POST = handleRoute(async (req: Request) => {
   const body = registerSchema.parse(await readJson(req))
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1)
-  if (existing) throw new HttpError(409, 'Email đã được sử dụng')
+  if (existing) throw new HttpError(409, 'EMAIL_TAKEN')
 
   let user
   try {
@@ -20,7 +20,7 @@ export const POST = handleRoute(async (req: Request) => {
       .values({ email: body.email, passwordHash: await hashPassword(body.password), displayName: body.display_name })
       .returning()
   } catch (err) {
-    if (isUniqueViolation(err)) throw new HttpError(409, 'Email đã được sử dụng') // 2 request đăng ký cùng lúc
+    if (isUniqueViolation(err)) throw new HttpError(409, 'EMAIL_TAKEN') // 2 request đăng ký cùng lúc
     throw err
   }
 

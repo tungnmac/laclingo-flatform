@@ -19,6 +19,6 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser()
-  if (!user) throw new HttpError(401, 'Chưa đăng nhập')
+  if (!user) throw new HttpError(401, 'UNAUTHORIZED')
   return user
 }
