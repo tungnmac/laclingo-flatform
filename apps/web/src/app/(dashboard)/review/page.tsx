@@ -57,6 +57,13 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
           <ButtonLink href={vocabularyHref} className="w-full">
             {t.review.reviewNowBtn}
           </ButtonLink>
+          <ButtonLink
+            href={language ? `/review/srs-words?language=${encodeURIComponent(language)}` : '/review/srs-words'}
+            variant="ghost"
+            className="w-full"
+          >
+            {t.review.srsWordsBtn}
+          </ButtonLink>
         </Card>
 
         <Card className="flex flex-col gap-3">

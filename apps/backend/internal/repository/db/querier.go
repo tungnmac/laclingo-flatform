@@ -167,6 +167,7 @@ type Querier interface {
 	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
 	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
 	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
+	// Sắp đến hạn ôn trước (thời gian còn lại thấp → cao); từ chưa vào SRS xuống cuối
 	ListDeckVocabularies(ctx context.Context, arg ListDeckVocabulariesParams) ([]ListDeckVocabulariesRow, error)
 	// Danh sách ôn tập do user tự quản lý (bảng user_decks/deck_vocabularies có
 	// từ migration 000003). Mọi query đều lọc theo user_id — user chỉ thấy/sửa
@@ -213,6 +214,10 @@ type Querier interface {
 	// Trả về class_id user đã ghi danh, lọc theo ngôn ngữ — dùng đánh dấu "enrolled" khi liệt kê lớp.
 	ListMyEnrollmentsByLanguage(ctx context.Context, arg ListMyEnrollmentsByLanguageParams) ([]pgtype.UUID, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
+	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
+	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
+	// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
+	ListReviewVocabulariesForUser(ctx context.Context, arg ListReviewVocabulariesForUserParams) ([]ListReviewVocabulariesForUserRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).

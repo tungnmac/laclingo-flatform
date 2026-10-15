@@ -75,4 +75,5 @@ JOIN user_decks d ON d.id = dv.deck_id
 JOIN vocabularies v ON v.id = dv.vocabulary_id
 LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = d.user_id
 WHERE d.id = sqlc.arg('deck_id') AND d.user_id = sqlc.arg('user_id')
-ORDER BY dv.added_at DESC;
+-- Sắp đến hạn ôn trước (thời gian còn lại thấp → cao); từ chưa vào SRS xuống cuối
+ORDER BY r.next_review_at ASC NULLS LAST, v.term;

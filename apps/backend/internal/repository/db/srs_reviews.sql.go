@@ -375,6 +375,97 @@ func (q *Queries) ListNewVocabulariesForUser(ctx context.Context, arg ListNewVoc
 	return items, nil
 }
 
+const listReviewVocabulariesForUser = `-- name: ListReviewVocabulariesForUser :many
+SELECT
+    v.id AS vocabulary_id,
+    v.language_id,
+    v.term,
+    v.phonetic,
+    v.meaning,
+    v.topic,
+    v.level,
+    v.image_url,
+    v.image_emoji,
+    r.practice_count,
+    r.srs_stage,
+    r.interval_days,
+    r.next_review_at,
+    COUNT(*) OVER() AS total_count
+FROM user_vocabulary_reviews r
+JOIN vocabularies v ON v.id = r.vocabulary_id
+WHERE r.user_id = $1
+  AND ($2::varchar IS NULL OR v.language_id = $2)
+ORDER BY r.next_review_at ASC, v.term
+LIMIT $4 OFFSET $3
+`
+
+type ListReviewVocabulariesForUserParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID pgtype.Text `json:"language_id"`
+	Offset     int32       `json:"offset"`
+	Limit      int32       `json:"limit"`
+}
+
+type ListReviewVocabulariesForUserRow struct {
+	VocabularyID  pgtype.UUID        `json:"vocabulary_id"`
+	LanguageID    string             `json:"language_id"`
+	Term          string             `json:"term"`
+	Phonetic      pgtype.Text        `json:"phonetic"`
+	Meaning       string             `json:"meaning"`
+	Topic         pgtype.Text        `json:"topic"`
+	Level         pgtype.Text        `json:"level"`
+	ImageUrl      pgtype.Text        `json:"image_url"`
+	ImageEmoji    pgtype.Text        `json:"image_emoji"`
+	PracticeCount int32              `json:"practice_count"`
+	SrsStage      pgtype.Int4        `json:"srs_stage"`
+	IntervalDays  pgtype.Int4        `json:"interval_days"`
+	NextReviewAt  pgtype.Timestamptz `json:"next_review_at"`
+	TotalCount    int64              `json:"total_count"`
+}
+
+// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
+// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
+// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
+func (q *Queries) ListReviewVocabulariesForUser(ctx context.Context, arg ListReviewVocabulariesForUserParams) ([]ListReviewVocabulariesForUserRow, error) {
+	rows, err := q.db.Query(ctx, listReviewVocabulariesForUser,
+		arg.UserID,
+		arg.LanguageID,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReviewVocabulariesForUserRow
+	for rows.Next() {
+		var i ListReviewVocabulariesForUserRow
+		if err := rows.Scan(
+			&i.VocabularyID,
+			&i.LanguageID,
+			&i.Term,
+			&i.Phonetic,
+			&i.Meaning,
+			&i.Topic,
+			&i.Level,
+			&i.ImageUrl,
+			&i.ImageEmoji,
+			&i.PracticeCount,
+			&i.SrsStage,
+			&i.IntervalDays,
+			&i.NextReviewAt,
+			&i.TotalCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const practiceVocabularyReview = `-- name: PracticeVocabularyReview :one
 UPDATE user_vocabulary_reviews
 SET srs_stage = $3,
