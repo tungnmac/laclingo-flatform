@@ -3,7 +3,11 @@
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import type { ChartLine } from '@/components/CandleChart'
 import { ChangeBadge } from '@/components/ChangeBadge'
+import { OrderPanel } from '@/components/trading/OrderPanel'
+import { SymbolPositionCard } from '@/components/trading/SymbolPositionCard'
+import { useAccount } from '@/hooks/useAccount'
 import { usePolling } from '@/hooks/usePolling'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
@@ -22,6 +26,7 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
   const [stale, setStale] = useState(false)
   // setInterval_ (không phải setInterval) để không che hàm global setInterval
   const [interval, setInterval_] = useState<Interval>('1h')
+  const account = useAccount()
 
   useEffect(() => {
     api<InstrumentDto[]>('/api/market/instruments?market=crypto')
@@ -43,6 +48,16 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
     3000,
     [instrument, symbol],
   )
+
+  const position = account.data?.positions.find((p) => p.symbol === symbol)
+  const chartLines: ChartLine[] = position
+    ? [
+        { price: Number(position.avg_price), color: '#64748b', title: t('chart.entry') },
+        ...(position.stop_loss ? [{ price: Number(position.stop_loss), color: '#ef4444', title: t('chart.stopLoss') }] : []),
+        ...(position.take_profit ? [{ price: Number(position.take_profit), color: '#10b981', title: t('chart.takeProfit') }] : []),
+        ...(position.liquidation_price ? [{ price: Number(position.liquidation_price), color: '#f59e0b', title: t('chart.liquidation') }] : []),
+      ]
+    : []
 
   if (instrument === undefined) return <p className="py-10 text-center text-slate-400">{t('common.loading')}</p>
   if (instrument === null)
@@ -84,15 +99,10 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
           )}
           {stale && <p className="mt-1 text-xs text-amber-700">{t('markets.staleShort')}</p>}
         </div>
-        <button
-          disabled
-          title="Sắp ra mắt"
-          className="cursor-not-allowed rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white opacity-50"
-        >
-          Đặt lệnh · Sắp ra mắt
-        </button>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-4">
       <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
         <div className="mb-2 flex gap-1">
           {INTERVALS.map((iv) => (
@@ -106,7 +116,19 @@ export default function InstrumentPage({ params }: { params: { symbol: string } 
             </button>
           ))}
         </div>
-        <CandleChart symbol={symbol} interval={interval} livePrice={quote?.price ?? null} />
+        <CandleChart symbol={symbol} interval={interval} livePrice={quote?.price ?? null} lines={chartLines} />
+      </div>
+          <SymbolPositionCard symbol={symbol} base={instrument.base} account={account.data} onChanged={account.reload} />
+        </div>
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          <OrderPanel
+            symbol={symbol}
+            base={instrument.base}
+            markPrice={quote?.price ?? null}
+            account={account.data}
+            onPlaced={account.reload}
+          />
+        </div>
       </div>
     </div>
   )

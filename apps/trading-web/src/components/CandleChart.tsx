@@ -6,6 +6,7 @@ import {
   createChart,
   HistogramSeries,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type UTCTimestamp,
 } from 'lightweight-charts'
@@ -21,7 +22,23 @@ const toBar = (c: Candle) => ({ time: c.time as UTCTimestamp, open: c.open, high
 const toVolume = (c: Candle) => ({ time: c.time as UTCTimestamp, value: c.volume, color: c.close >= c.open ? `${UP}66` : `${DOWN}66` })
 
 /** Nến + khối lượng; tải lại nến mỗi 60 s, nến cuối cập nhật theo livePrice (poll giá 3 s ở trang cha). */
-export function CandleChart({ symbol, interval, livePrice }: { symbol: string; interval: Interval; livePrice: number | null }) {
+export interface ChartLine {
+  price: number
+  color: string
+  title: string
+}
+
+export function CandleChart({
+  symbol,
+  interval,
+  livePrice,
+  lines = [],
+}: {
+  symbol: string
+  interval: Interval
+  livePrice: number | null
+  lines?: ChartLine[]
+}) {
   const { t } = useT()
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<{ chart: IChartApi; candles: ISeriesApi<'Candlestick'>; volume: ISeriesApi<'Histogram'> } | null>(null)
@@ -84,6 +101,17 @@ export function CandleChart({ symbol, interval, livePrice }: { symbol: string; i
       clearInterval(timer)
     }
   }, [symbol, interval, retry])
+
+  // Đường giá vào / SL / TP / thanh lý của vị thế — vẽ lại khi thay đổi (so theo nội dung, không theo tham chiếu mảng)
+  const linesKey = JSON.stringify(lines)
+  useEffect(() => {
+    const series = chartRef.current?.candles
+    if (!series) return
+    const created: IPriceLine[] = (JSON.parse(linesKey) as ChartLine[]).map((l) =>
+      series.createPriceLine({ price: l.price, color: l.color, title: l.title, lineWidth: 1, lineStyle: 2, axisLabelVisible: true }),
+    )
+    return () => created.forEach((line) => series.removePriceLine(line))
+  }, [linesKey])
 
   useEffect(() => {
     const last = lastCandle.current
