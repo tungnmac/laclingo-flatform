@@ -15,6 +15,9 @@ type Querier interface {
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
+	// Chỉ thêm khi list thuộc user — 0 dòng = list không tồn tại/không phải của user
+	// HOẶC từ đã có sẵn trong list (service phân biệt bằng GetDeckForUser trước).
+	AddVocabularyToDeck(ctx context.Context, arg AddVocabularyToDeckParams) (int64, error)
 	// Gắn các ảnh (do đúng author upload, CHƯA gắn bài nào) vào bài vừa lưu —
 	// ảnh KHÔNG thuộc danh sách này (đã bị xoá khỏi content khi sửa bài) vẫn
 	// giữ nguyên post_id cũ, chấp nhận trở thành rác mồ côi trên R2 (không có
@@ -44,6 +47,7 @@ type Querier interface {
 	CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error)
 	// ===== Admin CRUD =====
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
+	CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDeck, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
 	CreateGrammarExercise(ctx context.Context, arg CreateGrammarExerciseParams) (GrammarExercise, error)
 	CreateGrammarLesson(ctx context.Context, arg CreateGrammarLessonParams) (GrammarLesson, error)
@@ -67,6 +71,7 @@ type Querier interface {
 	DeleteClass(ctx context.Context, id pgtype.UUID) error
 	// Dùng trong ReplaceClassLessons (xoá hết rồi insert lại theo thứ tự mảng mới).
 	DeleteClassLessons(ctx context.Context, classID pgtype.UUID) error
+	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
 	DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error
@@ -89,6 +94,10 @@ type Querier interface {
 	// Bản đầy đủ cho trang chi tiết: thông tin tác giả + count/flag theo user hiện tại.
 	GetBlogPostDetailByID(ctx context.Context, arg GetBlogPostDetailByIDParams) (GetBlogPostDetailByIDRow, error)
 	GetClassByID(ctx context.Context, id pgtype.UUID) (Class, error)
+	GetDeckForUser(ctx context.Context, arg GetDeckForUserParams) (UserDeck, error)
+	// "Học lại" 1 danh sách ôn tập: MỌI từ trong list (không chỉ từ đến hạn), từ
+	// sắp đến hạn trước. Cột giữ y hệt GetDueVocabulariesForUser — service dùng chung.
+	GetDeckVocabulariesForPractice(ctx context.Context, arg GetDeckVocabulariesForPracticeParams) ([]GetDeckVocabulariesForPracticeRow, error)
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
@@ -116,6 +125,9 @@ type Querier interface {
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogPost(ctx context.Context, id pgtype.UUID) error
 	IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID) error
+	// Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
+	// lịch SM-2 — luyện sớm không được đẩy interval lên.
+	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
@@ -155,6 +167,13 @@ type Querier interface {
 	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
 	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
 	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
+	ListDeckVocabularies(ctx context.Context, arg ListDeckVocabulariesParams) ([]ListDeckVocabulariesRow, error)
+	// Danh sách ôn tập do user tự quản lý (bảng user_decks/deck_vocabularies có
+	// từ migration 000003). Mọi query đều lọc theo user_id — user chỉ thấy/sửa
+	// list của chính mình.
+	// contains_vocabulary: list có chứa vocabulary_id truyền vào không (dùng cho hộp
+	// "Thêm vào ôn tập"); truyền NULL thì luôn FALSE.
+	ListDecksForUser(ctx context.Context, arg ListDecksForUserParams) ([]ListDecksForUserRow, error)
 	// language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
 	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
@@ -184,6 +203,10 @@ type Querier interface {
 	// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
 	ListListeningTopics(ctx context.Context, languageID string) ([]ListListeningTopicsRow, error)
 	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error)
+	// 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
+	// chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
+	// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
+	ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]ListMeaningDistractorsForVocabulariesRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)
@@ -220,6 +243,11 @@ type Querier interface {
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
+	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
+	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
+	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
+	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	// ===== 4 counter độc lập (bài viết) =====
 	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -242,6 +270,7 @@ type Querier interface {
 	UpdateBlogPost(ctx context.Context, arg UpdateBlogPostParams) (BlogPost, error)
 	UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error)
 	UpdateClass(ctx context.Context, arg UpdateClassParams) (Class, error)
+	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)
 	UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error)
 	UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error)
 	UpdateGrammarTopic(ctx context.Context, arg UpdateGrammarTopicParams) (GrammarTopic, error)

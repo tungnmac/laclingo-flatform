@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
@@ -34,9 +34,21 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
+/**
+ * Pathname dùng để tô mục nav đang active. Các trang từ vựng (học theo chủ đề,
+ * ôn SRS, yêu thích) nằm dưới /review nhưng khi vào từ trang Học/{ngôn ngữ}
+ * sẽ mang ?scope=learn (xem review/new/page.tsx) — lúc đó vẫn thuộc mục Học.
+ */
+function useNavPathname() {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  if (searchParams.get('scope') === 'learn' && isActive(pathname, '/review')) return '/learn'
+  return pathname
+}
+
 /** Sidebar cho màn hình md+ */
 export function Sidebar({ user }: { user: User }) {
-  const pathname = usePathname()
+  const pathname = useNavPathname()
   const router = useRouter()
   const logout = useSession((s) => s.logout)
   const t = useTranslation()
@@ -117,7 +129,7 @@ export function MobileHeader({ user }: { user: User }) {
 
 /** Thanh điều hướng cố định dưới cùng cho mobile */
 export function BottomNav() {
-  const pathname = usePathname()
+  const pathname = useNavPathname()
   const t = useTranslation()
   return (
     <nav className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white md:hidden">

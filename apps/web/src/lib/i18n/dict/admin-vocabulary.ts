@@ -38,7 +38,16 @@ export interface AdminVocabularyDict {
     phoneticLabel: string
     meaningLabel: string
     exampleLabel: string
+    exampleMeaningLabel: string
     illustrationEmojiLabel: string
+    illustrationImageLabel: string
+    illustrationImageHint: string
+    uploadImageBtn: string
+    changeImageBtn: string
+    uploadingImage: string
+    removeImageBtn: string
+    imageTooLarge: string
+    noTopicOption: string
     emptyWords: string
     deleteWordConfirm: (term: string) => string
   }
@@ -84,7 +93,16 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       phoneticLabel: 'Phiên âm',
       meaningLabel: 'Nghĩa',
       exampleLabel: 'Ví dụ',
+      exampleMeaningLabel: 'Nghĩa của câu ví dụ',
       illustrationEmojiLabel: 'Emoji minh họa',
+      illustrationImageLabel: 'Ảnh minh họa',
+      illustrationImageHint: 'JPG/PNG/WEBP/GIF, tối đa 5MB — có ảnh thì hiển thị thay emoji.',
+      uploadImageBtn: '📤 Tải ảnh lên',
+      changeImageBtn: 'Đổi ảnh',
+      uploadingImage: 'Đang tải ảnh...',
+      removeImageBtn: 'Bỏ ảnh',
+      imageTooLarge: 'Ảnh quá lớn (tối đa 5MB).',
+      noTopicOption: '— Không chủ đề —',
       emptyWords: 'Chưa có từ vựng nào',
       deleteWordConfirm: (term) => `Xoá từ "${term}"?`,
     },
@@ -128,7 +146,16 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       phoneticLabel: 'Phonetic',
       meaningLabel: 'Meaning',
       exampleLabel: 'Example',
+      exampleMeaningLabel: 'Example translation (Vietnamese)',
       illustrationEmojiLabel: 'Illustration emoji',
+      illustrationImageLabel: 'Illustration image',
+      illustrationImageHint: 'JPG/PNG/WEBP/GIF, max 5MB — shown instead of the emoji when set.',
+      uploadImageBtn: '📤 Upload image',
+      changeImageBtn: 'Change image',
+      uploadingImage: 'Uploading...',
+      removeImageBtn: 'Remove image',
+      imageTooLarge: 'Image is too large (max 5MB).',
+      noTopicOption: '— No topic —',
       emptyWords: 'No vocabulary yet',
       deleteWordConfirm: (term) => `Delete word "${term}"?`,
     },

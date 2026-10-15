@@ -33,7 +33,7 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
         description={currentLanguage ? t.review.pageDescWithLang(currentLanguage.name) : t.review.pageDescNoLang}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="flex flex-col gap-3">
           <div className="flex items-start justify-between gap-2">
             <span className="text-4xl">🧠</span>
@@ -78,6 +78,17 @@ export default function ReviewHubPage({ searchParams }: { searchParams: { langua
           </div>
           <ButtonLink href={grammarHref} variant="secondary" className="w-full">
             {t.review.chooseLessonBtn}
+          </ButtonLink>
+        </Card>
+
+        <Card className="flex flex-col gap-3">
+          <span className="text-4xl">📋</span>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold text-slate-900">{t.decks.pageTitle}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t.decks.hubDesc}</p>
+          </div>
+          <ButtonLink href="/review/lists" variant="secondary" className="w-full">
+            {t.decks.manageBtn}
           </ButtonLink>
         </Card>
 

@@ -3,6 +3,8 @@ import type {
   DueVocabulary,
   LearnVocabularyResponse,
   NewVocabulary,
+  VocabularyPracticeRequest,
+  VocabularyPracticeResponse,
   VocabularyReviewRequest,
   VocabularyReviewResponse,
 } from '@/types/api'
@@ -10,8 +12,18 @@ import type {
 // User được xác định qua access token — không cần truyền user_id
 export const srsService = {
   // language không truyền thì lấy đến hạn ở MỌI ngôn ngữ (hành vi mặc định)
-  getDue: (limit = 20, language?: string) =>
-    apiFetch<DueVocabulary[]>(`/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
+  // deck: "học lại" 1 danh sách ôn tập — trả MỌI từ trong list (bỏ qua language)
+  getDue: (limit = 20, language?: string, deck?: string) =>
+    apiFetch<DueVocabulary[]>(
+      `/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}${deck ? `&deck=${encodeURIComponent(deck)}` : ''}`,
+    ),
+
+  // Hoàn thành bộ bài luyện tập của 1 từ: backend tự chấm SM-2 theo số lỗi và +1 practice_count
+  practice: (body: VocabularyPracticeRequest) =>
+    apiFetch<VocabularyPracticeResponse>('/srs/practice', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   review: (body: VocabularyReviewRequest) =>
     apiFetch<VocabularyReviewResponse>('/srs/reviews', {

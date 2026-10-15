@@ -28,3 +28,15 @@ type LearnVocabularyResponse struct {
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid"`
 	Learned      bool      `json:"learned" example:"true"`
 }
+
+// VocabularyPracticeRequest — hoàn thành bộ bài luyện tập của 1 từ khi ôn tập
+type VocabularyPracticeRequest struct {
+	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid" example:"22222222-2222-2222-2222-222222222222"`
+	Mistakes     int32     `json:"mistakes" minimum:"0" example:"1"` // tổng số lần trả lời sai trong các bài
+}
+
+type VocabularyPracticeResponse struct {
+	VocabularyReviewResponse
+	Quality       int32 `json:"quality" example:"4"` // điểm SM-2 (0 -> 5) đã chấm theo số lỗi
+	PracticeCount int32 `json:"practice_count" example:"3"`
+}

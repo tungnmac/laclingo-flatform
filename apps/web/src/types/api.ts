@@ -80,6 +80,13 @@ export interface DueVocabulary {
   audio_url: string
   srs_stage: number
   next_review_at: string
+  // Dữ liệu cho bài luyện tập khi ôn (chọn nghĩa / ghép câu / ghép nghĩa câu / nghe-viết)
+  example: string
+  example_meaning: string
+  image_emoji: string
+  image_url: string
+  practice_count: number
+  choices: string[] // nghĩa đúng + tối đa 3 nghĩa nhiễu, đã xáo trộn
 }
 
 // user được backend lấy từ access token, không gửi trong body
@@ -174,6 +181,16 @@ export interface VocabularyReviewResponse {
   new_stage: number
   interval_days: number
   next_review_at: string
+}
+
+export interface VocabularyPracticeRequest {
+  vocabulary_id: string
+  mistakes: number // tổng số lần trả lời sai trong các bài luyện tập
+}
+
+export interface VocabularyPracticeResponse extends VocabularyReviewResponse {
+  quality: number // điểm SM-2 (0 -> 5) backend đã chấm theo số lỗi
+  practice_count: number
 }
 
 export interface ErrorResponse {
@@ -574,6 +591,7 @@ export interface VocabularyRequest {
   phonetic?: string
   meaning: string
   example?: string
+  example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
   level: string
   audio_url?: string
@@ -588,6 +606,7 @@ export interface VocabularyAdmin {
   phonetic?: string
   meaning: string
   example?: string
+  example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
   level: string
   audio_url?: string
@@ -780,4 +799,44 @@ export interface BlogCommentToggleResponse {
   comment_id: string
   on: boolean
   count: number
+}
+
+// --- Danh sách ôn tập (deck) do user tự quản lý ---
+
+export interface DeckRequest {
+  name: string
+  description?: string
+  color?: string // #rrggbb
+  icon?: string
+}
+
+export interface DeckSummary {
+  id: string
+  name: string
+  description: string
+  color: string
+  icon: string
+  word_count: number
+  due_count: number
+  contains_vocabulary: boolean // list có chứa từ được hỏi (?vocabulary_id=) không
+  created_at: string
+}
+
+export interface DeckWord {
+  vocabulary_id: string
+  language_id: string
+  term: string
+  phonetic: string
+  meaning: string
+  topic: string
+  level: string
+  image_url: string
+  image_emoji: string
+  practice_count: number
+  next_review_at?: string
+  added_at: string
+}
+
+export interface DeckDetail extends DeckSummary {
+  words: DeckWord[]
 }

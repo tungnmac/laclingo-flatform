@@ -3,14 +3,15 @@
 import { useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { Card } from '@/components/ui/Card'
+import { AddToDeckDialog } from '@/features/deck/components/AddToDeckDialog'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
-import { srsService } from '@/features/srs-review/srs.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
 
-type Action = 'like' | 'favorite' | 'review'
+type Action = 'like' | 'favorite'
 
 /**
  * Thẻ một từ vựng: ảnh/emoji minh họa, phát âm, nghĩa, câu mẫu và các nút
@@ -55,11 +56,8 @@ export function WordCard({
       return { favorited: res.favorited }
     })
 
-  const addToReview = () =>
-    run('review', async () => {
-      await srsService.learn(word.vocabulary_id)
-      return { in_review: true }
-    })
+  // "Thêm vào ôn tập" mở hộp chọn danh sách ôn tập (thêm vào list = vào hàng đợi SRS)
+  const [deckDialogOpen, setDeckDialogOpen] = useState(false)
 
   return (
     <Card className={cn('flex w-full flex-col items-center gap-3 text-center', compact ? 'py-6' : 'py-8')}>
@@ -72,7 +70,7 @@ export function WordCard({
 
       {word.image_url ? (
         <img
-          src={word.image_url}
+          src={resolveMediaUrl(word.image_url)}
           alt={word.term}
           className={cn('rounded-2xl object-cover', compact ? 'h-20 w-20' : 'h-36 w-36')}
         />
@@ -124,22 +122,39 @@ export function WordCard({
           {word.favorited ? t.vocabCard.favoritedLabel : t.vocabCard.favoriteLabel}
         </button>
         {word.in_review ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
-            {t.vocabCard.inReviewLabel}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              {t.vocabCard.inReviewLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDeckDialogOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-inset ring-slate-300 transition hover:bg-slate-50"
+            >
+              {t.decks.inReviewManageBtn}
+            </button>
+          </>
         ) : (
           <button
             type="button"
-            onClick={addToReview}
-            disabled={pending !== null}
-            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+            onClick={() => setDeckDialogOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
           >
-            {pending === 'review' ? t.vocabCard.addingToReview : t.vocabCard.addToReview}
+            {t.vocabCard.addToReview}
           </button>
         )}
       </div>
 
       {error && <p className="text-sm text-rose-600">{error}</p>}
+
+      {deckDialogOpen && (
+        <AddToDeckDialog
+          vocabularyId={word.vocabulary_id}
+          term={word.term}
+          onClose={() => setDeckDialogOpen(false)}
+          onAdded={() => !word.in_review && onChange({ in_review: true })}
+        />
+      )}
     </Card>
   )
 }

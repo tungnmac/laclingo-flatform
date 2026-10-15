@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"laclingo-backend/internal/repository/db"
+	"laclingo-backend/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -84,10 +85,11 @@ type FavoriteResponse struct {
 
 type VocabularyService struct {
 	repo VocabularyRepository
+	r2   *storage.R2Client // nil = R2 chưa cấu hình, upload ảnh minh hoạ tắt
 }
 
-func NewVocabularyService(repo VocabularyRepository) *VocabularyService {
-	return &VocabularyService{repo: repo}
+func NewVocabularyService(repo VocabularyRepository, r2 *storage.R2Client) *VocabularyService {
+	return &VocabularyService{repo: repo, r2: r2}
 }
 
 // ListTopics trả về các chủ đề CẤP CAO NHẤT của 1 ngôn ngữ (mặc định en) kèm
@@ -337,33 +339,36 @@ type VocabularyRequest struct {
 	Phonetic   string `json:"phonetic,omitempty"`
 	Meaning    string `json:"meaning"`
 	Example    string `json:"example,omitempty"`
-	Topic      string `json:"topic,omitempty"`
-	Level      string `json:"level" example:"A1"`
-	AudioURL   string `json:"audio_url,omitempty"`
-	ImageURL   string `json:"image_url,omitempty"`
-	ImageEmoji string `json:"image_emoji,omitempty"`
+	// ExampleMeaning — nghĩa tiếng Việt của câu ví dụ (bài ghép nghĩa câu khi ôn tập)
+	ExampleMeaning string `json:"example_meaning,omitempty"`
+	Topic          string `json:"topic,omitempty"`
+	Level          string `json:"level" example:"A1"`
+	AudioURL       string `json:"audio_url,omitempty"`
+	ImageURL       string `json:"image_url,omitempty"`
+	ImageEmoji     string `json:"image_emoji,omitempty"`
 }
 
 // VocabularyAdminResponse — từ vựng nhìn từ admin (không kèm like/favorite/in_review của user nào cả)
 type VocabularyAdminResponse struct {
-	ID         uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
-	LanguageID string    `json:"language_id"`
-	Term       string    `json:"term"`
-	Phonetic   string    `json:"phonetic,omitempty"`
-	Meaning    string    `json:"meaning"`
-	Example    string    `json:"example,omitempty"`
-	Topic      string    `json:"topic,omitempty"`
-	Level      string    `json:"level"`
-	AudioURL   string    `json:"audio_url,omitempty"`
-	ImageURL   string    `json:"image_url,omitempty"`
-	ImageEmoji string    `json:"image_emoji,omitempty"`
+	ID             uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	LanguageID     string    `json:"language_id"`
+	Term           string    `json:"term"`
+	Phonetic       string    `json:"phonetic,omitempty"`
+	Meaning        string    `json:"meaning"`
+	Example        string    `json:"example,omitempty"`
+	ExampleMeaning string    `json:"example_meaning,omitempty"`
+	Topic          string    `json:"topic,omitempty"`
+	Level          string    `json:"level"`
+	AudioURL       string    `json:"audio_url,omitempty"`
+	ImageURL       string    `json:"image_url,omitempty"`
+	ImageEmoji     string    `json:"image_emoji,omitempty"`
 }
 
 type VocabularyTopicRequest struct {
-	LanguageID string  `json:"language_id" example:"en"`
-	Name       string  `json:"name" example:"Công nghệ thông tin"`
-	Icon       string  `json:"icon" example:"🍜"`
-	OrderIndex int32   `json:"order_index"`
+	LanguageID string `json:"language_id" example:"en"`
+	Name       string `json:"name" example:"Công nghệ thông tin"`
+	Icon       string `json:"icon" example:"🍜"`
+	OrderIndex int32  `json:"order_index"`
 	// ParentName — chủ đề cha (vd "Công việc & Nghề nghiệp"), để trống/null =
 	// chủ đề cấp cao nhất. Chủ đề cha phải là chủ đề cấp cao nhất và chưa có
 	// con nào khác lồng trên nó — không lồng quá 2 cấp (xem CreateOrUpdateTopic).
@@ -388,17 +393,18 @@ func toVocabularyTopicAdminResponse(t db.VocabularyTopic) VocabularyTopicAdminRe
 
 func toVocabularyAdminResponse(v db.Vocabulary) VocabularyAdminResponse {
 	return VocabularyAdminResponse{
-		ID:         uuid.UUID(v.ID.Bytes),
-		LanguageID: v.LanguageID,
-		Term:       v.Term,
-		Phonetic:   v.Phonetic.String,
-		Meaning:    v.Meaning,
-		Example:    v.Example.String,
-		Topic:      v.Topic.String,
-		Level:      v.Level.String,
-		AudioURL:   v.AudioUrl.String,
-		ImageURL:   v.ImageUrl.String,
-		ImageEmoji: v.ImageEmoji.String,
+		ID:             uuid.UUID(v.ID.Bytes),
+		LanguageID:     v.LanguageID,
+		Term:           v.Term,
+		Phonetic:       v.Phonetic.String,
+		Meaning:        v.Meaning,
+		Example:        v.Example.String,
+		ExampleMeaning: v.ExampleMeaning.String,
+		Topic:          v.Topic.String,
+		Level:          v.Level.String,
+		AudioURL:       v.AudioUrl.String,
+		ImageURL:       v.ImageUrl.String,
+		ImageEmoji:     v.ImageEmoji.String,
 	}
 }
 
@@ -408,16 +414,17 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 		return VocabularyAdminResponse{}, ErrInvalidInput
 	}
 	v, err := s.repo.CreateVocabulary(ctx, db.CreateVocabularyParams{
-		LanguageID: req.LanguageID,
-		Term:       req.Term,
-		Phonetic:   pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
-		Meaning:    req.Meaning,
-		Example:    pgtype.Text{String: req.Example, Valid: req.Example != ""},
-		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
-		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
-		AudioUrl:   pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
-		ImageUrl:   pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
-		ImageEmoji: pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
+		LanguageID:     req.LanguageID,
+		Term:           req.Term,
+		Phonetic:       pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
+		Meaning:        req.Meaning,
+		Example:        pgtype.Text{String: req.Example, Valid: req.Example != ""},
+		ExampleMeaning: pgtype.Text{String: req.ExampleMeaning, Valid: req.ExampleMeaning != ""},
+		Topic:          pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:          pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		AudioUrl:       pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
+		ImageUrl:       pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
+		ImageEmoji:     pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
 	})
 	if isPgError(err, pgUniqueViolation) {
 		return VocabularyAdminResponse{}, fmt.Errorf("từ \"%s\" đã tồn tại trong ngôn ngữ này: %w", req.Term, ErrDuplicate)
@@ -453,7 +460,7 @@ func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageI
 		results = append(results, toVocabularyAdminResponse(db.Vocabulary{
 			ID: v.ID, LanguageID: v.LanguageID, Term: v.Term, Phonetic: v.Phonetic, Meaning: v.Meaning,
 			Example: v.Example, Topic: v.Topic, Level: v.Level, AudioUrl: v.AudioUrl, ImageUrl: v.ImageUrl,
-			ImageEmoji: v.ImageEmoji, CreatedAt: v.CreatedAt,
+			ImageEmoji: v.ImageEmoji, ExampleMeaning: v.ExampleMeaning, CreatedAt: v.CreatedAt,
 		}))
 	}
 	return PageResult[VocabularyAdminResponse]{Items: results, Total: total}, nil
@@ -465,16 +472,17 @@ func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, 
 		return VocabularyAdminResponse{}, ErrInvalidInput
 	}
 	v, err := s.repo.UpdateVocabulary(ctx, db.UpdateVocabularyParams{
-		ID:         toPgUUID(id),
-		Term:       req.Term,
-		Phonetic:   pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
-		Meaning:    req.Meaning,
-		Example:    pgtype.Text{String: req.Example, Valid: req.Example != ""},
-		Topic:      pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
-		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
-		AudioUrl:   pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
-		ImageUrl:   pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
-		ImageEmoji: pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
+		ID:             toPgUUID(id),
+		Term:           req.Term,
+		Phonetic:       pgtype.Text{String: req.Phonetic, Valid: req.Phonetic != ""},
+		Meaning:        req.Meaning,
+		Example:        pgtype.Text{String: req.Example, Valid: req.Example != ""},
+		ExampleMeaning: pgtype.Text{String: req.ExampleMeaning, Valid: req.ExampleMeaning != ""},
+		Topic:          pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
+		Level:          pgtype.Text{String: req.Level, Valid: req.Level != ""},
+		AudioUrl:       pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
+		ImageUrl:       pgtype.Text{String: req.ImageURL, Valid: req.ImageURL != ""},
+		ImageEmoji:     pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return VocabularyAdminResponse{}, ErrNotFound

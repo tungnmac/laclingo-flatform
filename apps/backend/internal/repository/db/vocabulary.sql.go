@@ -40,22 +40,23 @@ func (q *Queries) CountVocabularyTopicChildren(ctx context.Context, arg CountVoc
 
 const createVocabulary = `-- name: CreateVocabulary :one
 
-INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, example_meaning)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, topic, level, audio_url, image_url, image_emoji, created_at
 `
 
 type CreateVocabularyParams struct {
-	LanguageID string      `json:"language_id"`
-	Term       string      `json:"term"`
-	Phonetic   pgtype.Text `json:"phonetic"`
-	Meaning    string      `json:"meaning"`
-	Example    pgtype.Text `json:"example"`
-	Topic      pgtype.Text `json:"topic"`
-	Level      pgtype.Text `json:"level"`
-	AudioUrl   pgtype.Text `json:"audio_url"`
-	ImageUrl   pgtype.Text `json:"image_url"`
-	ImageEmoji pgtype.Text `json:"image_emoji"`
+	LanguageID     string      `json:"language_id"`
+	Term           string      `json:"term"`
+	Phonetic       pgtype.Text `json:"phonetic"`
+	Meaning        string      `json:"meaning"`
+	Example        pgtype.Text `json:"example"`
+	Topic          pgtype.Text `json:"topic"`
+	Level          pgtype.Text `json:"level"`
+	AudioUrl       pgtype.Text `json:"audio_url"`
+	ImageUrl       pgtype.Text `json:"image_url"`
+	ImageEmoji     pgtype.Text `json:"image_emoji"`
+	ExampleMeaning pgtype.Text `json:"example_meaning"`
 }
 
 // ===== Admin CRUD (quản lý nội dung từ vựng) =====
@@ -71,6 +72,7 @@ func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyPara
 		arg.AudioUrl,
 		arg.ImageUrl,
 		arg.ImageEmoji,
+		arg.ExampleMeaning,
 	)
 	var i Vocabulary
 	err := row.Scan(
@@ -80,6 +82,7 @@ func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyPara
 		&i.Phonetic,
 		&i.Meaning,
 		&i.Example,
+		&i.ExampleMeaning,
 		&i.Topic,
 		&i.Level,
 		&i.AudioUrl,
@@ -317,7 +320,7 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 }
 
 const listVocabulariesByLanguageAdmin = `-- name: ListVocabulariesByLanguageAdmin :many
-SELECT id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at, COUNT(*) OVER() AS total_count FROM vocabularies
+SELECT id, language_id, term, phonetic, meaning, example, example_meaning, topic, level, audio_url, image_url, image_emoji, created_at, COUNT(*) OVER() AS total_count FROM vocabularies
 WHERE language_id = $1
   AND ($2::text IS NULL OR term ILIKE '%' || $2::text || '%' OR meaning ILIKE '%' || $2::text || '%')
   AND ($3::text IS NULL OR topic = $3::text)
@@ -336,19 +339,20 @@ type ListVocabulariesByLanguageAdminParams struct {
 }
 
 type ListVocabulariesByLanguageAdminRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	LanguageID string             `json:"language_id"`
-	Term       string             `json:"term"`
-	Phonetic   pgtype.Text        `json:"phonetic"`
-	Meaning    string             `json:"meaning"`
-	Example    pgtype.Text        `json:"example"`
-	Topic      pgtype.Text        `json:"topic"`
-	Level      pgtype.Text        `json:"level"`
-	AudioUrl   pgtype.Text        `json:"audio_url"`
-	ImageUrl   pgtype.Text        `json:"image_url"`
-	ImageEmoji pgtype.Text        `json:"image_emoji"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	TotalCount int64              `json:"total_count"`
+	ID             pgtype.UUID        `json:"id"`
+	LanguageID     string             `json:"language_id"`
+	Term           string             `json:"term"`
+	Phonetic       pgtype.Text        `json:"phonetic"`
+	Meaning        string             `json:"meaning"`
+	Example        pgtype.Text        `json:"example"`
+	ExampleMeaning pgtype.Text        `json:"example_meaning"`
+	Topic          pgtype.Text        `json:"topic"`
+	Level          pgtype.Text        `json:"level"`
+	AudioUrl       pgtype.Text        `json:"audio_url"`
+	ImageUrl       pgtype.Text        `json:"image_url"`
+	ImageEmoji     pgtype.Text        `json:"image_emoji"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	TotalCount     int64              `json:"total_count"`
 }
 
 // total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
@@ -376,6 +380,7 @@ func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListV
 			&i.Phonetic,
 			&i.Meaning,
 			&i.Example,
+			&i.ExampleMeaning,
 			&i.Topic,
 			&i.Level,
 			&i.AudioUrl,
@@ -709,22 +714,23 @@ func (q *Queries) UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyPara
 const updateVocabulary = `-- name: UpdateVocabulary :one
 UPDATE vocabularies
 SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7,
-    audio_url = $8, image_url = $9, image_emoji = $10
+    audio_url = $8, image_url = $9, image_emoji = $10, example_meaning = $11
 WHERE id = $1
-RETURNING id, language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, created_at
+RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, topic, level, audio_url, image_url, image_emoji, created_at
 `
 
 type UpdateVocabularyParams struct {
-	ID         pgtype.UUID `json:"id"`
-	Term       string      `json:"term"`
-	Phonetic   pgtype.Text `json:"phonetic"`
-	Meaning    string      `json:"meaning"`
-	Example    pgtype.Text `json:"example"`
-	Topic      pgtype.Text `json:"topic"`
-	Level      pgtype.Text `json:"level"`
-	AudioUrl   pgtype.Text `json:"audio_url"`
-	ImageUrl   pgtype.Text `json:"image_url"`
-	ImageEmoji pgtype.Text `json:"image_emoji"`
+	ID             pgtype.UUID `json:"id"`
+	Term           string      `json:"term"`
+	Phonetic       pgtype.Text `json:"phonetic"`
+	Meaning        string      `json:"meaning"`
+	Example        pgtype.Text `json:"example"`
+	Topic          pgtype.Text `json:"topic"`
+	Level          pgtype.Text `json:"level"`
+	AudioUrl       pgtype.Text `json:"audio_url"`
+	ImageUrl       pgtype.Text `json:"image_url"`
+	ImageEmoji     pgtype.Text `json:"image_emoji"`
+	ExampleMeaning pgtype.Text `json:"example_meaning"`
 }
 
 func (q *Queries) UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error) {
@@ -739,6 +745,7 @@ func (q *Queries) UpdateVocabulary(ctx context.Context, arg UpdateVocabularyPara
 		arg.AudioUrl,
 		arg.ImageUrl,
 		arg.ImageEmoji,
+		arg.ExampleMeaning,
 	)
 	var i Vocabulary
 	err := row.Scan(
@@ -748,6 +755,7 @@ func (q *Queries) UpdateVocabulary(ctx context.Context, arg UpdateVocabularyPara
 		&i.Phonetic,
 		&i.Meaning,
 		&i.Example,
+		&i.ExampleMeaning,
 		&i.Topic,
 		&i.Level,
 		&i.AudioUrl,

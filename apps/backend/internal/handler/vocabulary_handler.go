@@ -15,6 +15,12 @@ func NewVocabularyHandler(svc *service.VocabularyService) *VocabularyHandler {
 	return &VocabularyHandler{svc: svc}
 }
 
+// RegisterPublicRoutes gắn route KHÔNG cần đăng nhập — <img src> không gửi được
+// header Authorization nên route phục vụ ảnh minh hoạ phải nằm ngoài nhóm protected.
+func (h *VocabularyHandler) RegisterPublicRoutes(router fiber.Router) {
+	router.Get("/vocab/images/:name", h.ServeImage)
+}
+
 func (h *VocabularyHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/vocab")
 	api.Get("/topics", h.ListTopics)
@@ -36,6 +42,7 @@ func (h *VocabularyHandler) RegisterAdminRoutes(router fiber.Router) {
 	vocab.Put("/:id", h.UpdateVocabulary)
 	vocab.Delete("/:id", h.DeleteVocabulary)
 	vocab.Post("/bulk", h.BulkImportVocabularies)
+	vocab.Post("/images", h.UploadImage)
 
 	topics := router.Group("/admin/vocabulary-topics")
 	topics.Post("", h.CreateOrUpdateTopic)
@@ -365,4 +372,51 @@ func (h *VocabularyHandler) setFavorite(c *fiber.Ctx, favorited bool) error {
 		return err
 	}
 	return c.JSON(result)
+}
+
+// UploadImage godoc
+// @Summary      Upload ảnh minh hoạ từ vựng (admin)
+// @Description  multipart/form-data, field "image". Trả URL tương đối để gán vào image_url khi tạo/sửa từ.
+// @Tags         admin-vocabulary
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        image  formData  file  true  "Ảnh (jpeg/png/webp/gif, tối đa 5MB)"
+// @Success      201    {object}  service.VocabularyImageResponse
+// @Failure      400    {object}  ErrorResponse
+// @Router       /admin/vocabularies/images [post]
+func (h *VocabularyHandler) UploadImage(c *fiber.Ctx) error {
+	fileHeader, err := c.FormFile("image")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "thiếu file ảnh (field \"image\")")
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "không đọc được file ảnh")
+	}
+	defer file.Close()
+
+	result, err := h.svc.UploadImage(c.UserContext(), file, fileHeader.Size)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(result)
+}
+
+// ServeImage godoc
+// @Summary      Redirect sang URL thật của 1 ảnh minh hoạ từ vựng (public)
+// @Tags         vocab
+// @Param        name  path  string  true  "Tên file ảnh"
+// @Success      302
+// @Failure      404  {object}  ErrorResponse
+// @Router       /vocab/images/{name} [get]
+func (h *VocabularyHandler) ServeImage(c *fiber.Ctx) error {
+	url, err := h.svc.ResolveImageURL(c.UserContext(), c.Params("name"))
+	if err != nil {
+		return err
+	}
+	// Cho trình duyệt cache redirect ngắn hơn TTL presign (1h) — list/thẻ từ
+	// render lại không phải presign lại mỗi lần
+	c.Set(fiber.HeaderCacheControl, "private, max-age=1800")
+	return c.Redirect(url, fiber.StatusFound)
 }

@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     phonetic VARCHAR(255),
     meaning TEXT NOT NULL,
     example TEXT,
+    example_meaning TEXT,
     topic VARCHAR(50),
     level VARCHAR(5) DEFAULT 'A1',
     audio_url TEXT,
@@ -96,6 +97,7 @@ CREATE TABLE IF NOT EXISTS user_vocabulary_reviews (
     interval_days INT DEFAULT 0,
     next_review_at TIMESTAMPTZ NOT NULL,
     last_reviewed_at TIMESTAMPTZ,
+    practice_count INT NOT NULL DEFAULT 0,
     CONSTRAINT unique_user_vocab UNIQUE (user_id, vocabulary_id)
 );
 
