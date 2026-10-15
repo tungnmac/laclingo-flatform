@@ -24,6 +24,9 @@ export interface PracticeDict {
     answerIs: (answer: string) => string
     mistakesLabel: (n: number) => string
     saving: string
+    prevStepBtn: string
+    nextStepBtn: string
+    revisitHint: string
   }
 }
 
@@ -50,6 +53,9 @@ export const practiceTranslations: Partial<Record<Locale, PracticeDict>> = {
       answerIs: (answer) => `Đáp án: ${answer}`,
       mistakesLabel: (n) => (n === 0 ? 'Không sai lần nào' : `Sai ${n} lần`),
       saving: 'Đang lưu kết quả...',
+      prevStepBtn: '← Bài trước',
+      nextStepBtn: 'Bài sau →',
+      revisitHint: 'Đang làm lại bài đã qua — không tính lỗi',
     },
   },
   en: {
@@ -74,6 +80,9 @@ export const practiceTranslations: Partial<Record<Locale, PracticeDict>> = {
       answerIs: (answer) => `Answer: ${answer}`,
       mistakesLabel: (n) => (n === 0 ? 'No mistakes' : `${n} mistake${n === 1 ? '' : 's'}`),
       saving: 'Saving result...',
+      prevStepBtn: '← Previous',
+      nextStepBtn: 'Next →',
+      revisitHint: 'Redoing a passed exercise — mistakes not counted',
     },
   },
 }

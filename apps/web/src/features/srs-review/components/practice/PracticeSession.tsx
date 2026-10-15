@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import type { DueVocabulary } from '@/types/api'
 import { tokenize } from '../../practice'
 import { ChoiceExercise } from './ChoiceExercise'
@@ -17,6 +19,8 @@ type Step = 'choice' | 'sentence' | 'meaning' | 'dictation'
  * Bộ bài luyện tập cho 1 từ đang ôn: chọn nghĩa → ghép câu ví dụ → ghép nghĩa
  * câu → nghe-viết. Từ chưa có câu ví dụ / nghĩa câu thì bỏ bài tương ứng.
  * Xong hết thì báo tổng số lần sai lên cha (cha gọi API +1 lần luyện tập).
+ * Được quay lại bài đã qua để làm lại (không tính lỗi — lỗi chỉ tính ở lần đầu
+ * làm bài), rồi tiến tới tối đa bài xa nhất đã mở, không nhảy cóc bài chưa làm.
  */
 export function PracticeSession({
   vocab,
@@ -39,13 +43,23 @@ export function PracticeSession({
     return list
   }, [vocab])
   const [stepIndex, setStepIndex] = useState(0)
+  // Bài xa nhất đã mở (chưa qua) — các bài có index nhỏ hơn đều đã qua
+  const [maxStep, setMaxStep] = useState(0)
   const [mistakes, setMistakes] = useState(0)
   const step = steps[stepIndex]
+  const revisiting = stepIndex < maxStep
 
-  const addMistake = () => setMistakes((m) => m + 1)
+  const addMistake = () => {
+    if (!revisiting) setMistakes((m) => m + 1)
+  }
+  const goTo = (i: number) => {
+    if (i >= 0 && i <= maxStep) setStepIndex(i)
+  }
   const next = () => {
-    if (stepIndex + 1 < steps.length) setStepIndex((i) => i + 1)
-    else onComplete(mistakes)
+    if (stepIndex + 1 < steps.length) {
+      setStepIndex(stepIndex + 1)
+      setMaxStep((m) => Math.max(m, stepIndex + 1))
+    } else onComplete(mistakes)
   }
 
   const titles: Record<Step, string> = {
@@ -66,11 +80,37 @@ export function PracticeSession({
           {t.practice.practiceCount(vocab.practice_count)} · {t.practice.mistakesLabel(mistakes)}
         </span>
       </div>
-      <div className="flex gap-1.5" aria-hidden>
+      <div className="flex gap-1.5">
         {steps.map((s, i) => (
-          <span key={s} className={`h-1.5 flex-1 rounded-full ${i <= stepIndex ? 'bg-indigo-500' : 'bg-slate-200'}`} />
+          <button
+            key={s}
+            type="button"
+            onClick={() => goTo(i)}
+            disabled={i > maxStep || i === stepIndex}
+            aria-label={titles[s]}
+            aria-current={i === stepIndex ? 'step' : undefined}
+            className={cn(
+              'h-2 flex-1 rounded-full transition disabled:cursor-default',
+              i === stepIndex ? 'bg-indigo-600' : i < maxStep ? 'bg-emerald-400 hover:bg-emerald-500' : i === maxStep ? 'bg-indigo-300 hover:bg-indigo-400' : 'bg-slate-200',
+            )}
+          />
         ))}
       </div>
+      {(stepIndex > 0 || revisiting) && (
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={() => goTo(stepIndex - 1)} disabled={stepIndex === 0}>
+            {t.practice.prevStepBtn}
+          </Button>
+          {revisiting && (
+            <>
+              <span className="text-center text-xs text-amber-600">{t.practice.revisitHint}</span>
+              <Button variant="ghost" size="sm" onClick={() => goTo(stepIndex + 1)}>
+                {t.practice.nextStepBtn}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Bài nghe-viết KHÔNG hiện từ — phải nghe để viết */}
       {step !== 'dictation' && (
