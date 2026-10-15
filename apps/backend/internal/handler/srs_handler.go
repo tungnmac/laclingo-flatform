@@ -5,6 +5,7 @@ import (
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type SRSHandler struct {
@@ -34,11 +35,24 @@ func (h *SRSHandler) RegisterRoutes(router fiber.Router) {
 // @Security     BearerAuth
 // @Param        limit     query    int     false  "Số lượng tối đa (mặc định 20, tối đa 100)"
 // @Param        language  query    string  false  "Chỉ lấy đến hạn của 1 ngôn ngữ (bỏ trống = tất cả ngôn ngữ)"  example(en)
+// @Param        deck      query    string  false  "Học lại 1 danh sách ôn tập: trả MỌI từ trong list (bỏ qua language)"  format(uuid)
 // @Success      200      {array}   service.DueVocabulary
 // @Failure      401      {object}  ErrorResponse
 // @Failure      500      {object}  ErrorResponse
 // @Router       /srs/due [get]
 func (h *SRSHandler) GetDue(c *fiber.Ctx) error {
+	if deck := c.Query("deck"); deck != "" {
+		deckID, err := uuid.Parse(deck)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "deck không hợp lệ")
+		}
+		results, err := h.svc.GetDeckVocabularies(c.UserContext(), currentUserID(c), deckID, int32(c.QueryInt("limit", 0)))
+		if err != nil {
+			return err
+		}
+		return c.JSON(results)
+	}
+
 	results, err := h.svc.GetDueVocabularies(c.UserContext(), currentUserID(c), int32(c.QueryInt("limit", 0)), c.Query("language"))
 	if err != nil {
 		return err
@@ -128,7 +142,7 @@ func (h *SRSHandler) Review(c *fiber.Ctx) error {
 // Practice ghi nhận user đã làm xong bộ bài luyện tập của 1 từ đang ôn.
 //
 // @Summary      Hoàn thành bài luyện tập từ vựng
-// @Description  Chấm SM-2 tự động theo số lần sai (0→5, 1→4, 2→3, ≥3→2) và +1 practice_count. Từ phải đã có trong hàng đợi ôn tập.
+// @Description  +1 practice_count. Từ đã đến hạn: chấm SM-2 tự động theo số lần sai (0→5, 1→4, 2→3, ≥3→2). Từ chưa đến hạn (học lại list): giữ nguyên lịch SM-2. Từ phải đã có trong hàng đợi ôn tập.
 // @Tags         srs
 // @Accept       json
 // @Produce      json

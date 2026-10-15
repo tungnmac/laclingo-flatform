@@ -72,7 +72,6 @@ export interface ReviewDict {
     favoritedLabel: string
     favoriteLabel: string
     inReviewLabel: string
-    addingToReview: string
     addToReview: string
     flipToBack: string
     flipToFront: string
@@ -158,7 +157,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       favoritedLabel: '⭐ Đã yêu thích',
       favoriteLabel: '☆ Yêu thích',
       inReviewLabel: '✓ Đã trong ôn tập',
-      addingToReview: 'Đang thêm...',
       addToReview: '➕ Thêm vào ôn tập',
       flipToBack: 'Mặt sau thẻ, chạm để lật lại',
       flipToFront: 'Mặt trước thẻ, chạm để xem nghĩa',
@@ -242,7 +240,6 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       favoritedLabel: '⭐ Favorited',
       favoriteLabel: '☆ Favorite',
       inReviewLabel: '✓ In review',
-      addingToReview: 'Adding...',
       addToReview: '➕ Add to review',
       flipToBack: 'Card back, tap to flip back',
       flipToFront: 'Card front, tap to see meaning',

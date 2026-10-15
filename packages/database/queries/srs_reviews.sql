@@ -96,3 +96,40 @@ SET srs_stage = $3,
     practice_count = practice_count + 1
 WHERE user_id = $1 AND vocabulary_id = $2
 RETURNING *;
+
+-- name: GetDeckVocabulariesForPractice :many
+-- "Học lại" 1 danh sách ôn tập: MỌI từ trong list (không chỉ từ đến hạn), từ
+-- sắp đến hạn trước. Cột giữ y hệt GetDueVocabulariesForUser — service dùng chung.
+SELECT
+    v.id AS vocabulary_id,
+    v.language_id,
+    v.term,
+    v.phonetic,
+    v.meaning,
+    v.audio_url,
+    v.example,
+    v.example_meaning,
+    v.topic,
+    v.image_emoji,
+    v.image_url,
+    r.practice_count,
+    r.id AS review_id,
+    r.srs_stage,
+    r.ease_factor,
+    r.interval_days,
+    r.next_review_at
+FROM deck_vocabularies dv
+JOIN user_decks d ON d.id = dv.deck_id
+JOIN user_vocabulary_reviews r ON r.vocabulary_id = dv.vocabulary_id AND r.user_id = d.user_id
+JOIN vocabularies v ON v.id = dv.vocabulary_id
+WHERE d.id = sqlc.arg('deck_id') AND d.user_id = sqlc.arg('user_id')
+ORDER BY r.next_review_at ASC
+LIMIT sqlc.arg('limit');
+
+-- name: IncrementVocabularyPracticeOnly :one
+-- Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
+-- lịch SM-2 — luyện sớm không được đẩy interval lên.
+UPDATE user_vocabulary_reviews
+SET practice_count = practice_count + 1
+WHERE user_id = $1 AND vocabulary_id = $2
+RETURNING *;

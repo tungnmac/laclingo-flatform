@@ -31,6 +31,100 @@ func (q *Queries) CreateVocabularyReviewIfAbsent(ctx context.Context, arg Create
 	return result.RowsAffected(), nil
 }
 
+const getDeckVocabulariesForPractice = `-- name: GetDeckVocabulariesForPractice :many
+SELECT
+    v.id AS vocabulary_id,
+    v.language_id,
+    v.term,
+    v.phonetic,
+    v.meaning,
+    v.audio_url,
+    v.example,
+    v.example_meaning,
+    v.topic,
+    v.image_emoji,
+    v.image_url,
+    r.practice_count,
+    r.id AS review_id,
+    r.srs_stage,
+    r.ease_factor,
+    r.interval_days,
+    r.next_review_at
+FROM deck_vocabularies dv
+JOIN user_decks d ON d.id = dv.deck_id
+JOIN user_vocabulary_reviews r ON r.vocabulary_id = dv.vocabulary_id AND r.user_id = d.user_id
+JOIN vocabularies v ON v.id = dv.vocabulary_id
+WHERE d.id = $1 AND d.user_id = $2
+ORDER BY r.next_review_at ASC
+LIMIT $3
+`
+
+type GetDeckVocabulariesForPracticeParams struct {
+	DeckID pgtype.UUID `json:"deck_id"`
+	UserID pgtype.UUID `json:"user_id"`
+	Limit  int32       `json:"limit"`
+}
+
+type GetDeckVocabulariesForPracticeRow struct {
+	VocabularyID   pgtype.UUID        `json:"vocabulary_id"`
+	LanguageID     string             `json:"language_id"`
+	Term           string             `json:"term"`
+	Phonetic       pgtype.Text        `json:"phonetic"`
+	Meaning        string             `json:"meaning"`
+	AudioUrl       pgtype.Text        `json:"audio_url"`
+	Example        pgtype.Text        `json:"example"`
+	ExampleMeaning pgtype.Text        `json:"example_meaning"`
+	Topic          pgtype.Text        `json:"topic"`
+	ImageEmoji     pgtype.Text        `json:"image_emoji"`
+	ImageUrl       pgtype.Text        `json:"image_url"`
+	PracticeCount  int32              `json:"practice_count"`
+	ReviewID       pgtype.UUID        `json:"review_id"`
+	SrsStage       pgtype.Int4        `json:"srs_stage"`
+	EaseFactor     pgtype.Float8      `json:"ease_factor"`
+	IntervalDays   pgtype.Int4        `json:"interval_days"`
+	NextReviewAt   pgtype.Timestamptz `json:"next_review_at"`
+}
+
+// "Học lại" 1 danh sách ôn tập: MỌI từ trong list (không chỉ từ đến hạn), từ
+// sắp đến hạn trước. Cột giữ y hệt GetDueVocabulariesForUser — service dùng chung.
+func (q *Queries) GetDeckVocabulariesForPractice(ctx context.Context, arg GetDeckVocabulariesForPracticeParams) ([]GetDeckVocabulariesForPracticeRow, error) {
+	rows, err := q.db.Query(ctx, getDeckVocabulariesForPractice, arg.DeckID, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetDeckVocabulariesForPracticeRow
+	for rows.Next() {
+		var i GetDeckVocabulariesForPracticeRow
+		if err := rows.Scan(
+			&i.VocabularyID,
+			&i.LanguageID,
+			&i.Term,
+			&i.Phonetic,
+			&i.Meaning,
+			&i.AudioUrl,
+			&i.Example,
+			&i.ExampleMeaning,
+			&i.Topic,
+			&i.ImageEmoji,
+			&i.ImageUrl,
+			&i.PracticeCount,
+			&i.ReviewID,
+			&i.SrsStage,
+			&i.EaseFactor,
+			&i.IntervalDays,
+			&i.NextReviewAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDueVocabulariesForUser = `-- name: GetDueVocabulariesForUser :many
 SELECT
     v.id AS vocabulary_id,
@@ -137,6 +231,37 @@ type GetVocabularyReviewParams struct {
 
 func (q *Queries) GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error) {
 	row := q.db.QueryRow(ctx, getVocabularyReview, arg.UserID, arg.VocabularyID)
+	var i UserVocabularyReview
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.VocabularyID,
+		&i.SrsStage,
+		&i.EaseFactor,
+		&i.IntervalDays,
+		&i.NextReviewAt,
+		&i.LastReviewedAt,
+		&i.PracticeCount,
+	)
+	return i, err
+}
+
+const incrementVocabularyPracticeOnly = `-- name: IncrementVocabularyPracticeOnly :one
+UPDATE user_vocabulary_reviews
+SET practice_count = practice_count + 1
+WHERE user_id = $1 AND vocabulary_id = $2
+RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count
+`
+
+type IncrementVocabularyPracticeOnlyParams struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	VocabularyID pgtype.UUID `json:"vocabulary_id"`
+}
+
+// Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
+// lịch SM-2 — luyện sớm không được đẩy interval lên.
+func (q *Queries) IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error) {
+	row := q.db.QueryRow(ctx, incrementVocabularyPracticeOnly, arg.UserID, arg.VocabularyID)
 	var i UserVocabularyReview
 	err := row.Scan(
 		&i.ID,

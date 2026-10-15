@@ -32,6 +32,9 @@ type SRSRepository interface {
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg db.CreateVocabularyReviewIfAbsentParams) (int64, error)
 	ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]db.ListMeaningDistractorsForVocabulariesRow, error)
 	PracticeVocabularyReview(ctx context.Context, arg db.PracticeVocabularyReviewParams) (db.UserVocabularyReview, error)
+	GetDeckVocabulariesForPractice(ctx context.Context, arg db.GetDeckVocabulariesForPracticeParams) ([]db.GetDeckVocabulariesForPracticeRow, error)
+	IncrementVocabularyPracticeOnly(ctx context.Context, arg db.IncrementVocabularyPracticeOnlyParams) (db.UserVocabularyReview, error)
+	GetDeckForUser(ctx context.Context, arg db.GetDeckForUserParams) (db.UserDeck, error)
 }
 
 // NewVocabulary là một từ user chưa học, hiển thị ở flow "Học từ mới"
@@ -112,7 +115,39 @@ func (s *SRSService) GetDueVocabularies(ctx context.Context, userID uuid.UUID, l
 	if err != nil {
 		return nil, err
 	}
+	return s.toDueVocabularies(ctx, rows)
+}
 
+// GetDeckVocabularies trả về MỌI từ trong 1 danh sách ôn tập của user (không
+// chỉ từ đến hạn — "học lại list"), từ sắp đến hạn trước, kèm đáp án chọn nghĩa.
+func (s *SRSService) GetDeckVocabularies(ctx context.Context, userID, deckID uuid.UUID, limit int32) ([]DueVocabulary, error) {
+	if limit <= 0 || limit > maxDueLimit {
+		limit = maxDueLimit
+	}
+	// List không tồn tại / của user khác → 404, không trả [] như list rỗng
+	if _, err := s.repo.GetDeckForUser(ctx, db.GetDeckForUserParams{ID: toPgUUID(deckID), UserID: toPgUUID(userID)}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	rows, err := s.repo.GetDeckVocabulariesForPractice(ctx, db.GetDeckVocabulariesForPracticeParams{
+		DeckID: toPgUUID(deckID),
+		UserID: toPgUUID(userID),
+		Limit:  limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// 2 query cố ý chọn cùng danh sách cột nên 2 kiểu Row convert được cho nhau
+	due := make([]db.GetDueVocabulariesForUserRow, 0, len(rows))
+	for _, r := range rows {
+		due = append(due, db.GetDueVocabulariesForUserRow(r))
+	}
+	return s.toDueVocabularies(ctx, due)
+}
+
+func (s *SRSService) toDueVocabularies(ctx context.Context, rows []db.GetDueVocabulariesForUserRow) ([]DueVocabulary, error) {
 	results := make([]DueVocabulary, 0, len(rows))
 	for _, r := range rows {
 		results = append(results, DueVocabulary{
@@ -187,6 +222,31 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 		return domain.VocabularyPracticeResponse{}, ErrInvalidInput
 	}
 	quality := qualityFromMistakes(req.Mistakes)
+
+	current, err := s.repo.GetVocabularyReview(ctx, db.GetVocabularyReviewParams{
+		UserID:       toPgUUID(userID),
+		VocabularyID: toPgUUID(req.VocabularyID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.VocabularyPracticeResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.VocabularyPracticeResponse{}, err
+	}
+	// Từ CHƯA đến hạn (vd "học lại list"): chỉ +1 lần luyện, giữ nguyên lịch
+	// SM-2 và không tính nhiệm vụ — luyện sớm/lặp lại không được đẩy interval
+	// lên hay cày tiến độ nhiệm vụ.
+	if current.NextReviewAt.Time.After(s.now()) {
+		saved, err := s.repo.IncrementVocabularyPracticeOnly(ctx, db.IncrementVocabularyPracticeOnlyParams{
+			UserID:       toPgUUID(userID),
+			VocabularyID: toPgUUID(req.VocabularyID),
+		})
+		if err != nil {
+			return domain.VocabularyPracticeResponse{}, err
+		}
+		return toPracticeResponse(saved, quality), nil
+	}
+
 	out, err := s.nextSM2(ctx, userID, req.VocabularyID, quality)
 	if err != nil {
 		return domain.VocabularyPracticeResponse{}, err
@@ -209,6 +269,10 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 
 	s.recordMissionAction(ctx, userID, "srs_review")
 
+	return toPracticeResponse(saved, quality), nil
+}
+
+func toPracticeResponse(saved db.UserVocabularyReview, quality int32) domain.VocabularyPracticeResponse {
 	return domain.VocabularyPracticeResponse{
 		VocabularyReviewResponse: domain.VocabularyReviewResponse{
 			VocabularyID: uuid.UUID(saved.VocabularyID.Bytes),
@@ -218,7 +282,7 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 		},
 		Quality:       quality,
 		PracticeCount: saved.PracticeCount,
-	}, nil
+	}
 }
 
 // nextSM2 tính lịch ôn tiếp theo theo SM-2 từ tiến độ hiện tại (chưa có thì dùng mặc định)

@@ -8,6 +8,7 @@ import { Button, ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
+import { deckService } from '@/features/deck/deck.service'
 import { Flashcard } from '@/features/srs-review/components/Flashcard'
 import { ProgressHeader } from '@/features/srs-review/components/ProgressHeader'
 import { PracticeSession } from '@/features/srs-review/components/practice/PracticeSession'
@@ -21,7 +22,11 @@ import { useAutoplaySettings } from '@/store/autoplaySettings'
 
 /** ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
  * khi vào từ card "Ôn tập SRS" ở trang khoá học, thay vì gốc Ôn tập. */
-export default function VocabularyReviewPage({ searchParams }: { searchParams: { language?: string; scope?: string } }) {
+export default function VocabularyReviewPage({
+  searchParams,
+}: {
+  searchParams: { language?: string; scope?: string; deck?: string }
+}) {
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
@@ -29,7 +34,11 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
   const newWordsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
-  const session = useSRSReviewSession(language)
+  // ?deck= — "Học lại list" từ trang Danh sách ôn tập: luyện MỌI từ trong list
+  const deck = searchParams.deck
+  const { data: deckInfo } = useApi(() => deckService.get(deck ?? ''), [deck], !!deck)
+  const deckHref = deck ? `/review/lists/${deck}` : ''
+  const session = useSRSReviewSession(language, deck)
   const { current, flipped, flip, practice, submitting } = session
 
   // Tự động đọc: lật thẻ ngay (bỏ qua bước tự kiểm tra bản thân) rồi đọc
@@ -63,11 +72,22 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
   if (session.cards.length === 0) {
     return (
       <>
-        <PageHeader title={t.review.vocabReviewTitle} />
-        <EmptyState icon="🎉" title={t.review.emptyDueTitle}>
-          {t.review.emptyDueBody}
-        </EmptyState>
+        <PageHeader title={deck ? t.decks.practiceTitle : t.review.vocabReviewTitle} />
+        {deck ? (
+          <EmptyState icon="📭" title={t.decks.emptyPracticeTitle}>
+            {t.decks.emptyPracticeBody}
+          </EmptyState>
+        ) : (
+          <EmptyState icon="🎉" title={t.review.emptyDueTitle}>
+            {t.review.emptyDueBody}
+          </EmptyState>
+        )}
         <div className="mt-6 flex justify-center gap-2">
+          {deck && (
+            <ButtonLink href={deckHref} variant="secondary">
+              📋 {deckInfo?.name ?? t.decks.backToLists}
+            </ButtonLink>
+          )}
           <ButtonLink href={newWordsHref}>{t.review.newWordsBtn}</ButtonLink>
           <ButtonLink href={reviewHref} variant="secondary">
             {t.review.reviewTypesLabel}
@@ -87,6 +107,11 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
           <p className="text-slate-600">{t.review.sessionDoneBody(remembered, session.results.length)}</p>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button onClick={session.reload}>{t.review.continueReviewBtn}</Button>
+            {deck && (
+              <ButtonLink href={deckHref} variant="secondary">
+                📋 {deckInfo?.name ?? t.decks.backToLists}
+              </ButtonLink>
+            )}
             <ButtonLink href={newWordsHref} variant="secondary">
               {t.review.newWordsBtn}
             </ButtonLink>
@@ -122,8 +147,14 @@ export default function VocabularyReviewPage({ searchParams }: { searchParams: {
     )
   }
 
-  const breadcrumbItems =
-    fromLearn && language
+  const breadcrumbItems = deck
+    ? [
+        { label: t.nav.review, href: '/review' },
+        { label: t.decks.backToLists, href: '/review/lists' },
+        { label: deckInfo?.name ?? t.decks.practiceTitle, href: deckHref },
+        { label: t.decks.practiceTitle },
+      ]
+    : fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
           { label: course?.name ?? language, href: `/learn/${language}` },

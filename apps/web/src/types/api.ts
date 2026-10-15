@@ -800,3 +800,43 @@ export interface BlogCommentToggleResponse {
   on: boolean
   count: number
 }
+
+// --- Danh sách ôn tập (deck) do user tự quản lý ---
+
+export interface DeckRequest {
+  name: string
+  description?: string
+  color?: string // #rrggbb
+  icon?: string
+}
+
+export interface DeckSummary {
+  id: string
+  name: string
+  description: string
+  color: string
+  icon: string
+  word_count: number
+  due_count: number
+  contains_vocabulary: boolean // list có chứa từ được hỏi (?vocabulary_id=) không
+  created_at: string
+}
+
+export interface DeckWord {
+  vocabulary_id: string
+  language_id: string
+  term: string
+  phonetic: string
+  meaning: string
+  topic: string
+  level: string
+  image_url: string
+  image_emoji: string
+  practice_count: number
+  next_review_at?: string
+  added_at: string
+}
+
+export interface DeckDetail extends DeckSummary {
+  words: DeckWord[]
+}

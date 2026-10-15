@@ -13,7 +13,8 @@ export interface ReviewResult {
 
 
 /** Quản lý một phiên ôn tập: tải thẻ đến hạn, lật thẻ, chấm điểm, chuyển thẻ */
-export function useSRSReviewSession(language?: string) {
+/** deck: học lại cả 1 danh sách ôn tập (tối đa 100 từ) thay vì chỉ từ đến hạn */
+export function useSRSReviewSession(language?: string, deck?: string) {
   const [cards, setCards] = useState<DueVocabulary[]>([])
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -26,7 +27,7 @@ export function useSRSReviewSession(language?: string) {
     setLoading(true)
     setError(null)
     srsService
-      .getDue(20, language)
+      .getDue(deck ? 100 : 20, language, deck)
       .then((data) => {
         setCards(data)
         setIndex(0)
@@ -35,7 +36,7 @@ export function useSRSReviewSession(language?: string) {
       })
       .catch(setError)
       .finally(() => setLoading(false))
-  }, [language])
+  }, [language, deck])
 
   useEffect(load, [load])
 
