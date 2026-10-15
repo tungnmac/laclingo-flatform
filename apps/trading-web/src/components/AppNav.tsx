@@ -6,12 +6,14 @@ import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
-// Phần 5–6 thêm mục vào đây (Học, Thực hành)
+// Phần 6 thêm mục Thực hành
 const NAV_ITEMS = [
   { href: '/markets', labelKey: 'nav.markets' },
   { href: '/portfolio', labelKey: 'nav.portfolio' },
   { href: '/journal', labelKey: 'nav.journal' },
+  { href: '/learn', labelKey: 'nav.learn' },
 ]
+const ADMIN_ITEMS = [{ href: '/admin/learn', labelKey: 'nav.admin' }]
 
 export function AppNav({ user }: { user: SessionUser }) {
   const pathname = usePathname()
@@ -31,7 +33,7 @@ export function AppNav({ user }: { user: SessionUser }) {
           📈 TradeLab
         </Link>
         <nav className="flex flex-1 gap-1">
-          {NAV_ITEMS.map((item) => {
+          {[...NAV_ITEMS, ...(user.role === 'admin' ? ADMIN_ITEMS : [])].map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
             return (
               <Link

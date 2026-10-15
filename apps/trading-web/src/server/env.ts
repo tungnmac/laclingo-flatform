@@ -14,3 +14,12 @@ export function jwtSecret(): Uint8Array {
   }
   return new TextEncoder().encode(secret)
 }
+
+/** Cloudflare R2 (ảnh bài học) — cùng tên biến với backend LacLingo; thiếu biến nào → null (tắt upload) */
+export function r2Config() {
+  const accountId = process.env.R2_ACCOUNT_ID
+  const bucket = process.env.R2_BUCKET
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
+  return accountId && bucket && accessKeyId && secretAccessKey ? { accountId, bucket, accessKeyId, secretAccessKey } : null
+}

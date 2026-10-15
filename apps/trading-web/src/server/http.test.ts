@@ -39,3 +39,14 @@ describe('handleRoute', () => {
     expect((await res.json()).code).toBe('INTERNAL')
   })
 })
+describe('handleRoute zod too_big params', () => {
+  it('returns {max} from the zod issue for TEXT_TOO_LONG', async () => {
+    const route = handleRoute(async () => {
+      z.string().max(5, 'TEXT_TOO_LONG').parse('123456')
+      return new Response(null)
+    })
+    const res = await route()
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ code: 'TEXT_TOO_LONG', params: { max: 5 } })
+  })
+})

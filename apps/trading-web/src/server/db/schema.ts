@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, numeric, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -127,6 +127,76 @@ export const tradeNotes = pgTable('trade_notes', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/** Bài học (phần 5) — mỗi chương/bài thuộc 1 ngôn ngữ */
+export const chapters = pgTable(
+  'chapters',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    locale: varchar('locale', { length: 2 }).notNull(), // 'vi' | 'en'
+    slug: varchar('slug', { length: 80 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    description: text('description'),
+    position: integer('position').notNull(),
+    published: boolean('published').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('chapters_locale_slug_uq').on(t.locale, t.slug), index('chapters_locale_position_idx').on(t.locale, t.position)],
+)
+
+export const lessons = pgTable(
+  'lessons',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    chapterId: uuid('chapter_id')
+      .notNull()
+      .references(() => chapters.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 2 }).notNull(), // = locale của chương
+    slug: varchar('slug', { length: 80 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    summary: text('summary'),
+    contentMd: text('content_md').notNull().default(''),
+    position: integer('position').notNull(),
+    published: boolean('published').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('lessons_locale_slug_uq').on(t.locale, t.slug), index('lessons_chapter_position_idx').on(t.chapterId, t.position)],
+)
+
+export const quizQuestions = pgTable(
+  'quiz_questions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    lessonId: uuid('lesson_id')
+      .notNull()
+      .references(() => lessons.id, { onDelete: 'cascade' }),
+    prompt: text('prompt').notNull(),
+    options: text('options').array().notNull(),
+    correctIndex: integer('correct_index').notNull(),
+    explanation: text('explanation'),
+    position: integer('position').notNull(),
+  },
+  (t) => [index('quiz_questions_lesson_position_idx').on(t.lessonId, t.position)],
+)
+
+export const lessonProgress = pgTable(
+  'lesson_progress',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    lessonId: uuid('lesson_id')
+      .notNull()
+      .references(() => lessons.id, { onDelete: 'cascade' }),
+    bestScore: integer('best_score').notNull(),
+    attempts: integer('attempts').notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.lessonId] })],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect
@@ -134,3 +204,7 @@ export type PositionRow = typeof positions.$inferSelect
 export type OrderRow = typeof orders.$inferSelect
 export type TradeRow = typeof trades.$inferSelect
 export type TradeNoteRow = typeof tradeNotes.$inferSelect
+export type ChapterRow = typeof chapters.$inferSelect
+export type LessonRow = typeof lessons.$inferSelect
+export type QuizQuestionRow = typeof quizQuestions.$inferSelect
+export type LessonProgressRow = typeof lessonProgress.$inferSelect
