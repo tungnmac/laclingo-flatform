@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { boolean, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -197,6 +197,53 @@ export const lessonProgress = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.lessonId] })],
 )
 
+/** Phiên thực hành replay (phần 6) — trạng thái ví/lệnh lưu jsonb (chuỗi Decimal) */
+export const practiceSessions = pgTable(
+  'practice_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    symbol: varchar('symbol', { length: 30 }).notNull(),
+    interval: varchar('interval', { length: 4 }).notNull(),
+    context: integer('context').notNull(),
+    length: integer('length').notNull(),
+    cursor: integer('cursor').notNull().default(0),
+    candles: jsonb('candles').notNull(),
+    wallet: jsonb('wallet').notNull(),
+    orders: jsonb('orders').notNull(),
+    status: varchar('status', { length: 10 }).notNull().default('active'), // active | finished
+    result: jsonb('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('practice_sessions_one_active').on(t.userId).where(sql`${t.status} = 'active'`),
+    index('practice_sessions_user_created_idx').on(t.userId, t.createdAt),
+  ],
+)
+
+export const practiceTrades = pgTable(
+  'practice_trades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => practiceSessions.id, { onDelete: 'cascade' }),
+    candleIndex: integer('candle_index').notNull(),
+    side: varchar('side', { length: 4 }).notNull(),
+    qty: money('qty').notNull(),
+    price: money('price').notNull(),
+    fee: money('fee').notNull(),
+    realizedPnl: money('realized_pnl').notNull(),
+    closedQty: money('closed_qty').notNull(),
+    kind: varchar('kind', { length: 12 }).notNull(), // order | liquidation | close
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('practice_trades_session_idx').on(t.sessionId, t.candleIndex)],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect
@@ -208,3 +255,5 @@ export type ChapterRow = typeof chapters.$inferSelect
 export type LessonRow = typeof lessons.$inferSelect
 export type QuizQuestionRow = typeof quizQuestions.$inferSelect
 export type LessonProgressRow = typeof lessonProgress.$inferSelect
+export type PracticeSessionRow = typeof practiceSessions.$inferSelect
+export type PracticeTradeRow = typeof practiceTrades.$inferSelect
