@@ -41,6 +41,7 @@ SELECT
     v.audio_url,
     v.example,
     v.example_meaning,
+    v.part_of_speech,
     v.topic,
     v.image_emoji,
     v.image_url,
@@ -74,6 +75,7 @@ type GetDeckVocabulariesForPracticeRow struct {
 	AudioUrl       pgtype.Text        `json:"audio_url"`
 	Example        pgtype.Text        `json:"example"`
 	ExampleMeaning pgtype.Text        `json:"example_meaning"`
+	PartOfSpeech   pgtype.Text        `json:"part_of_speech"`
 	Topic          pgtype.Text        `json:"topic"`
 	ImageEmoji     pgtype.Text        `json:"image_emoji"`
 	ImageUrl       pgtype.Text        `json:"image_url"`
@@ -105,6 +107,7 @@ func (q *Queries) GetDeckVocabulariesForPractice(ctx context.Context, arg GetDec
 			&i.AudioUrl,
 			&i.Example,
 			&i.ExampleMeaning,
+			&i.PartOfSpeech,
 			&i.Topic,
 			&i.ImageEmoji,
 			&i.ImageUrl,
@@ -135,6 +138,7 @@ SELECT
     v.audio_url,
     v.example,
     v.example_meaning,
+    v.part_of_speech,
     v.topic,
     v.image_emoji,
     v.image_url,
@@ -168,6 +172,7 @@ type GetDueVocabulariesForUserRow struct {
 	AudioUrl       pgtype.Text        `json:"audio_url"`
 	Example        pgtype.Text        `json:"example"`
 	ExampleMeaning pgtype.Text        `json:"example_meaning"`
+	PartOfSpeech   pgtype.Text        `json:"part_of_speech"`
 	Topic          pgtype.Text        `json:"topic"`
 	ImageEmoji     pgtype.Text        `json:"image_emoji"`
 	ImageUrl       pgtype.Text        `json:"image_url"`
@@ -199,6 +204,7 @@ func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocab
 			&i.AudioUrl,
 			&i.Example,
 			&i.ExampleMeaning,
+			&i.PartOfSpeech,
 			&i.Topic,
 			&i.ImageEmoji,
 			&i.ImageUrl,
@@ -324,7 +330,7 @@ func (q *Queries) ListMeaningDistractorsForVocabularies(ctx context.Context, voc
 }
 
 const listNewVocabulariesForUser = `-- name: ListNewVocabulariesForUser :many
-SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.example_meaning, v.topic, v.level, v.audio_url, v.image_url, v.image_emoji, v.created_at
+SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.example_meaning, v.part_of_speech, v.topic, v.level, v.audio_url, v.image_url, v.image_emoji, v.created_at
 FROM vocabularies v
 WHERE v.language_id = $1
   AND NOT EXISTS (
@@ -358,6 +364,7 @@ func (q *Queries) ListNewVocabulariesForUser(ctx context.Context, arg ListNewVoc
 			&i.Meaning,
 			&i.Example,
 			&i.ExampleMeaning,
+			&i.PartOfSpeech,
 			&i.Topic,
 			&i.Level,
 			&i.AudioUrl,
@@ -382,6 +389,7 @@ SELECT
     v.term,
     v.phonetic,
     v.meaning,
+    v.part_of_speech,
     v.topic,
     v.level,
     v.image_url,
@@ -412,6 +420,7 @@ type ListReviewVocabulariesForUserRow struct {
 	Term          string             `json:"term"`
 	Phonetic      pgtype.Text        `json:"phonetic"`
 	Meaning       string             `json:"meaning"`
+	PartOfSpeech  pgtype.Text        `json:"part_of_speech"`
 	Topic         pgtype.Text        `json:"topic"`
 	Level         pgtype.Text        `json:"level"`
 	ImageUrl      pgtype.Text        `json:"image_url"`
@@ -446,6 +455,7 @@ func (q *Queries) ListReviewVocabulariesForUser(ctx context.Context, arg ListRev
 			&i.Term,
 			&i.Phonetic,
 			&i.Meaning,
+			&i.PartOfSpeech,
 			&i.Topic,
 			&i.Level,
 			&i.ImageUrl,

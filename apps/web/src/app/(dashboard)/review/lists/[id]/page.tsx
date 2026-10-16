@@ -12,6 +12,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { DeckForm } from '@/features/deck/components/DeckForm'
 import { deckService } from '@/features/deck/deck.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { NextReviewBadge } from '@/features/srs-review/components/NextReviewBadge'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -119,7 +120,8 @@ export default function DeckDetailPage({ params }: { params: { id: string } }) {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-slate-900">
-                      {word.term} {word.phonetic && <span className="font-normal text-slate-400">/{word.phonetic}/</span>}
+                      {word.term} {word.phonetic && <span className="font-normal text-slate-400">/{word.phonetic}/</span>}{' '}
+                      <PartOfSpeechBadge value={word.part_of_speech} />
                     </p>
                     <p className="truncate text-sm text-slate-500">{word.meaning}</p>
                     <p className="text-xs text-slate-400">{t.decks.practiceCount(word.practice_count)}</p>

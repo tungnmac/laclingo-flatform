@@ -23,6 +23,7 @@ SELECT
     v.phonetic,
     v.meaning,
     v.example,
+    v.part_of_speech,
     v.topic,
     v.level,
     v.audio_url,
@@ -48,6 +49,7 @@ SELECT
     v.phonetic,
     v.meaning,
     v.example,
+    v.part_of_speech,
     v.topic,
     v.level,
     v.audio_url,
@@ -85,8 +87,8 @@ DELETE FROM vocabulary_favorites WHERE user_id = $1 AND vocabulary_id = $2;
 -- ===== Admin CRUD (quản lý nội dung từ vựng) =====
 
 -- name: CreateVocabulary :one
-INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, example_meaning)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, example_meaning, part_of_speech)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: ListVocabulariesByLanguageAdmin :many
@@ -103,7 +105,7 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 -- name: UpdateVocabulary :one
 UPDATE vocabularies
 SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7,
-    audio_url = $8, image_url = $9, image_emoji = $10, example_meaning = $11
+    audio_url = $8, image_url = $9, image_emoji = $10, example_meaning = $11, part_of_speech = $12
 WHERE id = $1
 RETURNING *;
 

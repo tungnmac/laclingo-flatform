@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -121,7 +122,12 @@ export function PracticeSession({
             vocab.image_emoji && <span className="text-6xl leading-none">{vocab.image_emoji}</span>
           )}
           <h2 className="break-words text-3xl font-bold text-slate-900 sm:text-4xl">{vocab.term}</h2>
-          {vocab.phonetic && <p className="text-slate-500">/{vocab.phonetic}/</p>}
+          {(vocab.phonetic || vocab.part_of_speech) && (
+            <p className="flex items-center gap-2 text-slate-500">
+              {vocab.phonetic && <span>/{vocab.phonetic}/</span>}
+              <PartOfSpeechBadge value={vocab.part_of_speech} />
+            </p>
+          )}
           <AudioButton src={vocab.audio_url || undefined} text={vocab.term} languageId={vocab.language_id} />
         </div>
       )}

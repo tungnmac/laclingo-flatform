@@ -36,6 +36,8 @@ export interface AdminVocabularyDict {
     addWordTitle: string
     termLabel: string
     phoneticLabel: string
+    partOfSpeechLabel: string
+    noPartOfSpeechOption: string
     meaningLabel: string
     exampleLabel: string
     exampleMeaningLabel: string
@@ -91,6 +93,8 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Thêm từ mới',
       termLabel: 'Từ',
       phoneticLabel: 'Phiên âm',
+      partOfSpeechLabel: 'Từ loại',
+      noPartOfSpeechOption: '— Chưa phân loại —',
       meaningLabel: 'Nghĩa',
       exampleLabel: 'Ví dụ',
       exampleMeaningLabel: 'Nghĩa của câu ví dụ',
@@ -144,6 +148,8 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Add a new word',
       termLabel: 'Term',
       phoneticLabel: 'Phonetic',
+      partOfSpeechLabel: 'Part of speech',
+      noPartOfSpeechOption: '— Not set —',
       meaningLabel: 'Meaning',
       exampleLabel: 'Example',
       exampleMeaningLabel: 'Example translation (Vietnamese)',

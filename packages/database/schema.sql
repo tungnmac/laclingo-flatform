@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     meaning TEXT NOT NULL,
     example TEXT,
     example_meaning TEXT,
+    part_of_speech VARCHAR(10) CHECK (part_of_speech IN ('noun', 'verb', 'adj', 'adv', 'pron', 'prep', 'conj', 'interj', 'det', 'num', 'phrase')),
     topic VARCHAR(50),
     level VARCHAR(5) DEFAULT 'A1',
     audio_url TEXT,
