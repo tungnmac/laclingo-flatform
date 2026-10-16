@@ -57,7 +57,7 @@ export function Sidebar({ user }: { user: User }) {
   const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
+    <aside className="sticky top-0 z-30 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
       <Link href="/learn" className="mb-8 flex items-center gap-2 px-2 text-2xl font-bold text-indigo-600">
         <img src="/logo.svg" alt="" className="h-9 w-9 rounded-xl" /> LacLingo
       </Link>

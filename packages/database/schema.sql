@@ -584,3 +584,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;
+-- ON DELETE CASCADE khi thu hồi thông báo chung + read_count trong ListAnnouncements
+CREATE INDEX IF NOT EXISTS idx_notifications_announcement ON notifications(announcement_id) WHERE announcement_id IS NOT NULL;
+-- Dọn thông báo cũ định kỳ (PruneOldNotifications)
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);

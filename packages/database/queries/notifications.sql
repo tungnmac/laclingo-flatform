@@ -2,6 +2,17 @@
 INSERT INTO notifications (user_id, type, title, body, url, icon)
 VALUES ($1, $2, $3, $4, $5, $6);
 
+-- name: DeleteUnreadNotificationsByType :exec
+-- Thông báo lặp lại (nhắc học mỗi ngày): bỏ bản cũ chưa đọc trước khi tạo bản
+-- mới — user bỏ app lâu không bị chất đống hàng trăm nhắc học chưa đọc.
+DELETE FROM notifications WHERE user_id = $1 AND type = $2 AND read_at IS NULL;
+
+-- name: PruneOldNotifications :execrows
+-- Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
+DELETE FROM notifications
+WHERE (read_at IS NOT NULL AND created_at < NOW() - INTERVAL '60 days')
+   OR created_at < NOW() - INTERVAL '180 days';
+
 -- name: ListNotifications :many
 -- Phân trang theo con trỏ (created_at, id) của phần tử cuối trang trước — ổn
 -- định kể cả khi có thông báo mới chen vào đầu danh sách giữa 2 lần tải.

@@ -124,6 +124,22 @@ func (q *Queries) DeleteNotification(ctx context.Context, arg DeleteNotification
 	return result.RowsAffected(), nil
 }
 
+const deleteUnreadNotificationsByType = `-- name: DeleteUnreadNotificationsByType :exec
+DELETE FROM notifications WHERE user_id = $1 AND type = $2 AND read_at IS NULL
+`
+
+type DeleteUnreadNotificationsByTypeParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Type   string      `json:"type"`
+}
+
+// Thông báo lặp lại (nhắc học mỗi ngày): bỏ bản cũ chưa đọc trước khi tạo bản
+// mới — user bỏ app lâu không bị chất đống hàng trăm nhắc học chưa đọc.
+func (q *Queries) DeleteUnreadNotificationsByType(ctx context.Context, arg DeleteUnreadNotificationsByTypeParams) error {
+	_, err := q.db.Exec(ctx, deleteUnreadNotificationsByType, arg.UserID, arg.Type)
+	return err
+}
+
 const fanOutAnnouncement = `-- name: FanOutAnnouncement :execrows
 INSERT INTO notifications (user_id, type, title, body, url, icon, announcement_id)
 SELECT u.id, 'announcement', a.title, a.body, a.url, '📢', a.id
@@ -275,6 +291,21 @@ type MarkNotificationReadParams struct {
 
 func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markNotificationRead, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const pruneOldNotifications = `-- name: PruneOldNotifications :execrows
+DELETE FROM notifications
+WHERE (read_at IS NOT NULL AND created_at < NOW() - INTERVAL '60 days')
+   OR created_at < NOW() - INTERVAL '180 days'
+`
+
+// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
+func (q *Queries) PruneOldNotifications(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneOldNotifications)
 	if err != nil {
 		return 0, err
 	}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Pagination } from '@/components/admin/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -25,6 +25,11 @@ export default function AdminAnnouncementsPage() {
   const [page, setPage] = useState(1)
   const { data, error, loading, reload } = useApi(() => notificationService.listAnnouncements(page, PAGE_SIZE), [page])
   const [sending, setSending] = useState(false)
+
+  // Thu hồi mục cuối của 1 trang > 1 → trang đó rỗng (total cũng về 0 do COUNT OVER()) — lùi về trang trước
+  useEffect(() => {
+    if (page > 1 && data && data.items.length === 0) setPage(page - 1)
+  }, [data, page])
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()

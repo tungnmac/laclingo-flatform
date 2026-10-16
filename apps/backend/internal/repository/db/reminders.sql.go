@@ -74,9 +74,13 @@ WITH d AS (
     -- Kiểm tra lại trên dòng đã khoá: instance khác vừa nhắc thì bỏ qua
     WHERE user_reminder_settings.last_reminded_on IS NULL
        OR user_reminder_settings.last_reminded_on < EXCLUDED.last_reminded_on
-    RETURNING user_reminder_settings.user_id, COALESCE(user_reminder_settings.last_inactive_sent_at = NOW(), FALSE) AS is_inactive
+    RETURNING user_reminder_settings.user_id
 )
-SELECT claimed.user_id, claimed.is_inactive::bool AS is_inactive, due.days_inactive::int AS days_inactive
+SELECT
+    claimed.user_id,
+    due.is_inactive::bool AS is_inactive,
+    due.days_inactive::int AS days_inactive,
+    EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = claimed.user_id)::bool AS has_push
 FROM claimed
 JOIN due ON due.user_id = claimed.user_id
 `
@@ -85,13 +89,16 @@ type ClaimDueRemindersRow struct {
 	UserID       pgtype.UUID `json:"user_id"`
 	IsInactive   bool        `json:"is_inactive"`
 	DaysInactive int32       `json:"days_inactive"`
+	HasPush      bool        `json:"has_push"`
 }
 
 // Chọn VÀ đánh dấu (1 câu INSERT ... ON CONFLICT nguyên tử — chạy nhiều
 // instance cũng không gửi trùng) những user cần nhắc ngay lúc này. Quét MỌI
 // user active (kể cả chưa bật web push — vẫn nhận thông báo trong chuông);
 // user chưa có dòng cài đặt thì theo mặc định admin và được tạo dòng để ghi
-// dấu vết gửi. Mọi so sánh theo NGÀY ở múi giờ của user. remind_day = ngày
+// dấu vết gửi. Múi giờ: của trình duyệt (FE ghi mỗi lần vào app, xem
+// SetUserReminderTimezone), user chưa từng vào app sau khi có tính năng thì
+// theo múi giờ mặc định của admin. Mọi so sánh theo NGÀY ở múi giờ của user. remind_day = ngày
 // của lần nhắc gần nhất đã tới giờ (khung gửi 2 tiếng có thể kéo qua nửa
 // đêm, vd nhắc 23:30 thì gửi tới 01:30). Tối đa 1 lần nhắc cho mỗi
 // remind_day, và chỉ khi user chưa học từ đầu ngày đó:
@@ -106,7 +113,12 @@ func (q *Queries) ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow
 	var items []ClaimDueRemindersRow
 	for rows.Next() {
 		var i ClaimDueRemindersRow
-		if err := rows.Scan(&i.UserID, &i.IsInactive, &i.DaysInactive); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.IsInactive,
+			&i.DaysInactive,
+			&i.HasPush,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -24,13 +24,16 @@ export function NotificationBell({ variant }: { variant: 'sidebar' | 'header' })
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // Đóng khi bấm ra ngoài hoặc nhấn Escape
+  // Đóng khi bấm ra ngoài hoặc nhấn Escape — trừ khi đang mở hộp xác nhận
+  // (ConfirmDialog render ngoài chuông, vd khi "Xoá tất cả"): bấm Huỷ/OK trong
+  // hộp đó không được đóng luôn bảng thông báo.
   useEffect(() => {
     if (!open) return
+    const confirming = () => !!document.querySelector('[role="alertdialog"]')
     const onPointer = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      if (!confirming() && !rootRef.current?.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !confirming() && setOpen(false)
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
     return () => {

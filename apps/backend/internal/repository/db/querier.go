@@ -32,7 +32,9 @@ type Querier interface {
 	// instance cũng không gửi trùng) những user cần nhắc ngay lúc này. Quét MỌI
 	// user active (kể cả chưa bật web push — vẫn nhận thông báo trong chuông);
 	// user chưa có dòng cài đặt thì theo mặc định admin và được tạo dòng để ghi
-	// dấu vết gửi. Mọi so sánh theo NGÀY ở múi giờ của user. remind_day = ngày
+	// dấu vết gửi. Múi giờ: của trình duyệt (FE ghi mỗi lần vào app, xem
+	// SetUserReminderTimezone), user chưa từng vào app sau khi có tính năng thì
+	// theo múi giờ mặc định của admin. Mọi so sánh theo NGÀY ở múi giờ của user. remind_day = ngày
 	// của lần nhắc gần nhất đã tới giờ (khung gửi 2 tiếng có thể kéo qua nửa
 	// đêm, vd nhắc 23:30 thì gửi tới 01:30). Tối đa 1 lần nhắc cho mỗi
 	// remind_day, và chỉ khi user chưa học từ đầu ngày đó:
@@ -105,6 +107,9 @@ type Querier interface {
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	// Push service báo subscription hết hạn (404/410) — xoá bất kể user.
 	DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint string) error
+	// Thông báo lặp lại (nhắc học mỗi ngày): bỏ bản cũ chưa đọc trước khi tạo bản
+	// mới — user bỏ app lâu không bị chất đống hàng trăm nhắc học chưa đọc.
+	DeleteUnreadNotificationsByType(ctx context.Context, arg DeleteUnreadNotificationsByTypeParams) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
@@ -290,6 +295,8 @@ type Querier interface {
 	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
 	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
+	// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
+	PruneOldNotifications(ctx context.Context) (int64, error)
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
 	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,

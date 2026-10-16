@@ -155,7 +155,7 @@ func (f *fakeSender) Send(_ context.Context, sub db.PushSubscription, payload []
 func TestRunDueSendsAndPrunesGoneSubscriptions(t *testing.T) {
 	repo := &fakeReminderRepo{
 		subs: []db.PushSubscription{{Endpoint: "https://ok"}, {Endpoint: "https://gone"}, {Endpoint: "https://broken"}},
-		due:  []db.ClaimDueRemindersRow{{IsInactive: true, DaysInactive: 4}},
+		due:  []db.ClaimDueRemindersRow{{IsInactive: true, DaysInactive: 4, HasPush: true}},
 	}
 	sender := &fakeSender{results: map[string]error{"https://gone": errGone, "https://broken": errors.New("503")}}
 	notifier := &fakeNotifier{}
@@ -210,5 +210,20 @@ func TestRunDueWithoutPushStillNotifiesInApp(t *testing.T) {
 	}
 	if len(notifier.sent) != 1 || notifier.sent[0].Type != NotificationStudyReminder {
 		t.Errorf("chưa cấu hình push vẫn phải nhắc trong chuông, nhận %+v", notifier.sent)
+	}
+}
+
+func TestRunDueSkipsPushForUsersWithoutSubscription(t *testing.T) {
+	sender := &fakeSender{}
+	notifier := &fakeNotifier{}
+	svc := NewReminderService(&fakeReminderRepo{due: []db.ClaimDueRemindersRow{{HasPush: false}}}, sender, "pub", notifier)
+	if err := svc.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue: %v", err)
+	}
+	if len(sender.payloads) != 0 {
+		t.Errorf("user chưa đăng ký push thì không được gọi gửi push, đã gửi %d", len(sender.payloads))
+	}
+	if len(notifier.sent) != 1 || !notifier.sent[0].ReplaceUnread || strings.HasPrefix(notifier.sent[0].Title, "🦩") {
+		t.Errorf("nhắc trong chuông phải thay bản chưa đọc cũ và không lặp emoji ở tiêu đề: %+v", notifier.sent)
 	}
 }

@@ -143,6 +143,17 @@ func (s *ReminderService) Subscribe(ctx context.Context, userID uuid.UUID, req P
 	})
 }
 
+// UpdateTimezone lưu múi giờ trình duyệt của user (FE gọi mỗi lần vào app) —
+// để nhắc học đúng giờ địa phương kể cả với user chưa bật web push
+func (s *ReminderService) UpdateTimezone(ctx context.Context, userID uuid.UUID, tz string) error {
+	if err := s.checkTimezone(ctx, tz); err != nil {
+		return err
+	}
+	return s.repo.SetUserReminderTimezone(ctx, db.SetUserReminderTimezoneParams{
+		UserID: toPgUUID(userID), Timezone: pgtype.Text{String: tz, Valid: true},
+	})
+}
+
 func (s *ReminderService) Unsubscribe(ctx context.Context, userID uuid.UUID, endpoint string) error {
 	if endpoint == "" {
 		return ErrInvalidInput
@@ -275,8 +286,11 @@ func (s *ReminderService) RunDue(ctx context.Context) error {
 	for _, r := range due {
 		userID := uuid.UUID(r.UserID.Bytes)
 		p := reminderPayload(r)
-		s.notifier.Notify(ctx, userID, NotificationInput{Type: NotificationStudyReminder, Icon: "🦩", Title: p.Title, Body: p.Body, URL: p.URL})
-		if s.sender == nil {
+		s.notifier.Notify(ctx, userID, NotificationInput{
+			Type: NotificationStudyReminder, Icon: "🦩", Title: strings.TrimPrefix(p.Title, "🦩 "), Body: p.Body, URL: p.URL,
+			ReplaceUnread: true,
+		})
+		if s.sender == nil || !r.HasPush {
 			continue
 		}
 		if _, _, err := s.sendToUser(ctx, userID, p); err != nil {

@@ -26,6 +26,7 @@ const (
 )
 
 const (
+	notificationPruneInterval   = time.Hour
 	defaultNotificationPageSize = 20
 	maxNotificationPageSize     = 50
 	maxNotificationTitleLen     = 200 // notifications.title / announcements.title VARCHAR(200)
@@ -37,6 +38,8 @@ type NotificationRepository interface {
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 	WithTx(tx pgx.Tx) *db.Queries
 	CreateNotification(ctx context.Context, arg db.CreateNotificationParams) error
+	DeleteUnreadNotificationsByType(ctx context.Context, arg db.DeleteUnreadNotificationsByTypeParams) error
+	PruneOldNotifications(ctx context.Context) (int64, error)
 	ListNotifications(ctx context.Context, arg db.ListNotificationsParams) ([]db.Notification, error)
 	CountUnreadNotifications(ctx context.Context, userID pgtype.UUID) (int32, error)
 	MarkNotificationRead(ctx context.Context, arg db.MarkNotificationReadParams) (int64, error)
@@ -60,6 +63,9 @@ type NotificationInput struct {
 	Body  string
 	URL   string // đường dẫn trong app khi bấm vào, để trống = không điều hướng
 	Icon  string
+	// ReplaceUnread — bỏ thông báo cùng Type chưa đọc trước khi tạo (thông báo
+	// lặp lại như nhắc học hằng ngày: chỉ giữ bản mới nhất chưa đọc)
+	ReplaceUnread bool
 }
 
 // Notification — 1 thông báo trong chuông
@@ -111,12 +117,35 @@ func (s *NotificationService) Notify(ctx context.Context, userID uuid.UUID, n No
 	if n.Icon == "" {
 		n.Icon = "🔔"
 	}
+	if n.ReplaceUnread {
+		if err := s.repo.DeleteUnreadNotificationsByType(ctx, db.DeleteUnreadNotificationsByTypeParams{UserID: toPgUUID(userID), Type: n.Type}); err != nil {
+			log.Printf("❌ notification: bỏ thông báo %s cũ user=%s: %v", n.Type, userID, err)
+		}
+	}
 	err := s.repo.CreateNotification(ctx, db.CreateNotificationParams{
 		UserID: toPgUUID(userID), Type: n.Type, Title: truncateRunes(n.Title, maxNotificationTitleLen), Body: n.Body,
 		Url: pgtype.Text{String: n.URL, Valid: n.URL != ""}, Icon: n.Icon,
 	})
 	if err != nil {
 		log.Printf("❌ notification: tạo thông báo %s user=%s: %v", n.Type, userID, err)
+	}
+}
+
+// StartCleanup dọn thông báo cũ mỗi giờ (xem PruneOldNotifications) tới khi ctx bị huỷ
+func (s *NotificationService) StartCleanup(ctx context.Context) {
+	ticker := time.NewTicker(notificationPruneInterval)
+	defer ticker.Stop()
+	for {
+		if n, err := s.repo.PruneOldNotifications(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("❌ notification: dọn thông báo cũ: %v", err)
+		} else if n > 0 {
+			log.Printf("🧹 notification: đã dọn %d thông báo cũ", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 

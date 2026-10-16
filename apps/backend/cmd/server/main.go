@@ -97,6 +97,7 @@ func main() {
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
 	go reminderService.Start(schedulerCtx)
+	go notificationService.StartCleanup(schedulerCtx)
 
 	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService)
 
