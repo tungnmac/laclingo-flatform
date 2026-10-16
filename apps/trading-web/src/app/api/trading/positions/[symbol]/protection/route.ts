@@ -4,8 +4,8 @@ import { handleRoute, readJson } from '@/server/http'
 import { setProtection } from '@/server/trading/order-service'
 import { protectionSchema } from '@/server/trading/validation'
 
-export const PUT = handleRoute(async (req: Request, ctx: { params: { symbol: string } }) => {
+export const PUT = handleRoute(async (req: Request, ctx: { params: Promise<{ symbol: string }> }) => {
   const user = await requireUser()
   const input = protectionSchema.parse(await readJson(req))
-  return NextResponse.json(await setProtection(user.id, ctx.params.symbol.toUpperCase(), input))
+  return NextResponse.json(await setProtection(user.id, (await ctx.params).symbol.toUpperCase(), input))
 })

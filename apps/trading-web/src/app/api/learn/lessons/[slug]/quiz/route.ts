@@ -7,8 +7,8 @@ import { answersSchema } from '@/server/learn/validation'
 
 export const dynamic = 'force-dynamic'
 
-export const POST = handleRoute(async (req: Request, ctx: { params: { slug: string } }) => {
+export const POST = handleRoute(async (req: Request, ctx: { params: Promise<{ slug: string }> }) => {
   const user = await requireUser()
   const { answers } = answersSchema.parse(await readJson(req))
-  return NextResponse.json(await submitQuiz(user.id, getLocale(), ctx.params.slug, answers))
+  return NextResponse.json(await submitQuiz(user.id, await getLocale(), (await ctx.params).slug, answers))
 })

@@ -7,9 +7,9 @@ import { getLesson } from '@/server/learn/learn-service'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = handleRoute(async (req: Request, ctx: { params: { slug: string } }) => {
+export const GET = handleRoute(async (req: Request, ctx: { params: Promise<{ slug: string }> }) => {
   const user = await requireUser()
   const from = new URL(req.url).searchParams.get('from') // ngôn ngữ của slug khi người học vừa đổi ngôn ngữ
   const source = LOCALES.find((l) => l === from) ?? null
-  return NextResponse.json(await getLesson(user.id, getLocale(), ctx.params.slug, source))
+  return NextResponse.json(await getLesson(user.id, await getLocale(), (await ctx.params).slug, source))
 })

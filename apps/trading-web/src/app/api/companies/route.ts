@@ -12,5 +12,5 @@ const query = z.object({ market: marketSchema.default('vn') })
 export const GET = handleRoute(async (req: Request) => {
   await requireUser()
   const { market } = query.parse(Object.fromEntries(new URL(req.url).searchParams))
-  return NextResponse.json(await listCompanies(market, getLocale()))
+  return NextResponse.json(await listCompanies(market, await getLocale()))
 })

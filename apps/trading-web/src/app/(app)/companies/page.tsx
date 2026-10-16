@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, use } from 'react'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { formatMoney, formatMultiple, formatRatioPct } from '@/lib/company-format'
@@ -21,7 +21,8 @@ const COLUMNS: { key: SortKey; label: string; className: string }[] = [
   { key: 'revenue_growth', label: 'companies.colRevGrowth', className: 'hidden lg:table-cell' },
 ]
 
-export default function CompaniesPage({ searchParams }: { searchParams: { market?: string } }) {
+export default function CompaniesPage(props: { searchParams: Promise<{ market?: string }> }) {
+  const searchParams = use(props.searchParams)
   const { t, locale } = useT()
   const router = useRouter()
   const market: CompanyMarket = COMPANY_MARKETS.find((m) => m === searchParams.market) ?? 'vn'

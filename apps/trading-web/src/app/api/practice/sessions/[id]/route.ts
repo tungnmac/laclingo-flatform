@@ -5,7 +5,7 @@ import { getSessionById } from '@/server/practice/practice-service'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = handleRoute(async (_req: Request, ctx: { params: { id: string } }) => {
+export const GET = handleRoute(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser()
-  return NextResponse.json(await getSessionById(user.id, ctx.params.id))
+  return NextResponse.json(await getSessionById(user.id, (await ctx.params).id))
 })

@@ -7,10 +7,11 @@ import { handleRoute, HttpError } from '@/server/http'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = handleRoute(async (_req: Request, ctx: { params: { market: string; symbol: string } }) => {
+export const GET = handleRoute(async (_req: Request, ctx: { params: Promise<{ market: string; symbol: string }> }) => {
   await requireUser()
-  const market = marketSchema.safeParse(ctx.params.market)
-  const symbol = symbolSchema.safeParse(ctx.params.symbol)
+  const params = await ctx.params
+  const market = marketSchema.safeParse(params.market)
+  const symbol = symbolSchema.safeParse(params.symbol)
   if (!market.success || !symbol.success) throw new HttpError(404, 'NOT_FOUND')
-  return NextResponse.json(await getCompany(market.data, symbol.data, getLocale()))
+  return NextResponse.json(await getCompany(market.data, symbol.data, await getLocale()))
 })

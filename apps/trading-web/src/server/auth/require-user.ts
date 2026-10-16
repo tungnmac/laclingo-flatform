@@ -11,7 +11,7 @@ export function toSessionUser(u: UserRow): SessionUser {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const session = await readSession(cookies().get(SESSION_COOKIE)?.value)
+  const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value)
   if (!session) return null
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1)
   // token ký trước lần logout gần nhất → không còn hiệu lực

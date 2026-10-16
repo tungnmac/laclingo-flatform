@@ -8,5 +8,5 @@ export const dynamic = 'force-dynamic'
 
 export const GET = handleRoute(async () => {
   const user = await requireUser()
-  return NextResponse.json(await getCatalog(user.id, getLocale()))
+  return NextResponse.json(await getCatalog(user.id, await getLocale()))
 })
