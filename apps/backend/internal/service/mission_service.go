@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"laclingo-backend/internal/leveling"
@@ -27,6 +28,7 @@ type MissionRepository interface {
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]db.Mission, error)
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]db.ListMissionsWithProgressRow, error)
+	TouchUserStudiedAt(ctx context.Context, id pgtype.UUID) error
 }
 
 var validMissionPeriods = map[string]bool{"daily": true, "weekly": true, "monthly": true, "event": true}
@@ -248,6 +250,16 @@ func (s *MissionService) ListMyMissions(ctx context.Context, userID uuid.UUID) (
 	return results, nil
 }
 
+// MarkStudied ghi lại lần học gần nhất của user cho nhắc học (xem
+// ClaimDueReminders). RecordAction tự gọi; hoạt động học KHÔNG tính nhiệm vụ
+// (vd luyện sớm từ chưa đến hạn) thì gọi trực tiếp. Lỗi chỉ log, không chặn
+// hành động học chính.
+func (s *MissionService) MarkStudied(ctx context.Context, userID uuid.UUID) {
+	if err := s.repo.TouchUserStudiedAt(ctx, toPgUUID(userID)); err != nil {
+		log.Printf("❌ reminder: TouchUserStudiedAt user=%s: %v", userID, err)
+	}
+}
+
 // RecordAction ghi nhận 1 hành động (actionType) của user — cộng thêm
 // `amount` vào progress của MỌI nhiệm vụ active khớp action này, và nếu vừa
 // chạm target lần đầu trong kỳ hiện tại thì cộng thưởng EXP/point + tính lại
@@ -258,6 +270,8 @@ func (s *MissionService) RecordAction(ctx context.Context, userID uuid.UUID, act
 	if userID == uuid.Nil || amount <= 0 {
 		return ErrInvalidInput
 	}
+
+	s.MarkStudied(ctx, userID)
 
 	missions, err := s.repo.ListActiveMissionsByAction(ctx, actionType)
 	if err != nil {

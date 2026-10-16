@@ -59,6 +59,7 @@ var modulePathPrefixes = []struct {
 	{"/api/v1/admin/listening", "listening"},
 	{"/api/v1/admin/classes", "classes"},
 	{"/api/v1/admin/blog", "blog"},
+	{"/api/v1/admin/reminder-defaults", "reminders"},
 }
 
 func moduleForPath(path string) string {

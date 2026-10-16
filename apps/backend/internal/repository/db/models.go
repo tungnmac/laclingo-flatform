@@ -257,22 +257,43 @@ type Mission struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PushSubscription struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Endpoint  string             `json:"endpoint"`
+	P256dh    string             `json:"p256dh"`
+	Auth      string             `json:"auth"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReminderDefault struct {
+	ID              int16              `json:"id"`
+	DailyEnabled    bool               `json:"daily_enabled"`
+	RemindTime      pgtype.Time        `json:"remind_time"`
+	DaysOfWeek      []int16            `json:"days_of_week"`
+	InactiveEnabled bool               `json:"inactive_enabled"`
+	InactiveDays    int32              `json:"inactive_days"`
+	Timezone        string             `json:"timezone"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	Username     string             `json:"username"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	StreakCount  pgtype.Int4        `json:"streak_count"`
-	Role         string             `json:"role"`
-	AdminModules []string           `json:"admin_modules"`
-	IsActive     bool               `json:"is_active"`
-	Exp          int64              `json:"exp"`
-	Level        int32              `json:"level"`
-	Points       int64              `json:"points"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID            pgtype.UUID        `json:"id"`
+	Email         string             `json:"email"`
+	Username      string             `json:"username"`
+	PasswordHash  string             `json:"password_hash"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	StreakCount   pgtype.Int4        `json:"streak_count"`
+	Role          string             `json:"role"`
+	AdminModules  []string           `json:"admin_modules"`
+	IsActive      bool               `json:"is_active"`
+	Exp           int64              `json:"exp"`
+	Level         int32              `json:"level"`
+	Points        int64              `json:"points"`
+	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserClassEnrollment struct {
@@ -328,6 +349,19 @@ type UserMissionProgress struct {
 	CompletedAt   pgtype.Timestamptz `json:"completed_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserReminderSetting struct {
+	UserID             pgtype.UUID        `json:"user_id"`
+	DailyEnabled       pgtype.Bool        `json:"daily_enabled"`
+	RemindTime         pgtype.Time        `json:"remind_time"`
+	DaysOfWeek         []int16            `json:"days_of_week"`
+	InactiveEnabled    pgtype.Bool        `json:"inactive_enabled"`
+	InactiveDays       pgtype.Int4        `json:"inactive_days"`
+	Timezone           pgtype.Text        `json:"timezone"`
+	LastRemindedOn     pgtype.Date        `json:"last_reminded_on"`
+	LastInactiveSentAt pgtype.Timestamptz `json:"last_inactive_sent_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserVocabularyReview struct {

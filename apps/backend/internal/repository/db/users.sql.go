@@ -18,7 +18,7 @@ SET exp = exp + $1,
     level = $3,
     updated_at = NOW()
 WHERE id = $4
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type AddUserRewardsParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) AddUserRewards(ctx context.Context, arg AddUserRewardsParams) 
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -61,7 +62,7 @@ func (q *Queries) AddUserRewards(ctx context.Context, arg AddUserRewardsParams) 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, username, password_hash, full_name)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -93,6 +94,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -100,7 +102,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at FROM users
 WHERE email = $1
 `
 
@@ -121,6 +123,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -128,7 +131,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at FROM users
 WHERE id = $1
 `
 
@@ -149,6 +152,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -156,7 +160,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at FROM users
 WHERE email = $1 OR username = $1
 `
 
@@ -177,6 +181,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, email string) (User, 
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -184,7 +189,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, email string) (User, 
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at FROM users
 WHERE username = $1
 `
 
@@ -205,6 +210,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -212,7 +218,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at FROM users
 ORDER BY created_at DESC
 `
 
@@ -239,6 +245,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Exp,
 			&i.Level,
 			&i.Points,
+			&i.LastStudiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -253,7 +260,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const listUsersAdminPaged = `-- name: ListUsersAdminPaged :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
 WHERE ($1::text IS NULL
     OR username ILIKE '%' || $1::text || '%'
     OR email ILIKE '%' || $1::text || '%'
@@ -273,22 +280,23 @@ type ListUsersAdminPagedParams struct {
 }
 
 type ListUsersAdminPagedRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	Username     string             `json:"username"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	StreakCount  pgtype.Int4        `json:"streak_count"`
-	Role         string             `json:"role"`
-	AdminModules []string           `json:"admin_modules"`
-	IsActive     bool               `json:"is_active"`
-	Exp          int64              `json:"exp"`
-	Level        int32              `json:"level"`
-	Points       int64              `json:"points"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	TotalCount   int64              `json:"total_count"`
+	ID            pgtype.UUID        `json:"id"`
+	Email         string             `json:"email"`
+	Username      string             `json:"username"`
+	PasswordHash  string             `json:"password_hash"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	StreakCount   pgtype.Int4        `json:"streak_count"`
+	Role          string             `json:"role"`
+	AdminModules  []string           `json:"admin_modules"`
+	IsActive      bool               `json:"is_active"`
+	Exp           int64              `json:"exp"`
+	Level         int32              `json:"level"`
+	Points        int64              `json:"points"`
+	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TotalCount    int64              `json:"total_count"`
 }
 
 // Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
@@ -323,6 +331,7 @@ func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPag
 			&i.Exp,
 			&i.Level,
 			&i.Points,
+			&i.LastStudiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -338,7 +347,7 @@ func (q *Queries) ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPag
 }
 
 const listUsersByLevel = `-- name: ListUsersByLevel :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND ($1::text IS NULL
     OR username ILIKE '%' || $1::text || '%'
@@ -354,22 +363,23 @@ type ListUsersByLevelParams struct {
 }
 
 type ListUsersByLevelRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	Username     string             `json:"username"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	StreakCount  pgtype.Int4        `json:"streak_count"`
-	Role         string             `json:"role"`
-	AdminModules []string           `json:"admin_modules"`
-	IsActive     bool               `json:"is_active"`
-	Exp          int64              `json:"exp"`
-	Level        int32              `json:"level"`
-	Points       int64              `json:"points"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	TotalCount   int64              `json:"total_count"`
+	ID            pgtype.UUID        `json:"id"`
+	Email         string             `json:"email"`
+	Username      string             `json:"username"`
+	PasswordHash  string             `json:"password_hash"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	StreakCount   pgtype.Int4        `json:"streak_count"`
+	Role          string             `json:"role"`
+	AdminModules  []string           `json:"admin_modules"`
+	IsActive      bool               `json:"is_active"`
+	Exp           int64              `json:"exp"`
+	Level         int32              `json:"level"`
+	Points        int64              `json:"points"`
+	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TotalCount    int64              `json:"total_count"`
 }
 
 func (q *Queries) ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error) {
@@ -395,6 +405,7 @@ func (q *Queries) ListUsersByLevel(ctx context.Context, arg ListUsersByLevelPara
 			&i.Exp,
 			&i.Level,
 			&i.Points,
+			&i.LastStudiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -410,7 +421,7 @@ func (q *Queries) ListUsersByLevel(ctx context.Context, arg ListUsersByLevelPara
 }
 
 const listUsersByPoints = `-- name: ListUsersByPoints :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND ($1::text IS NULL
     OR username ILIKE '%' || $1::text || '%'
@@ -426,22 +437,23 @@ type ListUsersByPointsParams struct {
 }
 
 type ListUsersByPointsRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	Username     string             `json:"username"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	StreakCount  pgtype.Int4        `json:"streak_count"`
-	Role         string             `json:"role"`
-	AdminModules []string           `json:"admin_modules"`
-	IsActive     bool               `json:"is_active"`
-	Exp          int64              `json:"exp"`
-	Level        int32              `json:"level"`
-	Points       int64              `json:"points"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	TotalCount   int64              `json:"total_count"`
+	ID            pgtype.UUID        `json:"id"`
+	Email         string             `json:"email"`
+	Username      string             `json:"username"`
+	PasswordHash  string             `json:"password_hash"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	StreakCount   pgtype.Int4        `json:"streak_count"`
+	Role          string             `json:"role"`
+	AdminModules  []string           `json:"admin_modules"`
+	IsActive      bool               `json:"is_active"`
+	Exp           int64              `json:"exp"`
+	Level         int32              `json:"level"`
+	Points        int64              `json:"points"`
+	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TotalCount    int64              `json:"total_count"`
 }
 
 func (q *Queries) ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error) {
@@ -467,6 +479,7 @@ func (q *Queries) ListUsersByPoints(ctx context.Context, arg ListUsersByPointsPa
 			&i.Exp,
 			&i.Level,
 			&i.Points,
+			&i.LastStudiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -482,7 +495,7 @@ func (q *Queries) ListUsersByPoints(ctx context.Context, arg ListUsersByPointsPa
 }
 
 const listUsersByStreak = `-- name: ListUsersByStreak :many
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND ($1::text IS NULL
     OR username ILIKE '%' || $1::text || '%'
@@ -498,22 +511,23 @@ type ListUsersByStreakParams struct {
 }
 
 type ListUsersByStreakRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	Email        string             `json:"email"`
-	Username     string             `json:"username"`
-	PasswordHash string             `json:"password_hash"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	StreakCount  pgtype.Int4        `json:"streak_count"`
-	Role         string             `json:"role"`
-	AdminModules []string           `json:"admin_modules"`
-	IsActive     bool               `json:"is_active"`
-	Exp          int64              `json:"exp"`
-	Level        int32              `json:"level"`
-	Points       int64              `json:"points"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	TotalCount   int64              `json:"total_count"`
+	ID            pgtype.UUID        `json:"id"`
+	Email         string             `json:"email"`
+	Username      string             `json:"username"`
+	PasswordHash  string             `json:"password_hash"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	StreakCount   pgtype.Int4        `json:"streak_count"`
+	Role          string             `json:"role"`
+	AdminModules  []string           `json:"admin_modules"`
+	IsActive      bool               `json:"is_active"`
+	Exp           int64              `json:"exp"`
+	Level         int32              `json:"level"`
+	Points        int64              `json:"points"`
+	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	TotalCount    int64              `json:"total_count"`
 }
 
 // Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
@@ -541,6 +555,7 @@ func (q *Queries) ListUsersByStreak(ctx context.Context, arg ListUsersByStreakPa
 			&i.Exp,
 			&i.Level,
 			&i.Points,
+			&i.LastStudiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalCount,
@@ -559,7 +574,7 @@ const updateUserActive = `-- name: UpdateUserActive :one
 UPDATE users
 SET is_active = $1, updated_at = NOW()
 WHERE id = $2
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type UpdateUserActiveParams struct {
@@ -586,6 +601,7 @@ func (q *Queries) UpdateUserActive(ctx context.Context, arg UpdateUserActivePara
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -596,7 +612,7 @@ const updateUserModules = `-- name: UpdateUserModules :one
 UPDATE users
 SET admin_modules = $1, updated_at = NOW()
 WHERE id = $2
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type UpdateUserModulesParams struct {
@@ -621,6 +637,7 @@ func (q *Queries) UpdateUserModules(ctx context.Context, arg UpdateUserModulesPa
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -633,7 +650,7 @@ SET full_name  = COALESCE($1, full_name),
     avatar_url = COALESCE($2, avatar_url),
     updated_at = NOW()
 WHERE id = $3
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type UpdateUserProfileParams struct {
@@ -659,6 +676,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -671,7 +689,7 @@ SET role = $1::varchar,
     admin_modules = CASE WHEN $1::varchar = 'user' THEN '{}'::text[] ELSE admin_modules END,
     updated_at = NOW()
 WHERE id = $2
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, created_at, updated_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at
 `
 
 type UpdateUserRoleParams struct {
@@ -700,6 +718,7 @@ func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) 
 		&i.Exp,
 		&i.Level,
 		&i.Points,
+		&i.LastStudiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

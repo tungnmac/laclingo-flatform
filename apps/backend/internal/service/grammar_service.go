@@ -204,6 +204,8 @@ func (s *GrammarService) SubmitExercise(ctx context.Context, userID, exerciseID 
 		if err := s.repo.CompleteExercise(ctx, db.CompleteExerciseParams{UserID: toPgUUID(userID), ExerciseID: toPgUUID(exerciseID)}); err != nil {
 			log.Printf("❌ CompleteExercise user=%s exercise=%s: %v", userID, exerciseID, err)
 		}
+	} else {
+		s.missions.MarkStudied(ctx, userID) // trả lời sai vẫn là đang học (đúng thì RecordAction tự ghi)
 	}
 
 	return SubmitExerciseResponse{Correct: correct}, nil

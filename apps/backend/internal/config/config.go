@@ -25,6 +25,13 @@ type Config struct {
 	R2Bucket          string
 	R2AccessKeyID     string
 	R2SecretAccessKey string
+
+	// VAPID* — khoá ký web push (nhắc học). Để trống thì tính năng nhắc học tắt
+	// (bộ lập lịch không chạy, API trả push_configured=false), server vẫn chạy.
+	// Tạo cặp khoá: npx web-push generate-vapid-keys
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string // mailto:... hoặc https://... — push service dùng để liên hệ khi có sự cố
 }
 
 func Load() (*Config, error) {
@@ -76,7 +83,16 @@ func Load() (*Config, error) {
 		R2Bucket:          os.Getenv("R2_BUCKET"),
 		R2AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
 		R2SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+
+		VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:    os.Getenv("VAPID_SUBJECT"),
 	}, nil
+}
+
+// PushConfigured báo VAPID_* đã được điền đủ chưa — thiếu thì tắt nhắc học (web push).
+func (c *Config) PushConfigured() bool {
+	return c.VAPIDPublicKey != "" && c.VAPIDPrivateKey != "" && c.VAPIDSubject != ""
 }
 
 // R2Configured báo R2* đã được điền đủ chưa — dùng để quyết định có khởi tạo

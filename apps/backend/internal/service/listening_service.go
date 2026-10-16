@@ -210,6 +210,8 @@ func (s *ListeningService) SubmitAnswer(ctx context.Context, userID, questionID 
 		if err := s.missions.RecordAction(ctx, userID, "listening_practice", 1); err != nil {
 			log.Printf("❌ mission: RecordAction user=%s action=listening_practice: %v", userID, err)
 		}
+	} else {
+		s.missions.MarkStudied(ctx, userID) // trả lời sai vẫn là đang học (đúng thì RecordAction tự ghi)
 	}
 
 	return SubmitListeningAnswerResponse{

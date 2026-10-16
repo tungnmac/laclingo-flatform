@@ -248,6 +248,7 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 		if err != nil {
 			return domain.VocabularyPracticeResponse{}, err
 		}
+		s.missions.MarkStudied(ctx, userID) // vẫn là 1 lần học — nhắc học không được coi là bỏ học
 		return toPracticeResponse(saved, quality), nil
 	}
 
