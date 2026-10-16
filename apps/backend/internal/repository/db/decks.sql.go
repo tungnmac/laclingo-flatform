@@ -124,6 +124,7 @@ SELECT
     v.term,
     v.phonetic,
     v.meaning,
+    v.part_of_speech,
     v.topic,
     v.level,
     v.image_url,
@@ -150,6 +151,7 @@ type ListDeckVocabulariesRow struct {
 	Term          string             `json:"term"`
 	Phonetic      pgtype.Text        `json:"phonetic"`
 	Meaning       string             `json:"meaning"`
+	PartOfSpeech  pgtype.Text        `json:"part_of_speech"`
 	Topic         pgtype.Text        `json:"topic"`
 	Level         pgtype.Text        `json:"level"`
 	ImageUrl      pgtype.Text        `json:"image_url"`
@@ -175,6 +177,7 @@ func (q *Queries) ListDeckVocabularies(ctx context.Context, arg ListDeckVocabula
 			&i.Term,
 			&i.Phonetic,
 			&i.Meaning,
+			&i.PartOfSpeech,
 			&i.Topic,
 			&i.Level,
 			&i.ImageUrl,

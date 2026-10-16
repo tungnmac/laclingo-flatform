@@ -64,6 +64,7 @@ type DeckWord struct {
 	Term          string     `json:"term"`
 	Phonetic      string     `json:"phonetic"`
 	Meaning       string     `json:"meaning"`
+	PartOfSpeech  string     `json:"part_of_speech"`
 	Topic         string     `json:"topic"`
 	Level         string     `json:"level"`
 	ImageURL      string     `json:"image_url"`
@@ -127,7 +128,7 @@ func (s *DeckService) GetDeck(ctx context.Context, userID, deckID uuid.UUID) (De
 	for _, r := range rows {
 		w := DeckWord{
 			VocabularyID: uuid.UUID(r.ID.Bytes), LanguageID: r.LanguageID, Term: r.Term,
-			Phonetic: r.Phonetic.String, Meaning: r.Meaning, Topic: r.Topic.String, Level: r.Level.String,
+			Phonetic: r.Phonetic.String, Meaning: r.Meaning, PartOfSpeech: r.PartOfSpeech.String, Topic: r.Topic.String, Level: r.Level.String,
 			ImageURL: r.ImageUrl.String, ImageEmoji: r.ImageEmoji.String, PracticeCount: r.PracticeCount,
 			AddedAt: r.AddedAt.Time,
 		}

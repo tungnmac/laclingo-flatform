@@ -3,6 +3,7 @@
 'use client'
 
 import { AudioButton } from '@/components/audio/AudioButton'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { DueVocabulary } from '@/types/api'
@@ -29,7 +30,12 @@ export function Flashcard({ vocab, flipped, onFlip }: { vocab: DueVocabulary; fl
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl bg-white p-6 shadow-md ring-1 ring-slate-200 [backface-visibility:hidden]">
           <span className="text-xs font-medium uppercase tracking-widest text-slate-400">{t.vocabCard.termLabel}</span>
           <h2 className="break-words text-center text-4xl font-bold text-slate-900 sm:text-5xl">{vocab.term}</h2>
-          {vocab.phonetic && <p className="text-lg text-slate-500">/{vocab.phonetic}/</p>}
+          {(vocab.phonetic || vocab.part_of_speech) && (
+            <p className="flex items-center gap-2 text-lg text-slate-500">
+              {vocab.phonetic && <span>/{vocab.phonetic}/</span>}
+              <PartOfSpeechBadge value={vocab.part_of_speech} />
+            </p>
+          )}
           <AudioButton src={vocab.audio_url || undefined} text={vocab.term} languageId={vocab.language_id} />
           <p className="absolute bottom-4 text-xs text-slate-400">{t.vocabCard.tapToFlip}</p>
         </div>

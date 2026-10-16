@@ -77,6 +77,7 @@ export interface DueVocabulary {
   term: string
   phonetic: string
   meaning: string
+  part_of_speech: string // rỗng = chưa phân loại
   audio_url: string
   srs_stage: number
   next_review_at: string
@@ -101,6 +102,7 @@ export interface NewVocabulary {
   term: string
   phonetic: string
   meaning: string
+  part_of_speech: string // rỗng = chưa phân loại
   example: string
   topic: string
   level: string
@@ -127,6 +129,7 @@ export interface VocabularyCard {
   term: string
   phonetic: string
   meaning: string
+  part_of_speech: string // rỗng = chưa phân loại
   example: string
   topic: string
   level: string
@@ -590,6 +593,7 @@ export interface VocabularyRequest {
   term: string
   phonetic?: string
   meaning: string
+  part_of_speech?: string // noun/verb/adj/... — xem features/vocabulary/partOfSpeech.ts
   example?: string
   example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
@@ -605,6 +609,7 @@ export interface VocabularyAdmin {
   term: string
   phonetic?: string
   meaning: string
+  part_of_speech?: string // noun/verb/adj/... — xem features/vocabulary/partOfSpeech.ts
   example?: string
   example_meaning?: string // nghĩa tiếng Việt của câu ví dụ
   topic?: string
@@ -828,6 +833,7 @@ export interface DeckWord {
   term: string
   phonetic: string
   meaning: string
+  part_of_speech: string // rỗng = chưa phân loại
   topic: string
   level: string
   image_url: string
@@ -848,6 +854,7 @@ export interface ReviewWord {
   term: string
   phonetic: string
   meaning: string
+  part_of_speech: string // rỗng = chưa phân loại
   topic: string
   level: string
   image_url: string

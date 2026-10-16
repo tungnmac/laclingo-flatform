@@ -63,6 +63,7 @@ SELECT
     v.term,
     v.phonetic,
     v.meaning,
+    v.part_of_speech,
     v.topic,
     v.level,
     v.image_url,

@@ -350,6 +350,7 @@ type Vocabulary struct {
 	Meaning        string             `json:"meaning"`
 	Example        pgtype.Text        `json:"example"`
 	ExampleMeaning pgtype.Text        `json:"example_meaning"`
+	PartOfSpeech   pgtype.Text        `json:"part_of_speech"`
 	Topic          pgtype.Text        `json:"topic"`
 	Level          pgtype.Text        `json:"level"`
 	AudioUrl       pgtype.Text        `json:"audio_url"`

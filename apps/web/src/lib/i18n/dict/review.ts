@@ -1,3 +1,4 @@
+import type { PartOfSpeech } from '@/features/vocabulary/partOfSpeech'
 import type { Locale } from '@/store/locale'
 
 // Namespace "review" (hub ôn tập + học từ mới + chủ đề/mục con + yêu thích +
@@ -93,6 +94,7 @@ export interface ReviewDict {
     qualityGood: string
     qualityEasy: string
     keyHint: (key: string) => string
+    partOfSpeechNames: Record<PartOfSpeech, string>
   }
 }
 
@@ -187,6 +189,19 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       qualityGood: 'Tốt',
       qualityEasy: 'Dễ',
       keyHint: (key) => `Phím ${key}`,
+      partOfSpeechNames: {
+        noun: 'Danh từ',
+        verb: 'Động từ',
+        adj: 'Tính từ',
+        adv: 'Trạng từ',
+        pron: 'Đại từ',
+        prep: 'Giới từ',
+        conj: 'Liên từ',
+        interj: 'Thán từ',
+        det: 'Từ hạn định',
+        num: 'Số từ',
+        phrase: 'Cụm từ',
+      },
     },
   },
   en: {
@@ -279,6 +294,19 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       qualityGood: 'Good',
       qualityEasy: 'Easy',
       keyHint: (key) => `Key ${key}`,
+      partOfSpeechNames: {
+        noun: 'Noun',
+        verb: 'Verb',
+        adj: 'Adjective',
+        adv: 'Adverb',
+        pron: 'Pronoun',
+        prep: 'Preposition',
+        conj: 'Conjunction',
+        interj: 'Interjection',
+        det: 'Determiner',
+        num: 'Numeral',
+        phrase: 'Phrase',
+      },
     },
   },
 }

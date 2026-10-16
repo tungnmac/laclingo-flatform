@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { AddToDeckDialog } from '@/features/deck/components/AddToDeckDialog'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { NextReviewBadge } from '@/features/srs-review/components/NextReviewBadge'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useApi } from '@/hooks/useApi'
@@ -64,7 +65,8 @@ export default function SrsWordsPage({ searchParams }: { searchParams: { languag
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">
-                    {word.term} {word.phonetic && <span className="font-normal text-slate-400">/{word.phonetic}/</span>}
+                    {word.term} {word.phonetic && <span className="font-normal text-slate-400">/{word.phonetic}/</span>}{' '}
+                    <PartOfSpeechBadge value={word.part_of_speech} />
                   </p>
                   <p className="truncate text-sm text-slate-500">{word.meaning}</p>
                   <p className="text-xs text-slate-400">
