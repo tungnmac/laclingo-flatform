@@ -74,11 +74,12 @@ type BlogService struct {
 	repo BlogRepository
 	// r2 có thể nil (R2 chưa cấu hình) — tính năng upload ảnh tắt, còn lại
 	// không ảnh hưởng (giống ListeningService.r2).
-	r2 *storage.R2Client
+	r2       *storage.R2Client
+	notifier Notifier
 }
 
-func NewBlogService(repo BlogRepository, r2 *storage.R2Client) *BlogService {
-	return &BlogService{repo: repo, r2: r2}
+func NewBlogService(repo BlogRepository, r2 *storage.R2Client, notifier Notifier) *BlogService {
+	return &BlogService{repo: repo, r2: r2, notifier: notifier}
 }
 
 // ===== Request / response types =====
@@ -594,13 +595,15 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 	if req.Content == "" {
 		return BlogCommentNode{}, ErrInvalidInput
 	}
-	if _, err := s.repo.GetBlogPostByID(ctx, toPgUUID(postID)); errors.Is(err, pgx.ErrNoRows) {
+	post, err := s.repo.GetBlogPostByID(ctx, toPgUUID(postID))
+	if errors.Is(err, pgx.ErrNoRows) {
 		return BlogCommentNode{}, ErrNotFound
 	} else if err != nil {
 		return BlogCommentNode{}, err
 	}
 
 	var parentArg pgtype.UUID
+	var parentAuthorID uuid.UUID // tác giả comment được trả lời trực tiếp (nhận thông báo blog_reply)
 	if req.ParentCommentID != nil {
 		parent, err := s.repo.GetBlogCommentByID(ctx, toPgUUID(*req.ParentCommentID))
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -613,6 +616,7 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 			return BlogCommentNode{}, fmt.Errorf("comment cha không thuộc bài viết này: %w", ErrInvalidInput)
 		}
 		parentArg = toPgUUID(*req.ParentCommentID)
+		parentAuthorID = uuid.UUID(parent.AuthorID.Bytes)
 		if parent.ParentCommentID.Valid {
 			parentArg = parent.ParentCommentID // parent đã là 1 reply — trải phẳng về root của nó
 		}
@@ -633,6 +637,7 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 	}
 	for _, r := range rows {
 		if uuid.UUID(r.ID.Bytes) == uuid.UUID(c.ID.Bytes) {
+			s.notifyNewComment(ctx, post, authorID, parentAuthorID, displayNameOf(r.FullName, r.Username), req.Content)
 			return BlogCommentNode{
 				ID: uuid.UUID(r.ID.Bytes), AuthorID: uuid.UUID(r.AuthorID.Bytes),
 				AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
@@ -643,6 +648,35 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 		}
 	}
 	return BlogCommentNode{}, ErrNotFound
+}
+
+// notifyNewComment báo tác giả bài viết có bình luận mới, và tác giả comment
+// được trả lời có reply mới — không tự báo cho chính người vừa bình luận, mỗi
+// người nhận tối đa 1 thông báo cho 1 bình luận.
+func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, commenterID, parentAuthorID uuid.UUID, commenterName, content string) {
+	postAuthorID := uuid.UUID(post.AuthorID.Bytes)
+	url := "/blog/" + uuid.UUID(post.ID.Bytes).String()
+	preview := truncateRunes(strings.TrimSpace(content), 120)
+	if parentAuthorID != uuid.Nil && parentAuthorID != commenterID {
+		s.notifier.Notify(ctx, parentAuthorID, NotificationInput{
+			Type: NotificationBlogReply, Icon: "↩️", URL: url,
+			Title: commenterName + " đã trả lời bình luận của bạn", Body: preview,
+		})
+	}
+	if postAuthorID != commenterID && postAuthorID != parentAuthorID {
+		s.notifier.Notify(ctx, postAuthorID, NotificationInput{
+			Type: NotificationBlogComment, Icon: "💬", URL: url,
+			Title: commenterName + " đã bình luận bài viết \"" + post.Title + "\"", Body: preview,
+		})
+	}
+}
+
+// displayNameOf — họ tên nếu có, không thì username
+func displayNameOf(fullName pgtype.Text, username string) string {
+	if name := strings.TrimSpace(fullName.String); name != "" {
+		return name
+	}
+	return username
 }
 
 // requireCommentAuthor trả comment nếu đúng tác giả, không thì ErrForbidden/ErrNotFound.

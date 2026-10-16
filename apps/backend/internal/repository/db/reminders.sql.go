@@ -30,7 +30,7 @@ WITH d AS (
     SELECT id, daily_enabled, remind_time, days_of_week, inactive_enabled, inactive_days, timezone, updated_at FROM reminder_defaults WHERE id = 1
 ), eff AS (
     SELECT
-        s.user_id,
+        u.id AS user_id,
         COALESCE(s.daily_enabled, d.daily_enabled) AS daily_enabled,
         COALESCE(s.days_of_week, d.days_of_week) AS days_of_week,
         COALESCE(s.inactive_enabled, d.inactive_enabled) AS inactive_enabled,
@@ -38,14 +38,15 @@ WITH d AS (
         COALESCE(s.remind_time, d.remind_time) AS remind_time,
         (NOW() AT TIME ZONE COALESCE(s.timezone, d.timezone)) AS local_now,
         (COALESCE(u.last_studied_at, u.created_at) AT TIME ZONE COALESCE(s.timezone, d.timezone)) AS local_studied,
-        (s.last_inactive_sent_at AT TIME ZONE COALESCE(s.timezone, d.timezone)) AS local_inactive_sent
-    FROM user_reminder_settings s
+        (s.last_inactive_sent_at AT TIME ZONE COALESCE(s.timezone, d.timezone)) AS local_inactive_sent,
+        s.last_reminded_on
+    FROM users u
     CROSS JOIN d
-    JOIN users u ON u.id = s.user_id AND u.is_active
-    WHERE EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = s.user_id)
+    LEFT JOIN user_reminder_settings s ON s.user_id = u.id
+    WHERE u.is_active
 ), anchored AS (
     SELECT
-        e.user_id, e.daily_enabled, e.days_of_week, e.inactive_enabled, e.inactive_days, e.remind_time, e.local_now, e.local_studied, e.local_inactive_sent,
+        e.user_id, e.daily_enabled, e.days_of_week, e.inactive_enabled, e.inactive_days, e.remind_time, e.local_now, e.local_studied, e.local_inactive_sent, e.last_reminded_on,
         CASE WHEN e.local_now::time >= e.remind_time THEN e.local_now::date ELSE e.local_now::date - 1 END AS remind_day
     FROM eff e
 ), due AS (
@@ -61,32 +62,48 @@ WITH d AS (
     FROM anchored a
     WHERE a.local_now < a.remind_day + a.remind_time + INTERVAL '2 hours'
       AND a.local_studied < a.remind_day::timestamp
+      AND (a.last_reminded_on IS NULL OR a.last_reminded_on < a.remind_day)
+), claimed AS (
+    INSERT INTO user_reminder_settings (user_id, last_reminded_on, last_inactive_sent_at)
+    SELECT due.user_id, due.remind_day, CASE WHEN due.is_inactive THEN NOW() END
+    FROM due
+    WHERE due.is_inactive OR due.is_daily
+    ON CONFLICT (user_id) DO UPDATE
+    SET last_reminded_on = EXCLUDED.last_reminded_on,
+        last_inactive_sent_at = COALESCE(EXCLUDED.last_inactive_sent_at, user_reminder_settings.last_inactive_sent_at)
+    -- Kiểm tra lại trên dòng đã khoá: instance khác vừa nhắc thì bỏ qua
+    WHERE user_reminder_settings.last_reminded_on IS NULL
+       OR user_reminder_settings.last_reminded_on < EXCLUDED.last_reminded_on
+    RETURNING user_reminder_settings.user_id
 )
-UPDATE user_reminder_settings s
-SET last_reminded_on = due.remind_day,
-    last_inactive_sent_at = CASE WHEN due.is_inactive THEN NOW() ELSE s.last_inactive_sent_at END
-FROM due
-WHERE s.user_id = due.user_id
-  AND (due.is_inactive OR due.is_daily)
-  AND (s.last_reminded_on IS NULL OR s.last_reminded_on < due.remind_day)
-RETURNING s.user_id, due.is_inactive::bool AS is_inactive, due.days_inactive::int AS days_inactive
+SELECT
+    claimed.user_id,
+    due.is_inactive::bool AS is_inactive,
+    due.days_inactive::int AS days_inactive,
+    EXISTS (SELECT 1 FROM push_subscriptions p WHERE p.user_id = claimed.user_id)::bool AS has_push
+FROM claimed
+JOIN due ON due.user_id = claimed.user_id
 `
 
 type ClaimDueRemindersRow struct {
 	UserID       pgtype.UUID `json:"user_id"`
 	IsInactive   bool        `json:"is_inactive"`
 	DaysInactive int32       `json:"days_inactive"`
+	HasPush      bool        `json:"has_push"`
 }
 
-// Chọn VÀ đánh dấu (1 câu UPDATE nguyên tử — chạy nhiều instance cũng không
-// gửi trùng) những user cần nhắc ngay lúc này. Mọi so sánh theo NGÀY ở múi
-// giờ của user. remind_day = ngày của lần nhắc gần nhất đã tới giờ (khung
-// gửi 2 tiếng có thể kéo qua nửa đêm, vd nhắc 23:30 thì gửi tới 01:30).
-// Tối đa 1 lần nhắc cho mỗi remind_day, và chỉ khi user chưa học từ đầu ngày đó:
+// Chọn VÀ đánh dấu (1 câu INSERT ... ON CONFLICT nguyên tử — chạy nhiều
+// instance cũng không gửi trùng) những user cần nhắc ngay lúc này. Quét MỌI
+// user active (kể cả chưa bật web push — vẫn nhận thông báo trong chuông);
+// user chưa có dòng cài đặt thì theo mặc định admin và được tạo dòng để ghi
+// dấu vết gửi. Múi giờ: của trình duyệt (FE ghi mỗi lần vào app, xem
+// SetUserReminderTimezone), user chưa từng vào app sau khi có tính năng thì
+// theo múi giờ mặc định của admin. Mọi so sánh theo NGÀY ở múi giờ của user. remind_day = ngày
+// của lần nhắc gần nhất đã tới giờ (khung gửi 2 tiếng có thể kéo qua nửa
+// đêm, vd nhắc 23:30 thì gửi tới 01:30). Tối đa 1 lần nhắc cho mỗi
+// remind_day, và chỉ khi user chưa học từ đầu ngày đó:
 //   - inactive: không học >= inactive_days ngày (lặp lại mỗi inactive_days ngày)
 //   - daily:    remind_day là ngày nhắc trong days_of_week
-//
-// User phải còn active và có ít nhất 1 subscription web push.
 func (q *Queries) ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow, error) {
 	rows, err := q.db.Query(ctx, claimDueReminders)
 	if err != nil {
@@ -96,7 +113,12 @@ func (q *Queries) ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow
 	var items []ClaimDueRemindersRow
 	for rows.Next() {
 		var i ClaimDueRemindersRow
-		if err := rows.Scan(&i.UserID, &i.IsInactive, &i.DaysInactive); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.IsInactive,
+			&i.DaysInactive,
+			&i.HasPush,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

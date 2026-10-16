@@ -8,6 +8,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Announcement struct {
+	ID             pgtype.UUID        `json:"id"`
+	Title          string             `json:"title"`
+	Body           string             `json:"body"`
+	Url            pgtype.Text        `json:"url"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
+	RecipientCount int32              `json:"recipient_count"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type BlogComment struct {
 	ID              pgtype.UUID        `json:"id"`
 	PostID          pgtype.UUID        `json:"post_id"`
@@ -255,6 +265,19 @@ type Mission struct {
 	CreatedBy    pgtype.UUID        `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Notification struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Type           string             `json:"type"`
+	Title          string             `json:"title"`
+	Body           string             `json:"body"`
+	Url            pgtype.Text        `json:"url"`
+	Icon           string             `json:"icon"`
+	AnnouncementID pgtype.UUID        `json:"announcement_id"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type PushSubscription struct {

@@ -60,7 +60,7 @@ func TestNormalizeSchedule(t *testing.T) {
 
 func TestCheckTimezoneRejectsNonIANANames(t *testing.T) {
 	// Tên không dạng Khu_vực/Thành_phố bị chặn trước khi hỏi PostgreSQL (repo nil sẽ panic nếu bị gọi)
-	svc := NewReminderService(&fakeReminderRepo{}, nil, "")
+	svc := NewReminderService(&fakeReminderRepo{}, nil, "", &fakeNotifier{})
 	for _, tz := range []string{"", "ICT", "Local", "GMT+7"} {
 		if err := svc.checkTimezone(context.Background(), tz); !errors.Is(err, ErrInvalidInput) {
 			t.Errorf("%q: muốn ErrInvalidInput, nhận %v", tz, err)
@@ -155,10 +155,11 @@ func (f *fakeSender) Send(_ context.Context, sub db.PushSubscription, payload []
 func TestRunDueSendsAndPrunesGoneSubscriptions(t *testing.T) {
 	repo := &fakeReminderRepo{
 		subs: []db.PushSubscription{{Endpoint: "https://ok"}, {Endpoint: "https://gone"}, {Endpoint: "https://broken"}},
-		due:  []db.ClaimDueRemindersRow{{IsInactive: true, DaysInactive: 4}},
+		due:  []db.ClaimDueRemindersRow{{IsInactive: true, DaysInactive: 4, HasPush: true}},
 	}
 	sender := &fakeSender{results: map[string]error{"https://gone": errGone, "https://broken": errors.New("503")}}
-	svc := NewReminderService(repo, sender, "pub")
+	notifier := &fakeNotifier{}
+	svc := NewReminderService(repo, sender, "pub", notifier)
 
 	if err := svc.RunDue(context.Background()); err != nil {
 		t.Fatalf("RunDue: %v", err)
@@ -168,6 +169,9 @@ func TestRunDueSendsAndPrunesGoneSubscriptions(t *testing.T) {
 	}
 	if p := sender.payloads[0]; !strings.Contains(p.Body, "4 ngày") || p.URL != "/review" {
 		t.Errorf("payload nhắc bỏ học sai: %+v", p)
+	}
+	if len(notifier.sent) != 1 || notifier.sent[0].Type != NotificationStudyReminder || !strings.Contains(notifier.sent[0].Body, "4 ngày") {
+		t.Errorf("phải tạo 1 thông báo nhắc học trong chuông, nhận %+v", notifier.sent)
 	}
 	if !slices.Equal(repo.deleted, []string{"https://gone"}) {
 		t.Errorf("chỉ được xoá subscription hết hạn, đã xoá %v", repo.deleted)
@@ -180,17 +184,46 @@ func TestRunDueSendsAndPrunesGoneSubscriptions(t *testing.T) {
 }
 
 func TestReminderServiceWithoutPushConfig(t *testing.T) {
-	svc := NewReminderService(&fakeReminderRepo{}, nil, "")
+	svc := NewReminderService(&fakeReminderRepo{}, nil, "", &fakeNotifier{})
 	if _, ok := svc.PushPublicKey(); ok {
 		t.Error("chưa cấu hình VAPID mà PushPublicKey báo ok")
-	}
-	if err := svc.RunDue(context.Background()); err != nil {
-		t.Errorf("RunDue khi chưa cấu hình phải bỏ qua, nhận %v", err)
 	}
 	if _, err := svc.SendTest(context.Background(), uuid.New()); !errors.Is(err, ErrPushNotConfigured) {
 		t.Errorf("SendTest: muốn ErrPushNotConfigured, nhận %v", err)
 	}
 	if err := svc.Subscribe(context.Background(), uuid.New(), PushSubscriptionRequest{}); !errors.Is(err, ErrPushNotConfigured) {
 		t.Errorf("Subscribe: muốn ErrPushNotConfigured, nhận %v", err)
+	}
+}
+
+type fakeNotifier struct{ sent []NotificationInput }
+
+func (f *fakeNotifier) Notify(_ context.Context, _ uuid.UUID, n NotificationInput) {
+	f.sent = append(f.sent, n)
+}
+
+func TestRunDueWithoutPushStillNotifiesInApp(t *testing.T) {
+	notifier := &fakeNotifier{}
+	svc := NewReminderService(&fakeReminderRepo{due: []db.ClaimDueRemindersRow{{}}}, nil, "", notifier)
+	if err := svc.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue: %v", err)
+	}
+	if len(notifier.sent) != 1 || notifier.sent[0].Type != NotificationStudyReminder {
+		t.Errorf("chưa cấu hình push vẫn phải nhắc trong chuông, nhận %+v", notifier.sent)
+	}
+}
+
+func TestRunDueSkipsPushForUsersWithoutSubscription(t *testing.T) {
+	sender := &fakeSender{}
+	notifier := &fakeNotifier{}
+	svc := NewReminderService(&fakeReminderRepo{due: []db.ClaimDueRemindersRow{{HasPush: false}}}, sender, "pub", notifier)
+	if err := svc.RunDue(context.Background()); err != nil {
+		t.Fatalf("RunDue: %v", err)
+	}
+	if len(sender.payloads) != 0 {
+		t.Errorf("user chưa đăng ký push thì không được gọi gửi push, đã gửi %d", len(sender.payloads))
+	}
+	if len(notifier.sent) != 1 || !notifier.sent[0].ReplaceUnread || strings.HasPrefix(notifier.sent[0].Title, "🦩") {
+		t.Errorf("nhắc trong chuông phải thay bản chưa đọc cũ và không lặp emoji ở tiêu đề: %+v", notifier.sent)
 	}
 }

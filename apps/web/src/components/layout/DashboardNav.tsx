@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn, displayName } from '@/lib/utils'
@@ -56,7 +57,7 @@ export function Sidebar({ user }: { user: User }) {
   const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, MISSIONS_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
+    <aside className="sticky top-0 z-30 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
       <Link href="/learn" className="mb-8 flex items-center gap-2 px-2 text-2xl font-bold text-indigo-600">
         <img src="/logo.svg" alt="" className="h-9 w-9 rounded-xl" /> LacLingo
       </Link>
@@ -79,6 +80,9 @@ export function Sidebar({ user }: { user: User }) {
       </nav>
 
       <div className="border-t border-slate-200 pt-4">
+        <div className="mb-2">
+          <NotificationBell variant="sidebar" />
+        </div>
         <LanguageSwitcher className="mb-3" />
         <Link
           href="/profile"
@@ -119,6 +123,7 @@ export function MobileHeader({ user }: { user: User }) {
       </Link>
       <div className="flex items-center gap-2">
         <StreakBadge count={user.streak_count} />
+        <NotificationBell variant="header" />
         <Link href="/profile" aria-label={t.nav.profile}>
           <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-8 w-8 text-xs" />
         </Link>

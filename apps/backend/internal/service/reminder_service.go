@@ -103,14 +103,15 @@ type PushSubscriptionRequest struct {
 
 type ReminderService struct {
 	repo      ReminderRepository
-	sender    PushSender // nil = server chưa cấu hình web push
+	sender    PushSender // nil = server chưa cấu hình web push — vẫn nhắc trong chuông thông báo
 	publicKey string
+	notifier  Notifier
 }
 
 // NewReminderService — sender/publicKey rỗng khi chưa cấu hình VAPID: vẫn
-// đọc/sửa được lịch, chỉ không đăng ký/gửi được push.
-func NewReminderService(repo ReminderRepository, sender PushSender, publicKey string) *ReminderService {
-	return &ReminderService{repo: repo, sender: sender, publicKey: publicKey}
+// đọc/sửa được lịch và nhắc trong chuông thông báo, chỉ không đăng ký/gửi được push.
+func NewReminderService(repo ReminderRepository, sender PushSender, publicKey string, notifier Notifier) *ReminderService {
+	return &ReminderService{repo: repo, sender: sender, publicKey: publicKey, notifier: notifier}
 }
 
 // PushPublicKey — khoá VAPID công khai cho PushManager.subscribe (applicationServerKey)
@@ -139,6 +140,17 @@ func (s *ReminderService) Subscribe(ctx context.Context, userID uuid.UUID, req P
 	// Tạo dòng cài đặt (để bộ lập lịch quét tới) + múi giờ hiện tại của trình duyệt
 	return s.repo.SetUserReminderTimezone(ctx, db.SetUserReminderTimezoneParams{
 		UserID: toPgUUID(userID), Timezone: pgtype.Text{String: req.Timezone, Valid: true},
+	})
+}
+
+// UpdateTimezone lưu múi giờ trình duyệt của user (FE gọi mỗi lần vào app) —
+// để nhắc học đúng giờ địa phương kể cả với user chưa bật web push
+func (s *ReminderService) UpdateTimezone(ctx context.Context, userID uuid.UUID, tz string) error {
+	if err := s.checkTimezone(ctx, tz); err != nil {
+		return err
+	}
+	return s.repo.SetUserReminderTimezone(ctx, db.SetUserReminderTimezoneParams{
+		UserID: toPgUUID(userID), Timezone: pgtype.Text{String: tz, Valid: true},
 	})
 }
 
@@ -264,29 +276,32 @@ func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, 
 	return sent, nil
 }
 
-// RunDue nhắc mọi học viên đến giờ nhắc (1 lượt của bộ lập lịch)
+// RunDue nhắc mọi học viên đến giờ nhắc (1 lượt của bộ lập lịch): luôn tạo
+// thông báo trong chuông, và gửi thêm web push nếu server đã cấu hình
 func (s *ReminderService) RunDue(ctx context.Context) error {
-	if s.sender == nil {
-		return nil
-	}
 	due, err := s.repo.ClaimDueReminders(ctx)
 	if err != nil {
 		return err
 	}
 	for _, r := range due {
 		userID := uuid.UUID(r.UserID.Bytes)
-		if _, _, err := s.sendToUser(ctx, userID, reminderPayload(r)); err != nil {
+		p := reminderPayload(r)
+		s.notifier.Notify(ctx, userID, NotificationInput{
+			Type: NotificationStudyReminder, Icon: "🦩", Title: strings.TrimPrefix(p.Title, "🦩 "), Body: p.Body, URL: p.URL,
+			ReplaceUnread: true,
+		})
+		if s.sender == nil || !r.HasPush {
+			continue
+		}
+		if _, _, err := s.sendToUser(ctx, userID, p); err != nil {
 			log.Printf("❌ reminder: gửi nhắc học user=%s: %v", userID, err)
 		}
 	}
 	return nil
 }
 
-// Start chạy bộ lập lịch mỗi phút tới khi ctx bị huỷ. Không cấu hình web push thì không làm gì.
+// Start chạy bộ lập lịch mỗi phút tới khi ctx bị huỷ
 func (s *ReminderService) Start(ctx context.Context) {
-	if s.sender == nil {
-		return
-	}
 	ticker := time.NewTicker(reminderTickInterval)
 	defer ticker.Stop()
 	for {

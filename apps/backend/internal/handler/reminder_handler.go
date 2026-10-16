@@ -26,6 +26,7 @@ func (h *ReminderHandler) RegisterRoutes(router fiber.Router) {
 	settings.Get("", h.GetMySettings)
 	settings.Put("", h.UpdateMySettings)
 	settings.Delete("", h.ResetMySettings)
+	settings.Put("/timezone", h.UpdateTimezone)
 }
 
 // RegisterAdminRoutes — lịch nhắc mặc định, PHẢI nằm sau RequireModule (module "reminders")
@@ -112,6 +113,30 @@ func (h *ReminderHandler) SendTest(c *fiber.Ctx) error {
 		return err
 	}
 	return c.JSON(sendTestResponse{Sent: sent})
+}
+
+type timezoneRequest struct {
+	Timezone string `json:"timezone" example:"Asia/Ho_Chi_Minh"`
+}
+
+// UpdateTimezone godoc
+// @Summary      Lưu múi giờ trình duyệt (để nhắc học đúng giờ địa phương)
+// @Tags         reminders
+// @Accept       json
+// @Security     BearerAuth
+// @Param        body  body  timezoneRequest  true  "Múi giờ IANA từ Intl của trình duyệt"
+// @Success      204
+// @Failure      400  {object}  ErrorResponse
+// @Router       /reminder-settings/timezone [put]
+func (h *ReminderHandler) UpdateTimezone(c *fiber.Ctx) error {
+	var req timezoneRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	if err := h.svc.UpdateTimezone(c.UserContext(), currentUserID(c), req.Timezone); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // GetMySettings godoc

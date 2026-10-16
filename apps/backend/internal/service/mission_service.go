@@ -84,12 +84,13 @@ type MyMissionResponse struct {
 }
 
 type MissionService struct {
-	repo MissionRepository
-	now  func() time.Time
+	repo     MissionRepository
+	notifier Notifier
+	now      func() time.Time
 }
 
-func NewMissionService(repo MissionRepository) *MissionService {
-	return &MissionService{repo: repo, now: time.Now}
+func NewMissionService(repo MissionRepository, notifier Notifier) *MissionService {
+	return &MissionService{repo: repo, notifier: notifier, now: time.Now}
 }
 
 // periodKey tính "kỳ" hiện tại của 1 mission — PHẢI khớp byte-for-byte với
@@ -334,5 +335,21 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	// Chỉ báo sau khi commit — transaction lỗi thì user chưa thật sự nhận thưởng
+	s.notifier.Notify(ctx, userID, NotificationInput{
+		Type: NotificationMissionCompleted, Icon: "🎯", URL: "/missions",
+		Title: "Hoàn thành nhiệm vụ: " + mission.Title,
+		Body:  fmt.Sprintf("Bạn nhận được +%d EXP và +%d điểm.", mission.RewardExp, mission.RewardPoints),
+	})
+	if newLevel > user.Level {
+		s.notifier.Notify(ctx, userID, NotificationInput{
+			Type: NotificationLevelUp, Icon: "⭐", URL: "/profile",
+			Title: fmt.Sprintf("Lên cấp %d!", newLevel),
+			Body:  "Chúc mừng bạn! Tiếp tục học đều mỗi ngày để lên cấp nhanh hơn nhé.",
+		})
+	}
+	return nil
 }

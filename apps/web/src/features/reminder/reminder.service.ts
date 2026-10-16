@@ -16,6 +16,9 @@ export const reminderService = {
   updateMine: (body: ReminderSchedule) =>
     apiFetch<MyReminderSettings>('/reminder-settings', { method: 'PUT', body: JSON.stringify(body) }),
   resetMine: () => apiFetch<MyReminderSettings>('/reminder-settings', { method: 'DELETE' }),
+  // Lưu múi giờ trình duyệt — nhắc học đúng giờ địa phương kể cả khi chưa bật push
+  updateTimezone: (timezone: string) =>
+    apiFetch<void>('/reminder-settings/timezone', { method: 'PUT', body: JSON.stringify({ timezone }) }),
 
   // Admin
   getDefaults: () => apiFetch<ReminderSchedule>('/admin/reminder-defaults'),
