@@ -7,7 +7,7 @@ import { users } from '@/server/db/schema'
 
 /** Đăng xuất: tăng token_version → mọi session đã cấp của user (kể cả token bị lộ) mất hiệu lực ngay */
 export async function POST() {
-  const session = await readSession(cookies().get(SESSION_COOKIE)?.value)
+  const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value)
   if (session) {
     await db
       .update(users)

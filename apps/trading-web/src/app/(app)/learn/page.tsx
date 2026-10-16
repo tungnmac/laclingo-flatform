@@ -1,14 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, use } from 'react'
 import { ChapterList } from '@/components/learn/ChapterList'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { CatalogDto } from '@/server/learn/learn-service'
 
-export default function LearnPage({ searchParams }: { searchParams: { untranslated?: string } }) {
+export default function LearnPage(props: { searchParams: Promise<{ untranslated?: string }> }) {
+  const searchParams = use(props.searchParams)
   const { t, locale } = useT()
   const [data, setData] = useState<CatalogDto | null>(null)
   const [error, setError] = useState<unknown>(null)

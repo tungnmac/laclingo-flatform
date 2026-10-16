@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import type { ChartLine } from '@/components/CandleChart'
 import { ChangeBadge } from '@/components/ChangeBadge'
 import { OrderPanel } from '@/components/trading/OrderPanel'
@@ -18,7 +18,8 @@ import { INTERVALS, type Interval, type Quote } from '@/server/market/types'
 // lightweight-charts cần DOM — chỉ render phía client
 const CandleChart = dynamic(() => import('@/components/CandleChart').then((m) => m.CandleChart), { ssr: false })
 
-export default function InstrumentPage({ params }: { params: { symbol: string } }) {
+export default function InstrumentPage(props: { params: Promise<{ symbol: string }> }) {
+  const params = use(props.params)
   const symbol = decodeURIComponent(params.symbol).toUpperCase()
   const { t } = useT()
   const [instrument, setInstrument] = useState<InstrumentDto | null | undefined>(undefined)

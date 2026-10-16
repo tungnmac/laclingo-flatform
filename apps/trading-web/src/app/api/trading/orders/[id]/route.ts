@@ -6,8 +6,8 @@ import { cancelOrder } from '@/server/trading/order-service'
 
 const params = z.object({ id: z.uuid('ORDER_NOT_FOUND') })
 
-export const DELETE = handleRoute(async (_req: Request, ctx: { params: { id: string } }) => {
+export const DELETE = handleRoute(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser()
-  const { id } = params.parse(ctx.params)
+  const { id } = params.parse(await ctx.params)
   return NextResponse.json(await cancelOrder(user.id, id))
 })

@@ -3,7 +3,7 @@ import { requireUser } from '@/server/auth/require-user'
 import { handleRoute } from '@/server/http'
 import { cancelPracticeOrder } from '@/server/practice/practice-service'
 
-export const DELETE = handleRoute(async (_req: Request, ctx: { params: { orderId: string } }) => {
+export const DELETE = handleRoute(async (_req: Request, ctx: { params: Promise<{ orderId: string }> }) => {
   const user = await requireUser()
-  return NextResponse.json(await cancelPracticeOrder(user.id, ctx.params.orderId))
+  return NextResponse.json(await cancelPracticeOrder(user.id, (await ctx.params).orderId))
 })
