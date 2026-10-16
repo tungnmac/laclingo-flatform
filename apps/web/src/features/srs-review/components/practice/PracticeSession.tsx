@@ -128,6 +128,12 @@ export function PracticeSession({
 
       <h3 className="text-center text-lg font-semibold text-slate-800">{titles[step]}</h3>
 
+      {/* Gợi ý câu đối ứng: ghép câu → hiện nghĩa tiếng Việt; ghép nghĩa → hiện câu gốc */}
+      {step === 'sentence' && vocab.example_meaning && (
+        <p className="text-center text-slate-600">
+          {t.practice.buildSentenceHint} <span className="font-semibold text-slate-900">{vocab.example_meaning}</span>
+        </p>
+      )}
       {step === 'meaning' && (
         <p className="text-center text-slate-600">
           {t.practice.buildMeaningHint} <span className="font-semibold text-slate-900">{vocab.example}</span>
