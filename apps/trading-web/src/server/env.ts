@@ -4,6 +4,9 @@ const DEV_JWT_SECRET = 'trading-dev-secret-do-not-use-in-production'
 export const env = {
   redisUrl: () => process.env.REDIS_URL || 'redis://localhost:6379',
   binanceBaseUrl: () => process.env.BINANCE_BASE_URL || 'https://data-api.binance.vision',
+  /** Không đặt key: dev dùng token `demo` của EODHD (chỉ AAPL/AMZN/TSLA…), production → null (tắt số liệu) */
+  eodhdApiKey: () => process.env.EODHD_API_KEY || (process.env.NODE_ENV === 'production' ? null : 'demo'),
+  eodhdBaseUrl: () => process.env.EODHD_BASE_URL || 'https://eodhd.com',
 }
 
 export function jwtSecret(): Uint8Array {

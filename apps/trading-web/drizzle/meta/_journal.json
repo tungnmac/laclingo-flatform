@@ -43,6 +43,13 @@
       "when": 1792124790982,
       "tag": "0005_lesson_translations",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792136534185,
+      "tag": "0006_companies",
+      "breakpoints": true
     }
   ]
 }
