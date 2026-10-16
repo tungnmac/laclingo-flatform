@@ -249,6 +249,38 @@ export const practiceTrades = pgTable(
   (t) => [index('practice_trades_session_idx').on(t.sessionId, t.candleIndex)],
 )
 
+/** Doanh nghiệp niêm yết (phần 7) — số liệu lấy từ EODHD, ở đây chỉ danh mục admin quản lý */
+export const companies = pgTable(
+  'companies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    market: varchar('market', { length: 2 }).notNull(), // 'vn' | 'us'
+    symbol: varchar('symbol', { length: 20 }).notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('companies_market_symbol_uq').on(t.market, t.symbol)],
+)
+
+/** Phân tích định tính theo ngôn ngữ — admin soạn & công bố */
+export const companyAnalyses = pgTable(
+  'company_analyses',
+  {
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    locale: varchar('locale', { length: 2 }).notNull(),
+    summary: text('summary').notNull().default(''),
+    businessMd: text('business_md').notNull().default(''),
+    strategyMd: text('strategy_md').notNull().default(''),
+    strengthsMd: text('strengths_md').notNull().default(''),
+    risksMd: text('risks_md').notNull().default(''),
+    published: boolean('published').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.companyId, t.locale] })],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect
@@ -262,3 +294,5 @@ export type QuizQuestionRow = typeof quizQuestions.$inferSelect
 export type LessonProgressRow = typeof lessonProgress.$inferSelect
 export type PracticeSessionRow = typeof practiceSessions.$inferSelect
 export type PracticeTradeRow = typeof practiceTrades.$inferSelect
+export type CompanyRow = typeof companies.$inferSelect
+export type CompanyAnalysisRow = typeof companyAnalyses.$inferSelect

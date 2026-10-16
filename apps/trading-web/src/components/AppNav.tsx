@@ -10,10 +10,14 @@ const NAV_ITEMS = [
   { href: '/markets', labelKey: 'nav.markets' },
   { href: '/portfolio', labelKey: 'nav.portfolio' },
   { href: '/journal', labelKey: 'nav.journal' },
+  { href: '/companies', labelKey: 'nav.companies' },
   { href: '/learn', labelKey: 'nav.learn' },
   { href: '/practice', labelKey: 'nav.practice' },
 ]
-const ADMIN_ITEMS = [{ href: '/admin/learn', labelKey: 'nav.admin' }]
+const ADMIN_ITEMS = [
+  { href: '/admin/learn', labelKey: 'nav.admin' },
+  { href: '/admin/companies', labelKey: 'nav.adminCompanies' },
+]
 
 export function AppNav({ user }: { user: SessionUser }) {
   const pathname = usePathname()
@@ -32,7 +36,7 @@ export function AppNav({ user }: { user: SessionUser }) {
         <Link href="/markets" className="text-lg font-bold text-emerald-600">
           📈 TradeLab
         </Link>
-        <nav className="flex flex-1 gap-1">
+        <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {[...NAV_ITEMS, ...(user.role === 'admin' ? ADMIN_ITEMS : [])].map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
             return (
@@ -40,7 +44,7 @@ export function AppNav({ user }: { user: SessionUser }) {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold ${active ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
               >
                 {t(item.labelKey)}
               </Link>
