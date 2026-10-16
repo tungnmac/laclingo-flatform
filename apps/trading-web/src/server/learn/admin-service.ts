@@ -60,7 +60,7 @@ const toChapterDto = (c: ChapterRow, lessonDtos: AdminLessonSummaryDto[] = []): 
   lessons: lessonDtos,
 })
 
-const toLessonSummary = (l: LessonRow, questionCount: number): AdminLessonSummaryDto => ({
+const toLessonSummary = (l: Pick<LessonRow, 'id' | 'chapterId' | 'slug' | 'title' | 'position' | 'published'>, questionCount: number): AdminLessonSummaryDto => ({
   id: l.id,
   chapter_id: l.chapterId,
   slug: l.slug,
@@ -117,7 +117,12 @@ async function questionCounts(lessonIds: string[]) {
 export async function listTree(locale: Locale): Promise<AdminChapterDto[]> {
   const [chapterRows, lessonRows] = await Promise.all([
     db.select().from(chapters).where(eq(chapters.locale, locale)).orderBy(asc(chapters.position), asc(chapters.id)),
-    db.select().from(lessons).where(eq(lessons.locale, locale)).orderBy(asc(lessons.position), asc(lessons.id)),
+    // cây chỉ cần tóm tắt — không kéo content_md của mọi bài
+    db
+      .select({ id: lessons.id, chapterId: lessons.chapterId, slug: lessons.slug, title: lessons.title, position: lessons.position, published: lessons.published })
+      .from(lessons)
+      .where(eq(lessons.locale, locale))
+      .orderBy(asc(lessons.position), asc(lessons.id)),
   ])
   const counts = await questionCounts(lessonRows.map((l) => l.id))
   return chapterRows.map((c) =>

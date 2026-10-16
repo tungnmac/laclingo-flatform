@@ -5,5 +5,5 @@ import { closePosition } from '@/server/trading/order-service'
 
 export const POST = handleRoute(async (_req: Request, ctx: { params: { symbol: string } }) => {
   const user = await requireUser()
-  return NextResponse.json(await closePosition(user.id, decodeURIComponent(ctx.params.symbol).toUpperCase()))
+  return NextResponse.json(await closePosition(user.id, ctx.params.symbol.toUpperCase()))
 })

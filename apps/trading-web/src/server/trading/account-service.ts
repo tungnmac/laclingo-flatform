@@ -7,7 +7,7 @@ import { getProvider } from '../market/registry'
 import { D, Decimal, toApi, toDb } from './decimal'
 import { computeEquity, liquidationPrice } from './engine'
 import { walletFrom } from './mappers'
-import { settleAccount } from './settlement'
+import { prefetchSettlement, settleAccount, type SettlementPrefetch } from './settlement'
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -37,6 +37,49 @@ export async function withAccount<T>(userId: string, fn: (tx: Tx, account: Accou
     }
     return fn(tx, account)
   })
+}
+
+/**
+ * withAccount + quyết toán lệnh chờ. Nến 1m và giá được tải TRƯỚC khi mở transaction (không giữ khoá ví
+ * hay connection DB trong lúc chờ Binance). `extraSymbols`: mã cần giá hiện tại (vd mã đặt lệnh).
+ */
+export async function withSettledAccount<T>(
+  userId: string,
+  fn: (tx: Tx, settled: { account: AccountRow; delayed: boolean }, pre: SettlementPrefetch) => Promise<T>,
+  extraSymbols: string[] = [],
+): Promise<T> {
+  // Single-flight theo user: các request đồng thời (nhiều tab, polling) xếp hàng ở Redis TRƯỚC khi tải nến —
+  // request sau tải từ checked_until mới (≈ 1 trang) thay vì cùng tải lại hàng chục trang từ Binance.
+  const release = await acquireSettleFlight(userId)
+  try {
+    const pre = await prefetchSettlement(userId, quotePrices, extraSymbols)
+    return await withAccount(userId, async (tx, locked) => fn(tx, await settleAccount(tx, locked, pre), pre))
+  } finally {
+    await release()
+  }
+}
+
+const FLIGHT_TTL = 30
+const FLIGHT_WAIT_MS = 250
+const FLIGHT_WAIT_STEPS = 20 // chờ tối đa ~5s rồi chạy luôn (không để 1 request kẹt chặn mãi)
+
+async function acquireSettleFlight(userId: string): Promise<() => Promise<void>> {
+  const key = `trading:settle:${userId}`
+  const token = `${Date.now()}-${Math.random()}`
+  const tryLock = () => redisStore.setNX(key, token, FLIGHT_TTL).catch(() => null) // Redis lỗi → không khoá
+  let got = await tryLock()
+  for (let i = 0; got === false && i < FLIGHT_WAIT_STEPS; i++) {
+    await new Promise((r) => setTimeout(r, FLIGHT_WAIT_MS))
+    got = await tryLock()
+  }
+  if (!got) return async () => {}
+  return async () => {
+    try {
+      if ((await redisStore.get(key)) === token) await redisStore.del(key)
+    } catch {
+      // khoá tự hết hạn sau FLIGHT_TTL
+    }
+  }
 }
 
 export interface PositionDto {
@@ -103,18 +146,29 @@ export const toOrderDto = (o: OrderRow): OrderDto => ({
   fee: toApi(D(o.fee)),
 })
 
-/** Giá hiện tại (server) cho các mã; lỗi nguồn giá → null (snapshot dùng giá vào làm giá tạm). */
-export async function markPrices(symbols: string[]): Promise<Record<string, Decimal> | null> {
-  if (symbols.length === 0) return {}
+/**
+ * Giá hiện tại (server) cho các mã. `prices` null = nguồn giá lỗi (snapshot dùng giá vào làm giá tạm);
+ * `stale` = có giá lấy từ bản lưu cũ (tối đa 24h) — chỉ dùng để HIỂN THỊ, không được dùng để khớp lệnh.
+ */
+export async function quotePrices(symbols: string[]): Promise<{ prices: Record<string, Decimal> | null; stale: boolean }> {
+  if (symbols.length === 0) return { prices: {}, stale: false }
   try {
-    const { quotes } = await getQuotesCached(redisStore, getProvider(MARKET), symbols)
-    return Object.fromEntries(quotes.map((q) => [q.symbol, D(q.price)]))
+    const { quotes, stale } = await getQuotesCached(redisStore, getProvider(MARKET), symbols)
+    return { prices: Object.fromEntries(quotes.map((q) => [q.symbol, D(q.price)])), stale }
   } catch {
-    return null
+    return { prices: null, stale: false }
   }
 }
 
-export async function snapshot(tx: Tx, account: AccountRow, settlementDelayed: boolean): Promise<AccountSnapshot> {
+export const markPrices = async (symbols: string[]) => (await quotePrices(symbols)).prices
+
+/** `prefetched`: giá đã tải trước transaction — thiếu mã nào thì mới gọi nguồn giá (vd vị thế vừa mở) */
+export async function snapshot(
+  tx: Tx,
+  account: AccountRow,
+  settlementDelayed: boolean,
+  prefetched?: Record<string, Decimal> | null,
+): Promise<AccountSnapshot> {
   const posRows = (await tx.select().from(positions).where(eq(positions.accountId, account.id))).filter((p) => !D(p.qty).isZero())
   const openRows = await tx
     .select()
@@ -122,7 +176,11 @@ export async function snapshot(tx: Tx, account: AccountRow, settlementDelayed: b
     .where(and(eq(orders.accountId, account.id), eq(orders.status, 'pending')))
     .orderBy(orders.createdAt)
 
-  const marks = await markPrices(posRows.map((p) => p.symbol))
+  const symbols = posRows.map((p) => p.symbol)
+  // Giá đã tải trước transaction; nguồn giá lỗi lúc đó (null) → dùng giá vào, KHÔNG gọi mạng khi đang giữ khoá.
+  // Chỉ gọi thêm khi có vị thế vừa sinh lúc quyết toán (hiếm).
+  const marks =
+    prefetched === null ? null : prefetched && symbols.every((s) => prefetched[s]) ? prefetched : await markPrices(symbols)
   const wallet = walletFrom(account, posRows)
   const markOf = (symbol: string, avg: Decimal) => marks?.[symbol] ?? avg
   const reserved = openRows.reduce((sum, o) => sum.plus(D(o.reserved)), D(0))
@@ -175,17 +233,13 @@ export async function snapshot(tx: Tx, account: AccountRow, settlementDelayed: b
 
 /** Xem ví: quyết toán lệnh chờ trước, rồi dựng snapshot. */
 export function getAccountSnapshot(userId: string): Promise<AccountSnapshot> {
-  return withAccount(userId, async (tx, account) => {
-    const settled = await settleAccount(tx, account)
-    return snapshot(tx, settled.account, settled.delayed)
-  })
+  return withSettledAccount(userId, (tx, settled, pre) => snapshot(tx, settled.account, settled.delayed, pre.marks))
 }
 
 /** Reset: huỷ lệnh chờ của ví cũ, đóng ví cũ (giữ lịch sử), tạo ví mới 10.000 USDT. */
 export function resetAccount(userId: string): Promise<AccountSnapshot> {
-  return withAccount(userId, async (tx, locked) => {
-    // Quyết toán trước khi đóng ví: lệnh khớp / thanh lý lúc offline phải nằm trong lịch sử ví cũ
-    const { account } = await settleAccount(tx, locked)
+  // Quyết toán trước khi đóng ví: lệnh khớp / thanh lý lúc offline phải nằm trong lịch sử ví cũ
+  return withSettledAccount(userId, async (tx, { account }) => {
     const pending = await tx
       .select({ id: orders.id })
       .from(orders)

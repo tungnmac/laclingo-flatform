@@ -30,6 +30,13 @@ describe('binance provider', () => {
     await expect(createBinanceProvider({ baseUrl: 'http://b', fetchFn }).getQuotes(['BTCUSDT'])).rejects.toThrow()
   })
 
+  it('stops calling Binance after 418/429 until Retry-After passes', async () => {
+    const fetchFn = vi.fn(async () => new Response('{}', { status: 418, headers: { 'retry-after': '120' } }))
+    const provider = createBinanceProvider({ baseUrl: 'http://b', fetchFn })
+    await expect(provider.getCandles('BTCUSDT', '1h', 3)).rejects.toThrow('418')
+    await expect(provider.getCandles('BTCUSDT', '1h', 3)).rejects.toThrow('429')
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
   it('fetches candles from a start time for settlement', async () => {
     const fetchFn = vi.fn(async (_url: string | URL | Request) => json(klines))
     const candles = await createBinanceProvider({ baseUrl: 'http://b', fetchFn }).getCandlesSince('BTCUSDT', '1m', 1792047600000, 1000)

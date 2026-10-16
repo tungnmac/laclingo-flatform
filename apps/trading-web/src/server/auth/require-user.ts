@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { db } from '../db/client'
 import { users, type UserRow } from '../db/schema'
 import { HttpError } from '../http'
-import { SESSION_COOKIE, verifySession } from './session'
+import { readSession, SESSION_COOKIE } from './session'
 import type { SessionUser } from './types'
 
 export function toSessionUser(u: UserRow): SessionUser {
@@ -11,10 +11,11 @@ export function toSessionUser(u: UserRow): SessionUser {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const userId = await verifySession(cookies().get(SESSION_COOKIE)?.value)
-  if (!userId) return null
-  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
-  return user ? toSessionUser(user) : null
+  const session = await readSession(cookies().get(SESSION_COOKIE)?.value)
+  if (!session) return null
+  const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1)
+  // token ký trước lần logout gần nhất → không còn hiệu lực
+  return user && user.tokenVersion === session.tokenVersion ? toSessionUser(user) : null
 }
 
 export async function requireUser(): Promise<SessionUser> {

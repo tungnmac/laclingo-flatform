@@ -26,9 +26,12 @@ const components: Components = {
   th: ({ children }) => <th className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold">{children}</th>,
   td: ({ children }) => <td className="border-b border-slate-100 px-3 py-2">{children}</td>,
   // eslint-disable-next-line @next/next/no-img-element
-  img: ({ src, alt }) => <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} className="mt-3 max-w-full rounded-lg" />,
+  img: ({ src, alt }) => (
+    <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} referrerPolicy="no-referrer" loading="lazy" className="mt-3 max-w-full rounded-lg" />
+  ),
+  // "//evil.com" (và "/\\evil.com" — trình duyệt hiểu như //) là link NGOÀI, không phải đường dẫn trong app
   a: ({ href, children }) =>
-    href?.startsWith('/') ? (
+    href && /^\/(?![/\\])/.test(href) ? (
       <Link href={href} className="font-semibold text-emerald-700 underline">
         {children}
       </Link>

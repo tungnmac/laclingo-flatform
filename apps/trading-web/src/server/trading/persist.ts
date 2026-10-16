@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { positions, trades, tradingAccounts } from '../db/schema'
 import type { Tx } from './account-service'
 import { Decimal, toDb } from './decimal'
@@ -21,12 +21,16 @@ export async function savePosition(tx: Tx, accountId: string, symbol: string, po
     margin: toDb(pos.margin),
     realizedPnl: toDb(pos.realizedPnl),
     updatedAt: new Date(),
-    ...(liqCheckedUntil ? { liqCheckedUntil } : {}),
   }
   await tx
     .insert(positions)
-    .values({ accountId, market: MARKET, symbol, ...values })
-    .onConflictDoUpdate({ target: [positions.accountId, positions.market, positions.symbol], set: values })
+    .values({ accountId, market: MARKET, symbol, ...values, ...(liqCheckedUntil ? { liqCheckedUntil } : {}) })
+    .onConflictDoUpdate({
+      target: [positions.accountId, positions.market, positions.symbol],
+      // Mốc kiểm tra thanh lý chỉ TIẾN lên: quyết toán dùng nến tải trước có thể kết thúc sớm hơn mốc mà
+      // request khác vừa đặt (mở Short) — lùi lại sẽ xét thanh lý bằng nến từ trước khi vị thế tồn tại
+      set: { ...values, ...(liqCheckedUntil ? { liqCheckedUntil: sql`greatest(${positions.liqCheckedUntil}, ${liqCheckedUntil})` } : {}) },
+    })
 }
 
 export async function insertTrade(

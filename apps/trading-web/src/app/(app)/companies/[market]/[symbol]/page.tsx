@@ -97,7 +97,7 @@ export default function CompanyPage({ params }: { params: { market: string; symb
         <div className="mt-3 flex items-start gap-4">
           {f?.logo_url && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={f.logo_url} alt="" className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200" />
+            <img src={f.logo_url} alt="" referrerPolicy="no-referrer" className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200" />
           )}
           <div className="min-w-0">
             <h1 className="text-2xl font-bold sm:text-3xl">{f?.name || data.symbol}</h1>

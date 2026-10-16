@@ -7,6 +7,7 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   displayName: varchar('display_name', { length: 100 }).notNull(),
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'admin'
+  tokenVersion: integer('token_version').notNull().default(0), // tăng khi logout → thu hồi mọi session cũ
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -43,7 +44,10 @@ export const tradingAccounts = pgTable(
     closedAt: timestamp('closed_at', { withTimezone: true }),
   },
   // Mỗi user chỉ 1 ví đang hoạt động; ví cũ (đã reset) giữ lại cho nhật ký
-  (t) => [uniqueIndex('trading_accounts_active_user_key').on(t.userId).where(sql`${t.isActive}`)],
+  (t) => [
+    uniqueIndex('trading_accounts_active_user_key').on(t.userId).where(sql`${t.isActive}`),
+    index('trading_accounts_user_created_idx').on(t.userId, t.createdAt), // Nhật ký: mọi ví của user (cả ví đã đóng)
+  ],
 )
 
 export const positions = pgTable(
@@ -111,7 +115,11 @@ export const trades = pgTable(
     kind: varchar('kind', { length: 12 }).notNull(), // 'order' | 'liquidation'
     executedAt: timestamp('executed_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('trades_account_time_idx').on(t.accountId, t.executedAt)],
+  (t) => [
+    // id cuối: sắp (executed_at, id) đi thẳng theo index, không cần sort thêm
+    index('trades_account_time_id_idx').on(t.accountId, t.executedAt, t.id),
+    index('trades_order_id_idx').on(t.orderId), // FK ON DELETE SET NULL — không có index thì mỗi order bị xoá quét toàn bảng
+  ],
 )
 
 /** Nhật ký cho từng lần khớp (phần 4) */
@@ -199,7 +207,10 @@ export const lessonProgress = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.lessonId] })],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.lessonId] }),
+    index('lesson_progress_lesson_idx').on(t.lessonId), // xoá bài/chương cascade theo lesson_id
+  ],
 )
 
 /** Phiên thực hành replay (phần 6) — trạng thái ví/lệnh lưu jsonb (chuỗi Decimal) */

@@ -395,6 +395,9 @@ export const en: Messages = {
     unsavedConfirm: 'You have unsaved changes — discard them?',
   },
   errors: {
+    BUSY: 'The system is busy — please try again in a moment',
+    SETTLEMENT_PENDING: 'Still catching up on pending orders from while you were away — reload and place the order again',
+    RATE_LIMITED: 'Too many attempts — please try again in {seconds} seconds',
     SYMBOL_TAKEN: 'This symbol is already listed',
     INVALID_SYMBOL: 'Symbols use capital letters, digits and at most one hyphen (≤ 20 characters)',
     INTERNAL: 'Something went wrong, please try again',
@@ -405,7 +408,7 @@ export const en: Messages = {
     INVALID_EMAIL: 'Invalid email',
     EMAIL_TOO_LONG: 'Email is too long',
     PASSWORD_TOO_SHORT: 'Password must be at least 8 characters',
-    PASSWORD_TOO_LONG: 'Password must be at most 72 characters',
+    PASSWORD_TOO_LONG: 'Password is too long (max 72 bytes — accented letters count as 2–3)',
     PASSWORD_REQUIRED: 'Please enter your password',
     NAME_REQUIRED: 'Please enter a display name',
     NAME_TOO_LONG: 'Name must be at most 100 characters',

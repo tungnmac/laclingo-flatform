@@ -1,6 +1,7 @@
 import Redis from 'ioredis'
 import { env } from '../env'
 import type { CacheStore } from '../market/cache'
+import type { Counter } from '../rate-limit'
 
 const g = globalThis as unknown as { tradingRedis?: Redis }
 
@@ -31,6 +32,20 @@ export const redisStore: CacheStore = {
   },
   setNX: async (key, value, ttl) => (await connected().set(key, value, 'EX', ttl, 'NX')) === 'OK',
   del: async (key) => {
+    await connected().del(key)
+  },
+}
+
+export const redisCounter: Counter = {
+  incr: async (key, ttlSeconds) => {
+    const c = connected()
+    const count = await c.incr(key)
+    if (count === 1) await c.expire(key, ttlSeconds)
+    const ttl = await c.ttl(key)
+    if (ttl < 0) await c.expire(key, ttlSeconds) // khoá "mồ côi" không có hạn (expire lần đầu lỗi) → không khoá vĩnh viễn
+    return { count, ttl: ttl < 0 ? ttlSeconds : ttl }
+  },
+  reset: async (key) => {
     await connected().del(key)
   },
 }

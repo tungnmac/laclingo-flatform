@@ -9,12 +9,18 @@ export const env = {
   eodhdBaseUrl: () => process.env.EODHD_BASE_URL || 'https://eodhd.com',
 }
 
+/**
+ * Secret ký session. Secret mặc định (công khai trong mã nguồn) CHỈ dùng khi `next dev` / test — mọi môi trường
+ * khác (staging, preview, NODE_ENV trống…) bắt buộc JWT_SECRET; production còn bắt buộc ≥ 32 ký tự.
+ */
 export function jwtSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET
+  const env = process.env.NODE_ENV
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET bắt buộc khi NODE_ENV=production')
+    if (env !== 'development' && env !== 'test') throw new Error('JWT_SECRET bắt buộc (chỉ `next dev` / test mới dùng secret mặc định)')
     return new TextEncoder().encode(DEV_JWT_SECRET)
   }
+  if (env === 'production' && secret.length < 32) throw new Error('JWT_SECRET phải dài tối thiểu 32 ký tự khi NODE_ENV=production')
   return new TextEncoder().encode(secret)
 }
 

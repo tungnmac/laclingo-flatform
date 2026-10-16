@@ -6,9 +6,12 @@ import { SESSION_COOKIE, sessionCookieOptions, signSession } from '@/server/auth
 import { registerSchema } from '@/server/auth/validation'
 import { db } from '@/server/db/client'
 import { users } from '@/server/db/schema'
+import { redisCounter } from '@/server/cache/redis'
 import { handleRoute, HttpError, isUniqueViolation, readJson } from '@/server/http'
+import { clientIp, rateLimit } from '@/server/rate-limit'
 
 export const POST = handleRoute(async (req: Request) => {
+  await rateLimit(redisCounter, `register:ip:${clientIp(req)}`, 10, 60 * 60) // chống tạo tài khoản hàng loạt / dò email
   const body = registerSchema.parse(await readJson(req))
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1)
   if (existing) throw new HttpError(409, 'EMAIL_TAKEN')
@@ -25,6 +28,6 @@ export const POST = handleRoute(async (req: Request) => {
   }
 
   const res = NextResponse.json(toSessionUser(user), { status: 201 })
-  res.cookies.set(SESSION_COOKIE, await signSession(user.id), sessionCookieOptions())
+  res.cookies.set(SESSION_COOKIE, await signSession(user.id, user.tokenVersion), sessionCookieOptions())
   return res
 })
