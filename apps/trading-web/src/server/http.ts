@@ -18,8 +18,8 @@ export class HttpError extends Error {
 }
 
 /** Body lỗi chuẩn: { code, params?, error } — error dịch theo cookie trading_locale của request. */
-export function jsonError(status: number, code: string, params?: TranslateParams) {
-  const error = translate(getLocale(), `errors.${code}`, params)
+export async function jsonError(status: number, code: string, params?: TranslateParams) {
+  const error = translate(await getLocale(), `errors.${code}`, params)
   return NextResponse.json(params ? { code, params, error } : { code, error }, { status })
 }
 
@@ -31,23 +31,23 @@ export function handleRoute<A extends unknown[]>(fn: (...args: A) => Promise<Res
     try {
       return await fn(...args)
     } catch (err) {
-      if (err instanceof HttpError) return jsonError(err.status, err.code, err.params)
+      if (err instanceof HttpError) return await jsonError(err.status, err.code, err.params)
       if (err instanceof ZodError) {
         const issue = err.issues[0]
         const message = issue?.message ?? ''
-        if (!isErrorCode(message)) return jsonError(400, 'INVALID_INPUT')
+        if (!isErrorCode(message)) return await jsonError(400, 'INVALID_INPUT')
         const fixed = ERROR_PARAMS[message] ?? LEARN_ERROR_PARAMS[message]
         const max = issue?.code === 'too_big' ? Number(issue.maximum) : undefined
-        return jsonError(400, message, fixed ?? (max !== undefined ? { max } : undefined))
+        return await jsonError(400, message, fixed ?? (max !== undefined ? { max } : undefined))
       }
-      if (err instanceof UnsupportedMarketError) return jsonError(400, 'MARKET_UNSUPPORTED', { market: err.market })
-      if (err instanceof MarketUnavailableError) return jsonError(503, err.code)
+      if (err instanceof UnsupportedMarketError) return await jsonError(400, 'MARKET_UNSUPPORTED', { market: err.market })
+      if (err instanceof MarketUnavailableError) return await jsonError(503, err.code)
       if (isDbBusy(err)) {
         console.warn('⚠️ db busy:', describeError(err))
-        return jsonError(503, 'BUSY')
+        return await jsonError(503, 'BUSY')
       }
       console.error('❌ route error:', describeError(err))
-      return jsonError(500, 'INTERNAL')
+      return await jsonError(500, 'INTERNAL')
     }
   }
 }

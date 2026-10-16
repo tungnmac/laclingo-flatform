@@ -5,21 +5,24 @@ import { getAnalysisAdmin, saveAnalysis } from '@/server/companies/admin-service
 import { analysisSchema } from '@/server/companies/validation'
 import { handleRoute, HttpError, readJson } from '@/server/http'
 
-type Ctx = { params: { id: string; locale: string } }
+type Ctx = { params: Promise<{ id: string; locale: string }> }
 
-const localeOf = (ctx: Ctx): Locale => {
-  const locale = LOCALES.find((l) => l === ctx.params.locale)
+/** id + locale đã kiểm tra (locale lạ → 404) */
+const paramsOf = async (ctx: Ctx): Promise<{ id: string; locale: Locale }> => {
+  const { id, locale: raw } = await ctx.params
+  const locale = LOCALES.find((l) => l === raw)
   if (!locale) throw new HttpError(404, 'NOT_FOUND')
-  return locale
+  return { id, locale }
 }
 
 export const GET = handleRoute(async (_req: Request, ctx: Ctx) => {
   await requireAdmin()
-  return NextResponse.json(await getAnalysisAdmin(ctx.params.id, localeOf(ctx)))
+  const { id, locale } = await paramsOf(ctx)
+  return NextResponse.json(await getAnalysisAdmin(id, locale))
 })
 
 export const PUT = handleRoute(async (req: Request, ctx: Ctx) => {
   await requireAdmin()
-  const locale = localeOf(ctx)
-  return NextResponse.json(await saveAnalysis(ctx.params.id, locale, analysisSchema.parse(await readJson(req))))
+  const { id, locale } = await paramsOf(ctx)
+  return NextResponse.json(await saveAnalysis(id, locale, analysisSchema.parse(await readJson(req))))
 })

@@ -1,14 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react'
 import { PracticeSummary } from '@/components/practice/PracticeSummary'
 import { useT } from '@/i18n/I18nProvider'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { SessionDto } from '@/server/practice/dto'
 
-export default function PracticeReviewPage({ params }: { params: { id: string } }) {
+export default function PracticeReviewPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params)
   const { t } = useT()
   const [session, setSession] = useState<SessionDto | null>(null)
   const [error, setError] = useState<unknown>(null)

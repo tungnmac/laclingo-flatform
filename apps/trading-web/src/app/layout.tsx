@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description: 'Học trading và giao dịch mô phỏng bằng tiền ảo · Learn trading with simulated money',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-  const locale = getLocale()
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale()
   return (
     <html lang={locale}>
       <body>
