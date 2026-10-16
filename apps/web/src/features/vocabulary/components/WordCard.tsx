@@ -10,6 +10,7 @@ import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
+import { PartOfSpeechBadge } from './PartOfSpeechBadge'
 
 type Action = 'like' | 'favorite'
 
@@ -83,7 +84,12 @@ export function WordCard({
       <h2 className={cn('break-words font-bold text-slate-900', compact ? 'text-2xl' : 'text-4xl sm:text-5xl')}>
         {word.term}
       </h2>
-      {word.phonetic && <p className="text-slate-500">/{word.phonetic}/</p>}
+      {(word.phonetic || word.part_of_speech) && (
+        <p className="flex items-center gap-2 text-slate-500">
+          {word.phonetic && <span>/{word.phonetic}/</span>}
+          <PartOfSpeechBadge value={word.part_of_speech} />
+        </p>
+      )}
       <AudioButton src={word.audio_url || undefined} text={word.term} languageId={word.language_id} />
 
       <p className={cn('font-semibold text-indigo-600', compact ? 'text-base' : 'text-xl')}>{word.meaning}</p>

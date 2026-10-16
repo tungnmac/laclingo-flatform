@@ -13,7 +13,9 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { VocabularyImageInput } from '@/features/vocabulary/components/VocabularyImageInput'
+import { PART_OF_SPEECH_ABBR, PARTS_OF_SPEECH } from '@/features/vocabulary/partOfSpeech'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -29,7 +31,7 @@ const PAGE_SIZE = 20
 const ALL_TOPICS_PAGE_SIZE = 100
 
 const vocabBulkPlaceholder = `[
-  { "language_id": "en", "term": "apple", "phonetic": "ˈæp.əl", "meaning": "quả táo", "example": "I eat an apple every day.", "topic": "Đồ ăn & Thức uống", "level": "A1" }
+  { "language_id": "en", "term": "apple", "phonetic": "ˈæp.əl", "meaning": "quả táo", "part_of_speech": "noun", "example": "I eat an apple every day.", "topic": "Đồ ăn & Thức uống", "level": "A1" }
 ]`
 
 const topicBulkPlaceholder = `[
@@ -422,6 +424,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       term: String(form.get('term') ?? '').trim(),
       phonetic: String(form.get('phonetic') ?? '').trim() || undefined,
       meaning: String(form.get('meaning') ?? '').trim(),
+      part_of_speech: String(form.get('part_of_speech') ?? '') || undefined,
       example: String(form.get('example') ?? '').trim() || undefined,
       example_meaning: String(form.get('example_meaning') ?? '').trim() || undefined,
       topic: String(form.get('topic') ?? '').trim() || undefined,
@@ -541,6 +544,17 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
               {t.adminVocabulary.phoneticLabel}
               <input name="phonetic" type="text" defaultValue={editing?.phonetic} className={inputClass} />
             </label>
+            <label className="block text-sm font-medium text-slate-700">
+              {t.adminVocabulary.partOfSpeechLabel}
+              <select name="part_of_speech" defaultValue={editing?.part_of_speech ?? ''} className={inputClass}>
+                <option value="">{t.adminVocabulary.noPartOfSpeechOption}</option>
+                {PARTS_OF_SPEECH.map((pos) => (
+                  <option key={pos} value={pos}>
+                    {PART_OF_SPEECH_ABBR[pos]} — {t.vocabCard.partOfSpeechNames[pos]}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
               {t.adminVocabulary.meaningLabel}
               <input name="meaning" type="text" required defaultValue={editing?.meaning} className={inputClass} />
@@ -611,7 +625,8 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-slate-900">
-                    {v.term} {v.phonetic && <span className="font-normal text-slate-400">/{v.phonetic}/</span>}
+                    {v.term} {v.phonetic && <span className="font-normal text-slate-400">/{v.phonetic}/</span>}{' '}
+                    <PartOfSpeechBadge value={v.part_of_speech} />
                   </p>
                   <p className="truncate text-sm text-slate-500">
                     {v.meaning}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"laclingo-backend/internal/repository/db"
 	"laclingo-backend/internal/storage"
@@ -59,6 +60,7 @@ type VocabularyCard struct {
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
 	Example      string    `json:"example"`
+	PartOfSpeech string    `json:"part_of_speech" example:"noun"` // rỗng = chưa phân loại, xem partsOfSpeech
 	Topic        string    `json:"topic"`
 	Level        string    `json:"level" example:"A1"`
 	AudioURL     string    `json:"audio_url"`
@@ -319,6 +321,7 @@ func toVocabularyCard(r db.ListVocabulariesByTopicRow) VocabularyCard {
 		Phonetic:     r.Phonetic.String,
 		Meaning:      r.Meaning,
 		Example:      r.Example.String,
+		PartOfSpeech: r.PartOfSpeech.String,
 		Topic:        r.Topic.String,
 		Level:        r.Level.String,
 		AudioURL:     r.AudioUrl.String,
@@ -333,6 +336,20 @@ func toVocabularyCard(r db.ListVocabulariesByTopicRow) VocabularyCard {
 
 // ===== Admin CRUD (quản lý nội dung từ vựng) =====
 
+// partsOfSpeech — mã từ loại hợp lệ (FE hiển thị dạng viết tắt n./v./adj./...).
+var partsOfSpeech = map[string]bool{
+	"noun": true, "verb": true, "adj": true, "adv": true, "pron": true, "prep": true,
+	"conj": true, "interj": true, "det": true, "num": true, "phrase": true,
+}
+
+// normalizePartOfSpeech chuẩn hoá tại chỗ (trim, lowercase, bỏ "." cuối — vd
+// "Adj." → "adj") rồi kiểm tra: rỗng = chưa phân loại, còn lại phải là 1 mã
+// trong partsOfSpeech.
+func normalizePartOfSpeech(pos *string) bool {
+	*pos = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(*pos)), ".")
+	return *pos == "" || partsOfSpeech[*pos]
+}
+
 type VocabularyRequest struct {
 	LanguageID string `json:"language_id" example:"en"`
 	Term       string `json:"term" example:"apple"`
@@ -341,11 +358,13 @@ type VocabularyRequest struct {
 	Example    string `json:"example,omitempty"`
 	// ExampleMeaning — nghĩa tiếng Việt của câu ví dụ (bài ghép nghĩa câu khi ôn tập)
 	ExampleMeaning string `json:"example_meaning,omitempty"`
-	Topic          string `json:"topic,omitempty"`
-	Level          string `json:"level" example:"A1"`
-	AudioURL       string `json:"audio_url,omitempty"`
-	ImageURL       string `json:"image_url,omitempty"`
-	ImageEmoji     string `json:"image_emoji,omitempty"`
+	// PartOfSpeech — từ loại, 1 trong partsOfSpeech; để trống = chưa phân loại
+	PartOfSpeech string `json:"part_of_speech,omitempty" example:"noun"`
+	Topic        string `json:"topic,omitempty"`
+	Level        string `json:"level" example:"A1"`
+	AudioURL     string `json:"audio_url,omitempty"`
+	ImageURL     string `json:"image_url,omitempty"`
+	ImageEmoji   string `json:"image_emoji,omitempty"`
 }
 
 // VocabularyAdminResponse — từ vựng nhìn từ admin (không kèm like/favorite/in_review của user nào cả)
@@ -357,6 +376,7 @@ type VocabularyAdminResponse struct {
 	Meaning        string    `json:"meaning"`
 	Example        string    `json:"example,omitempty"`
 	ExampleMeaning string    `json:"example_meaning,omitempty"`
+	PartOfSpeech   string    `json:"part_of_speech,omitempty"`
 	Topic          string    `json:"topic,omitempty"`
 	Level          string    `json:"level"`
 	AudioURL       string    `json:"audio_url,omitempty"`
@@ -400,6 +420,7 @@ func toVocabularyAdminResponse(v db.Vocabulary) VocabularyAdminResponse {
 		Meaning:        v.Meaning,
 		Example:        v.Example.String,
 		ExampleMeaning: v.ExampleMeaning.String,
+		PartOfSpeech:   v.PartOfSpeech.String,
 		Topic:          v.Topic.String,
 		Level:          v.Level.String,
 		AudioURL:       v.AudioUrl.String,
@@ -410,7 +431,7 @@ func toVocabularyAdminResponse(v db.Vocabulary) VocabularyAdminResponse {
 
 // CreateVocabulary thêm 1 từ vựng mới
 func (s *VocabularyService) CreateVocabulary(ctx context.Context, req VocabularyRequest) (VocabularyAdminResponse, error) {
-	if req.LanguageID == "" || req.Term == "" || req.Meaning == "" {
+	if req.LanguageID == "" || req.Term == "" || req.Meaning == "" || !normalizePartOfSpeech(&req.PartOfSpeech) {
 		return VocabularyAdminResponse{}, ErrInvalidInput
 	}
 	v, err := s.repo.CreateVocabulary(ctx, db.CreateVocabularyParams{
@@ -420,6 +441,7 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 		Meaning:        req.Meaning,
 		Example:        pgtype.Text{String: req.Example, Valid: req.Example != ""},
 		ExampleMeaning: pgtype.Text{String: req.ExampleMeaning, Valid: req.ExampleMeaning != ""},
+		PartOfSpeech:   pgtype.Text{String: req.PartOfSpeech, Valid: req.PartOfSpeech != ""},
 		Topic:          pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
 		Level:          pgtype.Text{String: req.Level, Valid: req.Level != ""},
 		AudioUrl:       pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},
@@ -460,7 +482,7 @@ func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageI
 		results = append(results, toVocabularyAdminResponse(db.Vocabulary{
 			ID: v.ID, LanguageID: v.LanguageID, Term: v.Term, Phonetic: v.Phonetic, Meaning: v.Meaning,
 			Example: v.Example, Topic: v.Topic, Level: v.Level, AudioUrl: v.AudioUrl, ImageUrl: v.ImageUrl,
-			ImageEmoji: v.ImageEmoji, ExampleMeaning: v.ExampleMeaning, CreatedAt: v.CreatedAt,
+			ImageEmoji: v.ImageEmoji, ExampleMeaning: v.ExampleMeaning, PartOfSpeech: v.PartOfSpeech, CreatedAt: v.CreatedAt,
 		}))
 	}
 	return PageResult[VocabularyAdminResponse]{Items: results, Total: total}, nil
@@ -468,7 +490,7 @@ func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageI
 
 // UpdateVocabulary sửa 1 từ vựng (không đổi language_id)
 func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, req VocabularyRequest) (VocabularyAdminResponse, error) {
-	if req.Term == "" || req.Meaning == "" {
+	if req.Term == "" || req.Meaning == "" || !normalizePartOfSpeech(&req.PartOfSpeech) {
 		return VocabularyAdminResponse{}, ErrInvalidInput
 	}
 	v, err := s.repo.UpdateVocabulary(ctx, db.UpdateVocabularyParams{
@@ -478,6 +500,7 @@ func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, 
 		Meaning:        req.Meaning,
 		Example:        pgtype.Text{String: req.Example, Valid: req.Example != ""},
 		ExampleMeaning: pgtype.Text{String: req.ExampleMeaning, Valid: req.ExampleMeaning != ""},
+		PartOfSpeech:   pgtype.Text{String: req.PartOfSpeech, Valid: req.PartOfSpeech != ""},
 		Topic:          pgtype.Text{String: req.Topic, Valid: req.Topic != ""},
 		Level:          pgtype.Text{String: req.Level, Valid: req.Level != ""},
 		AudioUrl:       pgtype.Text{String: req.AudioURL, Valid: req.AudioURL != ""},

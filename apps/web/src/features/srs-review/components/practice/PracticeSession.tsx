@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -121,13 +122,24 @@ export function PracticeSession({
             vocab.image_emoji && <span className="text-6xl leading-none">{vocab.image_emoji}</span>
           )}
           <h2 className="break-words text-3xl font-bold text-slate-900 sm:text-4xl">{vocab.term}</h2>
-          {vocab.phonetic && <p className="text-slate-500">/{vocab.phonetic}/</p>}
+          {(vocab.phonetic || vocab.part_of_speech) && (
+            <p className="flex items-center gap-2 text-slate-500">
+              {vocab.phonetic && <span>/{vocab.phonetic}/</span>}
+              <PartOfSpeechBadge value={vocab.part_of_speech} />
+            </p>
+          )}
           <AudioButton src={vocab.audio_url || undefined} text={vocab.term} languageId={vocab.language_id} />
         </div>
       )}
 
       <h3 className="text-center text-lg font-semibold text-slate-800">{titles[step]}</h3>
 
+      {/* Gợi ý câu đối ứng: ghép câu → hiện nghĩa tiếng Việt; ghép nghĩa → hiện câu gốc */}
+      {step === 'sentence' && vocab.example_meaning && (
+        <p className="text-center text-slate-600">
+          {t.practice.buildSentenceHint} <span className="font-semibold text-slate-900">{vocab.example_meaning}</span>
+        </p>
+      )}
       {step === 'meaning' && (
         <p className="text-center text-slate-600">
           {t.practice.buildMeaningHint} <span className="font-semibold text-slate-900">{vocab.example}</span>

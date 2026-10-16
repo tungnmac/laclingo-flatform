@@ -46,6 +46,7 @@ type NewVocabulary struct {
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
 	Example      string    `json:"example"`
+	PartOfSpeech string    `json:"part_of_speech" example:"noun"`
 	Topic        string    `json:"topic" example:"Đồ ăn & Thức uống"`
 	Level        string    `json:"level" example:"A1"`
 	AudioURL     string    `json:"audio_url"`
@@ -58,6 +59,7 @@ type DueVocabulary struct {
 	Term         string    `json:"term" example:"apple"`
 	Phonetic     string    `json:"phonetic"`
 	Meaning      string    `json:"meaning"`
+	PartOfSpeech string    `json:"part_of_speech" example:"noun"`
 	AudioURL     string    `json:"audio_url"`
 	SRSStage     int32     `json:"srs_stage"`
 	NextReviewAt time.Time `json:"next_review_at"`
@@ -157,6 +159,7 @@ func (s *SRSService) toDueVocabularies(ctx context.Context, rows []db.GetDueVoca
 			Term:           r.Term,
 			Phonetic:       r.Phonetic.String,
 			Meaning:        r.Meaning,
+			PartOfSpeech:   r.PartOfSpeech.String,
 			AudioURL:       r.AudioUrl.String,
 			SRSStage:       r.SrsStage.Int32,
 			NextReviewAt:   r.NextReviewAt.Time,
@@ -377,6 +380,7 @@ func (s *SRSService) GetNewVocabularies(ctx context.Context, userID uuid.UUID, l
 			Phonetic:     v.Phonetic.String,
 			Meaning:      v.Meaning,
 			Example:      v.Example.String,
+			PartOfSpeech: v.PartOfSpeech.String,
 			Topic:        v.Topic.String,
 			Level:        v.Level.String,
 			AudioURL:     v.AudioUrl.String,
@@ -423,6 +427,7 @@ type ReviewWord struct {
 	Term          string    `json:"term"`
 	Phonetic      string    `json:"phonetic"`
 	Meaning       string    `json:"meaning"`
+	PartOfSpeech  string    `json:"part_of_speech"`
 	Topic         string    `json:"topic"`
 	Level         string    `json:"level"`
 	ImageURL      string    `json:"image_url"`
@@ -451,7 +456,7 @@ func (s *SRSService) ListReviewWords(ctx context.Context, userID uuid.UUID, lang
 		result.Total = r.TotalCount
 		result.Items = append(result.Items, ReviewWord{
 			VocabularyID: uuid.UUID(r.VocabularyID.Bytes), LanguageID: r.LanguageID, Term: r.Term,
-			Phonetic: r.Phonetic.String, Meaning: r.Meaning, Topic: r.Topic.String, Level: r.Level.String,
+			Phonetic: r.Phonetic.String, Meaning: r.Meaning, PartOfSpeech: r.PartOfSpeech.String, Topic: r.Topic.String, Level: r.Level.String,
 			ImageURL: r.ImageUrl.String, ImageEmoji: r.ImageEmoji.String, PracticeCount: r.PracticeCount,
 			SRSStage: r.SrsStage.Int32, IntervalDays: r.IntervalDays.Int32, NextReviewAt: r.NextReviewAt.Time,
 		})
