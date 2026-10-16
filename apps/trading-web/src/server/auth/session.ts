@@ -5,8 +5,9 @@ import { jwtSecret } from '../env'
 export const SESSION_COOKIE = 'trading_session'
 export const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
 
-export function signSession(userId: string): Promise<string> {
-  return new SignJWT({})
+/** `tokenVersion`: đổi giá trị trong DB (logout) → mọi token cũ của user mất hiệu lực */
+export function signSession(userId: string, tokenVersion: number): Promise<string> {
+  return new SignJWT({ tv: tokenVersion })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
@@ -14,15 +15,21 @@ export function signSession(userId: string): Promise<string> {
     .sign(jwtSecret())
 }
 
-/** Trả user id nếu token hợp lệ (chữ ký + hạn), ngược lại null — không throw. */
-export async function verifySession(token: string | undefined): Promise<string | null> {
+/** Claims nếu token hợp lệ (chữ ký + hạn), ngược lại null — không throw. Phiên bản token so với DB ở getCurrentUser. */
+export async function readSession(token: string | undefined): Promise<{ userId: string; tokenVersion: number } | null> {
   if (!token) return null
   try {
     const { payload } = await jwtVerify(token, jwtSecret(), { algorithms: ['HS256'] })
-    return typeof payload.sub === 'string' ? payload.sub : null
+    if (typeof payload.sub !== 'string') return null
+    return { userId: payload.sub, tokenVersion: typeof payload.tv === 'number' ? payload.tv : 0 }
   } catch {
     return null
   }
+}
+
+/** Trả user id nếu token hợp lệ (chữ ký + hạn) — middleware (edge, không tra DB) */
+export async function verifySession(token: string | undefined): Promise<string | null> {
+  return (await readSession(token))?.userId ?? null
 }
 
 export function sessionCookieOptions() {

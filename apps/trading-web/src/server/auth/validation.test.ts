@@ -15,3 +15,14 @@ describe('auth validation', () => {
     expect(registerSchema.parse({ email: 'a@b.co', password: '12345678', display_name: ' An ' }).display_name).toBe('An')
   })
 })
+
+describe('password length in bytes (bcrypt limit)', () => {
+  it('counts UTF-8 bytes, not characters', () => {
+    const base = { email: 'user@example.com', display_name: 'A' }
+    expect(registerSchema.safeParse({ ...base, password: 'a'.repeat(72) }).success).toBe(true)
+    const vietnamese = 'ấ'.repeat(30) // 30 ký tự = 90 byte
+    expect(registerSchema.safeParse({ ...base, password: vietnamese }).error?.issues[0].message).toBe('PASSWORD_TOO_LONG')
+    expect(loginSchema.safeParse({ email: 'user@example.com', password: vietnamese }).error?.issues[0].message).toBe('PASSWORD_TOO_LONG')
+  })
+})
+

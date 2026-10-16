@@ -6,7 +6,7 @@ vi.mock('next/headers', () => ({
   headers: () => ({ get: () => null }),
 }))
 
-const { handleRoute, HttpError } = await import('./http')
+const { describeError, handleRoute, HttpError } = await import('./http')
 
 describe('handleRoute', () => {
   it('returns code, params and a message in the request locale', async () => {
@@ -50,3 +50,14 @@ describe('handleRoute zod too_big params', () => {
     expect(await res.json()).toMatchObject({ code: 'TEXT_TOO_LONG', params: { max: 5 } })
   })
 })
+
+describe('describeError', () => {
+  it('never logs SQL parameters of failed queries', () => {
+    const q = new Error('Failed query: insert into "users" ("email","password_hash") values ($1, $2)\nparams: a@b.c,$2a$12$hash')
+    expect(describeError(q)).toBe('Error: query failed')
+    const wrapped = Object.assign(new Error('Failed query: ... params: a@b.c'), { cause: { code: '23505', constraint: 'users_email_unique', message: 'duplicate key' } })
+    expect(describeError(wrapped)).toBe('Error: pg 23505 (users_email_unique) — duplicate key')
+    expect(describeError(wrapped)).not.toContain('a@b.c')
+  })
+})
+

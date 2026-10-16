@@ -2,13 +2,13 @@ import { and, count, desc, eq, inArray } from 'drizzle-orm'
 import { orders, positions, trades, tradingAccounts, type AccountRow, type TradeRow } from '../db/schema'
 import { HttpError } from '../http'
 import { listActiveInstruments } from '../market/instruments'
-import { markPrices, MARKET, snapshot, toOrderDto, withAccount, type OrderDto, type PositionDto, type Tx } from './account-service'
+import { MARKET, snapshot, toOrderDto, withSettledAccount, type OrderDto, type PositionDto, type Tx } from './account-service'
+import type { SettlementPrefetch } from './settlement'
 import { D, Decimal, toApi, toDb } from './decimal'
 import { applyFill, limitReserve, type Pos, type Side, type Wallet } from './engine'
 import { positionOf, walletFrom } from './mappers'
 import { insertTrade, saveCash, savePosition } from './persist'
 import { MIN_NOTIONAL, usd, validateProtection } from './rules'
-import { settleAccount } from './settlement'
 import type { PlaceOrderInput, ProtectionInput } from './validation'
 
 export const ORDER_NOTE_MAX = 1000
@@ -45,18 +45,20 @@ async function requireInstrument(symbol: string) {
   if (!(await listActiveInstruments(MARKET)).some((i) => i.symbol === symbol)) throw new HttpError(404, 'SYMBOL_NOT_FOUND')
 }
 
-/** Giá khớp luôn lấy ở server — không bao giờ nhận giá từ client. */
-async function currentPrice(symbol: string): Promise<Decimal> {
-  const price = (await markPrices([symbol]))?.[symbol]
-  if (!price) throw new HttpError(503, 'PRICE_UNAVAILABLE')
+/**
+ * Giá khớp luôn lấy ở server — không bao giờ nhận giá từ client. Đã tải trước transaction (prefetch).
+ * Giá từ bản lưu cũ (nguồn giá đang lỗi / Binance tạm chặn) → từ chối, không khớp ở giá có thể đã lệch xa.
+ */
+function currentPrice(pre: SettlementPrefetch, symbol: string): Decimal {
+  const price = pre.marks?.[symbol]
+  if (!price || pre.marksStale) throw new HttpError(503, 'PRICE_UNAVAILABLE')
   return price
 }
 
-/** Quyết toán rồi đọc lại ví (account + vị thế) — mọi thao tác bắt đầu bằng bước này. */
-async function settledWallet(tx: Tx, account: AccountRow): Promise<{ account: AccountRow; wallet: Wallet }> {
-  const settled = await settleAccount(tx, account)
+/** Ví (account + vị thế) sau khi đã quyết toán */
+async function walletOf(tx: Tx, account: AccountRow): Promise<Wallet> {
   const posRows = await tx.select().from(positions).where(eq(positions.accountId, account.id))
-  return { account: settled.account, wallet: walletFrom(settled.account, posRows) }
+  return walletFrom(account, posRows)
 }
 
 
@@ -173,11 +175,15 @@ async function fillNow(
   return { order, trade, after }
 }
 
-export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ order: OrderDto; trade?: TradeDto }> {
-  return withAccount(userId, async (tx, locked) => {
-    const { account, wallet } = await settledWallet(tx, locked)
-    await requireInstrument(input.symbol)
-    const mark = await currentPrice(input.symbol)
+export async function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ order: OrderDto; trade?: TradeDto }> {
+  // Kiểm tra mã TRƯỚC transaction: không mở connection thứ 2 trong lúc đang giữ khoá ví
+  await requireInstrument(input.symbol)
+  return withSettledAccount(userId, async (tx, { account }, pre) => {
+    // Lệnh chờ còn quyết toán dở trong quá khứ (offline quá lâu) → chưa cho đặt lệnh mới ở giá hiện tại,
+    // tránh lịch sử khớp lệnh sai thứ tự thời gian. Lần tải sau sẽ quyết toán tiếp.
+    if (pre.capped) throw new HttpError(503, 'SETTLEMENT_PENDING')
+    const wallet = await walletOf(tx, account)
+    const mark = currentPrice(pre, input.symbol)
     const qty = D(input.qty)
     const limitPrice = input.price ? D(input.price) : null
     const stopLoss = input.stop_loss ? D(input.stop_loss) : null
@@ -232,12 +238,12 @@ export function placeOrder(userId: string, input: PlaceOrderInput): Promise<{ or
       })
       .returning()
     return { order: toOrderDto(order) }
-  })
+  }, [input.symbol])
 }
 
 export function cancelOrder(userId: string, orderId: string): Promise<OrderDto> {
-  return withAccount(userId, async (tx, locked) => {
-    const { account } = await settledWallet(tx, locked) // lệnh có thể vừa khớp trong lúc offline
+  return withSettledAccount(userId, async (tx, { account }) => {
+    // đã quyết toán: lệnh có thể vừa khớp trong lúc offline
     const [order] = await tx
       .select()
       .from(orders)
@@ -255,30 +261,30 @@ export function cancelOrder(userId: string, orderId: string): Promise<OrderDto> 
   })
 }
 
-async function positionDto(tx: Tx, accountId: string, symbol: string): Promise<PositionDto | null> {
+async function positionDto(tx: Tx, accountId: string, symbol: string, pre: SettlementPrefetch): Promise<PositionDto | null> {
   const [account] = await tx.select().from(tradingAccounts).where(eq(tradingAccounts.id, accountId))
-  return (await snapshot(tx, account, false)).positions.find((p) => p.symbol === symbol) ?? null
+  return (await snapshot(tx, account, false, pre.marks)).positions.find((p) => p.symbol === symbol) ?? null
 }
 
 export function setProtection(userId: string, symbol: string, input: ProtectionInput): Promise<PositionDto | null> {
-  return withAccount(userId, async (tx, locked) => {
-    const { account, wallet } = await settledWallet(tx, locked)
+  return withSettledAccount(userId, async (tx, { account }, pre) => {
+    const wallet = await walletOf(tx, account)
     const pos = positionOf(wallet, symbol)
     if (pos.qty.isZero()) throw new HttpError(404, 'NO_POSITION')
     const stopLoss = input.stop_loss ? D(input.stop_loss) : null
     const takeProfit = input.take_profit ? D(input.take_profit) : null
-    if (stopLoss || takeProfit) validateProtection(pos, await currentPrice(symbol), stopLoss, takeProfit)
+    if (stopLoss || takeProfit) validateProtection(pos, currentPrice(pre, symbol), stopLoss, takeProfit)
     await replaceProtection(tx, account.id, symbol, pos, stopLoss, takeProfit)
-    return positionDto(tx, account.id, symbol)
-  })
+    return positionDto(tx, account.id, symbol, pre)
+  }, [symbol])
 }
 
 export function closePosition(userId: string, symbol: string): Promise<TradeDto> {
-  return withAccount(userId, async (tx, locked) => {
-    const { account, wallet } = await settledWallet(tx, locked)
+  return withSettledAccount(userId, async (tx, { account }, pre) => {
+    const wallet = await walletOf(tx, account)
     const pos = positionOf(wallet, symbol)
     if (pos.qty.isZero()) throw new HttpError(404, 'NO_POSITION')
-    const mark = await currentPrice(symbol)
+    const mark = currentPrice(pre, symbol)
     const { trade } = await fillNow(
       tx,
       account,
@@ -287,12 +293,12 @@ export function closePosition(userId: string, symbol: string): Promise<TradeDto>
       { capFeeAtCash: true }, // đóng vị thế luôn được phép, kể cả khi tiền mặt không đủ trả phí
     )
     return toTradeDto(trade)
-  })
+  }, [symbol])
 }
 
 export function history(userId: string, page: number, pageSize: number): Promise<{ items: TradeDto[]; total: number }> {
-  return withAccount(userId, async (tx, locked) => {
-    const { account } = await settledWallet(tx, locked) // lệnh khớp lúc offline phải có trong lịch sử
+  // đã quyết toán: lệnh khớp lúc offline phải có trong lịch sử
+  return withSettledAccount(userId, async (tx, { account }) => {
     const where = eq(trades.accountId, account.id)
     const [{ total }] = await tx.select({ total: count() }).from(trades).where(where)
     const rows = await tx

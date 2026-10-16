@@ -7,5 +7,5 @@ import { protectionSchema } from '@/server/trading/validation'
 export const PUT = handleRoute(async (req: Request, ctx: { params: { symbol: string } }) => {
   const user = await requireUser()
   const input = protectionSchema.parse(await readJson(req))
-  return NextResponse.json(await setProtection(user.id, decodeURIComponent(ctx.params.symbol).toUpperCase(), input))
+  return NextResponse.json(await setProtection(user.id, ctx.params.symbol.toUpperCase(), input))
 })

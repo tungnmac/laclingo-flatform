@@ -44,8 +44,17 @@ export function createBinanceProvider(opts: { baseUrl?: string; fetchFn?: typeof
   const baseUrl = opts.baseUrl ?? env.binanceBaseUrl()
   const fetchFn = opts.fetchFn ?? fetch
 
+  // 429 = sắp vượt hạn mức, 418 = IP đã bị chặn — gọi tiếp chỉ kéo dài lệnh chặn → ngừng gọi tới khi hết Retry-After
+  let pausedUntil = 0
+
   async function getJson(path: string): Promise<unknown> {
+    if (Date.now() < pausedUntil) throw new BinanceHttpError(429)
     const res = await fetchFn(`${baseUrl}${path}`, { signal: AbortSignal.timeout(5000), cache: 'no-store' })
+    if (res.status === 429 || res.status === 418) {
+      const retryAfter = Number(res.headers.get('retry-after'))
+      pausedUntil = Date.now() + (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60) * 1000
+      console.warn(`⚠️ binance: HTTP ${res.status}, tạm ngừng gọi ${Math.round((pausedUntil - Date.now()) / 1000)}s`)
+    }
     if (!res.ok) throw new BinanceHttpError(res.status)
     return res.json()
   }

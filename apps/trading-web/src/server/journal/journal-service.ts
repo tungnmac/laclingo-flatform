@@ -2,10 +2,9 @@ import { and, asc, count, desc, eq, gte, inArray, lt, sql, type SQL } from 'driz
 import { db } from '../db/client'
 import { orders, tradeNotes, trades, tradingAccounts, type AccountRow, type TradeNoteRow } from '../db/schema'
 import { HttpError } from '../http'
-import { withAccount } from '../trading/account-service'
+import { withAccount, withSettledAccount } from '../trading/account-service'
 import { D, toApi } from '../trading/decimal'
 import { toTradeDto, type TradeDto } from '../trading/order-service'
-import { settleAccount } from '../trading/settlement'
 import { computeStats, drawdownBase, type Stats } from './stats'
 import type { JournalFilter, NoteInput } from './validation'
 
@@ -65,7 +64,7 @@ export async function listAccounts(userId: string): Promise<AccountSummaryDto[]>
  */
 async function resolveAccounts(userId: string, account: string): Promise<{ accounts: AccountRow[]; single: AccountRow | null }> {
   if (account === 'current' || account === 'all') {
-    const current = await withAccount(userId, async (tx, locked) => (await settleAccount(tx, locked)).account)
+    const current = await withSettledAccount(userId, async (_tx, { account }) => account)
     if (account === 'current') return { accounts: [current], single: current }
     return { accounts: await db.select().from(tradingAccounts).where(eq(tradingAccounts.userId, userId)), single: null }
   }
@@ -96,7 +95,7 @@ export async function getStats(userId: string, filter: JournalFilter): Promise<S
   const { accounts, single } = await resolveAccounts(userId, filter.account)
   const start = rangeStart(filter.range)
   const rows = await db
-    .select()
+    .select({ symbol: trades.symbol, executedAt: trades.executedAt, realizedPnl: trades.realizedPnl, fee: trades.fee, closedQty: trades.closedQty })
     .from(trades)
     .where(tradeConditions(accounts.map((a) => a.id), filter, start))
     .orderBy(asc(trades.executedAt))

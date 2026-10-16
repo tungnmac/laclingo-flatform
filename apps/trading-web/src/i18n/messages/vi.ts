@@ -395,6 +395,9 @@ export const vi = {
     unsavedConfirm: 'Có thay đổi chưa lưu — bỏ qua?',
   },
   errors: {
+    BUSY: 'Hệ thống đang bận — vui lòng thử lại sau giây lát',
+    SETTLEMENT_PENDING: 'Đang cập nhật các lệnh chờ trong thời gian bạn vắng mặt — vui lòng tải lại rồi đặt lệnh',
+    RATE_LIMITED: 'Thao tác quá nhiều lần — vui lòng thử lại sau {seconds} giây',
     SYMBOL_TAKEN: 'Mã này đã có trong danh sách',
     INVALID_SYMBOL: 'Mã chỉ gồm chữ in hoa, số và tối đa một dấu gạch ngang (≤ 20 ký tự)',
     INTERNAL: 'Lỗi hệ thống, vui lòng thử lại',
@@ -405,7 +408,7 @@ export const vi = {
     INVALID_EMAIL: 'Email không hợp lệ',
     EMAIL_TOO_LONG: 'Email quá dài',
     PASSWORD_TOO_SHORT: 'Mật khẩu tối thiểu 8 ký tự',
-    PASSWORD_TOO_LONG: 'Mật khẩu tối đa 72 ký tự',
+    PASSWORD_TOO_LONG: 'Mật khẩu quá dài (tối đa 72 byte — chữ có dấu tính 2–3 byte)',
     PASSWORD_REQUIRED: 'Vui lòng nhập mật khẩu',
     NAME_REQUIRED: 'Vui lòng nhập tên hiển thị',
     NAME_TOO_LONG: 'Tên tối đa 100 ký tự',

@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { D } from './decimal'
 
 // Message = MÃ LỖI (errors.* trong từ điển). Số gửi dạng CHUỖI để không mất chính xác.
-const DECIMAL = /^\d+(\.\d{1,8})?$/
+// Phần nguyên ≤ 18 chữ số: cột numeric(36,18) — số lớn hơn từng lọt validation rồi lỗi tràn số ở DB (500)
+const DECIMAL = /^\d{1,18}(\.\d{1,8})?$/
 
 export const decimalString = (code: string) =>
   z
