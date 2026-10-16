@@ -37,7 +37,7 @@ async function main() {
         .where(eq(chapters.locale, locale))
       const inserted = await db
         .insert(chapters)
-        .values({ locale, slug: c.slug, title: c.title, description: c.description, position: Number(maxChapter) + 1, published: true })
+        .values({ locale, slug: c.slug, title: c.title, description: c.description, level: c.level ?? 'basic', position: Number(maxChapter) + 1, published: true })
         .onConflictDoNothing({ target: [chapters.locale, chapters.slug] })
         .returning({ id: chapters.id })
       addedChapters += inserted.length

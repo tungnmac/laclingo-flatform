@@ -6,7 +6,7 @@ const issue = (r: { success: boolean; error?: { issues: { message: string }[] } 
 describe('chapterSchema', () => {
   it('accepts a valid chapter and trims', () => {
     expect(chapterSchema.parse({ locale: 'en', slug: 'risk-basics', title: '  Risk  ' })).toEqual({
-      locale: 'en', slug: 'risk-basics', title: 'Risk', description: null, published: false,
+      locale: 'en', slug: 'risk-basics', title: 'Risk', description: null, level: 'basic', published: false,
     })
   })
   it('rejects bad slugs, missing title and bad locale', () => {
@@ -61,3 +61,16 @@ describe('patch schemas', () => {
     expect(chapterPatchSchema.parse({ published: true })).toEqual({ published: true })
   })
 })
+
+describe('levels and reserved slugs', () => {
+  it('validates chapter levels', () => {
+    expect(chapterSchema.parse({ locale: 'vi', slug: 'x', title: 'X', level: 'advanced' }).level).toBe('advanced')
+    expect(issue(chapterSchema.safeParse({ locale: 'vi', slug: 'x', title: 'X', level: 'expert' }))).toBe('INVALID_LEVEL')
+  })
+  it('rejects lesson slugs that collide with /learn sub-pages', () => {
+    const base = { chapter_id: '0b6c1c1e-9a2f-4d6e-8f4c-2a1b3c4d5e6f', title: 'T' }
+    for (const slug of ['books', 'plans', 'glossary']) expect(issue(lessonSchema.safeParse({ ...base, slug }))).toBe('RESERVED_SLUG')
+    expect(lessonSchema.safeParse({ ...base, slug: 'books-to-read' }).success).toBe(true)
+  })
+})
+

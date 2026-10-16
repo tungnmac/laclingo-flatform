@@ -28,6 +28,7 @@ export interface AdminChapterDto {
   slug: string
   title: string
   description: string | null
+  level: string
   position: number
   published: boolean
   lessons: AdminLessonSummaryDto[]
@@ -55,6 +56,7 @@ const toChapterDto = (c: ChapterRow, lessonDtos: AdminLessonSummaryDto[] = []): 
   slug: c.slug,
   title: c.title,
   description: c.description,
+  level: c.level,
   position: c.position,
   published: c.published,
   lessons: lessonDtos,

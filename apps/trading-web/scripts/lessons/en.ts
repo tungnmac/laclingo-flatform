@@ -1,4 +1,5 @@
 import type { SeedChapter } from './types'
+import { EN_ADVANCED } from './en-advanced'
 import { EN_FUNDAMENTALS } from './en-fundamentals'
 
 // English starter curriculum — numbers match TradeLab: 0.1% fee, 10,000 USDT wallet, no leverage, shorts at 100% margin.
@@ -501,6 +502,7 @@ Open the daily chart of a symbol in [Markets](/markets). Decide for yourself: is
     slug: 'risk-and-psychology',
     title: 'Risk management and psychology',
     description: 'Stop-losses, position sizing, journaling and keeping emotions in check.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'stop-loss-and-take-profit',
@@ -731,4 +733,5 @@ Open your [Journal](/journal), pick a recent trade and write down your **reason,
     ],
   },
   ...EN_FUNDAMENTALS,
+  ...EN_ADVANCED,
 ]

@@ -1,0 +1,61 @@
+// Seed thư viện: sách nên đọc + thuật ngữ vi/en (đã công bố) — idempotent: sách trùng (tên + tác giả) /
+// thuật ngữ trùng (ngôn ngữ + term) thì BỎ QUA, không ghi đè chỉnh sửa của admin. Chạy: npm run seed:library
+import { BOOKS } from './library/books'
+import { GLOSSARY_EN } from './library/glossary-en'
+import { GLOSSARY_VI } from './library/glossary-vi'
+
+try {
+  process.loadEnvFile('.env')
+} catch {
+  // không có .env → dùng biến môi trường sẵn có
+}
+
+async function main() {
+  const { db } = await import('../src/server/db/client')
+  const { books, glossaryTerms } = await import('../src/server/db/schema')
+  const { and, eq } = await import('drizzle-orm')
+
+  let addedBooks = 0
+  for (const [i, b] of BOOKS.entries()) {
+    const [exists] = await db
+      .select({ id: books.id })
+      .from(books)
+      .where(and(eq(books.title, b.title), eq(books.author, b.author)))
+    if (exists) continue
+    await db.insert(books).values({
+      title: b.title,
+      author: b.author,
+      year: b.year,
+      level: b.level,
+      topic: b.topic,
+      summaryVi: b.summary_vi,
+      summaryEn: b.summary_en,
+      published: true,
+      position: i,
+    })
+    addedBooks++
+  }
+
+  let addedTerms = 0
+  for (const [locale, terms] of [
+    ['vi', GLOSSARY_VI],
+    ['en', GLOSSARY_EN],
+  ] as const) {
+    for (const t of terms) {
+      const inserted = await db
+        .insert(glossaryTerms)
+        .values({ locale, term: t.term, definitionMd: t.definition_md, lessonSlug: t.lesson_slug, published: true })
+        .onConflictDoNothing() // unique (locale, lower(term))
+        .returning({ id: glossaryTerms.id })
+      addedTerms += inserted.length
+    }
+  }
+
+  console.log(`✅ Seed library: ${addedBooks} books, ${addedTerms} glossary terms added`)
+  process.exit(0)
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

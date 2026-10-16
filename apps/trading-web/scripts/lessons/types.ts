@@ -13,9 +13,13 @@ export interface SeedLesson {
   questions: SeedQuestion[]
 }
 
+export type SeedLevel = 'basic' | 'intermediate' | 'advanced'
+
 export interface SeedChapter {
   slug: string
   title: string
   description: string
+  /** Cấp độ — bỏ trống = basic */
+  level?: SeedLevel
   lessons: SeedLesson[]
 }

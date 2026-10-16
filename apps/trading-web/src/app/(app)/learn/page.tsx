@@ -1,24 +1,28 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState, use } from 'react'
 import { ChapterList } from '@/components/learn/ChapterList'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { CatalogDto } from '@/server/learn/learn-service'
+import { LEVELS } from '@/server/learn/validation'
 
-export default function LearnPage(props: { searchParams: Promise<{ untranslated?: string }> }) {
+export default function LearnPage(props: { searchParams: Promise<{ untranslated?: string; level?: string }> }) {
   const searchParams = use(props.searchParams)
+  const level = LEVELS.find((l) => l === searchParams.level) ?? null
   const { t, locale } = useT()
+  const router = useRouter()
   const [data, setData] = useState<CatalogDto | null>(null)
   const [error, setError] = useState<unknown>(null)
 
   const load = useCallback(() => {
     setError(null)
     setData(null)
-    api<CatalogDto>('/api/learn').then(setData, setError)
-  }, [])
+    api<CatalogDto>(level ? `/api/learn?level=${level}` : '/api/learn').then(setData, setError)
+  }, [level])
 
   useEffect(load, [load, locale]) // đổi ngôn ngữ → danh sách bài đổi theo
 
@@ -29,6 +33,20 @@ export default function LearnPage(props: { searchParams: Promise<{ untranslated?
       <div>
         <h1 className="text-2xl font-bold">{t('learn.title')}</h1>
         <p className="text-sm text-slate-500">{t('learn.subtitle', { pass: 70 })}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="tablist">
+        {[null, ...LEVELS].map((l) => (
+          <button
+            key={l ?? 'all'}
+            role="tab"
+            aria-selected={l === level}
+            onClick={() => router.replace(l ? `/learn?level=${l}` : '/learn')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${l === level ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'}`}
+          >
+            {t(`levels.${l ?? 'all'}`)}
+          </button>
+        ))}
       </div>
 
       {searchParams.untranslated && (

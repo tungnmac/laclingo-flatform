@@ -5,6 +5,9 @@ export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const LIMITS = { slug: 80, title: 200, text: 2000, content: 100000, optionsMin: 2, optionsMax: 6, questions: 20, answers: 20 }
 
 const slug = z.string().trim().max(LIMITS.slug, 'INVALID_SLUG').regex(SLUG_RE, 'INVALID_SLUG')
+/** Trùng tên trang con của /learn (sidebar) → bài không bao giờ mở được */
+export const RESERVED_LESSON_SLUGS = ['books', 'plans', 'glossary']
+const lessonSlug = slug.refine((s) => !RESERVED_LESSON_SLUGS.includes(s), 'RESERVED_SLUG')
 const title = z.string().trim().min(1, 'TITLE_REQUIRED').max(LIMITS.title, 'TEXT_TOO_LONG')
 /** Chuỗi tuỳ chọn: rỗng/khoảng trắng → null */
 const optionalText = (max: number) =>
@@ -15,15 +18,21 @@ const optionalText = (max: number) =>
     .nullish()
     .transform((s) => s || null)
 
+export const LEVELS = ['basic', 'intermediate', 'advanced'] as const
+export type Level = (typeof LEVELS)[number]
+export const levelSchema = z.enum(LEVELS, 'INVALID_LEVEL')
+
 const chapterFields = {
   slug,
   title,
   description: optionalText(LIMITS.text),
+  level: levelSchema,
   published: z.boolean(),
 }
 export const chapterSchema = z.object({
   locale: z.enum(LOCALES, 'INVALID_INPUT'),
   ...chapterFields,
+  level: chapterFields.level.default('basic'),
   published: chapterFields.published.default(false),
 })
 /** PATCH: chỉ các trường gửi lên — KHÔNG có default (zod 4 vẫn áp .default() sau .partial()) */
@@ -40,7 +49,7 @@ const translationKey = z
 
 const lessonFields = {
   chapter_id: z.uuid('INVALID_INPUT'),
-  slug,
+  slug: lessonSlug,
   translation_key: translationKey,
   title,
   summary: optionalText(LIMITS.text),

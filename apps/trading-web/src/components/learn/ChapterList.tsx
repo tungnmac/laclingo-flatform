@@ -16,6 +16,7 @@ export function ChapterList({ chapters }: { chapters: CatalogDto['chapters'] }) 
               <div className="flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-slate-800">
                   {ci + 1}. {c.title}
+                  <LevelBadge level={c.level} />
                 </h2>
                 <span className="text-xs tabular-nums text-slate-500">
                   {done}/{c.lessons.length}
@@ -56,3 +57,19 @@ export function ChapterList({ chapters }: { chapters: CatalogDto['chapters'] }) 
     </div>
   )
 }
+
+const LEVEL_STYLES: Record<string, string> = {
+  basic: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  intermediate: 'bg-sky-50 text-sky-700 ring-sky-200',
+  advanced: 'bg-violet-50 text-violet-700 ring-violet-200',
+}
+
+export function LevelBadge({ level }: { level: string }) {
+  const { t } = useT()
+  return (
+    <span className={`ml-2 inline-block rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold ring-1 ${LEVEL_STYLES[level] ?? LEVEL_STYLES.basic}`}>
+      {t(`levels.${level}`)}
+    </span>
+  )
+}
+

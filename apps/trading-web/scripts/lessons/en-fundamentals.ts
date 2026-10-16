@@ -7,6 +7,7 @@ export const EN_FUNDAMENTALS: SeedChapter[] = [
     slug: 'reading-financial-statements',
     title: 'Reading financial statements',
     description: 'The three core statements: income statement, balance sheet and cash flow statement.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'financial-statements-overview',
@@ -306,6 +307,7 @@ Take a company's cash flow statements for the last three years and compare CFO w
     slug: 'key-financial-ratios',
     title: 'Key financial ratios',
     description: 'Valuation (EPS, P/E, P/B), profitability (ROE, ROA, margins) and financial health.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'eps-pe-pb',
