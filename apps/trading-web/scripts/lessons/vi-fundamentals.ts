@@ -7,6 +7,7 @@ export const VI_FUNDAMENTALS: SeedChapter[] = [
     slug: 'doc-bao-cao-tai-chinh',
     title: 'Đọc báo cáo tài chính',
     description: 'Ba báo cáo tài chính cốt lõi: kết quả kinh doanh, cân đối kế toán và lưu chuyển tiền tệ.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'tong-quan-bao-cao-tai-chinh',
@@ -306,6 +307,7 @@ Lấy LCTT 3 năm gần nhất của một doanh nghiệp, so sánh CFO với LN
     slug: 'chi-so-tai-chinh-co-ban',
     title: 'Các chỉ số tài chính cơ bản',
     description: 'Định giá (EPS, P/E, P/B), khả năng sinh lời (ROE, ROA, biên lợi nhuận) và sức khoẻ tài chính.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'eps-pe-pb',

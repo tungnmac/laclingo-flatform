@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
+import { LEVELS } from '@/server/learn/validation'
 import { changedFields } from '@/lib/admin-forms'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
@@ -24,10 +25,17 @@ export function ChapterForm({
   const [title, setTitle] = useState(chapter?.title ?? '')
   const [slug, setSlug] = useState(chapter?.slug ?? '')
   const [description, setDescription] = useState(chapter?.description ?? '')
+  const [level, setLevel] = useState(chapter?.level ?? 'basic')
   const [published, setPublished] = useState(chapter?.published ?? false)
   const [saving, setSaving] = useState(false)
-  const loaded = { title: chapter?.title ?? '', slug: chapter?.slug ?? '', description: chapter?.description ?? '', published: chapter?.published ?? false }
-  const current = { title, slug, description, published }
+  const loaded = {
+    title: chapter?.title ?? '',
+    slug: chapter?.slug ?? '',
+    description: chapter?.description ?? '',
+    level: chapter?.level ?? 'basic',
+    published: chapter?.published ?? false,
+  }
+  const current = { title, slug, description, level, published }
   const changes = changedFields(loaded, current)
   const dirty = Object.keys(changes).length > 0
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange])
@@ -62,6 +70,15 @@ export function ChapterForm({
       </Field>
       <Field label={t('admin.description')}>
         <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
+      </Field>
+      <Field label={t('admin.level')}>
+        <select value={level} onChange={(e) => setLevel(e.target.value)} className={inputClass}>
+          {LEVELS.map((l) => (
+            <option key={l} value={l}>
+              {t(`levels.${l}`)}
+            </option>
+          ))}
+        </select>
       </Field>
       <Checkbox label={t('admin.published')} checked={published} onChange={setPublished} />
       {error !== null && <p className="text-sm text-rose-600">{errorMessage(error, t)}</p>}

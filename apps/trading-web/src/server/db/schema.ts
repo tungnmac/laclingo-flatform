@@ -144,6 +144,7 @@ export const chapters = pgTable(
     slug: varchar('slug', { length: 80 }).notNull(),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),
+    level: varchar('level', { length: 12 }).notNull().default('basic'), // basic | intermediate | advanced
     position: integer('position').notNull(),
     published: boolean('published').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -292,6 +293,78 @@ export const companyAnalyses = pgTable(
   (t) => [primaryKey({ columns: [t.companyId, t.locale] })],
 )
 
+/** Thư viện sách nên đọc (phần 8) — chỉ thông tin công khai + tóm tắt tự viết */
+export const books = pgTable('books', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: varchar('title', { length: 200 }).notNull(),
+  author: varchar('author', { length: 200 }).notNull(),
+  year: integer('year'),
+  level: varchar('level', { length: 12 }).notNull().default('basic'),
+  topic: varchar('topic', { length: 20 }).notNull(), // investing | trading | psychology | finance | economics
+  url: text('url'),
+  summaryVi: text('summary_vi').notNull().default(''),
+  summaryEn: text('summary_en').notNull().default(''),
+  published: boolean('published').notNull().default(false),
+  position: integer('position').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+/** Trạng thái đọc của từng user */
+export const userBooks = pgTable(
+  'user_books',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    bookId: uuid('book_id')
+      .notNull()
+      .references(() => books.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 10 }).notNull(), // want | reading | done
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.bookId] }), index('user_books_book_idx').on(t.bookId)],
+)
+
+/** Từ điển thuật ngữ theo ngôn ngữ */
+export const glossaryTerms = pgTable(
+  'glossary_terms',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    locale: varchar('locale', { length: 2 }).notNull(),
+    term: varchar('term', { length: 120 }).notNull(),
+    definitionMd: text('definition_md').notNull(),
+    lessonSlug: varchar('lesson_slug', { length: 80 }),
+    published: boolean('published').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('glossary_terms_locale_term_uq').on(t.locale, sql`lower(${t.term})`)],
+)
+
+/** Kế hoạch đầu tư của user — dự phóng tính lại từ các tham số, không lưu kết quả */
+export const investmentPlans = pgTable(
+  'investment_plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 100 }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(), // VND | USD
+    riskProfile: varchar('risk_profile', { length: 16 }).notNull(),
+    allocation: jsonb('allocation').notNull(), // {stocks, bonds, cash, crypto} — % nguyên, tổng 100
+    initialAmount: numeric('initial_amount', { precision: 20, scale: 2 }).notNull(),
+    monthlyContribution: numeric('monthly_contribution', { precision: 20, scale: 2 }).notNull(),
+    years: integer('years').notNull(),
+    expectedReturnPct: numeric('expected_return_pct', { precision: 5, scale: 2 }).notNull(),
+    goalAmount: numeric('goal_amount', { precision: 20, scale: 2 }),
+    notes: text('notes').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('investment_plans_user_updated_idx').on(t.userId, t.updatedAt)],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect
@@ -307,3 +380,6 @@ export type PracticeSessionRow = typeof practiceSessions.$inferSelect
 export type PracticeTradeRow = typeof practiceTrades.$inferSelect
 export type CompanyRow = typeof companies.$inferSelect
 export type CompanyAnalysisRow = typeof companyAnalyses.$inferSelect
+export type BookRow = typeof books.$inferSelect
+export type GlossaryTermRow = typeof glossaryTerms.$inferSelect
+export type InvestmentPlanRow = typeof investmentPlans.$inferSelect

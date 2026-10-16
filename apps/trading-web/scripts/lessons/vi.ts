@@ -1,4 +1,5 @@
 import type { SeedChapter } from './types'
+import { VI_ADVANCED } from './vi-advanced'
 import { VI_FUNDAMENTALS } from './vi-fundamentals'
 
 // Bộ bài khởi đầu tiếng Việt — số liệu khớp TradeLab: phí 0,1%, ví 10.000 USDT, không đòn bẩy, Short ký quỹ 100%.
@@ -501,6 +502,7 @@ Mở biểu đồ khung 1 ngày của một mã trong [Thị trường](/markets
     slug: 'quan-ly-rui-ro',
     title: 'Quản lý rủi ro và tâm lý',
     description: 'Stop-loss, cỡ vị thế, nhật ký giao dịch và cách kiểm soát cảm xúc.',
+    level: 'intermediate',
     lessons: [
       {
         slug: 'stop-loss-va-take-profit',
@@ -731,4 +733,5 @@ Mở [Nhật ký](/journal), chọn một giao dịch gần đây và ghi **lý 
     ],
   },
   ...VI_FUNDAMENTALS,
+  ...VI_ADVANCED,
 ]

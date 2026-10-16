@@ -8,9 +8,9 @@ describe.each([
   ['en', EN],
 ] as const)('seed content %s', (locale, chapters) => {
   const lessons = chapters.flatMap((c) => c.lessons)
-  it('has 5 chapters and 18 lessons with 3–5 questions each', () => {
-    expect(chapters).toHaveLength(5)
-    expect(lessons).toHaveLength(18)
+  it('has 7 chapters and 26 lessons with 3–5 questions each', () => {
+    expect(chapters).toHaveLength(7)
+    expect(lessons).toHaveLength(26)
     for (const l of lessons) expect(l.questions.length).toBeGreaterThanOrEqual(3)
     for (const l of lessons) expect(l.questions.length).toBeLessThanOrEqual(5)
   })

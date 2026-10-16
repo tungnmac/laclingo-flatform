@@ -17,6 +17,7 @@ const NAV_ITEMS = [
 const ADMIN_ITEMS = [
   { href: '/admin/learn', labelKey: 'nav.admin' },
   { href: '/admin/companies', labelKey: 'nav.adminCompanies' },
+  { href: '/admin/library', labelKey: 'nav.adminLibrary' },
 ]
 
 export function AppNav({ user }: { user: SessionUser }) {

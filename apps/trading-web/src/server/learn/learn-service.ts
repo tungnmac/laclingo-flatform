@@ -5,6 +5,7 @@ import { chapters, lessonProgress, lessons, quizQuestions } from '../db/schema'
 import { HttpError } from '../http'
 import { toProgressDto, toPublicQuestions, type ProgressDto, type PublicQuestion } from './dto'
 import { applyAttempt, gradeQuiz, nextLesson, type QuizResult } from './quiz'
+import type { Level } from './validation'
 
 export interface CatalogLessonDto {
   id: string
@@ -16,7 +17,7 @@ export interface CatalogLessonDto {
 }
 
 export interface CatalogDto {
-  chapters: { id: string; slug: string; title: string; description: string | null; lessons: CatalogLessonDto[] }[]
+  chapters: { id: string; slug: string; title: string; description: string | null; level: string; lessons: CatalogLessonDto[] }[]
   next_lesson_slug: string | null
   completed: number
   total: number
@@ -53,6 +54,7 @@ async function visibleLessons(locale: Locale) {
       chapterSlug: chapters.slug,
       chapterTitle: chapters.title,
       chapterDescription: chapters.description,
+      chapterLevel: chapters.level,
     })
     .from(lessons)
     .innerJoin(chapters, eq(lessons.chapterId, chapters.id))
@@ -69,8 +71,9 @@ async function progressMap(userId: string, lessonIds: string[]) {
   return new Map(rows.map((r) => [r.lessonId, r]))
 }
 
-export async function getCatalog(userId: string, locale: Locale): Promise<CatalogDto> {
-  const visible = await visibleLessons(locale)
+/** `level`: chỉ các chương của cấp đó (tiến độ & "học tiếp" cũng tính trong cấp) */
+export async function getCatalog(userId: string, locale: Locale, level?: Level): Promise<CatalogDto> {
+  const visible = (await visibleLessons(locale)).filter((l) => !level || l.chapterLevel === level)
   const ids = visible.map((l) => l.id)
   const counts = ids.length
     ? await db
@@ -86,7 +89,7 @@ export async function getCatalog(userId: string, locale: Locale): Promise<Catalo
   for (const l of visible) {
     let chapter = result[result.length - 1]
     if (!chapter || chapter.id !== l.chapterId) {
-      chapter = { id: l.chapterId, slug: l.chapterSlug, title: l.chapterTitle, description: l.chapterDescription, lessons: [] }
+      chapter = { id: l.chapterId, slug: l.chapterSlug, title: l.chapterTitle, description: l.chapterDescription, level: l.chapterLevel, lessons: [] }
       result.push(chapter)
     }
     chapter.lessons.push({
