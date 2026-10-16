@@ -18,6 +18,7 @@ export interface AdminCommonDict {
     moduleListening: string
     moduleClasses: string
     moduleBlog: string
+    moduleReminders: string
     hubTitle: string
     hubDesc: string
     noAccessTitle: string
@@ -30,6 +31,7 @@ export interface AdminCommonDict {
     listeningDesc: string
     classesDesc: string
     blogDesc: string
+    remindersDesc: string
     paginationLabel: (page: number, totalPages: number, total: number) => string
     prevPage: string
     nextPage: string
@@ -92,6 +94,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       moduleListening: 'Luyện nghe',
       moduleClasses: 'Lớp học',
       moduleBlog: 'Blog',
+      moduleReminders: 'Nhắc học',
       hubTitle: 'Quản trị nội dung',
       hubDesc: 'Quản lý nguồn dữ liệu học tập — thay cho việc viết SQL seed tay.',
       noAccessTitle: 'Bạn chưa được cấp quyền truy cập mục nào',
@@ -104,6 +107,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       listeningDesc: 'Bài luyện nghe (script) + câu hỏi hiểu nội dung.',
       classesDesc: 'Lớp học theo level — giáo án là 1 chuỗi bài ngữ pháp theo thứ tự cố định.',
       blogDesc: 'Kiểm duyệt bài viết và bình luận trong diễn đàn.',
+      remindersDesc: 'Đặt lịch nhắc học mặc định gửi qua thông báo đẩy.',
       paginationLabel: (page, totalPages, total) => `Trang ${page}/${totalPages} — ${total} kết quả`,
       prevPage: '← Trước',
       nextPage: 'Sau →',
@@ -164,6 +168,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       moduleListening: 'Listening',
       moduleClasses: 'Classes',
       moduleBlog: 'Blog',
+      moduleReminders: 'Study reminders',
       hubTitle: 'Content admin',
       hubDesc: 'Manage learning content sources — instead of hand-writing SQL seeds.',
       noAccessTitle: "You haven't been granted access to any section",
@@ -176,6 +181,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       listeningDesc: 'Listening passages (script) + comprehension questions.',
       classesDesc: 'Classes by level — the curriculum is a fixed-order sequence of grammar lessons.',
       blogDesc: 'Moderate forum posts and comments.',
+      remindersDesc: 'Set the default study-reminder schedule sent as push notifications.',
       paginationLabel: (page, totalPages, total) => `Page ${page}/${totalPages} — ${total} results`,
       prevPage: '← Previous',
       nextPage: 'Next →',

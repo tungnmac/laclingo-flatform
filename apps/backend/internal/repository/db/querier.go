@@ -24,6 +24,19 @@ type Querier interface {
 	// cơ chế dọn tự động ở bản này).
 	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	// Lỗi 22023 (invalid_parameter_value) = PostgreSQL không biết múi giờ này —
+	// phải chặn từ lúc lưu, vì ClaimDueReminders dùng AT TIME ZONE cho MỌI user
+	// trong 1 câu: 1 múi giờ lạ làm hỏng cả lượt nhắc.
+	CheckTimezone(ctx context.Context, tz string) (pgtype.Timestamp, error)
+	// Chọn VÀ đánh dấu (1 câu UPDATE nguyên tử — chạy nhiều instance cũng không
+	// gửi trùng) những user cần nhắc ngay lúc này. Mọi so sánh theo NGÀY ở múi
+	// giờ của user. remind_day = ngày của lần nhắc gần nhất đã tới giờ (khung
+	// gửi 2 tiếng có thể kéo qua nửa đêm, vd nhắc 23:30 thì gửi tới 01:30).
+	// Tối đa 1 lần nhắc cho mỗi remind_day, và chỉ khi user chưa học từ đầu ngày đó:
+	//   - inactive: không học >= inactive_days ngày (lặp lại mỗi inactive_days ngày)
+	//   - daily:    remind_day là ngày nhắc trong days_of_week
+	// User phải còn active và có ít nhất 1 subscription web push.
+	ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow, error)
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
 	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
 	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
@@ -33,6 +46,7 @@ type Querier interface {
 	CountBlogPostLikes(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
+	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
 	// ===== Comment (lồng nhau) =====
@@ -79,6 +93,9 @@ type Querier interface {
 	DeleteListeningPassage(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
+	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
+	// Push service báo subscription hết hạn (404/410) — xoá bất kể user.
+	DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint string) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
@@ -113,10 +130,12 @@ type Querier interface {
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (ListeningPassage, error)
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
+	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserReminderSettings(ctx context.Context, userID pgtype.UUID) (UserReminderSetting, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
 	GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopicParams) (VocabularyTopic, error)
 	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
@@ -214,6 +233,7 @@ type Querier interface {
 	// Trả về class_id user đã ghi danh, lọc theo ngôn ngữ — dùng đánh dấu "enrolled" khi liệt kê lớp.
 	ListMyEnrollmentsByLanguage(ctx context.Context, arg ListMyEnrollmentsByLanguageParams) ([]pgtype.UUID, error)
 	ListNewVocabulariesForUser(ctx context.Context, arg ListNewVocabulariesForUserParams) ([]Vocabulary, error)
+	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error)
 	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
 	// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
@@ -253,6 +273,9 @@ type Querier interface {
 	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
+	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,
+	// và cập nhật múi giờ trình duyệt — không đụng tới phần cấu hình khác.
+	SetUserReminderTimezone(ctx context.Context, arg SetUserReminderTimezoneParams) error
 	// ===== 4 counter độc lập (bài viết) =====
 	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -260,6 +283,9 @@ type Querier interface {
 	// tránh cần transaction Go riêng. Nếu đã trả lời câu này rồi (ON CONFLICT DO
 	// NOTHING) thì không có row nào -> pgx.ErrNoRows ở phía Go.
 	SubmitGameAnswer(ctx context.Context, arg SubmitGameAnswerParams) (SubmitGameAnswerRow, error)
+	// Gọi mỗi lần user làm 1 hoạt động học (MissionService.MarkStudied). Chỉ ghi
+	// lại nếu lần ghi trước đã quá 5 phút — 1 phiên ôn 50 thẻ không ghi 50 lần.
+	TouchUserStudiedAt(ctx context.Context, id pgtype.UUID) error
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
 	UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error
 	UndislikeBlogPost(ctx context.Context, arg UndislikeBlogPostParams) error
@@ -284,6 +310,7 @@ type Querier interface {
 	UpdateListeningPassageAudioKey(ctx context.Context, arg UpdateListeningPassageAudioKeyParams) (ListeningPassage, error)
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
+	UpdateReminderDefaults(ctx context.Context, arg UpdateReminderDefaultsParams) (ReminderDefault, error)
 	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
 	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
 	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)
@@ -298,6 +325,12 @@ type Querier interface {
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
 	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).
 	UpsertMissionProgress(ctx context.Context, arg UpsertMissionProgressParams) (UserMissionProgress, error)
+	// endpoint là duy nhất theo trình duyệt — đăng nhập user khác trên cùng trình
+	// duyệt thì chuyển subscription sang user đó.
+	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) error
+	// Ghi đè toàn bộ phần cấu hình của học viên (NULL = theo mặc định admin);
+	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
+	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 }
 

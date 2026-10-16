@@ -25,6 +25,7 @@ export default function AdminHubPage() {
     { key: 'listening', href: '/admin/listening', icon: '🎧', title: t.adminCommon.moduleListening, description: t.adminCommon.listeningDesc },
     { key: 'classes', href: '/admin/classes', icon: '📋', title: t.adminCommon.moduleClasses, description: t.adminCommon.classesDesc },
     { key: 'blog', href: '/admin/blog', icon: '📝', title: t.adminCommon.moduleBlog, description: t.adminCommon.blogDesc },
+    { key: 'reminders', href: '/admin/reminders', icon: '🔔', title: t.adminCommon.moduleReminders, description: t.adminCommon.remindersDesc },
   ]
   const visible = sections.filter((s) => hasModule(user, s.key))
 

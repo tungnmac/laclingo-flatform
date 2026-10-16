@@ -85,7 +85,19 @@ func main() {
 		log.Println("⚠️  R2 storage chưa cấu hình — tính năng upload audio luyện nghe tắt")
 	}
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2)
+	var pushSender service.PushSender
+	if cfg.PushConfigured() {
+		pushSender = service.NewWebPushSender(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
+		log.Println("✅ Web push đã cấu hình — bật nhắc học")
+	} else {
+		log.Println("⚠️  Web push chưa cấu hình (VAPID_*) — tính năng nhắc học tắt")
+	}
+	reminderService := service.NewReminderService(repo, pushSender, cfg.VAPIDPublicKey)
+	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
+	defer stopScheduler()
+	go reminderService.Start(schedulerCtx)
+
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
@@ -98,5 +110,6 @@ func main() {
 	<-quit
 
 	log.Println("🛑 Đang đóng kết nối server an toàn...")
+	stopScheduler()
 	_ = app.ShutdownWithTimeout(10 * time.Second)
 }

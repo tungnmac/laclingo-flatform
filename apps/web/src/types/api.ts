@@ -864,3 +864,27 @@ export interface ReviewWord {
   interval_days: number
   next_review_at: string
 }
+
+// --- Nhắc học (web push) ---
+
+export interface ReminderSchedule {
+  daily_enabled: boolean // nhắc vào remind_time các ngày days_of_week nếu hôm đó chưa học
+  remind_time: string // HH:MM theo timezone
+  days_of_week: number[] // ISO: 1 = Thứ 2 ... 7 = Chủ nhật
+  inactive_enabled: boolean // nhắc khi bỏ học inactive_days ngày liên tiếp
+  inactive_days: number
+  timezone: string // IANA, vd Asia/Ho_Chi_Minh
+}
+
+export interface MyReminderSettings {
+  settings: ReminderSchedule // lịch đang có hiệu lực
+  custom: boolean // true = học viên tự chỉnh, false = theo mặc định admin
+  defaults: ReminderSchedule
+  push_configured: boolean // server đã cấu hình web push (VAPID)
+  subscription_count: number // số trình duyệt/thiết bị đã bật nhận thông báo
+}
+
+export interface PushPublicKey {
+  public_key: string
+  configured: boolean
+}

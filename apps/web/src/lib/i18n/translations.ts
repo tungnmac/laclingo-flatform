@@ -14,6 +14,7 @@ import { learnTranslations, type LearnDict } from './dict/learn'
 import { listeningTranslations, type ListeningDict } from './dict/listening'
 import { decksTranslations, type DecksDict } from './dict/decks'
 import { practiceTranslations, type PracticeDict } from './dict/practice'
+import { remindersTranslations, type RemindersDict } from './dict/reminders'
 import { reviewTranslations, type ReviewDict } from './dict/review'
 
 // Dịch TỪNG PHẦN theo module UI. Namespace lớn (learn/review/...) tách file
@@ -388,6 +389,7 @@ type AllDicts = Dictionary &
   ReviewDict &
   PracticeDict &
   DecksDict &
+  RemindersDict &
   ChallengesDict &
   ListeningDict &
   HomeDict &
@@ -410,6 +412,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(reviewTranslations, locale),
       ...pick(practiceTranslations, locale),
       ...pick(decksTranslations, locale),
+      ...pick(remindersTranslations, locale),
       ...pick(challengesTranslations, locale),
       ...pick(listeningTranslations, locale),
       ...pick(homeTranslations, locale),

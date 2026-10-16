@@ -137,6 +137,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
     challenge_questions: t.adminCommon.moduleChallengeQuestions,
     listening: t.adminCommon.moduleListening,
     classes: t.adminCommon.moduleClasses,
+    reminders: t.adminCommon.moduleReminders,
   }
 
   const toggle = (key: string) => {

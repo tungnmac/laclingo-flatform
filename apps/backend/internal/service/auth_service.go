@@ -26,6 +26,8 @@ const (
 	maxFullNameLen        = 100
 	pgUniqueViolation     = "23505"
 	pgForeignKeyViolation = "23503"
+	// pgInvalidParameterValue — vd AT TIME ZONE với múi giờ PostgreSQL không biết
+	pgInvalidParameterValue = "22023"
 )
 
 // usernameRegex: chữ thường/số, cho phép . _ - ở giữa; không có '@' nên không

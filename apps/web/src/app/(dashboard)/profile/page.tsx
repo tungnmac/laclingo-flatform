@@ -10,6 +10,7 @@ import { ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { languageFlag, previewPhrase, speechLang } from '@/features/course/components/LanguageCard'
+import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
@@ -151,6 +152,8 @@ export default function ProfilePage() {
               </Button>
             </form>
           </Card>
+
+          <ReminderSettingsCard />
 
           <VoiceSettingsCard />
         </div>
