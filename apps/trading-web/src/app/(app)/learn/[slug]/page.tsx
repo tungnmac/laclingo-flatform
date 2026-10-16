@@ -1,26 +1,51 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
 import { Quiz } from '@/components/learn/Quiz'
 import { useT } from '@/i18n/I18nProvider'
+import type { Locale } from '@/i18n/locales'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { LessonDetailDto } from '@/server/learn/learn-service'
 
 export default function LessonPage({ params }: { params: { slug: string } }) {
   const { t, locale } = useT()
+  const router = useRouter()
+  const openedIn = useRef(locale) // ngôn ngữ lúc mở trang — khác đi nghĩa là người học vừa đổi ngôn ngữ
+  const shownIn = useRef<Locale | null>(null) // ngôn ngữ của bài đang hiển thị = ngôn ngữ của params.slug
   const [lesson, setLesson] = useState<LessonDetailDto | null>(null)
   const [error, setError] = useState<unknown>(null)
 
   const load = useCallback(() => {
+    let alive = true // đổi ngôn ngữ khi request trước chưa về → bỏ kết quả cũ
     setError(null)
     setLesson(null)
-    api<LessonDetailDto>(`/api/learn/lessons/${encodeURIComponent(params.slug)}`).then(setLesson, setError)
-  }, [params.slug])
+    const from = shownIn.current && shownIn.current !== locale ? `?from=${shownIn.current}` : ''
+    api<LessonDetailDto>(`/api/learn/lessons/${encodeURIComponent(params.slug)}${from}`).then(
+      (l) => {
+        if (!alive) return
+        shownIn.current = locale
+        setLesson(l)
+      },
+      (e) => alive && setError(e),
+    )
+    return () => {
+      alive = false
+    }
+  }, [params.slug, locale])
 
-  useEffect(load, [load, locale])
+  useEffect(load, [load])
+
+  // Đổi ngôn ngữ: API trả bản dịch (slug khác) → đổi URL theo; bài chưa có bản dịch → về danh sách kèm thông báo
+  useEffect(() => {
+    if (lesson && lesson.slug !== params.slug) router.replace(`/learn/${lesson.slug}`)
+  }, [lesson, params.slug, router])
+  useEffect(() => {
+    if (error instanceof ApiError && error.status === 404 && locale !== openedIn.current) router.replace('/learn?untranslated=1')
+  }, [error, locale, router])
 
   const backLink = (
     <Link href="/learn" className="text-sm font-semibold text-emerald-700 hover:underline">
@@ -40,7 +65,7 @@ export default function LessonPage({ params }: { params: { slug: string } }) {
     return (
       <div className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
         <span>{errorMessage(error, t)}</span>
-        <button onClick={load} className="font-semibold underline">
+        <button onClick={() => load()} className="font-semibold underline">
           {t('common.retry')}
         </button>
       </div>

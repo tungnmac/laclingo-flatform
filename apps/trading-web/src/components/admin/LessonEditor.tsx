@@ -26,6 +26,7 @@ async function uploadImage(file: File): Promise<string> {
 interface Form {
   title: string
   slug: string
+  translation_key: string
   summary: string
   chapter_id: string
   content_md: string
@@ -35,6 +36,7 @@ interface Form {
 const toForm = (l: AdminLessonDto): Form => ({
   title: l.title,
   slug: l.slug,
+  translation_key: l.translation_key ?? '',
   summary: l.summary ?? '',
   chapter_id: l.chapter_id,
   content_md: l.content_md,
@@ -57,7 +59,7 @@ export function LessonEditor({
 }) {
   const { t } = useT()
   const [lesson, setLesson] = useState<AdminLessonDto | null>(null)
-  const [form, setForm] = useState<Form>({ title: '', slug: '', summary: '', chapter_id: chapterId, content_md: '', published: false })
+  const [form, setForm] = useState<Form>({ title: '', slug: '', translation_key: '', summary: '', chapter_id: chapterId, content_md: '', published: false })
   const [dirty, setDirty] = useState(false)
   const [questionsDirty, setQuestionsDirty] = useState(false)
   const [error, setError] = useState<unknown>(null)
@@ -144,6 +146,9 @@ export function LessonEditor({
           </Field>
           <Field label={t('admin.slug')} hint={t('admin.slugHint')}>
             <input value={form.slug} onChange={(e) => set({ slug: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label={t('admin.translationKey')} hint={t('admin.translationKeyHint')}>
+            <input value={form.translation_key} onChange={(e) => set({ translation_key: e.target.value })} className={inputClass} />
           </Field>
           <Field label={t('admin.chapter')}>
             <select value={form.chapter_id} onChange={(e) => set({ chapter_id: e.target.value })} className={inputClass}>

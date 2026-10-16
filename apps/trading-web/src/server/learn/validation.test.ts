@@ -21,10 +21,16 @@ describe('chapterSchema', () => {
 describe('lessonSchema', () => {
   const base = { chapter_id: '0b6c1c1e-9a2f-4d6e-8f4c-2a1b3c4d5e6f', slug: 'candles', title: 'Candles' }
   it('defaults content and published', () => {
-    expect(lessonSchema.parse(base)).toEqual({ ...base, summary: null, content_md: '', published: false })
+    expect(lessonSchema.parse(base)).toEqual({ ...base, translation_key: null, summary: null, content_md: '', published: false })
   })
   it('limits content length', () => {
     expect(issue(lessonSchema.safeParse({ ...base, content_md: 'x'.repeat(100001) }))).toBe('TEXT_TOO_LONG')
+  })
+  it('accepts a slug-shaped translation key, blank → null', () => {
+    expect(lessonSchema.parse({ ...base, translation_key: ' income-statement ' }).translation_key).toBe('income-statement')
+    expect(lessonSchema.parse({ ...base, translation_key: '  ' }).translation_key).toBeNull()
+    expect(issue(lessonSchema.safeParse({ ...base, translation_key: 'Income Statement' }))).toBe('INVALID_SLUG')
+    expect(lessonPatchSchema.parse({ title: 'x' })).not.toHaveProperty('translation_key')
   })
 })
 

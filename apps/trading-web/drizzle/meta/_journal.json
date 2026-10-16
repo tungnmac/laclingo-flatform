@@ -36,6 +36,13 @@
       "when": 1792066647244,
       "tag": "0004_practice",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792124790982,
+      "tag": "0005_lesson_translations",
+      "breakpoints": true
     }
   ]
 }

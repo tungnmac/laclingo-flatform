@@ -8,7 +8,7 @@ import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { CatalogDto } from '@/server/learn/learn-service'
 
-export default function LearnPage() {
+export default function LearnPage({ searchParams }: { searchParams: { untranslated?: string } }) {
   const { t, locale } = useT()
   const [data, setData] = useState<CatalogDto | null>(null)
   const [error, setError] = useState<unknown>(null)
@@ -29,6 +29,10 @@ export default function LearnPage() {
         <h1 className="text-2xl font-bold">{t('learn.title')}</h1>
         <p className="text-sm text-slate-500">{t('learn.subtitle', { pass: 70 })}</p>
       </div>
+
+      {searchParams.untranslated && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{t('learn.untranslated')}</p>
+      )}
 
       {error !== null && (
         <div className="flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">

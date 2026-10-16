@@ -43,6 +43,7 @@ export interface AdminQuestionDto {
 
 export interface AdminLessonDto extends AdminLessonSummaryDto {
   locale: string
+  translation_key: string | null
   summary: string | null
   content_md: string
   questions: AdminQuestionDto[]
@@ -74,7 +75,11 @@ async function slugGuard<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (err) {
-    if (isUniqueViolation(err)) throw new HttpError(409, 'SLUG_TAKEN')
+    if (isUniqueViolation(err)) {
+      const e = err as { constraint?: string; cause?: { constraint?: string } }
+      const constraint = e.constraint ?? e.cause?.constraint
+      throw new HttpError(409, constraint === 'lessons_locale_translation_key_uq' ? 'TRANSLATION_KEY_TAKEN' : 'SLUG_TAKEN')
+    }
     throw err
   }
 }
@@ -203,6 +208,7 @@ export async function getLessonAdmin(id: string): Promise<AdminLessonDto> {
   return {
     ...toLessonSummary(lesson, questions.length),
     locale: lesson.locale,
+    translation_key: lesson.translationKey,
     summary: lesson.summary,
     content_md: lesson.contentMd,
     questions: questions.map((q) => ({
@@ -225,6 +231,7 @@ export async function createLesson(input: z.infer<typeof lessonSchema>): Promise
           chapterId: chapter.id,
           locale: chapter.locale,
           slug: input.slug,
+          translationKey: input.translation_key,
           title: input.title,
           summary: input.summary,
           contentMd: input.content_md,
@@ -242,6 +249,7 @@ export async function updateLesson(id: string, patch: z.infer<typeof lessonPatch
   const lesson = await findLesson(id)
   const set: Partial<typeof lessons.$inferInsert> = {}
   if (patch.slug !== undefined) set.slug = patch.slug
+  if (patch.translation_key !== undefined) set.translationKey = patch.translation_key
   if (patch.title !== undefined) set.title = patch.title
   if (patch.summary !== undefined) set.summary = patch.summary
   if (patch.content_md !== undefined) set.contentMd = patch.content_md
