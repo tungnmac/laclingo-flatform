@@ -19,6 +19,7 @@ export interface AdminCommonDict {
     moduleClasses: string
     moduleBlog: string
     moduleReminders: string
+    moduleAnnouncements: string
     hubTitle: string
     hubDesc: string
     noAccessTitle: string
@@ -32,6 +33,7 @@ export interface AdminCommonDict {
     classesDesc: string
     blogDesc: string
     remindersDesc: string
+    announcementsDesc: string
     paginationLabel: (page: number, totalPages: number, total: number) => string
     prevPage: string
     nextPage: string
@@ -95,6 +97,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       moduleClasses: 'Lớp học',
       moduleBlog: 'Blog',
       moduleReminders: 'Nhắc học',
+      moduleAnnouncements: 'Thông báo chung',
       hubTitle: 'Quản trị nội dung',
       hubDesc: 'Quản lý nguồn dữ liệu học tập — thay cho việc viết SQL seed tay.',
       noAccessTitle: 'Bạn chưa được cấp quyền truy cập mục nào',
@@ -108,6 +111,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       classesDesc: 'Lớp học theo level — giáo án là 1 chuỗi bài ngữ pháp theo thứ tự cố định.',
       blogDesc: 'Kiểm duyệt bài viết và bình luận trong diễn đàn.',
       remindersDesc: 'Đặt lịch nhắc học mặc định gửi qua thông báo đẩy.',
+      announcementsDesc: 'Gửi thông báo vào chuông của mọi học viên.',
       paginationLabel: (page, totalPages, total) => `Trang ${page}/${totalPages} — ${total} kết quả`,
       prevPage: '← Trước',
       nextPage: 'Sau →',
@@ -169,6 +173,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       moduleClasses: 'Classes',
       moduleBlog: 'Blog',
       moduleReminders: 'Study reminders',
+      moduleAnnouncements: 'Announcements',
       hubTitle: 'Content admin',
       hubDesc: 'Manage learning content sources — instead of hand-writing SQL seeds.',
       noAccessTitle: "You haven't been granted access to any section",
@@ -182,6 +187,7 @@ export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> =
       classesDesc: 'Classes by level — the curriculum is a fixed-order sequence of grammar lessons.',
       blogDesc: 'Moderate forum posts and comments.',
       remindersDesc: 'Set the default study-reminder schedule sent as push notifications.',
+      announcementsDesc: 'Send a notification to every learner\'s bell.',
       paginationLabel: (page, totalPages, total) => `Page ${page}/${totalPages} — ${total} results`,
       prevPage: '← Previous',
       nextPage: 'Next →',

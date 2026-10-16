@@ -14,6 +14,7 @@ import { learnTranslations, type LearnDict } from './dict/learn'
 import { listeningTranslations, type ListeningDict } from './dict/listening'
 import { decksTranslations, type DecksDict } from './dict/decks'
 import { practiceTranslations, type PracticeDict } from './dict/practice'
+import { notificationsTranslations, type NotificationsDict } from './dict/notifications'
 import { remindersTranslations, type RemindersDict } from './dict/reminders'
 import { reviewTranslations, type ReviewDict } from './dict/review'
 
@@ -390,6 +391,7 @@ type AllDicts = Dictionary &
   PracticeDict &
   DecksDict &
   RemindersDict &
+  NotificationsDict &
   ChallengesDict &
   ListeningDict &
   HomeDict &
@@ -413,6 +415,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(practiceTranslations, locale),
       ...pick(decksTranslations, locale),
       ...pick(remindersTranslations, locale),
+      ...pick(notificationsTranslations, locale),
       ...pick(challengesTranslations, locale),
       ...pick(listeningTranslations, locale),
       ...pick(homeTranslations, locale),

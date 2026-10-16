@@ -138,6 +138,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
     listening: t.adminCommon.moduleListening,
     classes: t.adminCommon.moduleClasses,
     reminders: t.adminCommon.moduleReminders,
+    announcements: t.adminCommon.moduleAnnouncements,
   }
 
   const toggle = (key: string) => {

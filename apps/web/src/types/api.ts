@@ -888,3 +888,40 @@ export interface PushPublicKey {
   public_key: string
   configured: boolean
 }
+
+// --- Thông báo trong app (chuông) ---
+
+export type NotificationType = 'mission_completed' | 'level_up' | 'study_reminder' | 'blog_comment' | 'blog_reply' | 'announcement'
+
+export interface AppNotification {
+  id: string
+  type: NotificationType
+  title: string
+  body: string
+  url?: string // đường dẫn trong app khi bấm vào
+  icon: string
+  read_at?: string
+  created_at: string
+}
+
+export interface NotificationPage {
+  items: AppNotification[]
+  unread_count: number
+  next_cursor?: string // rỗng = hết
+}
+
+export interface AnnouncementRequest {
+  title: string
+  body: string
+  url?: string
+}
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string
+  url?: string
+  recipient_count: number
+  read_count: number
+  created_at: string
+}

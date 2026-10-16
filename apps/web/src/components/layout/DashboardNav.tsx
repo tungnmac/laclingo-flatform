@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn, displayName } from '@/lib/utils'
@@ -79,6 +80,9 @@ export function Sidebar({ user }: { user: User }) {
       </nav>
 
       <div className="border-t border-slate-200 pt-4">
+        <div className="mb-2">
+          <NotificationBell variant="sidebar" />
+        </div>
         <LanguageSwitcher className="mb-3" />
         <Link
           href="/profile"
@@ -119,6 +123,7 @@ export function MobileHeader({ user }: { user: User }) {
       </Link>
       <div className="flex items-center gap-2">
         <StreakBadge count={user.streak_count} />
+        <NotificationBell variant="header" />
         <Link href="/profile" aria-label={t.nav.profile}>
           <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-8 w-8 text-xs" />
         </Link>

@@ -20,8 +20,9 @@ type ErrorResponse struct {
 
 // RegisterRoutes khởi tạo service/handler và gắn toàn bộ route /api/v1. r2 có
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
-// reminders do main tạo (còn chạy bộ lập lịch nhắc học) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService) {
+// reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
+// MissionService) — luôn khác nil.
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -32,7 +33,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2))
 	listeningHandler.RegisterRoutes(api)
 	classHandler := NewClassHandler(service.NewClassService(repo))
-	blogHandler := NewBlogHandler(service.NewBlogService(repo, r2))
+	blogHandler := NewBlogHandler(service.NewBlogService(repo, r2, notifications))
 	blogHandler.RegisterPublicRoutes(api)
 	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2))
 	vocabularyHandler.RegisterPublicRoutes(api)
@@ -64,6 +65,9 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	blogHandler.RegisterRoutes(protected)
 	reminderHandler := NewReminderHandler(reminders)
 	reminderHandler.RegisterRoutes(protected)
+	// SAU reminderHandler: /notifications/push/* phải khớp trước /notifications/:id
+	notificationHandler := NewNotificationHandler(notifications)
+	notificationHandler.RegisterRoutes(protected)
 
 	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,
 	// RequireModule tự suy module cần thiết từ path (xem lý do ở
@@ -79,6 +83,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	classHandler.RegisterAdminRoutes(admin)
 	blogHandler.RegisterAdminRoutes(admin)
 	reminderHandler.RegisterAdminRoutes(admin)
+	notificationHandler.RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client

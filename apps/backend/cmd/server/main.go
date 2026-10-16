@@ -74,7 +74,8 @@ func main() {
 		app.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
-	missionService := service.NewMissionService(repo)
+	notificationService := service.NewNotificationService(repo)
+	missionService := service.NewMissionService(repo, notificationService)
 	hub := game.NewHub(repo, missionService)
 
 	var r2 *storage.R2Client
@@ -90,14 +91,14 @@ func main() {
 		pushSender = service.NewWebPushSender(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
 		log.Println("✅ Web push đã cấu hình — bật nhắc học")
 	} else {
-		log.Println("⚠️  Web push chưa cấu hình (VAPID_*) — tính năng nhắc học tắt")
+		log.Println("⚠️  Web push chưa cấu hình (VAPID_*) — nhắc học chỉ hiện trong chuông thông báo")
 	}
-	reminderService := service.NewReminderService(repo, pushSender, cfg.VAPIDPublicKey)
+	reminderService := service.NewReminderService(repo, pushSender, cfg.VAPIDPublicKey, notificationService)
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
 	go reminderService.Start(schedulerCtx)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

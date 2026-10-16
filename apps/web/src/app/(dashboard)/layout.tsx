@@ -6,6 +6,7 @@ import { BottomNav, MobileHeader, Sidebar } from '@/components/layout/DashboardN
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+import { useUnreadPolling } from '@/features/notification/notificationStore'
 import { userService } from '@/features/user/user.service'
 import { useHydrated } from '@/hooks/useHydrated'
 import { isSessionValid, useSession } from '@/store/session'
@@ -43,6 +44,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <ConfirmDialogProvider>
+        <UnreadPoller />
         <div className="flex min-h-screen">
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">
@@ -54,4 +56,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </ConfirmDialogProvider>
     </ToastProvider>
   )
+}
+
+/** Chỉ mount khi đã đăng nhập — làm mới số thông báo chưa đọc cho chuông */
+function UnreadPoller() {
+  useUnreadPolling()
+  return null
 }
