@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, ne, sql, type SQL } from 'drizzle-orm'
 import type { Locale } from '@/i18n/locales'
 import { db } from '../db/client'
 import { chapters, lessonProgress, lessons, quizQuestions } from '../db/schema'
@@ -46,6 +46,7 @@ async function visibleLessons(locale: Locale) {
     .select({
       id: lessons.id,
       slug: lessons.slug,
+      translationKey: lessons.translationKey,
       title: lessons.title,
       summary: lessons.summary,
       chapterId: chapters.id,
@@ -107,9 +108,32 @@ export async function getCatalog(userId: string, locale: Locale): Promise<Catalo
   }
 }
 
-async function findVisible(locale: Locale, slug: string) {
+type VisibleLesson = Awaited<ReturnType<typeof visibleLessons>>[number]
+
+/** Vị trí bản dịch (trong `visible`) của bài có `slug` thuộc ngôn ngữ thoả `source` */
+async function translationIndex(visible: VisibleLesson[], slug: string, source: SQL): Promise<number> {
+  const rows = await db
+    .selectDistinct({ key: lessons.translationKey })
+    .from(lessons)
+    .where(and(eq(lessons.slug, slug), source, isNotNull(lessons.translationKey)))
+  const keys = new Set(rows.map((r) => r.key!))
+  return visible.findIndex((l) => l.translationKey !== null && keys.has(l.translationKey))
+}
+
+/**
+ * `translateFrom`: undefined → chỉ khớp slug (nộp quiz). null → khớp slug, không có thì thử bản dịch từ ngôn ngữ khác
+ * (link chia sẻ). Một ngôn ngữ khác `locale` → slug thuộc ngôn ngữ đó (vừa đổi ngôn ngữ) → CHỈ tìm bản dịch,
+ * không nhầm sang bài khác tình cờ trùng slug.
+ */
+async function findVisible(locale: Locale, slug: string, translateFrom?: Locale | null) {
   const visible = await visibleLessons(locale)
-  const index = visible.findIndex((l) => l.slug === slug)
+  let index: number
+  if (translateFrom && translateFrom !== locale) {
+    index = await translationIndex(visible, slug, eq(lessons.locale, translateFrom))
+  } else {
+    index = visible.findIndex((l) => l.slug === slug)
+    if (index < 0 && translateFrom !== undefined) index = await translationIndex(visible, slug, ne(lessons.locale, locale))
+  }
   if (index < 0) throw new HttpError(404, 'NOT_FOUND')
   return { visible, index, lesson: visible[index] }
 }
@@ -117,8 +141,9 @@ async function findVisible(locale: Locale, slug: string) {
 const questionsOf = (lessonId: string) =>
   db.select().from(quizQuestions).where(eq(quizQuestions.lessonId, lessonId)).orderBy(asc(quizQuestions.position))
 
-export async function getLesson(userId: string, locale: Locale, slug: string): Promise<LessonDetailDto> {
-  const { visible, index, lesson } = await findVisible(locale, slug)
+/** Slug thuộc ngôn ngữ khác (vd vừa đổi ngôn ngữ, `from`) → trả bản dịch; `slug` trong kết quả khác slug yêu cầu. */
+export async function getLesson(userId: string, locale: Locale, slug: string, from: Locale | null = null): Promise<LessonDetailDto> {
+  const { visible, index, lesson } = await findVisible(locale, slug, from)
   const [[row], questions, progress] = await Promise.all([
     db.select({ contentMd: lessons.contentMd }).from(lessons).where(eq(lessons.id, lesson.id)),
     questionsOf(lesson.id),

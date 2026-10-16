@@ -153,6 +153,7 @@ export const lessons = pgTable(
       .references(() => chapters.id, { onDelete: 'cascade' }),
     locale: varchar('locale', { length: 2 }).notNull(), // = locale của chương
     slug: varchar('slug', { length: 80 }).notNull(),
+    translationKey: varchar('translation_key', { length: 80 }), // cùng mã ở vi & en = bản dịch của nhau
     title: varchar('title', { length: 200 }).notNull(),
     summary: text('summary'),
     contentMd: text('content_md').notNull().default(''),
@@ -161,7 +162,11 @@ export const lessons = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('lessons_locale_slug_uq').on(t.locale, t.slug), index('lessons_chapter_position_idx').on(t.chapterId, t.position)],
+  (t) => [
+    uniqueIndex('lessons_locale_slug_uq').on(t.locale, t.slug),
+    uniqueIndex('lessons_locale_translation_key_uq').on(t.locale, t.translationKey),
+    index('lessons_chapter_position_idx').on(t.chapterId, t.position),
+  ],
 )
 
 export const quizQuestions = pgTable(

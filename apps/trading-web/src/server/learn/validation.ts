@@ -29,9 +29,19 @@ export const chapterSchema = z.object({
 /** PATCH: chỉ các trường gửi lên — KHÔNG có default (zod 4 vẫn áp .default() sau .partial()) */
 export const chapterPatchSchema = z.object(chapterFields).partial()
 
+/** Mã bản dịch: bài vi & en cùng mã = bản dịch của nhau; rỗng → null (bài chưa liên kết) */
+const translationKey = z
+  .string()
+  .trim()
+  .max(LIMITS.slug, 'INVALID_SLUG')
+  .refine((s) => s === '' || SLUG_RE.test(s), 'INVALID_SLUG')
+  .nullish()
+  .transform((s) => s || null)
+
 const lessonFields = {
   chapter_id: z.uuid('INVALID_INPUT'),
   slug,
+  translation_key: translationKey,
   title,
   summary: optionalText(LIMITS.text),
   content_md: z.string().max(LIMITS.content, 'TEXT_TOO_LONG'),
