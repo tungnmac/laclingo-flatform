@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { SpeechErrorToaster } from '@/components/audio/SpeechErrorToaster'
 import { BottomNav, MobileHeader, Sidebar } from '@/components/layout/DashboardNav'
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
@@ -47,6 +48,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <ToastProvider>
       <ConfirmDialogProvider>
         <BackgroundSync />
+        <SpeechErrorToaster />
         <div className="flex min-h-screen">
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">

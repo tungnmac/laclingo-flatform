@@ -10,10 +10,7 @@ export function useSpeak() {
   const voices = useSpeechVoices()
   const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
   return useCallback(
-    (text: string, languageId: string) => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
-      return speakText(text, languageId, voices, voiceByLang)
-    },
+    (text: string, languageId: string) => speakText(text, languageId, voices, voiceByLang, { interrupt: true }),
     [voices, voiceByLang],
   )
 }

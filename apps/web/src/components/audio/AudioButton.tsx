@@ -1,9 +1,9 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { speechLang } from '@/features/course/components/LanguageCard'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
+import { speakText } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
@@ -26,7 +26,7 @@ export function AudioButton({
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
   const voices = useSpeechVoices()
-  const voiceURI = useVoiceSettings((s) => s.voiceByLang[languageId])
+  const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
   const t = useTranslation()
 
   const play = (e: React.MouseEvent) => {
@@ -41,21 +41,12 @@ export function AudioButton({
       return
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = speechLang(languageId)
       // Giọng user tự chọn ở Hồ sơ > giọng đầu tiên khớp ngôn ngữ trên máy —
       // không để trình duyệt tự đoán theo `lang`, vì 1 số trình duyệt (đặc
       // biệt Firefox) không tự khớp giọng được và sẽ im lặng hoàn toàn.
-      const chosen =
-        voices.find((v) => v.voiceURI === voiceURI) ?? voices.find((v) => v.lang.toLowerCase().startsWith(languageId.toLowerCase()))
-      if (chosen) utterance.voice = chosen
-      utterance.onend = () => setPlaying(false)
-      utterance.onerror = () => setPlaying(false)
+      // speakText tự thử lại/báo lỗi nếu trình duyệt không đọc được.
       setPlaying(true)
-      window.speechSynthesis.cancel()
-      // Chrome có bug đã biết: gọi speak() ngay sau cancel() đôi khi huỷ luôn
-      // utterance mới, phát ra im lặng hoàn toàn — delay nhỏ để tránh race này.
-      setTimeout(() => window.speechSynthesis.speak(utterance), 50)
+      void speakText(text, languageId, voices, voiceByLang, { interrupt: true }).finally(() => setPlaying(false))
     }
   }
 

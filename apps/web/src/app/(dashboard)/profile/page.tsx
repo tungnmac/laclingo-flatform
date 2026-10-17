@@ -9,13 +9,14 @@ import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
-import { languageFlag, previewPhrase, speechLang } from '@/features/course/components/LanguageCard'
+import { languageFlag, previewPhrase } from '@/features/course/components/LanguageCard'
 import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
 import { expForLevel } from '@/lib/leveling'
+import { speakText } from '@/lib/speech'
 import { displayName, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import { useVoiceSettings } from '@/store/voiceSettings'
@@ -171,13 +172,7 @@ function VoiceSettingsCard() {
   const t = useTranslation()
 
   const preview = (languageId: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-    const utterance = new SpeechSynthesisUtterance(previewPhrase(languageId))
-    utterance.lang = speechLang(languageId)
-    const chosen = voices.find((v) => v.voiceURI === voiceByLang[languageId])
-    if (chosen) utterance.voice = chosen
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utterance)
+    void speakText(previewPhrase(languageId), languageId, voices, voiceByLang, { interrupt: true })
   }
 
   // Giọng đọc nghĩa (tiếng Việt) LUÔN hiện sẵn, không phụ thuộc danh sách

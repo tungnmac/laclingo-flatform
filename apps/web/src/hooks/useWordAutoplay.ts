@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
-import { speakText } from '@/lib/speech'
+import { speakText, stopSpeech } from '@/lib/speech'
 import { useLocale } from '@/store/locale'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
@@ -71,15 +71,13 @@ export function useWordAutoplay({
       if (!cancelled) onAdvance()
     }
 
-    // Trình duyệt (đặc biệt Chrome) có bug: speak() ngay sau cancel() (từ lần
-    // dọn dẹp trước, hoặc AudioButton vừa bấm) đôi khi bị nuốt mất — trễ 1 nhịp.
-    const startTimer = setTimeout(run, 50)
+    // speakText tự trễ 1 nhịp để né lỗi speak() ngay sau cancel() của Chrome
+    void run()
 
     return () => {
       cancelled = true
-      clearTimeout(startTimer)
       if (timerRef.current) clearTimeout(timerRef.current)
-      window.speechSynthesis.cancel()
+      stopSpeech() // huỷ cả lời đang đọc lẫn lệnh đọc đang chờ phát của từ cũ
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, term, meaning, languageId, repeatCount, gapSeconds, shadowMode, locale])
