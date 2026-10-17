@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { speechLang } from '@/features/course/components/LanguageCard'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
+import { speakText, stopSpeech } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useSpeechSettings } from '@/store/speechSettings'
 import { useVoiceSettings } from '@/store/voiceSettings'
@@ -37,11 +37,13 @@ export function ScriptPlayer({ script, languageId, audioUrl }: { script: string;
   const [playing, setPlaying] = useState(false)
   const [currentIndex, setCurrentIndex] = useState<number | null>(null)
   const voices = useSpeechVoices()
-  const voiceURI = useVoiceSettings((s) => s.voiceByLang[languageId])
+  const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
   const speechRate = useSpeechSettings((s) => s.speechRate)
   const setSpeechRate = useSpeechSettings((s) => s.setSpeechRate)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const stopRef = useRef(false)
+  // Mỗi lần bắt đầu đọc / dừng tăng runRef — chuỗi đọc cũ thấy khác số thì tự
+  // dừng (bấm sang câu khác khi đang đọc không để 2 chuỗi chạy xen nhau)
+  const runRef = useRef(0)
   // Đọc rate mới nhất ngay khi đang đọc dở — đổi tốc độ giữa lúc đang phát thì
   // câu TIẾP THEO áp dụng ngay, không cần bấm Dừng/Nghe lại từ đầu.
   const speechRateRef = useRef(speechRate)
@@ -53,42 +55,37 @@ export function ScriptPlayer({ script, languageId, audioUrl }: { script: string;
 
   useEffect(
     () => () => {
-      stopRef.current = true
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+      runRef.current++
+      stopSpeech()
     },
     [],
   )
 
   const speakFrom = (startIndex: number) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
-    stopRef.current = false
-    window.speechSynthesis.cancel()
+    const run = ++runRef.current
     setPlaying(true)
 
     const speakOne = (i: number) => {
-      if (stopRef.current || i >= sentences.length) {
+      if (runRef.current !== run) return // đã dừng hoặc đã bắt đầu đọc từ câu khác
+      if (i >= sentences.length) {
         setPlaying(false)
         setCurrentIndex(null)
         return
       }
       setCurrentIndex(i)
-      const utterance = new SpeechSynthesisUtterance(sentences[i])
-      utterance.lang = speechLang(languageId)
-      utterance.rate = speechRateRef.current
-      const chosen =
-        voices.find((v) => v.voiceURI === voiceURI) ?? voices.find((v) => v.lang.toLowerCase().startsWith(languageId.toLowerCase()))
-      if (chosen) utterance.voice = chosen
-      utterance.onend = () => speakOne(i + 1)
-      utterance.onerror = () => speakOne(i + 1)
-      window.speechSynthesis.speak(utterance)
+      // Câu đầu ngắt lời đang đọc; các câu sau nối tiếp. speakText tự thử lại/báo lỗi khi không đọc được
+      void speakText(sentences[i], languageId, voices, voiceByLang, {
+        rate: speechRateRef.current,
+        interrupt: i === startIndex,
+      }).then(() => speakOne(i + 1))
     }
-    // Trình duyệt (đặc biệt Chrome) có bug: speak() ngay sau cancel() đôi khi bị nuốt mất.
-    setTimeout(() => speakOne(startIndex), 50)
+    speakOne(startIndex)
   }
 
   const stop = () => {
-    stopRef.current = true
-    window.speechSynthesis.cancel()
+    runRef.current++
+    stopSpeech()
     setPlaying(false)
     setCurrentIndex(null)
   }
