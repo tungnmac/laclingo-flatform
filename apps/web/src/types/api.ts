@@ -140,6 +140,7 @@ export interface VocabularyCard {
   liked: boolean
   favorited: boolean
   in_review: boolean
+  deck_ids: string[] // các list ôn tập của user đang chứa từ này
 }
 
 export interface LikeResponse {

@@ -70,6 +70,8 @@ type VocabularyCard struct {
 	Liked        bool      `json:"liked"`
 	Favorited    bool      `json:"favorited"`
 	InReview     bool      `json:"in_review"` // đã có trong hàng đợi ôn tập SRS
+	// Các list ôn tập của user đang chứa từ này — lọc theo list ở trang chủ đề
+	DeckIDs []uuid.UUID `json:"deck_ids" swaggertype:"array,string"`
 }
 
 // LikeResponse là trạng thái like sau khi like/bỏ like
@@ -310,6 +312,10 @@ func (s *VocabularyService) SetFavorite(ctx context.Context, userID, vocabularyI
 }
 
 func toVocabularyCard(r db.ListVocabulariesByTopicRow) VocabularyCard {
+	deckIDs := make([]uuid.UUID, 0, len(r.DeckIds))
+	for _, id := range r.DeckIds {
+		deckIDs = append(deckIDs, uuid.UUID(id.Bytes))
+	}
 	emoji := r.ImageEmoji.String
 	if emoji == "" {
 		emoji = r.TopicIcon
@@ -331,6 +337,7 @@ func toVocabularyCard(r db.ListVocabulariesByTopicRow) VocabularyCard {
 		Liked:        r.Liked,
 		Favorited:    r.Favorited,
 		InReview:     r.InReview,
+		DeckIDs:      deckIDs,
 	}
 }
 

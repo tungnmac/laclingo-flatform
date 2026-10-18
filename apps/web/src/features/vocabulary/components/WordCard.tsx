@@ -8,7 +8,7 @@ import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { VocabularyCard } from '@/types/api'
+import type { DeckSummary, VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
 import { PartOfSpeechBadge } from './PartOfSpeechBadge'
 
@@ -22,10 +22,13 @@ type Action = 'like' | 'favorite'
 export function WordCard({
   word,
   onChange,
+  onDeckChange,
   compact = false,
 }: {
   word: VocabularyCard
   onChange: (patch: Partial<VocabularyCard>) => void
+  /** Từ vừa được thêm vào / gỡ khỏi 1 list ôn tập (trang chủ đề dùng để lọc theo list) */
+  onDeckChange?: (vocabularyId: string, deck: DeckSummary, contained: boolean) => void
   compact?: boolean
 }) {
   const [pending, setPending] = useState<Action | null>(null)
@@ -159,6 +162,7 @@ export function WordCard({
           term={word.term}
           onClose={() => setDeckDialogOpen(false)}
           onAdded={() => !word.in_review && onChange({ in_review: true })}
+          onMembershipChange={(deck, contained) => onDeckChange?.(word.vocabulary_id, deck, contained)}
         />
       )}
     </Card>

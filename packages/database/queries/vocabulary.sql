@@ -33,7 +33,10 @@ SELECT
     (SELECT COUNT(*) FROM vocabulary_likes l WHERE l.vocabulary_id = v.id)::int AS like_count,
     EXISTS (SELECT 1 FROM vocabulary_likes l WHERE l.vocabulary_id = v.id AND l.user_id = sqlc.arg('user_id')) AS liked,
     EXISTS (SELECT 1 FROM vocabulary_favorites f WHERE f.vocabulary_id = v.id AND f.user_id = sqlc.arg('user_id')) AS favorited,
-    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')) AS in_review
+    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')) AS in_review,
+    -- Các list ôn tập CỦA USER đang chứa từ này (lọc theo list ở trang chủ đề)
+    COALESCE((SELECT array_agg(dv.deck_id ORDER BY dv.added_at) FROM deck_vocabularies dv JOIN user_decks d ON d.id = dv.deck_id
+              WHERE dv.vocabulary_id = v.id AND d.user_id = sqlc.arg('user_id')), '{}')::uuid[] AS deck_ids
 FROM vocabularies v
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
 WHERE v.language_id = sqlc.arg('language_id')
@@ -59,7 +62,10 @@ SELECT
     (SELECT COUNT(*) FROM vocabulary_likes l WHERE l.vocabulary_id = v.id)::int AS like_count,
     EXISTS (SELECT 1 FROM vocabulary_likes l WHERE l.vocabulary_id = v.id AND l.user_id = sqlc.arg('user_id')) AS liked,
     TRUE AS favorited,
-    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')) AS in_review
+    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')) AS in_review,
+    -- Các list ôn tập CỦA USER đang chứa từ này (lọc theo list ở trang chủ đề)
+    COALESCE((SELECT array_agg(dv.deck_id ORDER BY dv.added_at) FROM deck_vocabularies dv JOIN user_decks d ON d.id = dv.deck_id
+              WHERE dv.vocabulary_id = v.id AND d.user_id = sqlc.arg('user_id')), '{}')::uuid[] AS deck_ids
 FROM vocabulary_favorites fav
 JOIN vocabularies v ON v.id = fav.vocabulary_id
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
