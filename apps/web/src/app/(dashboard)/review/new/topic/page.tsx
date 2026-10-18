@@ -64,17 +64,37 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [loadVersion, setLoadVersion] = useState(0)
 
-  // Tìm kiếm + lọc theo list ôn tập. Kết quả lọc được "chốt" (visibleIds) lúc
-  // đổi bộ lọc — thêm/gỡ list cho từ đang xem KHÔNG làm nó biến mất giữa chừng.
+  // Tìm kiếm + lọc theo list ôn tập. Kết quả lọc được "chốt" (visibleIds) mỗi
+  // lần đổi bộ lọc/từ khoá/tải lại — thêm/gỡ list cho từ đang xem KHÔNG làm nó
+  // biến mất giữa chừng; bấm "Cập nhật danh sách" để lọc lại theo dữ liệu mới.
   const [decks, setDecks] = useState<DeckSummary[]>([])
   const [search, setSearch] = useState('')
-  const query = normalizeSearch(useDebouncedValue(search.trim(), 250))
+  const debouncedSearch = useDebouncedValue(search.trim(), 250)
   const [filter, setFilter] = useState<WordFilter>('all')
   const [visibleIds, setVisibleIds] = useState<string[] | null>(null) // null = không lọc, hiện tất cả
-  const wordsRef = useRef(words)
-  wordsRef.current = words
+
+  const byId = useMemo(() => new Map(words.map((w) => [w.vocabulary_id, w])), [words])
+  const view = useMemo(
+    () => (visibleIds ? visibleIds.map((id) => byId.get(id)).filter((w): w is VocabularyCard => !!w) : words),
+    [visibleIds, byId, words],
+  )
+  const filtering = visibleIds !== null
+  const current = view[index] as VocabularyCard | undefined
+
+  /** Chốt danh sách lọc; giữ từ keepId nếu vẫn khớp, không thì tới từ đầu tiên chưa vào ôn tập */
+  const applyFilter = (list: VocabularyCard[], nextFilter: WordFilter, rawQuery: string, keepId?: string) => {
+    const query = normalizeSearch(rawQuery)
+    const shown = nextFilter === 'all' && !query ? null : list.filter((w) => matchesFilter(w, nextFilter, query))
+    setVisibleIds(shown && shown.map((w) => w.vocabulary_id))
+    const items = shown ?? list
+    const kept = keepId ? items.findIndex((w) => w.vocabulary_id === keepId) : -1
+    setIndex(kept >= 0 ? kept : Math.max(0, items.findIndex((w) => !w.in_review)))
+  }
+
+  // Giá trị mới nhất cho các callback không phụ thuộc render (tải xong / gõ tìm kiếm xong)
+  const latest = useRef({ words, filter, search, currentId: current?.vocabulary_id })
+  latest.current = { words, filter, search, currentId: current?.vocabulary_id }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -83,12 +103,12 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
       .listWords(topic, language)
       .then((res) => {
         setWords(res)
-        // Bắt đầu ở từ đầu tiên chưa vào ôn tập — quay lại chủ đề thì học tiếp chỗ cũ
-        setIndex(Math.max(0, res.findIndex((w) => !w.in_review)))
-        setLoadVersion((v) => v + 1)
+        // Áp bộ lọc đang chọn; bắt đầu ở từ đầu tiên chưa vào ôn tập — quay lại chủ đề thì học tiếp chỗ cũ
+        applyFilter(res, latest.current.filter, latest.current.search.trim())
       })
       .catch(setError)
       .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topic, language])
 
   useEffect(load, [load])
@@ -97,36 +117,30 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
     deckService
       .list()
       .then(setDecks)
-      .catch(() => {}) // không có list thì chỉ mất bộ lọc theo list, trang vẫn dùng được
+      .catch(() => {}) // không lấy được list thì chỉ mất nhóm lọc theo list, trang vẫn dùng được
   }, [])
 
-  const byId = useMemo(() => new Map(words.map((w) => [w.vocabulary_id, w])), [words])
-  const view = useMemo(
-    () => (visibleIds ? visibleIds.map((id) => byId.get(id)).filter((w): w is VocabularyCard => !!w) : words),
-    [visibleIds, byId, words],
-  )
-  const filtering = visibleIds !== null
-
-  // Đổi bộ lọc/từ khoá → tính lại danh sách, giữ nguyên từ đang xem nếu nó vẫn khớp
+  // Gõ tìm kiếm (sau debounce) → lọc lại, giữ từ đang xem nếu vẫn khớp
   useEffect(() => {
-    const all = wordsRef.current
-    const nextIds = filter === 'all' && !query ? null : all.filter((w) => matchesFilter(w, filter, query)).map((w) => w.vocabulary_id)
-    setVisibleIds(nextIds)
-    setIndex((i) => {
-      const currentId = (visibleIds ? visibleIds[i] : all[i]?.vocabulary_id) ?? ''
-      const pos = (nextIds ?? all.map((w) => w.vocabulary_id)).indexOf(currentId)
-      return pos >= 0 ? pos : 0
-    })
+    const { words: list, filter: f, currentId } = latest.current
+    applyFilter(list, f, debouncedSearch, currentId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, query, loadVersion])
+  }, [debouncedSearch])
+
+  const changeFilter = (next: WordFilter) => {
+    setFilter(next)
+    applyFilter(words, next, search.trim(), current?.vocabulary_id)
+  }
+
+  const refreshFilter = () => applyFilter(words, filter, search.trim(), current?.vocabulary_id)
 
   const clearFilters = () => {
     setSearch('')
     setFilter('all')
+    applyFilter(words, 'all', '', current?.vocabulary_id) // không chờ debounce của ô tìm kiếm
   }
 
-  const current = view[index] as VocabularyCard | undefined
-  const learned = words.filter((w) => w.in_review).length
+  const learned = view.filter((w) => w.in_review).length
   const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), [])
   const goNext = useCallback(() => setIndex((i) => Math.min(view.length - 1, i + 1)), [view.length])
 
@@ -236,7 +250,7 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
               />
               <select
                 value={filter}
-                onChange={(e) => setFilter(e.target.value as WordFilter)}
+                onChange={(e) => changeFilter(e.target.value as WordFilter)}
                 aria-label={t.review.filterLabel}
                 className={cn(inputClass, 'mt-0 sm:w-60')}
               >
@@ -260,6 +274,9 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
             {filtering && (
               <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 {t.review.filterMatchCount(view.length, words.length)}
+                <button type="button" onClick={refreshFilter} className="font-medium text-indigo-600 hover:underline">
+                  {t.review.refreshFilter}
+                </button>
                 <button type="button" onClick={clearFilters} className="font-medium text-indigo-600 hover:underline">
                   {t.review.clearFilters}
                 </button>

@@ -89,6 +89,7 @@ export function AddToDeckDialog({
       // Hiện list mới NGAY sau khi tạo — nếu bước thêm từ lỗi, user tích lại
       // list này thay vì bấm "Tạo & thêm" lần nữa (sẽ tạo list trùng tên)
       setDecks((ds) => [{ ...deck, word_count: 0, contains_vocabulary: false }, ...(ds ?? [])])
+      onMembershipChange?.(deck, false) // báo list mới ngay cả khi bước thêm từ bên dưới lỗi
       setNewName('')
       await deckService.addWord(deck.id, vocabularyId)
       onAdded()
