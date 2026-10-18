@@ -55,6 +55,7 @@ export interface ReviewDict {
     filterMatchCount: (shown: number, total: number) => string
     filterNoMatch: string
     clearFilters: string
+    refreshFilter: string
     prevBtn: string
     nextBtn: string
     arrowHint: string
@@ -162,6 +163,7 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       filterMatchCount: (shown, total) => `Đang hiện ${shown}/${total} từ`,
       filterNoMatch: 'Không có từ nào khớp bộ lọc',
       clearFilters: 'Xoá bộ lọc',
+      refreshFilter: 'Cập nhật danh sách',
       prevBtn: '← Trước',
       nextBtn: 'Tiếp →',
       arrowHint: 'Dùng phím ← → để chuyển từ',
@@ -278,6 +280,7 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       filterMatchCount: (shown, total) => `Showing ${shown}/${total} words`,
       filterNoMatch: 'No words match the filter',
       clearFilters: 'Clear filters',
+      refreshFilter: 'Refresh list',
       prevBtn: '← Previous',
       nextBtn: 'Next →',
       arrowHint: 'Use ← → to switch words',
