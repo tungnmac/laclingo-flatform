@@ -43,6 +43,18 @@ export interface ReviewDict {
     loadingWords: string
     emptyTopicNamed: (topic: string) => string
     wordCounter: (index: number, total: number, learned: number) => string
+    searchWordsPlaceholder: string
+    filterLabel: string
+    filterAll: string
+    filterNoDeck: string
+    filterInDeck: string
+    filterByDeck: string
+    filterNotInReview: string
+    filterInReview: string
+    filterFavorite: string
+    filterMatchCount: (shown: number, total: number) => string
+    filterNoMatch: string
+    clearFilters: string
     prevBtn: string
     nextBtn: string
     arrowHint: string
@@ -138,6 +150,18 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       loadingWords: 'Đang lấy từ vựng...',
       emptyTopicNamed: (topic) => `Chủ đề "${topic}" chưa có từ nào`,
       wordCounter: (index, total, learned) => `Từ ${index}/${total} · Đã vào ôn tập ${learned}`,
+      searchWordsPlaceholder: 'Tìm từ, nghĩa hoặc câu ví dụ...',
+      filterLabel: 'Lọc từ',
+      filterAll: 'Tất cả từ',
+      filterNoDeck: 'Chưa có trong list nào',
+      filterInDeck: 'Đã có trong list',
+      filterByDeck: 'Theo list ôn tập',
+      filterNotInReview: 'Chưa vào ôn tập',
+      filterInReview: 'Đã vào ôn tập',
+      filterFavorite: 'Yêu thích',
+      filterMatchCount: (shown, total) => `Đang hiện ${shown}/${total} từ`,
+      filterNoMatch: 'Không có từ nào khớp bộ lọc',
+      clearFilters: 'Xoá bộ lọc',
       prevBtn: '← Trước',
       nextBtn: 'Tiếp →',
       arrowHint: 'Dùng phím ← → để chuyển từ',
@@ -242,6 +266,18 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       loadingWords: 'Loading words...',
       emptyTopicNamed: (topic) => `Topic "${topic}" has no words yet`,
       wordCounter: (index, total, learned) => `Word ${index}/${total} · In review: ${learned}`,
+      searchWordsPlaceholder: 'Search words, meanings or examples...',
+      filterLabel: 'Filter words',
+      filterAll: 'All words',
+      filterNoDeck: 'Not in any list',
+      filterInDeck: 'In a list',
+      filterByDeck: 'By review list',
+      filterNotInReview: 'Not in review yet',
+      filterInReview: 'In review',
+      filterFavorite: 'Favorites',
+      filterMatchCount: (shown, total) => `Showing ${shown}/${total} words`,
+      filterNoMatch: 'No words match the filter',
+      clearFilters: 'Clear filters',
       prevBtn: '← Previous',
       nextBtn: 'Next →',
       arrowHint: 'Use ← → to switch words',

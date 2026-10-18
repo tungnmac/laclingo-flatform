@@ -252,7 +252,10 @@ SELECT
     (SELECT COUNT(*) FROM vocabulary_likes l WHERE l.vocabulary_id = v.id)::int AS like_count,
     EXISTS (SELECT 1 FROM vocabulary_likes l WHERE l.vocabulary_id = v.id AND l.user_id = $1) AS liked,
     TRUE AS favorited,
-    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = $1) AS in_review
+    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = $1) AS in_review,
+    -- Các list ôn tập CỦA USER đang chứa từ này (lọc theo list ở trang chủ đề)
+    COALESCE((SELECT array_agg(dv.deck_id ORDER BY dv.added_at) FROM deck_vocabularies dv JOIN user_decks d ON d.id = dv.deck_id
+              WHERE dv.vocabulary_id = v.id AND d.user_id = $1), '{}')::uuid[] AS deck_ids
 FROM vocabulary_favorites fav
 JOIN vocabularies v ON v.id = fav.vocabulary_id
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
@@ -267,23 +270,24 @@ type ListFavoriteVocabulariesParams struct {
 }
 
 type ListFavoriteVocabulariesRow struct {
-	ID           pgtype.UUID `json:"id"`
-	LanguageID   string      `json:"language_id"`
-	Term         string      `json:"term"`
-	Phonetic     pgtype.Text `json:"phonetic"`
-	Meaning      string      `json:"meaning"`
-	Example      pgtype.Text `json:"example"`
-	PartOfSpeech pgtype.Text `json:"part_of_speech"`
-	Topic        pgtype.Text `json:"topic"`
-	Level        pgtype.Text `json:"level"`
-	AudioUrl     pgtype.Text `json:"audio_url"`
-	ImageUrl     pgtype.Text `json:"image_url"`
-	ImageEmoji   pgtype.Text `json:"image_emoji"`
-	TopicIcon    string      `json:"topic_icon"`
-	LikeCount    int32       `json:"like_count"`
-	Liked        bool        `json:"liked"`
-	Favorited    bool        `json:"favorited"`
-	InReview     bool        `json:"in_review"`
+	ID           pgtype.UUID   `json:"id"`
+	LanguageID   string        `json:"language_id"`
+	Term         string        `json:"term"`
+	Phonetic     pgtype.Text   `json:"phonetic"`
+	Meaning      string        `json:"meaning"`
+	Example      pgtype.Text   `json:"example"`
+	PartOfSpeech pgtype.Text   `json:"part_of_speech"`
+	Topic        pgtype.Text   `json:"topic"`
+	Level        pgtype.Text   `json:"level"`
+	AudioUrl     pgtype.Text   `json:"audio_url"`
+	ImageUrl     pgtype.Text   `json:"image_url"`
+	ImageEmoji   pgtype.Text   `json:"image_emoji"`
+	TopicIcon    string        `json:"topic_icon"`
+	LikeCount    int32         `json:"like_count"`
+	Liked        bool          `json:"liked"`
+	Favorited    bool          `json:"favorited"`
+	InReview     bool          `json:"in_review"`
+	DeckIds      []pgtype.UUID `json:"deck_ids"`
 }
 
 // language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
@@ -314,6 +318,7 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 			&i.Liked,
 			&i.Favorited,
 			&i.InReview,
+			&i.DeckIds,
 		); err != nil {
 			return nil, err
 		}
@@ -425,7 +430,10 @@ SELECT
     (SELECT COUNT(*) FROM vocabulary_likes l WHERE l.vocabulary_id = v.id)::int AS like_count,
     EXISTS (SELECT 1 FROM vocabulary_likes l WHERE l.vocabulary_id = v.id AND l.user_id = $1) AS liked,
     EXISTS (SELECT 1 FROM vocabulary_favorites f WHERE f.vocabulary_id = v.id AND f.user_id = $1) AS favorited,
-    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = $1) AS in_review
+    EXISTS (SELECT 1 FROM user_vocabulary_reviews r WHERE r.vocabulary_id = v.id AND r.user_id = $1) AS in_review,
+    -- Các list ôn tập CỦA USER đang chứa từ này (lọc theo list ở trang chủ đề)
+    COALESCE((SELECT array_agg(dv.deck_id ORDER BY dv.added_at) FROM deck_vocabularies dv JOIN user_decks d ON d.id = dv.deck_id
+              WHERE dv.vocabulary_id = v.id AND d.user_id = $1), '{}')::uuid[] AS deck_ids
 FROM vocabularies v
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
 WHERE v.language_id = $2
@@ -440,23 +448,24 @@ type ListVocabulariesByTopicParams struct {
 }
 
 type ListVocabulariesByTopicRow struct {
-	ID           pgtype.UUID `json:"id"`
-	LanguageID   string      `json:"language_id"`
-	Term         string      `json:"term"`
-	Phonetic     pgtype.Text `json:"phonetic"`
-	Meaning      string      `json:"meaning"`
-	Example      pgtype.Text `json:"example"`
-	PartOfSpeech pgtype.Text `json:"part_of_speech"`
-	Topic        pgtype.Text `json:"topic"`
-	Level        pgtype.Text `json:"level"`
-	AudioUrl     pgtype.Text `json:"audio_url"`
-	ImageUrl     pgtype.Text `json:"image_url"`
-	ImageEmoji   pgtype.Text `json:"image_emoji"`
-	TopicIcon    string      `json:"topic_icon"`
-	LikeCount    int32       `json:"like_count"`
-	Liked        bool        `json:"liked"`
-	Favorited    bool        `json:"favorited"`
-	InReview     bool        `json:"in_review"`
+	ID           pgtype.UUID   `json:"id"`
+	LanguageID   string        `json:"language_id"`
+	Term         string        `json:"term"`
+	Phonetic     pgtype.Text   `json:"phonetic"`
+	Meaning      string        `json:"meaning"`
+	Example      pgtype.Text   `json:"example"`
+	PartOfSpeech pgtype.Text   `json:"part_of_speech"`
+	Topic        pgtype.Text   `json:"topic"`
+	Level        pgtype.Text   `json:"level"`
+	AudioUrl     pgtype.Text   `json:"audio_url"`
+	ImageUrl     pgtype.Text   `json:"image_url"`
+	ImageEmoji   pgtype.Text   `json:"image_emoji"`
+	TopicIcon    string        `json:"topic_icon"`
+	LikeCount    int32         `json:"like_count"`
+	Liked        bool          `json:"liked"`
+	Favorited    bool          `json:"favorited"`
+	InReview     bool          `json:"in_review"`
+	DeckIds      []pgtype.UUID `json:"deck_ids"`
 }
 
 // Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
@@ -487,6 +496,7 @@ func (q *Queries) ListVocabulariesByTopic(ctx context.Context, arg ListVocabular
 			&i.Liked,
 			&i.Favorited,
 			&i.InReview,
+			&i.DeckIds,
 		); err != nil {
 			return nil, err
 		}

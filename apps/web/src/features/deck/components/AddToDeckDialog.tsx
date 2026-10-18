@@ -21,11 +21,14 @@ export function AddToDeckDialog({
   term,
   onClose,
   onAdded,
+  onMembershipChange,
 }: {
   vocabularyId: string
   term: string
   onClose: () => void
   onAdded: () => void
+  /** Báo mỗi lần từ được thêm vào / gỡ khỏi 1 list (kể cả list vừa tạo) */
+  onMembershipChange?: (deck: DeckSummary, contained: boolean) => void
 }) {
   const t = useTranslation()
   const [decks, setDecks] = useState<DeckSummary[] | null>(null)
@@ -66,6 +69,7 @@ export function AddToDeckDialog({
         await deckService.addWord(deck.id, vocabularyId)
         onAdded()
       }
+      onMembershipChange?.(deck, !deck.contains_vocabulary)
       setDecks(
         (ds) =>
           ds?.map((d) =>
@@ -88,6 +92,7 @@ export function AddToDeckDialog({
       setNewName('')
       await deckService.addWord(deck.id, vocabularyId)
       onAdded()
+      onMembershipChange?.(deck, true)
       setDecks((ds) => ds?.map((d) => (d.id === deck.id ? { ...d, word_count: 1, contains_vocabulary: true } : d)) ?? null)
     })
   }
