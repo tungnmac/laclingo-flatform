@@ -38,9 +38,9 @@ export default function AdminLibraryPage() {
 
 // ── Sách ──
 
-type BookForm = Omit<AdminBookDto, 'id' | 'year' | 'url'> & { year: string; url: string }
-const emptyBook: BookForm = { title: '', author: '', year: '', level: 'basic', topic: 'investing', url: '', summary_vi: '', summary_en: '', published: false, position: 0 }
-const toBookForm = (b: AdminBookDto): BookForm => ({ ...b, year: b.year === null ? '' : String(b.year), url: b.url ?? '' })
+type BookForm = Omit<AdminBookDto, 'id' | 'year' | 'url' | 'title_vi'> & { year: string; url: string; title_vi: string }
+const emptyBook: BookForm = { title: '', title_vi: '', author: '', year: '', level: 'basic', topic: 'investing', url: '', summary_vi: '', summary_en: '', published: false, position: 0 }
+const toBookForm = (b: AdminBookDto): BookForm => ({ ...b, year: b.year === null ? '' : String(b.year), url: b.url ?? '', title_vi: b.title_vi ?? '' })
 
 function BooksAdmin() {
   const { t } = useT()
@@ -99,7 +99,7 @@ function BooksAdmin() {
           {list?.map((b) => (
             <li key={b.id} className={`flex items-center justify-between gap-2 px-3 py-2 ${editing?.id === b.id ? 'bg-emerald-50' : ''}`}>
               <button onClick={() => setEditing({ id: b.id, form: toBookForm(b) })} className="min-w-0 text-left">
-                <span className="block truncate font-semibold">{b.title}</span>
+                <span className="block truncate font-semibold">{b.title_vi ? `${b.title_vi} · ${b.title}` : b.title}</span>
                 <span className="block truncate text-xs text-slate-500">
                   {b.author} · {t(`levels.${b.level}`)} · {b.published ? t('adminLibrary.published') : t('adminLibrary.draft')}
                 </span>
@@ -115,6 +115,9 @@ function BooksAdmin() {
         <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           <Field label={t('adminLibrary.bookTitle')}>
             <input value={editing.form.title} onChange={(e) => set({ title: e.target.value })} className={inputClass} />
+          </Field>
+          <Field label={t('adminLibrary.bookTitleVi')}>
+            <input value={editing.form.title_vi} onChange={(e) => set({ title_vi: e.target.value })} className={inputClass} />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t('adminLibrary.author')}>
