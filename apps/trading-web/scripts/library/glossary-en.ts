@@ -207,4 +207,105 @@ export const GLOSSARY_EN: SeedTerm[] = [
     definition_md: 'Measures excess return per unit of risk. Sharpe = (portfolio return − risk-free rate) / standard deviation of returns. Higher is better.',
     lesson_slug: 'measuring-portfolio-performance',
   },
+  // ── Forex (thị trường ngoại hối) ──
+  {
+    term: 'Foreign exchange market (Forex)',
+    definition_md: 'The market for trading currencies against each other, open almost 24 hours on weekdays and the most liquid market in the world. Note: leveraged forex trading through overseas brokers may not be permitted where you live — check current regulations before taking part.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Currency pair',
+    definition_md: 'Forex is always quoted in pairs, e.g. EUR/USD = 1.0850 means 1 euro buys 1.0850 US dollars. Buying the pair means buying the first currency and selling the second.',
+    lesson_slug: 'crypto-market-and-trading-pairs',
+  },
+  {
+    term: 'Base and quote currency',
+    definition_md: 'In EUR/USD, EUR is the base currency (what you buy/sell) and USD is the quote currency (the unit for the price and for profit and loss).',
+    lesson_slug: null,
+  },
+  {
+    term: 'Major pairs (Majors)',
+    definition_md: 'Pairs of USD with another large currency, such as EUR/USD, USD/JPY, GBP/USD, USD/CHF, AUD/USD, USD/CAD and NZD/USD. They are the most liquid, so spreads are usually the tightest.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Minor and exotic pairs',
+    definition_md: 'Minors pair large currencies without USD (e.g. EUR/GBP). Exotics pair a large currency with one from a smaller economy (e.g. USD/TRY) — wider spreads and sharper moves.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Cross rate',
+    definition_md: 'An exchange rate between two currencies derived through a third (usually USD). For example EUR/JPY ≈ EUR/USD × USD/JPY.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Pip',
+    definition_md: 'The conventional smallest price step: the 4th decimal for most pairs (0.0001) and the 2nd for JPY pairs (0.01). EUR/USD moving from 1.0850 to 1.0870 is a 20-pip rise.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Pipette',
+    definition_md: 'One tenth of a pip — the 5th decimal (3rd for JPY pairs) that many platforms show for finer quotes.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Pip value',
+    definition_md: 'The profit or loss when price moves 1 pip, which depends on size. For EUR/USD, 1 standard lot (100,000 EUR) × 0.0001 = 10 USD per pip; 20 pips = 200 USD.',
+    lesson_slug: 'fees-and-profit-and-loss',
+  },
+  {
+    term: 'Lot',
+    definition_md: 'The unit of forex trade size: a standard lot = 100,000 units of the base currency, a mini lot = 10,000, a micro lot = 1,000. Size sets the value of each pip, and therefore your profit and loss.',
+    lesson_slug: 'position-sizing-and-the-1-2-rule',
+  },
+  {
+    term: 'Leverage',
+    definition_md: 'Lets you open a position many times larger than your margin, e.g. 1:100 means 1,000 USD controls a 100,000 USD position. Leverage magnifies gains AND losses: a 1% adverse move can wipe out the whole margin.',
+    lesson_slug: 'long-vs-short',
+  },
+  {
+    term: 'Required margin',
+    definition_md: 'The deposit needed to open a position = position value ÷ leverage. For example 1 lot of EUR/USD at 1.0850 is worth 108,500 USD; at 1:100 leverage it needs about 1,085 USD of margin.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Margin level',
+    definition_md: 'Ratio = equity ÷ used margin × 100%. As losses grow, equity and the margin level fall; below the broker\'s threshold you get a margin call or forced closing.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Margin call',
+    definition_md: 'A warning when the margin level drops below a set threshold (often around 100%, broker-dependent): you must add funds or reduce positions, or they will be closed for you.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Stop out',
+    definition_md: 'The margin level (e.g. 50%, broker-dependent) at which the system automatically closes losing positions so the account does not go further negative. This is why high-leverage trading so often "blows up" accounts.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Swap (rollover)',
+    definition_md: 'An amount credited or charged for holding a position overnight, based on the interest-rate difference between the two currencies plus the broker\'s fee. Over long holding periods swaps can eat noticeably into profits.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Carry trade',
+    definition_md: 'Borrowing (selling) a low-interest currency to buy a high-interest one and collect the interest difference via swaps. Risk: an adverse exchange-rate move can wipe out the interest earned.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Slippage',
+    definition_md: 'The difference between the price you asked for and the price your order actually fills at, common during sharp moves (news releases) or thin liquidity. Stop-loss orders can slip too.',
+    lesson_slug: 'market-vs-limit-orders',
+  },
+  {
+    term: 'Forex trading sessions',
+    definition_md: 'The market runs through the Asian (Tokyo, Sydney), European (London) and US (New York) sessions. The overlap of the European and US sessions usually has the highest volume and volatility.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Economic calendar',
+    definition_md: 'A schedule of macro data and events (central-bank rate decisions, CPI, US non-farm payrolls…). Currencies often move sharply around these releases.',
+    lesson_slug: null,
+  },
 ]

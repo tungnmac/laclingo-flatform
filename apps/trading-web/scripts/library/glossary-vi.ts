@@ -207,4 +207,105 @@ export const GLOSSARY_VI: SeedTerm[] = [
     definition_md: 'Đo lợi nhuận vượt trội trên mỗi đơn vị rủi ro. Sharpe = (lợi nhuận danh mục − lãi suất phi rủi ro) / độ lệch chuẩn của lợi nhuận. Càng cao càng tốt.',
     lesson_slug: 'do-hieu-qua-danh-muc',
   },
+  // ── Forex (thị trường ngoại hối) ──
+  {
+    term: 'Thị trường ngoại hối (Forex)',
+    definition_md: 'Thị trường mua bán các đồng tiền với nhau, giao dịch gần như 24 giờ trong ngày làm việc và có thanh khoản lớn nhất thế giới. Lưu ý: giao dịch forex ký quỹ qua sàn nước ngoài có thể chưa được pháp luật nơi bạn sống cho phép — hãy kiểm tra quy định hiện hành trước khi tham gia.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Cặp tiền tệ',
+    definition_md: 'Forex luôn yết giá theo cặp, ví dụ EUR/USD = 1,0850 nghĩa là 1 euro đổi được 1,0850 đô la Mỹ. Mua cặp là mua đồng đứng trước và bán đồng đứng sau.',
+    lesson_slug: 'thi-truong-crypto-va-cap-giao-dich',
+  },
+  {
+    term: 'Đồng tiền cơ sở và đồng tiền định giá',
+    definition_md: 'Trong cặp EUR/USD, EUR là đồng tiền cơ sở (thứ bạn mua/bán), USD là đồng tiền định giá (đơn vị tính giá và tính lãi lỗ).',
+    lesson_slug: null,
+  },
+  {
+    term: 'Cặp tiền chính (Majors)',
+    definition_md: 'Các cặp có USD ghép với đồng tiền lớn khác như EUR/USD, USD/JPY, GBP/USD, USD/CHF, AUD/USD, USD/CAD, NZD/USD. Thanh khoản cao nhất nên spread thường hẹp nhất.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Cặp tiền phụ và cặp ngoại lai (Minors/Exotics)',
+    definition_md: 'Cặp phụ là cặp giữa các đồng tiền lớn không có USD (vd EUR/GBP). Cặp ngoại lai ghép một đồng tiền lớn với đồng tiền của nền kinh tế nhỏ hơn (vd USD/TRY) — spread rộng và biến động mạnh hơn.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Tỷ giá chéo (Cross rate)',
+    definition_md: 'Tỷ giá giữa hai đồng tiền được suy ra qua một đồng tiền thứ ba (thường là USD). Ví dụ EUR/JPY ≈ EUR/USD × USD/JPY.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Pip',
+    definition_md: 'Đơn vị biến động giá nhỏ nhất theo quy ước: chữ số thập phân thứ 4 với hầu hết các cặp (0,0001), thứ 2 với cặp có JPY (0,01). EUR/USD từ 1,0850 lên 1,0870 là tăng 20 pip.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Pipette',
+    definition_md: 'Một phần mười pip — chữ số thập phân thứ 5 (hoặc thứ 3 với cặp JPY) mà nhiều nền tảng hiển thị để báo giá chi tiết hơn.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Giá trị pip (Pip value)',
+    definition_md: 'Số tiền lãi/lỗ khi giá đi 1 pip, phụ thuộc khối lượng. Với EUR/USD, 1 lot chuẩn (100.000 EUR) × 0,0001 = 10 USD mỗi pip; 20 pip = 200 USD.',
+    lesson_slug: 'phi-va-cach-tinh-lai-lo',
+  },
+  {
+    term: 'Lot',
+    definition_md: 'Đơn vị khối lượng giao dịch forex: lot chuẩn = 100.000 đơn vị đồng tiền cơ sở, mini lot = 10.000, micro lot = 1.000. Khối lượng quyết định giá trị mỗi pip, tức quyết định mức lãi lỗ.',
+    lesson_slug: 'co-vi-the-va-quy-tac-1-2',
+  },
+  {
+    term: 'Đòn bẩy (Leverage)',
+    definition_md: 'Cho phép mở vị thế lớn hơn nhiều lần số tiền ký quỹ, vd 1:100 nghĩa là 1.000 USD kiểm soát vị thế 100.000 USD. Đòn bẩy khuếch đại cả lãi lẫn LỖ: giá đi ngược 1% có thể làm mất toàn bộ tiền ký quỹ.',
+    lesson_slug: 'long-va-short',
+  },
+  {
+    term: 'Ký quỹ yêu cầu (Required margin)',
+    definition_md: 'Số tiền phải đặt cọc để mở vị thế = giá trị vị thế ÷ đòn bẩy. Ví dụ 1 lot EUR/USD ở giá 1,0850 trị giá 108.500 USD; với đòn bẩy 1:100 cần ký quỹ khoảng 1.085 USD.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Mức ký quỹ (Margin level)',
+    definition_md: 'Tỷ lệ = vốn hiện có (equity) ÷ ký quỹ đang dùng × 100%. Khi lỗ tăng, equity giảm và mức ký quỹ giảm theo; xuống dưới ngưỡng của sàn sẽ bị gọi ký quỹ hoặc đóng lệnh.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Lệnh gọi ký quỹ (Margin call)',
+    definition_md: 'Cảnh báo khi mức ký quỹ xuống dưới ngưỡng quy định (thường quanh 100%, tuỳ sàn): bạn phải nạp thêm tiền hoặc giảm vị thế, nếu không sẽ bị đóng lệnh bắt buộc.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Dừng lỗ bắt buộc (Stop out)',
+    definition_md: 'Ngưỡng mức ký quỹ (vd 50%, tuỳ sàn) mà tại đó hệ thống tự đóng các vị thế đang lỗ để tài khoản không âm thêm. Đây là lý do giao dịch đòn bẩy cao dễ "cháy tài khoản".',
+    lesson_slug: null,
+  },
+  {
+    term: 'Phí qua đêm (Swap/Rollover)',
+    definition_md: 'Khoản tiền cộng hoặc trừ khi giữ vị thế qua ngày, dựa trên chênh lệch lãi suất giữa hai đồng tiền trong cặp cộng phí của sàn. Giữ lệnh lâu, swap có thể ăn mòn đáng kể lợi nhuận.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Giao dịch chênh lệch lãi suất (Carry trade)',
+    definition_md: 'Vay (bán) đồng tiền lãi suất thấp để mua đồng tiền lãi suất cao, hưởng phần chênh lệch lãi qua swap. Rủi ro: tỷ giá biến động ngược có thể xoá sạch phần lãi suất kiếm được.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Trượt giá (Slippage)',
+    definition_md: 'Chênh lệch giữa giá bạn đặt và giá lệnh thực sự khớp, hay xảy ra khi thị trường biến động mạnh (công bố tin tức) hoặc thanh khoản mỏng. Lệnh cắt lỗ cũng có thể bị trượt.',
+    lesson_slug: 'lenh-market-va-limit',
+  },
+  {
+    term: 'Phiên giao dịch forex',
+    definition_md: 'Thị trường chạy theo các phiên Á (Tokyo, Sydney), Âu (London) và Mỹ (New York). Khoảng giao nhau giữa phiên Âu và Mỹ thường có khối lượng và biến động lớn nhất.',
+    lesson_slug: null,
+  },
+  {
+    term: 'Lịch kinh tế',
+    definition_md: 'Lịch công bố số liệu và sự kiện vĩ mô (quyết định lãi suất của ngân hàng trung ương, CPI, việc làm phi nông nghiệp của Mỹ…). Giá tiền tệ thường biến động mạnh quanh các thời điểm này.',
+    lesson_slug: null,
+  },
 ]

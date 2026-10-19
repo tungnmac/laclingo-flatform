@@ -33,8 +33,8 @@ describe.each([
   ['en', GLOSSARY_EN, EN],
 ] as const)('glossary seed %s', (_locale, terms, chapters) => {
   const slugs = new Set(chapters.flatMap((c) => c.lessons.map((l) => l.slug)))
-  it('has 40 unique terms (case-insensitive)', () => {
-    expect(terms).toHaveLength(40)
+  it('has 60 unique terms (case-insensitive)', () => {
+    expect(terms).toHaveLength(60)
     expect(new Set(terms.map((t) => t.term.trim().toLowerCase())).size).toBe(terms.length)
   })
   it('has non-empty definitions up to 4000 chars', () => {
