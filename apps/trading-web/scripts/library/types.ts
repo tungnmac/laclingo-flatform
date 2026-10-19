@@ -4,6 +4,8 @@ export type BookTopic = 'investing' | 'trading' | 'psychology' | 'finance' | 'ec
 /** Đầu sách — CHỈ thông tin công khai (tên, tác giả, năm) + tóm tắt tự viết "vì sao nên đọc", không trích nội dung sách */
 export interface SeedBook {
   title: string // tên gốc của sách
+  /** Tên bản dịch tiếng Việt đã xuất bản và phổ biến (vd "Nhà đầu tư thông minh") — không chắc thì null */
+  title_vi: string | null
   author: string
   year: number | null
   level: BookLevel

@@ -17,8 +17,18 @@ const url = z
   .nullish()
   .transform((s) => s || null)
 
+/** Chuỗi tuỳ chọn: rỗng → null */
+const optional = (max: number) =>
+  z
+    .string('INVALID_INPUT')
+    .trim()
+    .max(max, 'TEXT_TOO_LONG')
+    .nullish()
+    .transform((s) => s || null)
+
 const bookFields = {
   title: required(200),
+  title_vi: optional(200),
   author: required(200),
   year: z.number('INVALID_INPUT').int('INVALID_INPUT').min(1500, 'INVALID_INPUT').max(2100, 'INVALID_INPUT').nullable(),
   level: levelSchema,
@@ -40,10 +50,14 @@ export const bookSchema = z.object({
 /** PATCH: chỉ trường gửi lên — không default (zod 4 vẫn áp .default() sau .partial()) */
 export const bookPatchSchema = z.object(bookFields).partial()
 export const bookStatusSchema = z.object({ status: z.enum(BOOK_STATUSES, 'INVALID_INPUT').nullable() })
+export const BOOKS_PAGE_SIZE = 12
 export const bookFilterSchema = z.object({
+  q: z.string().trim().max(100, 'TEXT_TOO_LONG').optional(),
   level: levelSchema.optional(),
   topic: z.enum(BOOK_TOPICS, 'INVALID_INPUT').optional(),
   status: z.enum(BOOK_STATUSES, 'INVALID_INPUT').optional(),
+  page: z.coerce.number('INVALID_INPUT').int('INVALID_INPUT').min(1, 'INVALID_INPUT').max(10_000, 'INVALID_INPUT').default(1),
+  page_size: z.coerce.number('INVALID_INPUT').int('INVALID_INPUT').min(1, 'INVALID_INPUT').max(50, 'INVALID_INPUT').default(BOOKS_PAGE_SIZE),
 })
 
 const lessonSlug = z
@@ -83,3 +97,17 @@ export function matchesTerm(term: string, query: string): boolean {
   const needle = foldText(query).replace(/ /g, '')
   return !needle || foldText(term).replace(/ /g, '').includes(needle)
 }
+
+/** Nội dung cột books.search_text: tên gốc + tên tiếng Việt + tác giả, đã bỏ dấu */
+export const bookSearchText = (b: { title: string; title_vi: string | null; author: string }) => foldText([b.title, b.title_vi ?? '', b.author].join(' '))
+
+/** Từ khoá → các từ đã bỏ dấu (mỗi từ phải xuất hiện trong search_text). foldText chỉ giữ [a-z0-9]
+ *  nên không còn ký tự đặc biệt của LIKE (%, _, \\) — không cần escape. */
+export function searchWords(q: string | undefined): string[] {
+  if (!q) return []
+  return foldText(q)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 8)
+}
+

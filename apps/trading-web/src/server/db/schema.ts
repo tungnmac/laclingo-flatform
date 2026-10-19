@@ -297,7 +297,10 @@ export const companyAnalyses = pgTable(
 export const books = pgTable('books', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 200 }).notNull(),
+  titleVi: varchar('title_vi', { length: 200 }), // tên bản dịch tiếng Việt (nếu có)
   author: varchar('author', { length: 200 }).notNull(),
+  // tên gốc + tên tiếng Việt + tác giả, đã bỏ dấu/chữ thường (foldText) — tính ở app khi ghi, tìm bằng ILIKE
+  searchText: text('search_text').notNull().default(''),
   year: integer('year'),
   level: varchar('level', { length: 12 }).notNull().default('basic'),
   topic: varchar('topic', { length: 20 }).notNull(), // investing | trading | psychology | finance | economics

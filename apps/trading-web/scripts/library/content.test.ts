@@ -6,9 +6,27 @@ import { GLOSSARY_EN } from './glossary-en'
 import { GLOSSARY_VI } from './glossary-vi'
 
 describe('books seed', () => {
-  it('has 16 books with unique titles', () => {
-    expect(BOOKS).toHaveLength(16)
-    expect(new Set(BOOKS.map((b) => b.title.toLowerCase())).size).toBe(BOOKS.length)
+  it('has 40 books with unique titles (case-insensitive)', () => {
+    expect(BOOKS).toHaveLength(40)
+    expect(new Set(BOOKS.map((b) => b.title.trim().toLowerCase())).size).toBe(BOOKS.length)
+  })
+  it('has a null title_vi or a non-empty one up to 200 chars, unique when set', () => {
+    const vis: string[] = []
+    for (const b of BOOKS) {
+      if (b.title_vi === null) continue
+      expect(b.title_vi.trim().length, b.title).toBeGreaterThan(0)
+      expect(b.title_vi.length, b.title).toBeLessThanOrEqual(200)
+      vis.push(b.title_vi.trim().toLowerCase())
+    }
+    expect(new Set(vis).size).toBe(vis.length)
+  })
+  it('has a valid level and topic', () => {
+    const levels = ['basic', 'intermediate', 'advanced']
+    const topics = ['investing', 'trading', 'psychology', 'finance', 'economics']
+    for (const b of BOOKS) {
+      expect(levels, b.title).toContain(b.level)
+      expect(topics, b.title).toContain(b.topic)
+    }
   })
   it('has non-empty summaries up to 600 chars', () => {
     for (const b of BOOKS) {
