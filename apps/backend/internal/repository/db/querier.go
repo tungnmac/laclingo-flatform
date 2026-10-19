@@ -80,6 +80,8 @@ type Querier interface {
 	CreateListeningTopic(ctx context.Context, arg CreateListeningTopicParams) (ListeningTopic, error)
 	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) error
+	CreateSpeakingAttempt(ctx context.Context, arg CreateSpeakingAttemptParams) error
+	CreateSpeakingItem(ctx context.Context, arg CreateSpeakingItemParams) (SpeakingItem, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// ===== Admin CRUD (quản lý nội dung từ vựng) =====
 	CreateVocabulary(ctx context.Context, arg CreateVocabularyParams) (Vocabulary, error)
@@ -107,6 +109,9 @@ type Querier interface {
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	// Push service báo subscription hết hạn (404/410) — xoá bất kể user.
 	DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint string) error
+	DeleteSpeakingItem(ctx context.Context, id pgtype.UUID) (int64, error)
+	// Các câu luyện của chủ đề tự xoá theo (FK ON DELETE CASCADE)
+	DeleteSpeakingTopic(ctx context.Context, arg DeleteSpeakingTopicParams) (int64, error)
 	// Thông báo lặp lại (nhắc học mỗi ngày): bỏ bản cũ chưa đọc trước khi tạo bản
 	// mới — user bỏ app lâu không bị chất đống hàng trăm nhắc học chưa đọc.
 	DeleteUnreadNotificationsByType(ctx context.Context, arg DeleteUnreadNotificationsByTypeParams) error
@@ -119,6 +124,7 @@ type Querier interface {
 	FanOutAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	GetBestSpeakingScore(ctx context.Context, arg GetBestSpeakingScoreParams) (int32, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
 	// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
 	GetBlogImageByID(ctx context.Context, id pgtype.UUID) (BlogPostImage, error)
@@ -147,6 +153,7 @@ type Querier interface {
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
+	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
@@ -259,6 +266,11 @@ type Querier interface {
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
 	// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
 	ListReviewVocabulariesForUser(ctx context.Context, arg ListReviewVocabulariesForUserParams) ([]ListReviewVocabulariesForUserRow, error)
+	ListSpeakingItemsAdmin(ctx context.Context, arg ListSpeakingItemsAdminParams) ([]ListSpeakingItemsAdminRow, error)
+	ListSpeakingItemsByTopic(ctx context.Context, arg ListSpeakingItemsByTopicParams) ([]ListSpeakingItemsByTopicRow, error)
+	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
+	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
+	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
@@ -337,6 +349,7 @@ type Querier interface {
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateReminderDefaults(ctx context.Context, arg UpdateReminderDefaultsParams) (ReminderDefault, error)
+	UpdateSpeakingItem(ctx context.Context, arg UpdateSpeakingItemParams) (SpeakingItem, error)
 	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
 	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
 	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)
@@ -354,6 +367,8 @@ type Querier interface {
 	// endpoint là duy nhất theo trình duyệt — đăng nhập user khác trên cùng trình
 	// duyệt thì chuyển subscription sang user đó.
 	UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) error
+	// ===== Admin =====
+	UpsertSpeakingTopic(ctx context.Context, arg UpsertSpeakingTopicParams) (SpeakingTopic, error)
 	// Ghi đè toàn bộ phần cấu hình của học viên (NULL = theo mặc định admin);
 	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
 	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)

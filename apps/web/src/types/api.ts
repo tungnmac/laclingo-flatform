@@ -340,6 +340,7 @@ export type MissionActionType =
   | 'challenge_participate'
   | 'challenge_win'
   | 'listening_practice'
+  | 'speaking_practice'
 
 // Body chung tạo/sửa nhiệm vụ (admin). starts_at/ends_at chỉ bắt buộc khi period = "event".
 export interface MissionRequest {
@@ -926,3 +927,67 @@ export interface Announcement {
   read_count: number
   created_at: string
 }
+
+// --- Luyện nói ---
+
+export type SpeakingKind = 'repeat' | 'answer'
+
+export interface SpeakingTopic {
+  name: string
+  icon: string
+  description: string
+  total: number
+  practiced: number // số câu đã luyện ít nhất 1 lần
+  avg_best: number // điểm cao nhất trung bình của các câu đã luyện
+}
+
+export interface SpeakingItem {
+  id: string
+  kind: SpeakingKind
+  prompt: string // repeat: câu mẫu cần nói lại; answer: câu hỏi
+  prompt_meaning: string
+  sample_answer?: string
+  keywords: string[] // "REST|RESTful" = 1 trong các cách nói
+  level: string
+  best_score?: number // chưa luyện = không có
+  attempt_count: number
+}
+
+export type SpeakingTip = 'too_short' | 'fillers' | 'too_slow' | 'too_fast' | 'missed_keywords' | 'missed_words'
+
+export interface SpeakingAttemptResult {
+  score: number
+  words?: { word: string; matched: boolean }[] // repeat
+  keywords_hit?: string[] // answer
+  keywords_missed?: string[]
+  word_count: number
+  filler_count: number
+  words_per_minute: number // 0 = không đo được
+  tips: SpeakingTip[]
+  best_score: number
+  is_new_best: boolean
+}
+
+export interface SpeakingTopicAdmin {
+  language_id: string
+  name: string
+  icon: string
+  description: string
+  order_index: number
+  item_count?: number
+}
+
+export interface SpeakingItemAdmin {
+  id: string
+  language_id: string
+  topic: string
+  kind: SpeakingKind
+  prompt: string
+  prompt_meaning: string
+  sample_answer: string
+  keywords: string[]
+  level: string
+  order_index: number
+}
+
+export type SpeakingItemRequest = Omit<SpeakingItemAdmin, 'id'>

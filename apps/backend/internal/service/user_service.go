@@ -35,7 +35,7 @@ var validUserRoles = map[string]bool{"user": true, "admin": true}
 
 // AdminModules — toàn bộ module /admin có thể cấp quyền riêng. Khớp 1-1 với
 // các route group gắn RequireModule trong router.go và AdminSubNav/hub ở FE.
-var AdminModules = []string{"users", "missions", "vocabulary", "grammar", "challenge_questions", "listening", "classes", "blog", "reminders", "announcements"}
+var AdminModules = []string{"users", "missions", "vocabulary", "grammar", "challenge_questions", "listening", "classes", "blog", "reminders", "announcements", "speaking"}
 
 var validAdminModules = func() map[string]bool {
 	m := make(map[string]bool, len(AdminModules))

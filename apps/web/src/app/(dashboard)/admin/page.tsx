@@ -33,6 +33,7 @@ export default function AdminHubPage() {
       title: t.adminCommon.moduleAnnouncements,
       description: t.adminCommon.announcementsDesc,
     },
+    { key: 'speaking', href: '/admin/speaking', icon: '🎤', title: t.nav.speaking, description: t.adminSpeaking.hubDesc },
   ]
   const visible = sections.filter((s) => hasModule(user, s.key))
 

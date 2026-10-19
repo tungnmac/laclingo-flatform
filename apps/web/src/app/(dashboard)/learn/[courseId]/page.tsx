@@ -41,6 +41,13 @@ export default function CoursePage({ params }: { params: { courseId: string } })
       description: t.classes.cardDesc,
     },
     {
+      key: 'speaking',
+      href: `/speaking/${params.courseId}`,
+      icon: '🎤',
+      title: t.nav.speaking,
+      description: t.speaking.cardDesc,
+    },
+    {
       key: 'srs',
       href: `/review/vocabulary?language=${params.courseId}&scope=learn`,
       icon: '🧠',
