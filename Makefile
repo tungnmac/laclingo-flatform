@@ -75,6 +75,7 @@ seed:
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0008_listening_seed.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0009_vocabulary_example_meaning_seed.sql
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0010_vocabulary_part_of_speech_seed.sql
+	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds/0011_speaking_it_interview_seed.sql
 	@echo "✅ Seed dữ liệu hoàn tất!"
 
 # Cấp quyền admin cho 1 user theo email — không có UI để cấp quyền admin đầu

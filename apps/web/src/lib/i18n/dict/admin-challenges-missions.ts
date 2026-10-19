@@ -40,6 +40,7 @@ export interface AdminChallengesMissionsDict {
     actionChallengeParticipate: string
     actionChallengeWin: string
     actionListeningPractice: string
+    actionSpeakingPractice: string
     targetCountLabel: string
     rewardExpLabel: string
     rewardPointsLabel: string
@@ -95,6 +96,7 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       actionChallengeParticipate: 'Tham gia phòng thách đấu',
       actionChallengeWin: 'Thắng phòng thách đấu',
       actionListeningPractice: 'Trả lời đúng câu hỏi luyện nghe',
+      actionSpeakingPractice: 'Hoàn thành 1 lần luyện nói',
       targetCountLabel: 'Số lần cần đạt',
       rewardExpLabel: 'Thưởng EXP',
       rewardPointsLabel: 'Thưởng điểm',
@@ -148,6 +150,7 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       actionChallengeParticipate: 'Join a challenge room',
       actionChallengeWin: 'Win a challenge room',
       actionListeningPractice: 'Answer listening questions correctly',
+      actionSpeakingPractice: 'Complete a speaking practice',
       targetCountLabel: 'Target count',
       rewardExpLabel: 'EXP reward',
       rewardPointsLabel: 'Points reward',

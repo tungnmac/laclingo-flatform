@@ -18,6 +18,7 @@ const actionIcons: Record<MyMission['action_type'], string> = {
   challenge_participate: '🎮',
   challenge_win: '🏆',
   listening_practice: '🎧',
+  speaking_practice: '🎤',
 }
 
 export default function MissionsPage() {

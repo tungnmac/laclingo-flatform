@@ -36,6 +36,7 @@ export default function AdminMissionsPage() {
     { value: 'challenge_participate', label: t.adminMissions.actionChallengeParticipate },
     { value: 'challenge_win', label: t.adminMissions.actionChallengeWin },
     { value: 'listening_practice', label: t.adminMissions.actionListeningPractice },
+    { value: 'speaking_practice', label: t.adminMissions.actionSpeakingPractice },
   ]
   const [editing, setEditing] = useState<Mission | null>(null)
   const [showForm, setShowForm] = useState(false)

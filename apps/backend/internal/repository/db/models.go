@@ -300,6 +300,29 @@ type ReminderDefault struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SpeakingItem struct {
+	ID            pgtype.UUID        `json:"id"`
+	LanguageID    string             `json:"language_id"`
+	Topic         string             `json:"topic"`
+	Kind          string             `json:"kind"`
+	Prompt        string             `json:"prompt"`
+	PromptMeaning string             `json:"prompt_meaning"`
+	SampleAnswer  string             `json:"sample_answer"`
+	Keywords      []string           `json:"keywords"`
+	Level         string             `json:"level"`
+	OrderIndex    int32              `json:"order_index"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SpeakingTopic struct {
+	LanguageID  string `json:"language_id"`
+	Name        string `json:"name"`
+	Icon        string `json:"icon"`
+	Description string `json:"description"`
+	OrderIndex  int32  `json:"order_index"`
+}
+
 type User struct {
 	ID            pgtype.UUID        `json:"id"`
 	Email         string             `json:"email"`
@@ -385,6 +408,15 @@ type UserReminderSetting struct {
 	LastRemindedOn     pgtype.Date        `json:"last_reminded_on"`
 	LastInactiveSentAt pgtype.Timestamptz `json:"last_inactive_sent_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserSpeakingAttempt struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	ItemID     pgtype.UUID        `json:"item_id"`
+	Transcript string             `json:"transcript"`
+	Score      int32              `json:"score"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserVocabularyReview struct {

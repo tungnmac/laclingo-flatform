@@ -17,6 +17,7 @@ import { practiceTranslations, type PracticeDict } from './dict/practice'
 import { notificationsTranslations, type NotificationsDict } from './dict/notifications'
 import { remindersTranslations, type RemindersDict } from './dict/reminders'
 import { reviewTranslations, type ReviewDict } from './dict/review'
+import { speakingTranslations, type SpeakingDict } from './dict/speaking'
 
 // Dịch TỪNG PHẦN theo module UI. Namespace lớn (learn/review/...) tách file
 // riêng trong ./dict/ để file này không phình quá lớn — ghép lại bằng `pick`
@@ -37,6 +38,7 @@ interface Dictionary {
     leaderboard: string
     profile: string
     listening: string
+    speaking: string
     missions: string
     blog: string
     admin: string
@@ -97,6 +99,7 @@ const base: Record<Locale, Dictionary> = {
       leaderboard: 'Xếp hạng',
       profile: 'Hồ sơ',
       listening: 'Luyện nghe',
+      speaking: 'Luyện nói',
       missions: 'Nhiệm vụ',
       blog: 'Blog',
       admin: 'Quản trị',
@@ -155,6 +158,7 @@ const base: Record<Locale, Dictionary> = {
       leaderboard: 'Leaderboard',
       profile: 'Profile',
       listening: 'Listening',
+      speaking: 'Speaking',
       missions: 'Missions',
       blog: 'Blog',
       admin: 'Admin',
@@ -213,6 +217,7 @@ const base: Record<Locale, Dictionary> = {
       leaderboard: '排行榜',
       profile: '个人资料',
       listening: '听力练习',
+      speaking: '口语练习',
       missions: '任务',
       blog: '博客',
       admin: '管理',
@@ -271,6 +276,7 @@ const base: Record<Locale, Dictionary> = {
       leaderboard: 'ランキング',
       profile: 'プロフィール',
       listening: 'リスニング練習',
+      speaking: 'スピーキング練習',
       missions: 'ミッション',
       blog: 'ブログ',
       admin: '管理',
@@ -329,6 +335,7 @@ const base: Record<Locale, Dictionary> = {
       leaderboard: '순위',
       profile: '프로필',
       listening: '듣기 연습',
+      speaking: '말하기 연습',
       missions: '미션',
       blog: '블로그',
       admin: '관리',
@@ -392,6 +399,7 @@ type AllDicts = Dictionary &
   DecksDict &
   RemindersDict &
   NotificationsDict &
+  SpeakingDict &
   ChallengesDict &
   ListeningDict &
   HomeDict &
@@ -416,6 +424,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(decksTranslations, locale),
       ...pick(remindersTranslations, locale),
       ...pick(notificationsTranslations, locale),
+      ...pick(speakingTranslations, locale),
       ...pick(challengesTranslations, locale),
       ...pick(listeningTranslations, locale),
       ...pick(homeTranslations, locale),

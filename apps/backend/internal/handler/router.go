@@ -68,6 +68,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// SAU reminderHandler: /notifications/push/* phải khớp trước /notifications/:id
 	notificationHandler := NewNotificationHandler(notifications)
 	notificationHandler.RegisterRoutes(protected)
+	speakingHandler := NewSpeakingHandler(service.NewSpeakingService(repo, missions))
+	speakingHandler.RegisterRoutes(protected)
 
 	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,
 	// RequireModule tự suy module cần thiết từ path (xem lý do ở
@@ -84,6 +86,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	blogHandler.RegisterAdminRoutes(admin)
 	reminderHandler.RegisterAdminRoutes(admin)
 	notificationHandler.RegisterAdminRoutes(admin)
+	speakingHandler.RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client
