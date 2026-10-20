@@ -16,7 +16,7 @@ import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeech
 import { NextReviewBadge } from '@/features/srs-review/components/NextReviewBadge'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
-import { resolveMediaUrl } from '@/lib/api'
+import { inlineError, resolveMediaUrl } from '@/lib/api'
 import type { DeckWord } from '@/types/api'
 
 /** Chi tiết 1 danh sách ôn tập: sửa/xoá list, học lại, chuyển/sao chép/bỏ từ */
@@ -192,7 +192,7 @@ function MoveCopyPanel({
       if (move) await deckService.removeWord(deckId, word.vocabulary_id, { notify: false })
       onDone(move ? t.decks.moved(target.name) : t.decks.copied(target.name), move)
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusy(false)
     }

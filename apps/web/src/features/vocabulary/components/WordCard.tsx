@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { AddToDeckDialog } from '@/features/deck/components/AddToDeckDialog'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useTranslation } from '@/hooks/useTranslation'
-import { resolveMediaUrl } from '@/lib/api'
+import { inlineError, resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { DeckSummary, VocabularyCard } from '@/types/api'
 import { vocabularyService } from '../vocabulary.service'
@@ -42,7 +42,7 @@ export function WordCard({
     try {
       onChange(await call())
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setPending(null)
     }

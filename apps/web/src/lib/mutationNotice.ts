@@ -9,6 +9,7 @@ export interface MutationNotice {
   kind: MutationKind
   ok: boolean
   error?: string // nội dung lỗi từ server khi ok = false
+  source?: { shownInline: boolean } // ApiError gốc — đã hiện trong form thì không toast lại
 }
 
 /** Mức thông báo: 'all' = thành công & thất bại; 'error' = chỉ khi thất bại; 'none' = không bao giờ */

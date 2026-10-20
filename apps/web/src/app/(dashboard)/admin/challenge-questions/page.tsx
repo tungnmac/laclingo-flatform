@@ -14,6 +14,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ChallengeQuestionAdmin, ChallengeQuestionRequest } from '@/types/api'
@@ -95,7 +96,7 @@ export default function AdminChallengeQuestionsPage() {
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

@@ -11,6 +11,7 @@ import { blogService } from '@/features/blog/blog.service'
 import { CommentThread } from '@/features/blog/components/CommentThread'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
 import type { BlogCommentNode, BlogPostDetail } from '@/types/api'
@@ -50,7 +51,7 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
       const patch = await call()
       setPost((p) => (p ? { ...p, ...patch } : p))
     } catch (err) {
-      setCounterError((err as Error).message)
+      setCounterError(inlineError(err))
     } finally {
       setPending(null)
     }

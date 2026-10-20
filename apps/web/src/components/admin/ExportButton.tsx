@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 
 /** Xuất TOÀN BỘ dữ liệu khớp filter hiện tại (không chỉ trang đang xem) ra 1 file JSON. */
 export function ExportButton<T>({ fetchAll, filename }: { fetchAll: () => Promise<T[]>; filename: string }) {
@@ -23,7 +24,7 @@ export function ExportButton<T>({ fetchAll, filename }: { fetchAll: () => Promis
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusy(false)
     }

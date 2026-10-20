@@ -5,6 +5,7 @@ import { IconPickerInput } from '@/components/admin/IconPickerInput'
 import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { DeckRequest } from '@/types/api'
 import { DECK_COLORS } from '../deck.service'
@@ -44,7 +45,7 @@ export function DeckForm({
         setColor(DECK_COLORS[0])
       }
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setSaving(false)
     }

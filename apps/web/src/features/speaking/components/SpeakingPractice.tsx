@@ -8,6 +8,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { speechLang } from '@/features/course/components/LanguageCard'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { SpeakingAttemptResult, SpeakingItem } from '@/types/api'
 import { speakingService } from '../speaking.service'
@@ -57,7 +58,7 @@ export function SpeakingPractice({
       setResult(res)
       onScored(res.best_score)
     } catch (err) {
-      setSubmitError((err as Error).message)
+      setSubmitError(inlineError(err))
     } finally {
       setSubmitting(false)
     }

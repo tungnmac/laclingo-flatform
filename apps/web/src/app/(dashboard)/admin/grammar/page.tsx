@@ -17,6 +17,7 @@ import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadg
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
@@ -135,7 +136,7 @@ function TopicsSection({ languageId, onChanged }: { languageId: string; onChange
       setEditing(null)
       reloadAll()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }
@@ -311,7 +312,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

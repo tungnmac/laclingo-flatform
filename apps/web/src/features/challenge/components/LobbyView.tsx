@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { ChallengeRoomDetail } from '@/types/api'
 import { challengeService } from '../challenge.service'
@@ -55,7 +56,7 @@ export function LobbyView({
       setInviteSuccess(t.challenges.inviteSuccess(username))
       e.currentTarget.reset()
     } catch (err) {
-      setInviteError((err as Error).message)
+      setInviteError(inlineError(err))
     } finally {
       setInviting(false)
     }

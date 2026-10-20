@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/features/auth/auth.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { useSession } from '@/store/session'
 import type { AuthResponse } from '@/types/api'
 
@@ -42,7 +43,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       setSession(auth)
       router.push('/learn')
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
       setSubmitting(false)
     }
   }

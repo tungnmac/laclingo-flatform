@@ -39,10 +39,10 @@ func TestExtractMentionsIgnoresUrlsCodeAndPartialUnicode(t *testing.T) {
 		in   string
 		want []string
 	}{
-		{"xem https://youtube.com/@channel nhé", nil},             // @ trong URL
+		{"xem https://youtube.com/@channel nhé", nil},          // @ trong URL
 		{"dùng `@Override` và ```\n@app.route\n``` thôi", nil}, // trong code
-		{"chào @nguyễn", nil},                                    // username không có dấu → @nguyễn không phải tag
-		{"@lan: xem này", []string{"lan"}},                       // dấu : sau tên vẫn là tag
+		{"chào @nguyễn", nil},                                  // username không có dấu → @nguyễn không phải tag
+		{"@lan: xem này", []string{"lan"}},                     // dấu : sau tên vẫn là tag
 	}
 	for _, c := range cases {
 		if got := extractMentions(c.in); !reflect.DeepEqual(got, c.want) {

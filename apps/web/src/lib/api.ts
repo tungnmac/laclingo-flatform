@@ -7,6 +7,9 @@ import type { ErrorResponse } from '@/types/api'
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1'
 
 export class ApiError extends Error {
+  /** Màn hình đã hiện lỗi này ngay trong form (xem inlineError) → thông báo chung không hiện toast trùng */
+  shownInline = false
+
   constructor(
     message: string,
     public status: number,
@@ -14,6 +17,12 @@ export class ApiError extends Error {
     super(message)
     this.name = 'ApiError'
   }
+}
+
+/** Lấy câu lỗi để hiện NGAY TRONG form và đánh dấu đã hiện — toast lỗi chung sẽ bỏ qua lỗi này */
+export function inlineError(err: unknown): string {
+  if (err instanceof ApiError) err.shownInline = true
+  return err instanceof Error ? err.message : String(err)
 }
 
 /**
@@ -37,7 +46,8 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   if (requestInit.body && !(requestInit.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const fail = (err: ApiError) => {
-    emitMutationNotice(mutationNotice(requestInit.method, path, false, err.message, notify))
+    const notice = mutationNotice(requestInit.method, path, false, err.message, notify)
+    emitMutationNotice(notice && { ...notice, source: err })
     return err
   }
 

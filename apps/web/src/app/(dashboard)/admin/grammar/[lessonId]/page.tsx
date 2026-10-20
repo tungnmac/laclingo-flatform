@@ -15,6 +15,7 @@ import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { GrammarExercise, GrammarExerciseRequest } from '@/types/api'
@@ -101,7 +102,7 @@ export default function AdminGrammarExercisesPage({ params }: { params: { lesson
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

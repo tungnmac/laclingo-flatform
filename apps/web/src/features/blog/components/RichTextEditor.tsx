@@ -8,6 +8,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Youtube from '@tiptap/extension-youtube'
 import { blogService } from '@/features/blog/blog.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /** Rich text editor đầy đủ công cụ (Tiptap) — ảnh/video YouTube chèn NGAY
@@ -52,7 +53,7 @@ export function RichTextEditor({
       const res = await blogService.uploadImage(file)
       editor.chain().focus().setImage({ src: res.url }).run()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setUploading(false)
       if (fileInput.current) fileInput.current.value = ''

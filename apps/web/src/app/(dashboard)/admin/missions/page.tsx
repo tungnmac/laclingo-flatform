@@ -10,6 +10,7 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { missionService } from '@/features/mission/mission.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { Mission, MissionActionType, MissionPeriod, MissionRequest } from '@/types/api'
 
@@ -95,7 +96,7 @@ export default function AdminMissionsPage() {
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

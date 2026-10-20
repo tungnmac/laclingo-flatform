@@ -10,6 +10,7 @@ import { BlogPostForm } from '@/features/blog/components/BlogPostForm'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import type { BlogPostRequest } from '@/types/api'
 
 export default function NewBlogPostPage() {
@@ -26,7 +27,7 @@ export default function NewBlogPostPage() {
       const post = await blogService.create(req)
       router.push(`/blog/${post.id}`)
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setSubmitting(false)
     }

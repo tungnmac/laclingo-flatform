@@ -7,6 +7,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { blogService } from '@/features/blog/blog.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn, formatDate } from '@/lib/utils'
 import type { BlogCommentNode } from '@/types/api'
 
@@ -79,8 +80,10 @@ function RootCommentGroup({
 }) {
   const t = useTranslation()
   const [showReplies, setShowReplies] = useState(true)
-  // Danh sách tên để dò mention trong CẢ thread này (gốc + mọi reply).
-  const mentionCandidates = [...new Set([authorName(root), ...root.replies.map(authorName)])]
+  // Danh sách tên để dò mention trong CẢ thread này (gốc + mọi reply) — cả username (reply mới mồi @username)
+  // lẫn tên hiển thị (comment cũ mồi @Tên hiển thị).
+  const people = [root, ...root.replies]
+  const mentionCandidates = [...new Set([...people.map((c) => c.author_username), ...people.map(authorName)])]
 
   return (
     <>
@@ -139,12 +142,12 @@ function CommentItem({
   const [pendingVote, setPendingVote] = useState<VoteAction | null>(null)
   const [voteError, setVoteError] = useState<string | null>(null)
 
-  // Mở ô reply lần đầu thì mồi sẵn "@Tên hiển thị " — trả lời root hay 1
-  // reply khác đều tag @ người đó (backend tự trải phẳng về đúng root khi lưu).
+  // Mở ô reply lần đầu thì mồi sẵn "@username " — trả lời root hay 1 reply khác đều tag @ người đó (backend
+  // tự trải phẳng về đúng root khi lưu). Dùng username (không phải tên hiển thị) để khớp @nhắc tên ở backend.
   const onClickReply = () => {
     setReplying((v) => {
       const next = !v
-      if (next && !replyText) setReplyText(`@${authorName(comment)} `)
+      if (next && !replyText) setReplyText(`@${comment.author_username} `)
       return next
     })
   }
@@ -159,7 +162,7 @@ function CommentItem({
       setReplying(false)
       onChanged()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setSaving(false)
     }
@@ -174,7 +177,7 @@ function CommentItem({
       setEditing(false)
       onChanged()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setSaving(false)
     }
@@ -194,7 +197,7 @@ function CommentItem({
       await blogService.setCommentLike(comment.id, !comment.liked)
       onChanged()
     } catch (err) {
-      setVoteError((err as Error).message)
+      setVoteError(inlineError(err))
     } finally {
       setPendingVote(null)
     }
@@ -208,7 +211,7 @@ function CommentItem({
       await blogService.setCommentDislike(comment.id, !comment.disliked)
       onChanged()
     } catch (err) {
-      setVoteError((err as Error).message)
+      setVoteError(inlineError(err))
     } finally {
       setPendingVote(null)
     }

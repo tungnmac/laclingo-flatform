@@ -15,6 +15,7 @@ import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import type { ListeningQuestionAdmin, ListeningQuestionRequest } from '@/types/api'
 
@@ -92,7 +93,7 @@ export default function AdminListeningQuestionsPage({ params }: { params: { pass
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }
