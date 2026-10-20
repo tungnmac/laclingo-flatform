@@ -97,6 +97,25 @@ func (q *Queries) CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (i
 	return column_1, err
 }
 
+const countRecentMentionNotices = `-- name: CountRecentMentionNotices :one
+SELECT COUNT(*) FROM blog_mention_notices
+WHERE mentioner_id = $1 AND notified
+  AND created_at >= NOW() - make_interval(secs => $2::int)
+`
+
+type CountRecentMentionNoticesParams struct {
+	MentionerID   pgtype.UUID `json:"mentioner_id"`
+	WindowSeconds int32       `json:"window_seconds"`
+}
+
+// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
+func (q *Queries) CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRecentMentionNotices, arg.MentionerID, arg.WindowSeconds)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBlogComment = `-- name: CreateBlogComment :one
 
 INSERT INTO blog_comments (post_id, author_id, parent_comment_id, content)
@@ -385,6 +404,27 @@ func (q *Queries) GetBlogPostDetailByID(ctx context.Context, arg GetBlogPostDeta
 		&i.Disliked,
 	)
 	return i, err
+}
+
+const hasRecentMentionNotice = `-- name: HasRecentMentionNotice :one
+SELECT EXISTS (
+    SELECT 1 FROM blog_mention_notices
+    WHERE mentioner_id = $1 AND user_id = $2 AND notified
+      AND created_at >= NOW() - make_interval(secs => $3::int)
+)
+`
+
+type HasRecentMentionNoticeParams struct {
+	MentionerID   pgtype.UUID `json:"mentioner_id"`
+	UserID        pgtype.UUID `json:"user_id"`
+	WindowSeconds int32       `json:"window_seconds"`
+}
+
+func (q *Queries) HasRecentMentionNotice(ctx context.Context, arg HasRecentMentionNoticeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasRecentMentionNotice, arg.MentionerID, arg.UserID, arg.WindowSeconds)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const hideBlogComment = `-- name: HideBlogComment :exec
@@ -771,6 +811,34 @@ type MarkCommentLikeNoticedParams struct {
 // 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
 func (q *Queries) MarkCommentLikeNoticed(ctx context.Context, arg MarkCommentLikeNoticedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markCommentLikeNoticed, arg.UserID, arg.CommentID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markMentionNoticed = `-- name: MarkMentionNoticed :execrows
+INSERT INTO blog_mention_notices (comment_id, user_id, mentioner_id, notified)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT DO NOTHING
+`
+
+type MarkMentionNoticedParams struct {
+	CommentID   pgtype.UUID `json:"comment_id"`
+	UserID      pgtype.UUID `json:"user_id"`
+	MentionerID pgtype.UUID `json:"mentioner_id"`
+	Notified    bool        `json:"notified"`
+}
+
+// 1 = lần đầu xử lý người này trong comment này; 0 = đã xử lý (vd lưu lại comment sau khi sửa).
+// notified = false: chỉ ghi nhận (người đã nhận thông báo khác / bị chặn spam), không gửi thông báo.
+func (q *Queries) MarkMentionNoticed(ctx context.Context, arg MarkMentionNoticedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markMentionNoticed,
+		arg.CommentID,
+		arg.UserID,
+		arg.MentionerID,
+		arg.Notified,
+	)
 	if err != nil {
 		return 0, err
 	}

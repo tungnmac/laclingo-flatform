@@ -51,6 +51,8 @@ type Querier interface {
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
+	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
+	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
 	CountUnreadNotifications(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
@@ -164,6 +166,7 @@ type Querier interface {
 	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
 	// chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
 	GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabularyTopicOwnStatsParams) (GetVocabularyTopicOwnStatsRow, error)
+	HasRecentMentionNotice(ctx context.Context, arg HasRecentMentionNoticeParams) (bool, error)
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogPost(ctx context.Context, id pgtype.UUID) error
 	IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID) error
@@ -303,6 +306,9 @@ type Querier interface {
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
 	// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
 	MarkCommentLikeNoticed(ctx context.Context, arg MarkCommentLikeNoticedParams) (int64, error)
+	// 1 = lần đầu xử lý người này trong comment này; 0 = đã xử lý (vd lưu lại comment sau khi sửa).
+	// notified = false: chỉ ghi nhận (người đã nhận thông báo khác / bị chặn spam), không gửi thông báo.
+	MarkMentionNoticed(ctx context.Context, arg MarkMentionNoticedParams) (int64, error)
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)

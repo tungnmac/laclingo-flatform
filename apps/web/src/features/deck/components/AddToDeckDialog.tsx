@@ -7,6 +7,7 @@ import { Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { DeckSummary } from '@/types/api'
 import { deckService } from '../deck.service'
@@ -56,7 +57,7 @@ export function AddToDeckDialog({
     try {
       await action()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusyId(null)
     }

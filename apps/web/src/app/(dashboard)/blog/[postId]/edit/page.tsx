@@ -12,6 +12,7 @@ import { BlogPostForm } from '@/features/blog/components/BlogPostForm'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import type { BlogPostRequest } from '@/types/api'
 
 export default function EditBlogPostPage({ params }: { params: { postId: string } }) {
@@ -29,7 +30,7 @@ export default function EditBlogPostPage({ params }: { params: { postId: string 
       await blogService.update(params.postId, req)
       router.push(`/blog/${params.postId}`)
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSubmitting(false)
     }

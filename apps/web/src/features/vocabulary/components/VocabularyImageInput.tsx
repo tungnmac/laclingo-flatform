@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useTranslation } from '@/hooks/useTranslation'
-import { resolveMediaUrl } from '@/lib/api'
+import { inlineError, resolveMediaUrl } from '@/lib/api'
 import { vocabularyService } from '../vocabulary.service'
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // khớp giới hạn backend
@@ -58,7 +58,7 @@ export function VocabularyImageInput({
       const res = await vocabularyService.uploadImage(file)
       if (mounted.current) setUrl(res.url)
     } catch (err) {
-      if (mounted.current) setError((err as Error).message)
+      if (mounted.current) setError(inlineError(err))
     } finally {
       setBusy(false)
     }

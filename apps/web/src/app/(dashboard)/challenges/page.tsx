@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { challengeService } from '@/features/challenge/challenge.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 
 const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600'
@@ -34,7 +35,7 @@ export default function ChallengesPage() {
       })
       router.push(`/challenges/${room.id}`)
     } catch (err) {
-      setCreateError((err as Error).message)
+      setCreateError(inlineError(err))
       setCreating(false)
     }
   }
@@ -49,7 +50,7 @@ export default function ChallengesPage() {
       const participant = await challengeService.joinRoom(code)
       router.push(`/challenges/${participant.room_id}`)
     } catch (err) {
-      setJoinError((err as Error).message)
+      setJoinError(inlineError(err))
       setJoining(false)
     }
   }

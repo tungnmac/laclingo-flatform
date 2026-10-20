@@ -46,6 +46,9 @@ type BlogRepository interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 	MarkCommentLikeNoticed(ctx context.Context, arg db.MarkCommentLikeNoticedParams) (int64, error)
+	MarkMentionNoticed(ctx context.Context, arg db.MarkMentionNoticedParams) (int64, error)
+	CountRecentMentionNotices(ctx context.Context, arg db.CountRecentMentionNoticesParams) (int64, error)
+	HasRecentMentionNotice(ctx context.Context, arg db.HasRecentMentionNoticeParams) (bool, error)
 	UpdateBlogComment(ctx context.Context, arg db.UpdateBlogCommentParams) (db.BlogComment, error)
 	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
@@ -640,7 +643,7 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 	}
 	for _, r := range rows {
 		if uuid.UUID(r.ID.Bytes) == uuid.UUID(c.ID.Bytes) {
-			s.notifyNewComment(ctx, post, authorID, parentAuthorID, displayNameOf(r.FullName, r.Username), req.Content)
+			s.notifyNewComment(ctx, post, uuid.UUID(c.ID.Bytes), authorID, parentAuthorID, displayNameOf(r.FullName, r.Username), req.Content)
 			return BlogCommentNode{
 				ID: uuid.UUID(r.ID.Bytes), AuthorID: uuid.UUID(r.AuthorID.Bytes),
 				AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
@@ -656,7 +659,7 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 // notifyNewComment báo tác giả bài viết có bình luận mới, và tác giả comment
 // được trả lời có reply mới — không tự báo cho chính người vừa bình luận, mỗi
 // người nhận tối đa 1 thông báo cho 1 bình luận.
-func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, commenterID, parentAuthorID uuid.UUID, commenterName, content string) {
+func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, commentID, commenterID, parentAuthorID uuid.UUID, commenterName, content string) {
 	postAuthorID := uuid.UUID(post.AuthorID.Bytes)
 	url := "/blog/" + uuid.UUID(post.ID.Bytes).String()
 	preview := truncateRunes(strings.TrimSpace(content), 120)
@@ -674,15 +677,35 @@ func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, co
 	}
 	// Người được @nhắc tên — trừ người bình luận và người đã nhận thông báo ở trên (mỗi người tối đa 1)
 	notified := map[uuid.UUID]bool{commenterID: true, parentAuthorID: true, postAuthorID: true}
-	s.notifyMentions(ctx, content, notified, NotificationInput{
-		Type: NotificationBlogMention, Icon: "📣", URL: url,
-		Title: commenterName + " đã nhắc đến bạn trong một bình luận", Body: preview,
-	})
+	s.notifyMentions(ctx, commentID, commenterID, content, notified, mentionNotice(commenterName, url, preview))
+	s.markMentionHandled(ctx, commentID, commenterID, postAuthorID, parentAuthorID)
 }
 
-// notifyMentions gửi n cho từng user được @username trong content (bỏ qua username không tồn tại và user trong skip)
-func (s *BlogService) notifyMentions(ctx context.Context, content string, skip map[uuid.UUID]bool, n NotificationInput) {
-	for _, username := range extractMentions(content) {
+func mentionNotice(commenterName, url, preview string) NotificationInput {
+	return NotificationInput{
+		Type: NotificationBlogMention, Icon: "📣", URL: url,
+		Title: commenterName + " đã nhắc đến bạn trong một bình luận", Body: preview,
+	}
+}
+
+// notifyMentions gửi n cho từng user được @username trong content của comment commentID.
+// Mỗi (comment, người được tag) chỉ xử lý 1 lần (blog_mention_notices) → sửa comment chỉ báo người MỚI được tag.
+// Không gửi (nhưng vẫn ghi nhận, notified = false) cho: user trong skip (đã nhận thông báo khác), người vừa được
+// chính mentioner tag trong mentionPairWindow, hoặc khi mentioner đã gửi đủ maxMentionNoticesPerHour / giờ.
+// Bỏ qua hẳn: username không tồn tại, tài khoản bị khoá.
+func (s *BlogService) notifyMentions(ctx context.Context, commentID, mentionerID uuid.UUID, content string, skip map[uuid.UUID]bool, n NotificationInput) {
+	mentions := extractMentions(content)
+	if len(mentions) == 0 {
+		return
+	}
+	sent, err := s.repo.CountRecentMentionNotices(ctx, db.CountRecentMentionNoticesParams{
+		MentionerID: toPgUUID(mentionerID), WindowSeconds: int32(time.Hour / time.Second),
+	})
+	if err != nil {
+		log.Printf("❌ blog: đếm thông báo tag của %s: %v", mentionerID, err)
+		return
+	}
+	for _, username := range mentions {
 		u, err := s.repo.GetUserByUsername(ctx, username)
 		if err != nil {
 			if !errors.Is(err, pgx.ErrNoRows) {
@@ -690,12 +713,47 @@ func (s *BlogService) notifyMentions(ctx context.Context, content string, skip m
 			}
 			continue
 		}
-		id := uuid.UUID(u.ID.Bytes)
-		if skip[id] || !u.IsActive { // tài khoản bị khoá không nhận thông báo
+		if !u.IsActive { // tài khoản bị khoá không nhận thông báo
 			continue
 		}
-		skip[id] = true
-		s.notifier.Notify(ctx, id, n)
+		id := uuid.UUID(u.ID.Bytes)
+		notify := !skip[id] && sent < maxMentionNoticesPerHour
+		if notify {
+			recent, err := s.repo.HasRecentMentionNotice(ctx, db.HasRecentMentionNoticeParams{
+				MentionerID: toPgUUID(mentionerID), UserID: u.ID, WindowSeconds: int32(mentionPairWindow / time.Second),
+			})
+			if err != nil {
+				log.Printf("❌ blog: kiểm tra tag gần đây %s→%s: %v", mentionerID, id, err)
+				continue
+			}
+			notify = !recent
+		}
+		added, err := s.repo.MarkMentionNoticed(ctx, db.MarkMentionNoticedParams{
+			CommentID: toPgUUID(commentID), UserID: u.ID, MentionerID: toPgUUID(mentionerID), Notified: notify,
+		})
+		if err != nil {
+			log.Printf("❌ blog: ghi nhận tag %s trong comment %s: %v", id, commentID, err)
+			continue
+		}
+		if added == 1 && notify {
+			s.notifier.Notify(ctx, id, n)
+			sent++
+		}
+	}
+}
+
+// markMentionHandled ghi nhận các user đã nhận thông báo khác của comment (chủ bài, người được trả lời) —
+// sửa comment để tag họ sau này không báo thêm lần nữa
+func (s *BlogService) markMentionHandled(ctx context.Context, commentID, mentionerID uuid.UUID, users ...uuid.UUID) {
+	for _, id := range users {
+		if id == uuid.Nil || id == mentionerID {
+			continue
+		}
+		if _, err := s.repo.MarkMentionNoticed(ctx, db.MarkMentionNoticedParams{
+			CommentID: toPgUUID(commentID), UserID: toPgUUID(id), MentionerID: toPgUUID(mentionerID), Notified: false,
+		}); err != nil {
+			log.Printf("❌ blog: ghi nhận đã báo %s cho comment %s: %v", id, commentID, err)
+		}
 	}
 }
 
@@ -754,11 +812,40 @@ func (s *BlogService) UpdateComment(ctx context.Context, authorID, commentID uui
 	if content == "" {
 		return ErrInvalidInput
 	}
-	if _, err := s.requireCommentAuthor(ctx, commentID, authorID); err != nil {
+	comment, err := s.requireCommentAuthor(ctx, commentID, authorID)
+	if err != nil {
 		return err
 	}
-	_, err := s.repo.UpdateBlogComment(ctx, db.UpdateBlogCommentParams{ID: toPgUUID(commentID), Content: content})
-	return err
+	if _, err := s.repo.UpdateBlogComment(ctx, db.UpdateBlogCommentParams{ID: toPgUUID(commentID), Content: content}); err != nil {
+		return err
+	}
+	s.notifyEditedMentions(ctx, comment, authorID, content)
+	return nil
+}
+
+// notifyEditedMentions — sửa comment có thêm @tag: báo người MỚI được tag. Người đã xử lý trong comment này
+// (đã được báo, bị chặn spam, hoặc là chủ bài / người được trả lời — ghi lúc đăng) tự bị bỏ qua.
+func (s *BlogService) notifyEditedMentions(ctx context.Context, comment db.BlogComment, authorID uuid.UUID, content string) {
+	if len(extractMentions(content)) == 0 {
+		return
+	}
+	post, err := s.repo.GetBlogPostByID(ctx, comment.PostID)
+	if err != nil {
+		log.Printf("❌ blog: đọc bài viết để báo tag khi sửa comment %s: %v", uuid.UUID(comment.ID.Bytes), err)
+		return
+	}
+	if post.IsHidden || comment.IsHidden { // link không xem được → không báo
+		return
+	}
+	author, err := s.repo.GetUserByID(ctx, toPgUUID(authorID))
+	if err != nil {
+		log.Printf("❌ blog: đọc user %s để báo tag: %v", authorID, err)
+		return
+	}
+	url := "/blog/" + uuid.UUID(post.ID.Bytes).String()
+	preview := truncateRunes(strings.TrimSpace(content), 120)
+	skip := map[uuid.UUID]bool{authorID: true, uuid.UUID(post.AuthorID.Bytes): true}
+	s.notifyMentions(ctx, uuid.UUID(comment.ID.Bytes), authorID, content, skip, mentionNotice(displayNameOf(author.FullName, author.Username), url, preview))
 }
 
 // DeleteComment xoá 1 comment của chính tác giả — cascade xoá luôn reply con.

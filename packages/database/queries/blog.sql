@@ -217,3 +217,23 @@ DELETE FROM blog_post_dislikes WHERE user_id = $1 AND post_id = $2;
 
 -- name: CountBlogPostDislikes :one
 SELECT COUNT(*)::int FROM blog_post_dislikes WHERE post_id = $1;
+
+-- name: MarkMentionNoticed :execrows
+-- 1 = lần đầu xử lý người này trong comment này; 0 = đã xử lý (vd lưu lại comment sau khi sửa).
+-- notified = false: chỉ ghi nhận (người đã nhận thông báo khác / bị chặn spam), không gửi thông báo.
+INSERT INTO blog_mention_notices (comment_id, user_id, mentioner_id, notified)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT DO NOTHING;
+
+-- name: CountRecentMentionNotices :one
+-- Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
+SELECT COUNT(*) FROM blog_mention_notices
+WHERE mentioner_id = sqlc.arg('mentioner_id') AND notified
+  AND created_at >= NOW() - make_interval(secs => sqlc.arg('window_seconds')::int);
+
+-- name: HasRecentMentionNotice :one
+SELECT EXISTS (
+    SELECT 1 FROM blog_mention_notices
+    WHERE mentioner_id = sqlc.arg('mentioner_id') AND user_id = sqlc.arg('user_id') AND notified
+      AND created_at >= NOW() - make_interval(secs => sqlc.arg('window_seconds')::int)
+);

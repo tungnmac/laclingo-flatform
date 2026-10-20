@@ -13,6 +13,7 @@ import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadg
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { ClassAdmin, ClassRequest } from '@/types/api'
 
@@ -81,7 +82,7 @@ export default function AdminClassesPage() {
       }
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

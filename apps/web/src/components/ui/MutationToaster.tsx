@@ -15,10 +15,11 @@ export function MutationToaster() {
     const onMutation = (e: Event) => {
       const n = (e as CustomEvent<MutationNotice>).detail
       // apiFetch phát sự kiện TRƯỚC khi trả kết quả cho nơi gọi → chờ 1 nhịp: nếu màn hình đã tự
-      // hiện toast riêng (vd "Đã chuyển từ sang list X" / lỗi cụ thể) thì bỏ thông báo chung, tránh trùng
+      // hiện toast riêng (vd "Đã chuyển từ sang list X" / lỗi cụ thể) hoặc đã hiện lỗi ngay trong form (inlineError)
+      // thì bỏ thông báo chung, tránh báo 2 lần
       const before = seq.current
       setTimeout(() => {
-        if (seq.current !== before) return
+        if (seq.current !== before || n.source?.shownInline) return
         if (n.ok) toast(t.common.mutationSuccess[n.kind])
         else toast(t.common.mutationFailed[n.kind](n.error ?? ''), 'error')
       }, 0)

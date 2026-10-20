@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -27,7 +30,38 @@ type fakeBlogUsers struct {
 	BlogRepository
 	users    map[string]uuid.UUID // username → id
 	inactive map[string]bool
-	noticed  map[[2]uuid.UUID]bool // (liker, comment) đã báo ♥
+	noticed  map[[2]uuid.UUID]bool  // (liker, comment) đã báo ♥
+	mentions []db.BlogMentionNotice // các lần đã báo tag (comment, người được tag, người tag)
+	now      time.Time
+}
+
+func (f *fakeBlogUsers) MarkMentionNoticed(_ context.Context, arg db.MarkMentionNoticedParams) (int64, error) {
+	for _, m := range f.mentions {
+		if m.CommentID == arg.CommentID && m.UserID == arg.UserID {
+			return 0, nil
+		}
+	}
+	f.mentions = append(f.mentions, db.BlogMentionNotice{CommentID: arg.CommentID, UserID: arg.UserID, MentionerID: arg.MentionerID, Notified: arg.Notified, CreatedAt: pgtype.Timestamptz{Time: f.now, Valid: true}})
+	return 1, nil
+}
+
+func (f *fakeBlogUsers) CountRecentMentionNotices(_ context.Context, arg db.CountRecentMentionNoticesParams) (int64, error) {
+	var n int64
+	for _, m := range f.mentions {
+		if m.MentionerID == arg.MentionerID && m.Notified && !m.CreatedAt.Time.Before(f.now.Add(-time.Duration(arg.WindowSeconds)*time.Second)) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (f *fakeBlogUsers) HasRecentMentionNotice(_ context.Context, arg db.HasRecentMentionNoticeParams) (bool, error) {
+	for _, m := range f.mentions {
+		if m.MentionerID == arg.MentionerID && m.UserID == arg.UserID && m.Notified && !m.CreatedAt.Time.Before(f.now.Add(-time.Duration(arg.WindowSeconds)*time.Second)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *fakeBlogUsers) MarkCommentLikeNoticed(_ context.Context, arg db.MarkCommentLikeNoticedParams) (int64, error) {
@@ -62,10 +96,10 @@ func (f *fakeBlogUsers) GetUserByID(_ context.Context, id pgtype.UUID) (db.User,
 func TestNotifyMentionsSkipsUnknownSelfAndAlreadyNotified(t *testing.T) {
 	lan, hoa, me := uuid.New(), uuid.New(), uuid.New()
 	notifier := &blogFakeNotifier{}
-	svc := NewBlogService(&fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "hoa": hoa, "me": me}}, nil, notifier)
+	svc := NewBlogService(&fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "hoa": hoa, "me": me}, now: time.Now()}, nil, notifier)
 
 	skip := map[uuid.UUID]bool{me: true, hoa: true} // người bình luận + người đã nhận thông báo trả lời
-	svc.notifyMentions(context.Background(), "@lan @hoa @me @ghost @lan", skip, NotificationInput{Type: NotificationBlogMention})
+	svc.notifyMentions(context.Background(), uuid.New(), me, "@lan @hoa @me @ghost @lan", skip, NotificationInput{Type: NotificationBlogMention})
 
 	if len(notifier.sent) != 1 || notifier.sent[0].to != lan || notifier.sent[0].n.Type != NotificationBlogMention {
 		t.Fatalf("sent = %+v, want exactly one mention to lan", notifier.sent)
@@ -109,8 +143,87 @@ func TestNotifyMentionsSkipsLockedAccounts(t *testing.T) {
 	locked := uuid.New()
 	notifier := &blogFakeNotifier{}
 	svc := NewBlogService(&fakeBlogUsers{users: map[string]uuid.UUID{"locked": locked}, inactive: map[string]bool{"locked": true}}, nil, notifier)
-	svc.notifyMentions(context.Background(), "@locked", map[uuid.UUID]bool{}, NotificationInput{Type: NotificationBlogMention})
+	svc.notifyMentions(context.Background(), uuid.New(), uuid.New(), "@locked", map[uuid.UUID]bool{}, NotificationInput{Type: NotificationBlogMention})
 	if len(notifier.sent) != 0 {
 		t.Fatalf("locked account notified: %+v", notifier.sent)
+	}
+}
+
+func TestNotifyMentionsOncePerCommentAndOnlyNewOnEdit(t *testing.T) {
+	lan, hoa, me := uuid.New(), uuid.New(), uuid.New()
+	notifier := &blogFakeNotifier{}
+	repo := &fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "hoa": hoa, "me": me}, now: time.Now()}
+	svc := NewBlogService(repo, nil, notifier)
+	comment := uuid.New()
+
+	svc.notifyMentions(context.Background(), comment, me, "@lan", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	// Sửa comment: thêm @hoa, vẫn giữ @lan → chỉ hoa được báo thêm
+	svc.notifyMentions(context.Background(), comment, me, "@lan @hoa", map[uuid.UUID]bool{me: true}, NotificationInput{})
+
+	if len(notifier.sent) != 2 || notifier.sent[0].to != lan || notifier.sent[1].to != hoa {
+		t.Fatalf("sent = %+v, want lan then hoa once each", notifier.sent)
+	}
+}
+
+func TestNotifyMentionsThrottlesSamePairAcrossComments(t *testing.T) {
+	lan, me := uuid.New(), uuid.New()
+	notifier := &blogFakeNotifier{}
+	repo := &fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "me": me}, now: time.Now()}
+	svc := NewBlogService(repo, nil, notifier)
+
+	for i := 0; i < 3; i++ { // 3 comment liên tiếp cùng tag @lan
+		svc.notifyMentions(context.Background(), uuid.New(), me, "@lan", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	}
+	if len(notifier.sent) != 1 {
+		t.Fatalf("sent %d, want 1 within the throttle window", len(notifier.sent))
+	}
+}
+
+func TestNotifyMentionsCapsPerMentionerPerHour(t *testing.T) {
+	me := uuid.New()
+	users := map[string]uuid.UUID{"me": me}
+	content := ""
+	for i := 0; i < maxMentionNoticesPerHour+5; i++ {
+		name := fmt.Sprintf("user%03d", i)
+		users[name] = uuid.New()
+		content += " @" + name
+	}
+	notifier := &blogFakeNotifier{}
+	repo := &fakeBlogUsers{users: users, now: time.Now()}
+	svc := NewBlogService(repo, nil, notifier)
+
+	// Nhiều comment, mỗi comment tối đa 10 tag — tổng không vượt giới hạn mỗi giờ
+	names := strings.Fields(content)
+	for i := 0; i < len(names); i += maxMentionsPerComment {
+		end := min(i+maxMentionsPerComment, len(names))
+		svc.notifyMentions(context.Background(), uuid.New(), me, strings.Join(names[i:end], " "), map[uuid.UUID]bool{me: true}, NotificationInput{})
+	}
+	if len(notifier.sent) != maxMentionNoticesPerHour {
+		t.Fatalf("sent %d, want cap %d", len(notifier.sent), maxMentionNoticesPerHour)
+	}
+}
+
+func TestEditDoesNotNotifyUsersSkippedOrThrottledEarlier(t *testing.T) {
+	bob, me := uuid.New(), uuid.New()
+	notifier := &blogFakeNotifier{}
+	repo := &fakeBlogUsers{users: map[string]uuid.UUID{"bob": bob, "me": me}, now: time.Now()}
+	svc := NewBlogService(repo, nil, notifier)
+
+	// Comment X: bob là người được trả lời (đã nhận thông báo reply) → bỏ qua tag; sửa X sau đó cũng không báo
+	x := uuid.New()
+	svc.notifyMentions(context.Background(), x, me, "@bob", map[uuid.UUID]bool{me: true, bob: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), x, me, "@bob sửa", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	if len(notifier.sent) != 0 {
+		t.Fatalf("skipped user notified on edit: %+v", notifier.sent)
+	}
+
+	// Comment Y báo bob; comment Z tag lại bob trong 10' → chặn; 15' sau sửa Z → vẫn không báo
+	svc.notifyMentions(context.Background(), uuid.New(), me, "@bob", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	z := uuid.New()
+	svc.notifyMentions(context.Background(), z, me, "@bob", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	repo.now = repo.now.Add(15 * time.Minute)
+	svc.notifyMentions(context.Background(), z, me, "@bob sửa chính tả", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	if len(notifier.sent) != 1 {
+		t.Fatalf("sent %d, want only the first mention in Y", len(notifier.sent))
 	}
 }

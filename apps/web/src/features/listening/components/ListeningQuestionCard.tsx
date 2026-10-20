@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { listeningService } from '@/features/listening/listening.service'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { ListeningQuestion, SubmitListeningAnswerResponse } from '@/types/api'
 
@@ -23,7 +24,7 @@ export function ListeningQuestionCard({ question, index }: { question: Listening
       const res = await listeningService.submitAnswer(question.id, selected)
       setResult(res)
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setSubmitting(false)
     }

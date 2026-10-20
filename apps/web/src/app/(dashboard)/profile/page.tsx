@@ -15,6 +15,7 @@ import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { expForLevel } from '@/lib/leveling'
 import { speakText } from '@/lib/speech'
 import { displayName, formatDate } from '@/lib/utils'
@@ -49,7 +50,7 @@ export default function ProfilePage() {
       setSaveMsg({ ok: true, text: t.profile.saved })
       reload()
     } catch (err) {
-      setSaveMsg({ ok: false, text: (err as Error).message })
+      setSaveMsg({ ok: false, text: inlineError(err) })
     } finally {
       setSaving(false)
     }

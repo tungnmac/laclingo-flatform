@@ -17,6 +17,7 @@ import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
@@ -138,7 +139,7 @@ function TopicsSection({
       setEditing(null)
       onChanged()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }
@@ -271,7 +272,7 @@ function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageA
       await listeningService.uploadAudio(passage.id, file)
       onChanged()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusy(false)
     }
@@ -285,7 +286,7 @@ function AudioUploadControl({ passage, onChanged }: { passage: ListeningPassageA
       await listeningService.deleteAudio(passage.id)
       onChanged()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusy(false)
     }
@@ -401,7 +402,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

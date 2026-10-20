@@ -22,7 +22,7 @@ import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
-import { resolveMediaUrl } from '@/lib/api'
+import { inlineError, resolveMediaUrl } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
@@ -164,7 +164,7 @@ function TopicsSection({
       setEditing(null)
       reloadAll()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }
@@ -464,7 +464,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       setEditing(null)
       reload()
     } catch (err) {
-      setFormError((err as Error).message)
+      setFormError(inlineError(err))
     } finally {
       setSaving(false)
     }

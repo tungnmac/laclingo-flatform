@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
+import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { BulkImportResult } from '@/types/api'
 
@@ -85,7 +86,7 @@ export function BulkImportPanel<T>({
       setResults(res)
       onDone?.()
     } catch (err) {
-      setError((err as Error).message)
+      setError(inlineError(err))
     } finally {
       setBusy(false)
     }

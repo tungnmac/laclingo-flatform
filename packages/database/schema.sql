@@ -641,3 +641,15 @@ CREATE TABLE IF NOT EXISTS blog_comment_like_notices (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, comment_id)
 );
+
+-- Nhật ký @nhắc tên trong bình luận blog (migration 000033) — comment_id không có FK (giữ log chống spam khi xoá comment)
+CREATE TABLE IF NOT EXISTS blog_mention_notices (
+    comment_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    mentioner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notified BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (comment_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_blog_mention_notices_mentioner ON blog_mention_notices(mentioner_id, user_id, created_at) WHERE notified;
+CREATE INDEX IF NOT EXISTS idx_blog_mention_notices_user ON blog_mention_notices(user_id);
