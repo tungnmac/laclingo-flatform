@@ -76,6 +76,7 @@ func main() {
 
 	notificationService := service.NewNotificationService(repo)
 	missionService := service.NewMissionService(repo, notificationService)
+	missionService.SetDailyRecorder(service.NewDailyNoteService(repo)) // hoạt động học → tiến độ Nhật ký học
 	hub := game.NewHub(repo, missionService)
 
 	var r2 *storage.R2Client

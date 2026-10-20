@@ -88,7 +88,16 @@ type MissionService struct {
 	repo     MissionRepository
 	notifier Notifier
 	now      func() time.Time
+	daily    DailyRecorder
 }
+
+// DailyRecorder — nhận hoạt động học để cộng tiến độ Nhật ký học (DailyNoteService)
+type DailyRecorder interface {
+	RecordAction(ctx context.Context, userID uuid.UUID, kind string, amount int32) error
+}
+
+// SetDailyRecorder nối Nhật ký học vào RecordAction (gọi 1 lần lúc khởi động)
+func (s *MissionService) SetDailyRecorder(r DailyRecorder) { s.daily = r }
 
 func NewMissionService(repo MissionRepository, notifier Notifier) *MissionService {
 	return &MissionService{repo: repo, notifier: notifier, now: time.Now}
@@ -276,6 +285,11 @@ func (s *MissionService) RecordAction(ctx context.Context, userID uuid.UUID, act
 	}
 
 	s.MarkStudied(ctx, userID)
+	if s.daily != nil { // Nhật ký học lỗi chỉ log — không làm hỏng hoạt động học / nhiệm vụ
+		if err := s.daily.RecordAction(ctx, userID, actionType, amount); err != nil {
+			log.Printf("❌ daily note: RecordAction user=%s action=%s: %v", userID, actionType, err)
+		}
+	}
 
 	missions, err := s.repo.ListActiveMissionsByAction(ctx, actionType)
 	if err != nil {
