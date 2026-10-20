@@ -1,6 +1,7 @@
 import type { Locale } from '@/store/locale'
 import { adminCommonTranslations, type AdminCommonDict } from './dict/admin-common'
 import { adminUsersTranslations, type AdminUsersDict } from './dict/admin-users'
+import { dailyTranslations, type DailyDict } from './dict/daily'
 import { adminChallengesMissionsTranslations, type AdminChallengesMissionsDict } from './dict/admin-challenges-missions'
 import { adminGrammarTranslations, type AdminGrammarDict } from './dict/admin-grammar'
 import { adminListeningTranslations, type AdminListeningDict } from './dict/admin-listening'
@@ -40,6 +41,7 @@ interface Dictionary {
     listening: string
     speaking: string
     missions: string
+    daily: string
     blog: string
     admin: string
     logout: string
@@ -101,6 +103,7 @@ const base: Record<Locale, Dictionary> = {
       listening: 'Luyện nghe',
       speaking: 'Luyện nói',
       missions: 'Nhiệm vụ',
+      daily: 'Nhật ký học',
       blog: 'Blog',
       admin: 'Quản trị',
       logout: 'Đăng xuất',
@@ -160,6 +163,7 @@ const base: Record<Locale, Dictionary> = {
       listening: 'Listening',
       speaking: 'Speaking',
       missions: 'Missions',
+      daily: 'Daily note',
       blog: 'Blog',
       admin: 'Admin',
       logout: 'Log out',
@@ -219,6 +223,7 @@ const base: Record<Locale, Dictionary> = {
       listening: '听力练习',
       speaking: '口语练习',
       missions: '任务',
+      daily: '学习日记',
       blog: '博客',
       admin: '管理',
       logout: '退出登录',
@@ -278,6 +283,7 @@ const base: Record<Locale, Dictionary> = {
       listening: 'リスニング練習',
       speaking: 'スピーキング練習',
       missions: 'ミッション',
+      daily: '学習日記',
       blog: 'ブログ',
       admin: '管理',
       logout: 'ログアウト',
@@ -337,6 +343,7 @@ const base: Record<Locale, Dictionary> = {
       listening: '듣기 연습',
       speaking: '말하기 연습',
       missions: '미션',
+      daily: '학습 일지',
       blog: '블로그',
       admin: '관리',
       logout: '로그아웃',
@@ -411,7 +418,8 @@ type AllDicts = Dictionary &
   AdminListeningDict &
   CommonDict &
   ClassesDict &
-  BlogDict
+  BlogDict &
+  DailyDict
 
 export const translations: Record<Locale, AllDicts> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
@@ -437,6 +445,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(commonTranslations, locale),
       ...pick(classesTranslations, locale),
       ...pick(blogTranslations, locale),
+      ...pick(dailyTranslations, locale),
     },
   ]),
 ) as Record<Locale, AllDicts>

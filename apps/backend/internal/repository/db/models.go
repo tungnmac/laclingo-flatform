@@ -128,6 +128,41 @@ type ClassLesson struct {
 	OrderIndex int32       `json:"order_index"`
 }
 
+type DailyNote struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	NoteDate  pgtype.Date        `json:"note_date"`
+	Journal   string             `json:"journal"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DailyNoteTask struct {
+	ID          pgtype.UUID        `json:"id"`
+	NoteID      pgtype.UUID        `json:"note_id"`
+	Title       string             `json:"title"`
+	Kind        string             `json:"kind"`
+	Target      pgtype.Int4        `json:"target"`
+	Progress    int32              `json:"progress"`
+	Memo        string             `json:"memo"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	CarriedFrom pgtype.UUID        `json:"carried_from"`
+	CarriedAt   pgtype.Timestamptz `json:"carried_at"`
+	TemplateID  pgtype.UUID        `json:"template_id"`
+	IsRepeat    bool               `json:"is_repeat"`
+	Position    int32              `json:"position"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type DailyTaskTemplate struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Title     string             `json:"title"`
+	Kind      string             `json:"kind"`
+	Target    pgtype.Int4        `json:"target"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type DeckVocabulary struct {
 	DeckID       pgtype.UUID        `json:"deck_id"`
 	VocabularyID pgtype.UUID        `json:"vocabulary_id"`

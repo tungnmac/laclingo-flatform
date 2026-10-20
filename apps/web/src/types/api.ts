@@ -1011,3 +1011,62 @@ export interface SpeakingItemAdmin {
 }
 
 export type SpeakingItemRequest = Omit<SpeakingItemAdmin, 'id'>
+
+// ===== Nhật ký học (Daily note) — riêng tư của từng học viên =====
+export type DailyTaskKind =
+  | 'free'
+  | 'srs_review'
+  | 'learn_word'
+  | 'grammar_exercise'
+  | 'listening_practice'
+  | 'speaking_practice'
+  | 'challenge_participate'
+
+export interface DailyTask {
+  id: string
+  title: string
+  kind: DailyTaskKind
+  target?: number // không có = việc tích xong/chưa
+  progress: number
+  memo: string
+  done: boolean
+  completed_at?: string
+  repeat: boolean // lặp lại hằng ngày
+  carried: boolean // đã chuyển sang ngày sau
+  carried_in: boolean // được chuyển từ ngày trước
+}
+
+export interface DailyNote {
+  date: string // YYYY-MM-DD
+  today: string
+  editable: boolean // chỉ note hôm nay
+  exists: boolean
+  journal: string
+  tasks: DailyTask[]
+  streak: number
+  yesterday_unfinished: DailyTask[]
+}
+
+export interface DailyNoteDay {
+  date: string
+  total: number
+  completed: number
+}
+
+export interface DailyTaskCreateRequest {
+  title: string
+  kind: DailyTaskKind
+  target?: number
+  memo?: string
+  repeat?: boolean
+}
+
+export interface DailyTaskUpdateRequest {
+  title?: string
+  target?: number
+  clear_target?: boolean
+  progress?: number
+  done?: boolean
+  memo?: string
+  repeat?: boolean
+}

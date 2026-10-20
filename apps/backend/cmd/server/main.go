@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // dữ liệu múi giờ nhúng sẵn — Nhật ký học tính "hôm nay" theo múi giờ học viên
 
 	_ "laclingo-backend/docs"
 	"laclingo-backend/internal/auth"
@@ -76,6 +77,7 @@ func main() {
 
 	notificationService := service.NewNotificationService(repo)
 	missionService := service.NewMissionService(repo, notificationService)
+	missionService.SetDailyRecorder(service.NewDailyNoteService(repo)) // hoạt động học → tiến độ Nhật ký học
 	hub := game.NewHub(repo, missionService)
 
 	var r2 *storage.R2Client

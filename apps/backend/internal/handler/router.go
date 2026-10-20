@@ -61,6 +61,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	grammarHandler.RegisterProtectedRoutes(protected)
 	listeningHandler.RegisterProtectedRoutes(protected)
 	NewMissionHandler(missions).RegisterRoutes(protected)
+	// Nhật ký học — riêng tư của từng học viên, KHÔNG đăng ký route admin nào
+	NewDailyNoteHandler(service.NewDailyNoteService(repo)).RegisterRoutes(protected)
 	classHandler.RegisterRoutes(protected)
 	blogHandler.RegisterRoutes(protected)
 	reminderHandler := NewReminderHandler(reminders)

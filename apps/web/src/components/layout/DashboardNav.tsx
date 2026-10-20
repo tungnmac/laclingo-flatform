@@ -27,6 +27,7 @@ const NAV_ITEMS = [
 // đã nằm trong khối thông tin cá nhân ở góc dưới (bấm vào avatar/tên để vào).
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter((item) => item.href !== '/profile')
 const MISSIONS_ITEM = { href: '/missions', key: 'missions' as const, icon: '🎯' }
+const DAILY_ITEM = { href: '/daily', key: 'daily' as const, icon: '📓' }
 const LISTENING_ITEM = { href: '/listening', key: 'listening' as const, icon: '🎧' }
 const SPEAKING_ITEM = { href: '/speaking', key: 'speaking' as const, icon: '🎤' }
 const BLOG_ITEM = { href: '/blog', key: 'blog' as const, icon: '📝' }
@@ -55,7 +56,7 @@ export function Sidebar({ user }: { user: User }) {
   const logout = useSession((s) => s.logout)
   const t = useTranslation()
   const isAdmin = user.role === 'admin' || user.role === 'owner'
-  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, MISSIONS_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
 
   return (
     <aside className="sticky top-0 z-30 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
@@ -124,6 +125,9 @@ export function MobileHeader({ user }: { user: User }) {
       </Link>
       <div className="flex items-center gap-2">
         <StreakBadge count={user.streak_count} />
+        <Link href={DAILY_ITEM.href} aria-label={t.nav.daily} className="text-xl">
+          {DAILY_ITEM.icon}
+        </Link>
         <NotificationBell variant="header" />
         <Link href="/profile" aria-label={t.nav.profile}>
           <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-8 w-8 text-xs" />
