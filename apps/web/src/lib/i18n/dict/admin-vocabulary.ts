@@ -36,6 +36,9 @@ export interface AdminVocabularyDict {
     addWordTitle: string
     deckLabel: string
     noDeckOption: string
+    newDeckOption: string
+    newDeckNameLabel: string
+    newDeckNamePlaceholder: string
     addedToDeck: (term: string, deck: string) => string
     addToDeckFailed: (term: string, error: string) => string
     deckNotFound: (term: string) => string
@@ -98,6 +101,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Thêm từ mới',
       deckLabel: 'Thêm vào list ôn tập (không bắt buộc)',
       noDeckOption: '— Không thêm —',
+      newDeckOption: '＋ Tạo list mới…',
+      newDeckNameLabel: 'Tên list mới',
+      newDeckNamePlaceholder: 'Vd: Từ khó tuần này',
       addedToDeck: (term, deck) => `✅ Đã tạo "${term}" và thêm vào list "${deck}"`,
       deckNotFound: (term) => `⚠️ Đã tạo "${term}" nhưng không tìm thấy list đã chọn (có thể vừa bị xoá)`,
       addToDeckFailed: (term, error) => `⚠️ Đã tạo "${term}" nhưng chưa thêm được vào list: ${error}`,
@@ -158,6 +164,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Add a new word',
       deckLabel: 'Add to a review list (optional)',
       noDeckOption: '— None —',
+      newDeckOption: '＋ Create a new list…',
+      newDeckNameLabel: 'New list name',
+      newDeckNamePlaceholder: 'E.g. Hard words this week',
       addedToDeck: (term, deck) => `✅ Created "${term}" and added it to the list "${deck}"`,
       deckNotFound: (term) => `⚠️ Created "${term}" but the selected list was not found (it may have been deleted)`,
       addToDeckFailed: (term, error) => `⚠️ Created "${term}" but could not add it to the list: ${error}`,
