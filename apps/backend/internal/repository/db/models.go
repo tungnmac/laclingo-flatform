@@ -149,6 +149,7 @@ type DailyNoteTask struct {
 	CarriedFrom pgtype.UUID        `json:"carried_from"`
 	CarriedAt   pgtype.Timestamptz `json:"carried_at"`
 	TemplateID  pgtype.UUID        `json:"template_id"`
+	IsRepeat    bool               `json:"is_repeat"`
 	Position    int32              `json:"position"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }

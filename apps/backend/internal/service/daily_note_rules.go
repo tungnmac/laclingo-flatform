@@ -30,7 +30,10 @@ var dailyTaskKinds = map[string]bool{
 func localDate(now time.Time, tz string) string {
 	loc, err := time.LoadLocation(tz)
 	if err != nil || tz == "" {
-		loc, _ = time.LoadLocation(defaultDailyTimezone)
+		loc, err = time.LoadLocation(defaultDailyTimezone)
+	}
+	if err != nil || loc == nil { // máy chủ thiếu dữ liệu múi giờ → UTC+7 cố định, không để panic
+		loc = time.FixedZone("ICT", 7*3600)
 	}
 	return now.In(loc).Format(dailyDateLayout)
 }

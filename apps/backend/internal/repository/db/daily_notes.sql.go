@@ -15,7 +15,7 @@ const addDailyTaskProgress = `-- name: AddDailyTaskProgress :exec
 UPDATE daily_note_tasks t
 SET progress = t.progress + $1::int,
     completed_at = CASE
-        WHEN t.completed_at IS NULL AND t.target IS NOT NULL AND t.progress + $1::int >= t.target THEN NOW()
+        WHEN t.completed_at IS NULL AND t.progress + $1::int >= COALESCE(t.target, 1) THEN NOW()
         ELSE t.completed_at END
 FROM daily_notes n
 WHERE t.note_id = n.id AND n.user_id = $2 AND n.note_date = $3 AND t.kind = $4
@@ -40,6 +40,16 @@ func (q *Queries) AddDailyTaskProgress(ctx context.Context, arg AddDailyTaskProg
 	return err
 }
 
+const clearDailyTaskCarried = `-- name: ClearDailyTaskCarried :exec
+UPDATE daily_note_tasks SET carried_at = NULL WHERE id = $1
+`
+
+// Xoá bản đã chuyển sang hôm nay → việc gốc trở lại "chưa chuyển" (chuyển lại được)
+func (q *Queries) ClearDailyTaskCarried(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearDailyTaskCarried, id)
+	return err
+}
+
 const countDailyNoteTasks = `-- name: CountDailyNoteTasks :one
 SELECT COUNT(*)::int FROM daily_note_tasks WHERE note_id = $1
 `
@@ -51,11 +61,22 @@ func (q *Queries) CountDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) (
 	return column_1, err
 }
 
+const countDailyTaskTemplates = `-- name: CountDailyTaskTemplates :one
+SELECT COUNT(*)::int FROM daily_task_templates WHERE user_id = $1
+`
+
+func (q *Queries) CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countDailyTaskTemplates, userID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createDailyNoteTask = `-- name: CreateDailyNoteTask :one
-INSERT INTO daily_note_tasks (note_id, title, kind, target, progress, memo, completed_at, carried_from, template_id, position)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+INSERT INTO daily_note_tasks (note_id, title, kind, target, progress, memo, completed_at, carried_from, template_id, is_repeat, position)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         (SELECT COALESCE(MAX(t.position), -1) + 1 FROM daily_note_tasks t WHERE t.note_id = $1))
-RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, position, created_at
+RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, is_repeat, position, created_at
 `
 
 type CreateDailyNoteTaskParams struct {
@@ -68,6 +89,7 @@ type CreateDailyNoteTaskParams struct {
 	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 	CarriedFrom pgtype.UUID        `json:"carried_from"`
 	TemplateID  pgtype.UUID        `json:"template_id"`
+	IsRepeat    bool               `json:"is_repeat"`
 }
 
 func (q *Queries) CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTaskParams) (DailyNoteTask, error) {
@@ -81,6 +103,7 @@ func (q *Queries) CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTa
 		arg.CompletedAt,
 		arg.CarriedFrom,
 		arg.TemplateID,
+		arg.IsRepeat,
 	)
 	var i DailyNoteTask
 	err := row.Scan(
@@ -95,6 +118,7 @@ func (q *Queries) CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTa
 		&i.CarriedFrom,
 		&i.CarriedAt,
 		&i.TemplateID,
+		&i.IsRepeat,
 		&i.Position,
 		&i.CreatedAt,
 	)
@@ -179,7 +203,7 @@ func (q *Queries) GetDailyNote(ctx context.Context, arg GetDailyNoteParams) (Dai
 }
 
 const getDailyNoteTaskForUser = `-- name: GetDailyNoteTaskForUser :one
-SELECT t.id, t.note_id, t.title, t.kind, t.target, t.progress, t.memo, t.completed_at, t.carried_from, t.carried_at, t.template_id, t.position, t.created_at, n.note_date
+SELECT t.id, t.note_id, t.title, t.kind, t.target, t.progress, t.memo, t.completed_at, t.carried_from, t.carried_at, t.template_id, t.is_repeat, t.position, t.created_at, n.note_date
 FROM daily_note_tasks t
 JOIN daily_notes n ON n.id = t.note_id
 WHERE t.id = $1 AND n.user_id = $2
@@ -202,6 +226,7 @@ type GetDailyNoteTaskForUserRow struct {
 	CarriedFrom pgtype.UUID        `json:"carried_from"`
 	CarriedAt   pgtype.Timestamptz `json:"carried_at"`
 	TemplateID  pgtype.UUID        `json:"template_id"`
+	IsRepeat    bool               `json:"is_repeat"`
 	Position    int32              `json:"position"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	NoteDate    pgtype.Date        `json:"note_date"`
@@ -223,6 +248,7 @@ func (q *Queries) GetDailyNoteTaskForUser(ctx context.Context, arg GetDailyNoteT
 		&i.CarriedFrom,
 		&i.CarriedAt,
 		&i.TemplateID,
+		&i.IsRepeat,
 		&i.Position,
 		&i.CreatedAt,
 		&i.NoteDate,
@@ -275,11 +301,11 @@ func (q *Queries) InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams
 }
 
 const listCarryableTasks = `-- name: ListCarryableTasks :many
-SELECT t.id, t.note_id, t.title, t.kind, t.target, t.progress, t.memo, t.completed_at, t.carried_from, t.carried_at, t.template_id, t.position, t.created_at
+SELECT t.id, t.note_id, t.title, t.kind, t.target, t.progress, t.memo, t.completed_at, t.carried_from, t.carried_at, t.template_id, t.is_repeat, t.position, t.created_at
 FROM daily_note_tasks t
 JOIN daily_notes n ON n.id = t.note_id
 WHERE n.user_id = $1 AND n.note_date = $2
-  AND t.completed_at IS NULL AND t.carried_at IS NULL AND t.template_id IS NULL
+  AND t.completed_at IS NULL AND t.carried_at IS NULL AND NOT t.is_repeat
 ORDER BY t.position, t.created_at
 `
 
@@ -310,6 +336,7 @@ func (q *Queries) ListCarryableTasks(ctx context.Context, arg ListCarryableTasks
 			&i.CarriedFrom,
 			&i.CarriedAt,
 			&i.TemplateID,
+			&i.IsRepeat,
 			&i.Position,
 			&i.CreatedAt,
 		); err != nil {
@@ -326,7 +353,8 @@ func (q *Queries) ListCarryableTasks(ctx context.Context, arg ListCarryableTasks
 const listDailyNoteSummaries = `-- name: ListDailyNoteSummaries :many
 SELECT n.note_date,
        COUNT(t.id)::int AS total,
-       COUNT(t.id) FILTER (WHERE t.completed_at IS NOT NULL OR t.carried_at IS NOT NULL)::int AS completed
+       COUNT(t.id) FILTER (WHERE t.completed_at IS NOT NULL OR (t.carried_at IS NOT NULL AND EXISTS (
+           SELECT 1 FROM daily_note_tasks c WHERE c.carried_from = t.id AND c.completed_at IS NOT NULL)))::int AS completed
 FROM daily_notes n
 LEFT JOIN daily_note_tasks t ON t.note_id = n.id
 WHERE n.user_id = $1 AND n.note_date BETWEEN $2 AND $3
@@ -346,7 +374,8 @@ type ListDailyNoteSummariesRow struct {
 	Completed int32       `json:"completed"`
 }
 
-// Tổng kết theo ngày cho lịch tháng + chuỗi ngày: số việc, số việc đã xong hoặc đã chuyển sang ngày sau
+// Tổng kết theo ngày cho lịch tháng + chuỗi ngày: số việc, số việc đã xong. Việc đã chuyển chỉ tính xong khi
+// bản chuyển sang ngày sau đã xong (chuyển mà không làm không giữ được chuỗi ngày)
 func (q *Queries) ListDailyNoteSummaries(ctx context.Context, arg ListDailyNoteSummariesParams) ([]ListDailyNoteSummariesRow, error) {
 	rows, err := q.db.Query(ctx, listDailyNoteSummaries, arg.UserID, arg.FromDate, arg.ToDate)
 	if err != nil {
@@ -368,7 +397,7 @@ func (q *Queries) ListDailyNoteSummaries(ctx context.Context, arg ListDailyNoteS
 }
 
 const listDailyNoteTasks = `-- name: ListDailyNoteTasks :many
-SELECT id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, position, created_at FROM daily_note_tasks WHERE note_id = $1 ORDER BY position, created_at, id
+SELECT id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, is_repeat, position, created_at FROM daily_note_tasks WHERE note_id = $1 ORDER BY position, created_at, id
 `
 
 func (q *Queries) ListDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) ([]DailyNoteTask, error) {
@@ -392,6 +421,7 @@ func (q *Queries) ListDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) ([
 			&i.CarriedFrom,
 			&i.CarriedAt,
 			&i.TemplateID,
+			&i.IsRepeat,
 			&i.Position,
 			&i.CreatedAt,
 		); err != nil {
@@ -434,6 +464,18 @@ func (q *Queries) ListDailyTaskTemplates(ctx context.Context, userID pgtype.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockDailyNote = `-- name: LockDailyNote :one
+SELECT id FROM daily_notes WHERE id = $1 FOR UPDATE
+`
+
+// Khoá note trong transaction để đếm giới hạn 20 việc không bị 2 request cùng lúc vượt qua
+func (q *Queries) LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockDailyNote, id)
+	var id_2 pgtype.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const markDailyNoteTaskCarried = `-- name: MarkDailyNoteTaskCarried :execrows
@@ -491,21 +533,25 @@ func (q *Queries) UpdateDailyNoteJournal(ctx context.Context, arg UpdateDailyNot
 
 const updateDailyNoteTask = `-- name: UpdateDailyNoteTask :one
 UPDATE daily_note_tasks
-SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7
-WHERE id = $1
-RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, position, created_at
+SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7, is_repeat = $8
+WHERE id = $1 AND progress = $9
+RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, is_repeat, position, created_at
 `
 
 type UpdateDailyNoteTaskParams struct {
-	ID          pgtype.UUID        `json:"id"`
-	Title       string             `json:"title"`
-	Target      pgtype.Int4        `json:"target"`
-	Progress    int32              `json:"progress"`
-	Memo        string             `json:"memo"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
-	TemplateID  pgtype.UUID        `json:"template_id"`
+	ID               pgtype.UUID        `json:"id"`
+	Title            string             `json:"title"`
+	Target           pgtype.Int4        `json:"target"`
+	Progress         int32              `json:"progress"`
+	Memo             string             `json:"memo"`
+	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
+	TemplateID       pgtype.UUID        `json:"template_id"`
+	IsRepeat         bool               `json:"is_repeat"`
+	ExpectedProgress int32              `json:"expected_progress"`
 }
 
+// Ghi đè có kiểm tra tiến độ đã đọc (expected_progress): hoạt động học vừa cộng thêm giữa chừng → không dòng nào
+// (pgx.ErrNoRows) → báo tải lại thay vì làm mất phần vừa cộng
 func (q *Queries) UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTaskParams) (DailyNoteTask, error) {
 	row := q.db.QueryRow(ctx, updateDailyNoteTask,
 		arg.ID,
@@ -515,6 +561,8 @@ func (q *Queries) UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTa
 		arg.Memo,
 		arg.CompletedAt,
 		arg.TemplateID,
+		arg.IsRepeat,
+		arg.ExpectedProgress,
 	)
 	var i DailyNoteTask
 	err := row.Scan(
@@ -529,8 +577,31 @@ func (q *Queries) UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTa
 		&i.CarriedFrom,
 		&i.CarriedAt,
 		&i.TemplateID,
+		&i.IsRepeat,
 		&i.Position,
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateDailyTaskTemplate = `-- name: UpdateDailyTaskTemplate :exec
+UPDATE daily_task_templates SET title = $3, target = $4 WHERE id = $1 AND user_id = $2
+`
+
+type UpdateDailyTaskTemplateParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+	Title  string      `json:"title"`
+	Target pgtype.Int4 `json:"target"`
+}
+
+// Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
+func (q *Queries) UpdateDailyTaskTemplate(ctx context.Context, arg UpdateDailyTaskTemplateParams) error {
+	_, err := q.db.Exec(ctx, updateDailyTaskTemplate,
+		arg.ID,
+		arg.UserID,
+		arg.Title,
+		arg.Target,
+	)
+	return err
 }

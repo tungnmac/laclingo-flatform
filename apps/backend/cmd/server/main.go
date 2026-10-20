@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // dữ liệu múi giờ nhúng sẵn — Nhật ký học tính "hôm nay" theo múi giờ học viên
 
 	_ "laclingo-backend/docs"
 	"laclingo-backend/internal/auth"

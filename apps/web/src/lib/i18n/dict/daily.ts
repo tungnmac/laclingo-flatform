@@ -32,9 +32,7 @@ export interface DailyDict {
     suggestions: string
     suggestionItems: { title: string; kind: DailyTaskKind; target?: number }[]
     memoPlaceholder: string
-    edit: string
     save: string
-    cancel: string
     delete: string
     deleteConfirm: (title: string) => string
     moveUp: string
@@ -46,6 +44,8 @@ export interface DailyDict {
     unfinishedTitle: (n: number) => string
     carryBtn: string
     calendarTitle: string
+    prevMonth: string
+    nextMonth: string
     weekdays: string[]
   }
 }
@@ -90,13 +90,11 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       suggestionItems: [
         { title: 'Ôn 30 từ', kind: 'srs_review', target: 30 },
         { title: 'Học 10 từ mới', kind: 'learn_word', target: 10 },
-        { title: 'Nghe 1 bài', kind: 'listening_practice', target: 1 },
-        { title: 'Làm 10 câu ngữ pháp', kind: 'grammar_exercise', target: 10 },
+        { title: 'Nghe đúng 5 câu', kind: 'listening_practice', target: 5 },
+        { title: 'Làm đúng 10 câu ngữ pháp', kind: 'grammar_exercise', target: 10 },
       ],
       memoPlaceholder: 'Ghi chú ngắn cho việc này…',
-      edit: 'Sửa',
       save: 'Lưu',
-      cancel: 'Huỷ',
       delete: 'Xoá',
       deleteConfirm: (title) => `Xoá việc "${title}" khỏi hôm nay?`,
       moveUp: 'Lên',
@@ -108,6 +106,8 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       unfinishedTitle: (n) => `Còn ${n} việc dở hôm qua`,
       carryBtn: 'Chuyển sang hôm nay',
       calendarTitle: 'Lịch',
+      prevMonth: 'Tháng trước',
+      nextMonth: 'Tháng sau',
       weekdays: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
     },
   },
@@ -150,13 +150,11 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       suggestionItems: [
         { title: 'Review 30 words', kind: 'srs_review', target: 30 },
         { title: 'Learn 10 new words', kind: 'learn_word', target: 10 },
-        { title: 'Do 1 listening', kind: 'listening_practice', target: 1 },
-        { title: 'Do 10 grammar questions', kind: 'grammar_exercise', target: 10 },
+        { title: 'Answer 5 listening questions', kind: 'listening_practice', target: 5 },
+        { title: 'Get 10 grammar questions right', kind: 'grammar_exercise', target: 10 },
       ],
       memoPlaceholder: 'Short note for this task…',
-      edit: 'Edit',
       save: 'Save',
-      cancel: 'Cancel',
       delete: 'Delete',
       deleteConfirm: (title) => `Remove "${title}" from today?`,
       moveUp: 'Move up',
@@ -168,6 +166,8 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       unfinishedTitle: (n) => `${n} unfinished task${n === 1 ? '' : 's'} from yesterday`,
       carryBtn: 'Move to today',
       calendarTitle: 'Calendar',
+      prevMonth: 'Previous month',
+      nextMonth: 'Next month',
       weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
     },
   },

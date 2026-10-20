@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
@@ -14,7 +14,7 @@ import { KIND_LINKS } from '../kinds'
 
 /** 1 việc: thanh tiến độ + nút ±/ô tích; mở rộng để sửa ghi chú, mục tiêu, lặp lại, thứ tự, xoá */
 export function TaskRow({
-  task,
+  task: initial,
   editable,
   isFirst,
   isLast,
@@ -32,6 +32,9 @@ export function TaskRow({
 }) {
   const t = useTranslation()
   const confirm = useConfirm()
+  // Bản cục bộ của việc: cập nhật ngay từ response (bấm ± liên tiếp không dùng giá trị cũ), đồng bộ lại khi tải lại
+  const [task, setTask] = useState(initial)
+  useEffect(() => setTask(initial), [initial])
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,8 +56,18 @@ export function TaskRow({
       setBusy(false)
     }
   }
-  // ± / tích / lặp lại: thao tác nhanh — chỉ báo toast khi lỗi
-  const quick = (body: DailyTaskUpdateRequest) => run(() => dailyNoteService.updateTask(task.id, body, { notify: 'error' }))
+  // ± / tích / lặp lại: thao tác nhanh — chỉ báo toast khi lỗi; áp kết quả ngay vào bản cục bộ
+  const quick = (body: DailyTaskUpdateRequest) =>
+    run(async () => setTask(await dailyNoteService.updateTask(task.id, body, { notify: 'error' })))
+  const toggleOpen = () => {
+    if (!open) {
+      // mở form → lấy lại giá trị mới nhất
+      setTitle(task.title)
+      setTarget(task.target ? String(task.target) : '')
+      setMemo(task.memo)
+    }
+    setOpen((v) => !v)
+  }
 
   const save = async () => {
     const n = target.trim() ? Number(target) : undefined
@@ -86,7 +99,7 @@ export function TaskRow({
           />
         )}
         <div className="min-w-0 flex-1">
-          <button type="button" onClick={() => editable && setOpen((v) => !v)} className="w-full text-left">
+          <button type="button" onClick={() => editable && toggleOpen()} className="w-full text-left">
             <p className={cn('font-medium text-slate-900', task.done && 'line-through decoration-emerald-500')}>{task.title}</p>
             <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
               <span>{t.daily.kinds[task.kind]}</span>

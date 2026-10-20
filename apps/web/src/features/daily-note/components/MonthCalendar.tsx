@@ -38,11 +38,11 @@ export function MonthCalendar({
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-slate-900">{t.daily.calendarTitle}</h2>
         <div className="flex items-center gap-2 text-sm">
-          <button type="button" onClick={() => onMonth(addMonths(month, -1))} className="rounded px-2 py-1 hover:bg-slate-100" aria-label="prev month">
+          <button type="button" onClick={() => onMonth(addMonths(month, -1))} className="rounded px-2 py-1 hover:bg-slate-100" aria-label={t.daily.prevMonth}>
             ◀
           </button>
           <span className="font-medium tabular-nums">{month}</span>
-          <button type="button" disabled={month >= today.slice(0, 7)} onClick={() => onMonth(addMonths(month, 1))} className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30" aria-label="next month">
+          <button type="button" disabled={month >= today.slice(0, 7)} onClick={() => onMonth(addMonths(month, 1))} className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30" aria-label={t.daily.nextMonth}>
             ▶
           </button>
         </div>

@@ -14,6 +14,21 @@ export function JournalBox({ initial, editable }: { initial: string; editable: b
   const [error, setError] = useState<string | null>(null)
   const lastSaved = useRef(initial)
 
+  // Rời trang / đổi ngày trước khi kịp tự lưu → lưu ngay phần còn lại; đóng tab → trình duyệt hỏi xác nhận
+  const latest = useRef(text)
+  latest.current = text
+  useEffect(() => {
+    if (!editable) return
+    const warn = (e: BeforeUnloadEvent) => {
+      if (latest.current !== lastSaved.current) e.preventDefault()
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      if (latest.current !== lastSaved.current) void dailyNoteService.saveJournal(latest.current).catch(() => {})
+    }
+  }, [editable])
+
   useEffect(() => {
     if (!editable || text === lastSaved.current) return
     const timer = setTimeout(async () => {

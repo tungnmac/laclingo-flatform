@@ -44,6 +44,8 @@ type Querier interface {
 	//   - inactive: không học >= inactive_days ngày (lặp lại mỗi inactive_days ngày)
 	//   - daily:    remind_day là ngày nhắc trong days_of_week
 	ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow, error)
+	// Xoá bản đã chuyển sang hôm nay → việc gốc trở lại "chưa chuyển" (chuyển lại được)
+	ClearDailyTaskCarried(ctx context.Context, id pgtype.UUID) error
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
 	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
 	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
@@ -54,6 +56,7 @@ type Querier interface {
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) (int32, error)
+	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
 	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
@@ -241,7 +244,8 @@ type Querier interface {
 	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
 	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
 	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
-	// Tổng kết theo ngày cho lịch tháng + chuỗi ngày: số việc, số việc đã xong hoặc đã chuyển sang ngày sau
+	// Tổng kết theo ngày cho lịch tháng + chuỗi ngày: số việc, số việc đã xong. Việc đã chuyển chỉ tính xong khi
+	// bản chuyển sang ngày sau đã xong (chuyển mà không làm không giữ được chuỗi ngày)
 	ListDailyNoteSummaries(ctx context.Context, arg ListDailyNoteSummariesParams) ([]ListDailyNoteSummariesRow, error)
 	ListDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) ([]DailyNoteTask, error)
 	ListDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) ([]DailyTaskTemplate, error)
@@ -330,6 +334,8 @@ type Querier interface {
 	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
 	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)
 	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
+	// Khoá note trong transaction để đếm giới hạn 20 việc không bị 2 request cùng lúc vượt qua
+	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
 	// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
@@ -382,7 +388,11 @@ type Querier interface {
 	UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error)
 	UpdateClass(ctx context.Context, arg UpdateClassParams) (Class, error)
 	UpdateDailyNoteJournal(ctx context.Context, arg UpdateDailyNoteJournalParams) (DailyNote, error)
+	// Ghi đè có kiểm tra tiến độ đã đọc (expected_progress): hoạt động học vừa cộng thêm giữa chừng → không dòng nào
+	// (pgx.ErrNoRows) → báo tải lại thay vì làm mất phần vừa cộng
 	UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTaskParams) (DailyNoteTask, error)
+	// Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
+	UpdateDailyTaskTemplate(ctx context.Context, arg UpdateDailyTaskTemplateParams) error
 	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)
 	UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error)
 	UpdateGrammarLesson(ctx context.Context, arg UpdateGrammarLessonParams) (GrammarLesson, error)

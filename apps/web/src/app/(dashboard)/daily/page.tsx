@@ -48,7 +48,10 @@ export default function DailyNotePage() {
   const done = note.tasks.filter((x) => x.done || x.carried).length
   const total = note.tasks.length
   const pct = total ? Math.round((done / total) * 100) : 0
-  const goTo = (d: string) => setDate(d >= today ? null : d)
+  const goTo = (d: string) => {
+    setMonth(null) // lịch đi theo ngày đang xem
+    setDate(d >= today ? null : d)
+  }
 
   return (
     <div className="space-y-4">
@@ -137,10 +140,7 @@ export default function DailyNotePage() {
           selected={viewing}
           reloadKey={reloadKey}
           onMonth={setMonth}
-          onSelect={(d) => {
-            setMonth(null)
-            goTo(d)
-          }}
+          onSelect={goTo}
         />
       </Card>
     </div>
