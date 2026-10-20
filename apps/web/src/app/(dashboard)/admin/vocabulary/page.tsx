@@ -10,8 +10,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
+import { useToast } from '@/components/ui/ToastProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { deckService } from '@/features/deck/deck.service'
 import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { VocabularyImageInput } from '@/features/vocabulary/components/VocabularyImageInput'
@@ -379,6 +381,9 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // List ôn tập của chính tài khoản admin — chọn để thêm luôn từ vừa tạo (không bắt buộc)
+  const decksApi = useApi(() => deckService.list(), [showForm, editing?.id], showForm && !editing)
+  const toast = useToast()
 
   // Option chủ đề cho form: cha trước, con thụt vào ngay dưới cha. Từ đang sửa
   // có chủ đề cũ không còn trong danh sách thì vẫn giữ làm 1 option để không mất.
@@ -439,7 +444,20 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     setFormError(null)
     try {
       if (editing) await vocabularyService.updateVocabulary(editing.id, body)
-      else await vocabularyService.createVocabulary(body)
+      else {
+        const created = await vocabularyService.createVocabulary(body)
+        const deckId = String(form.get('deck_id') ?? '')
+        const deck = decksApi.data?.find((d) => d.id === deckId)
+        if (deck) {
+          // Từ đã tạo xong — thêm vào list lỗi thì báo riêng, không coi cả thao tác là thất bại
+          try {
+            await deckService.addWord(deck.id, created.id, { notify: false })
+            toast(t.adminVocabulary.addedToDeck(created.term, deck.name))
+          } catch (err) {
+            toast(t.adminVocabulary.addToDeckFailed(created.term, (err as Error).message), 'error')
+          }
+        }
+      }
       setShowForm(false)
       setEditing(null)
       reload()
@@ -578,6 +596,19 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
                 ))}
               </select>
             </label>
+            {!editing && (
+              <label className="block text-sm font-medium text-slate-700">
+                {t.adminVocabulary.deckLabel}
+                <select name="deck_id" defaultValue="" className={inputClass}>
+                  <option value="">{t.adminVocabulary.noDeckOption}</option>
+                  {(decksApi.data ?? []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.icon} {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.levelFilterLabel}
               <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />

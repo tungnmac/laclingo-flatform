@@ -11,6 +11,7 @@ SELECT
     d.description,
     d.color,
     d.icon,
+    d.practice_count,
     d.created_at,
     (SELECT COUNT(*) FROM deck_vocabularies dv WHERE dv.deck_id = d.id)::int AS word_count,
     (SELECT COUNT(*) FROM deck_vocabularies dv
@@ -35,6 +36,13 @@ UPDATE user_decks
 SET name = $3, description = $4, color = $5, icon = $6, updated_at = NOW()
 WHERE id = $1 AND user_id = $2
 RETURNING *;
+
+-- name: IncrementDeckPracticeCount :one
+-- +1 khi user làm xong 1 lượt "Học lại list"; không phải list của user → no rows
+UPDATE user_decks
+SET practice_count = practice_count + 1
+WHERE id = $1 AND user_id = $2
+RETURNING practice_count;
 
 -- name: DeleteDeck :execrows
 DELETE FROM user_decks WHERE id = $1 AND user_id = $2;

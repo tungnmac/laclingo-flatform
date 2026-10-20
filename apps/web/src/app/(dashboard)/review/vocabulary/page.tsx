@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -66,6 +66,25 @@ export default function VocabularyReviewPage({
     onAdvance: session.skip,
   })
 
+  // "Học lại list" làm xong (có ít nhất 1 từ được luyện, không chỉ nghe tự động) → +1 số lần ôn của list,
+  // đúng 1 lần mỗi lượt (bấm "Ôn tiếp" bắt đầu lượt mới → finished về false → cho phép đếm lại)
+  const [listPracticeCount, setListPracticeCount] = useState<number | null>(null)
+  const counted = useRef(false)
+  useEffect(() => {
+    if (!session.finished) {
+      // Chỉ mở lại khi lượt mới thật sự bắt đầu (results về rỗng) — "Ôn tiếp" lỗi mạng giữ results cũ,
+      // không được đếm lượt cũ thêm lần nữa
+      if (session.results.length === 0) {
+        counted.current = false
+        setListPracticeCount(null)
+      }
+      return
+    }
+    if (!deck || counted.current || session.results.length === 0) return
+    counted.current = true
+    deckService.completePractice(deck).then((r) => setListPracticeCount(r.practice_count), () => {})
+  }, [deck, session.finished, session.results.length])
+
   if (session.loading) return <Spinner label={t.review.loadingReviewCards} />
   if (session.error && session.cards.length === 0) return <ErrorState error={session.error} onRetry={session.reload} />
 
@@ -105,6 +124,7 @@ export default function VocabularyReviewPage({
           <Mascot mood="cheer" />
           <h1 className="text-2xl font-bold text-slate-900">{t.review.sessionDoneTitle}</h1>
           <p className="text-slate-600">{t.review.sessionDoneBody(remembered, session.results.length)}</p>
+          {deck && listPracticeCount !== null && <p className="text-sm font-semibold text-indigo-700">{t.decks.listPracticeCount(listPracticeCount)}</p>}
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button onClick={session.reload}>{t.review.continueReviewBtn}</Button>
             {deck && (

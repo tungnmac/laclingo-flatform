@@ -167,6 +167,8 @@ type Querier interface {
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogPost(ctx context.Context, id pgtype.UUID) error
 	IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID) error
+	// +1 khi user làm xong 1 lượt "Học lại list"; không phải list của user → no rows
+	IncrementDeckPracticeCount(ctx context.Context, arg IncrementDeckPracticeCountParams) (int32, error)
 	// Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
 	// lịch SM-2 — luyện sớm không được đẩy interval lên.
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)

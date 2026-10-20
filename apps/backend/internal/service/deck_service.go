@@ -30,6 +30,7 @@ type DeckRepository interface {
 	CreateDeck(ctx context.Context, arg db.CreateDeckParams) (db.UserDeck, error)
 	UpdateDeck(ctx context.Context, arg db.UpdateDeckParams) (db.UserDeck, error)
 	DeleteDeck(ctx context.Context, arg db.DeleteDeckParams) (int64, error)
+	IncrementDeckPracticeCount(ctx context.Context, arg db.IncrementDeckPracticeCountParams) (int32, error)
 	AddVocabularyToDeck(ctx context.Context, arg db.AddVocabularyToDeckParams) (int64, error)
 	RemoveVocabularyFromDeck(ctx context.Context, arg db.RemoveVocabularyFromDeckParams) (int64, error)
 	ListDeckVocabularies(ctx context.Context, arg db.ListDeckVocabulariesParams) ([]db.ListDeckVocabulariesRow, error)
@@ -52,6 +53,8 @@ type DeckSummary struct {
 	Icon        string    `json:"icon"`
 	WordCount   int32     `json:"word_count"`
 	DueCount    int32     `json:"due_count"`
+	// PracticeCount — số lượt "Học lại list" đã làm xong
+	PracticeCount int32 `json:"practice_count"`
 	// ContainsVocabulary — list có chứa từ được hỏi (?vocabulary_id=) không
 	ContainsVocabulary bool      `json:"contains_vocabulary"`
 	CreatedAt          time.Time `json:"created_at"`
@@ -104,7 +107,7 @@ func (s *DeckService) ListDecks(ctx context.Context, userID, vocabularyID uuid.U
 	for _, r := range rows {
 		results = append(results, DeckSummary{
 			ID: uuid.UUID(r.ID.Bytes), Name: r.Name, Description: r.Description.String,
-			Color: r.Color.String, Icon: r.Icon.String, WordCount: r.WordCount, DueCount: r.DueCount,
+			Color: r.Color.String, Icon: r.Icon.String, WordCount: r.WordCount, DueCount: r.DueCount, PracticeCount: r.PracticeCount,
 			ContainsVocabulary: r.ContainsVocabulary, CreatedAt: r.CreatedAt.Time,
 		})
 	}
@@ -176,6 +179,15 @@ func (s *DeckService) UpdateDeck(ctx context.Context, userID, deckID uuid.UUID, 
 		return DeckSummary{}, err
 	}
 	return toDeckSummary(deck), nil
+}
+
+// CompletePractice ghi nhận user vừa làm xong 1 lượt "Học lại list" → trả số lượt mới
+func (s *DeckService) CompletePractice(ctx context.Context, userID, deckID uuid.UUID) (int32, error) {
+	n, err := s.repo.IncrementDeckPracticeCount(ctx, db.IncrementDeckPracticeCountParams{ID: toPgUUID(deckID), UserID: toPgUUID(userID)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return n, err
 }
 
 // DeleteDeck xoá list — các từ vẫn giữ nguyên trong hàng đợi SRS
@@ -265,6 +277,6 @@ func normalizeDeckRequest(req DeckRequest) (deckParams, error) {
 func toDeckSummary(d db.UserDeck) DeckSummary {
 	return DeckSummary{
 		ID: uuid.UUID(d.ID.Bytes), Name: d.Name, Description: d.Description.String,
-		Color: d.Color.String, Icon: d.Icon.String, CreatedAt: d.CreatedAt.Time,
+		Color: d.Color.String, Icon: d.Icon.String, PracticeCount: d.PracticeCount, CreatedAt: d.CreatedAt.Time,
 	}
 }

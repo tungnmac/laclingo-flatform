@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS user_decks (
     icon VARCHAR(20) DEFAULT '📚',
     is_public BOOLEAN DEFAULT FALSE,
     is_system BOOLEAN DEFAULT FALSE,
+    practice_count INT NOT NULL DEFAULT 0, -- số lượt "Học lại list" đã làm xong (migration 000031)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

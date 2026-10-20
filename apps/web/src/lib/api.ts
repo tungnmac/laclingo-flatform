@@ -1,3 +1,4 @@
+import { emitMutationNotice, mutationNotice } from '@/lib/mutationNotice'
 import { useSession } from '@/store/session'
 import type { ErrorResponse } from '@/types/api'
 
@@ -13,34 +14,45 @@ export class ApiError extends Error {
   }
 }
 
+/** RequestInit + `notify: false` để tắt thông báo chung khi màn hình đã tự báo cụ thể hơn */
+export type ApiInit = RequestInit & { notify?: boolean }
+
 /**
  * Gọi backend, tự gắn Bearer token của phiên hiện tại, parse JSON và chuẩn hoá lỗi về ApiError.
  * Token bị từ chối (401) thì đăng xuất để layout đưa người dùng về trang đăng nhập.
+ * Request ghi dữ liệu (POST/PUT/PATCH/DELETE) tự hiện thông báo thành công/thất bại (xem mutationNotice).
  */
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
+  const { notify, ...requestInit } = init ?? {}
   const token = useSession.getState().token
-  const headers = new Headers(init?.headers)
+  const headers = new Headers(requestInit.headers)
   // Chỉ gắn Content-Type khi có body JSON — GET không cần, tránh preflight CORS
   // thừa; body là FormData (upload file) thì ĐỂ BROWSER tự set (kèm boundary),
   // tự set cứng application/json sẽ làm hỏng multipart request.
-  if (init?.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
+  if (requestInit.body && !(requestInit.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
+  const fail = (err: ApiError) => {
+    emitMutationNotice(mutationNotice(requestInit.method, path, false, err.message, notify))
+    return err
+  }
 
   let res: Response
   try {
-    res = await fetch(`${API_URL}${path}`, { ...init, headers })
+    res = await fetch(`${API_URL}${path}`, { ...requestInit, headers })
   } catch {
-    throw new ApiError('Không kết nối được tới máy chủ. Vui lòng thử lại.', 0)
+    throw fail(new ApiError('Không kết nối được tới máy chủ. Vui lòng thử lại.', 0))
   }
 
   if (!res.ok) {
     if (res.status === 401 && token) useSession.getState().logout()
     const body = (await res.json().catch(() => null)) as ErrorResponse | null
-    throw new ApiError(body?.error ?? `Lỗi ${res.status}`, res.status)
+    throw fail(new ApiError(body?.error ?? `Lỗi ${res.status}`, res.status))
   }
 
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+  // Đọc xong body rồi mới báo thành công — body lỗi thì nơi gọi nhận lỗi, không có toast "thành công" sai
+  const data = (res.status === 204 ? undefined : await res.json()) as T
+  emitMutationNotice(mutationNotice(requestInit.method, path, true, undefined, notify))
+  return data
 }
 
 /**
