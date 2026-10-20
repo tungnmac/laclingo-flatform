@@ -350,16 +350,17 @@ type UserClassEnrollment struct {
 }
 
 type UserDeck struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
-	Name        string             `json:"name"`
-	Description pgtype.Text        `json:"description"`
-	Color       pgtype.Text        `json:"color"`
-	Icon        pgtype.Text        `json:"icon"`
-	IsPublic    pgtype.Bool        `json:"is_public"`
-	IsSystem    pgtype.Bool        `json:"is_system"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID            pgtype.UUID        `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	Name          string             `json:"name"`
+	Description   pgtype.Text        `json:"description"`
+	Color         pgtype.Text        `json:"color"`
+	Icon          pgtype.Text        `json:"icon"`
+	IsPublic      pgtype.Bool        `json:"is_public"`
+	IsSystem      pgtype.Bool        `json:"is_system"`
+	PracticeCount int32              `json:"practice_count"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserExerciseCompletion struct {

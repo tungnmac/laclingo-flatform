@@ -7,6 +7,8 @@ export interface CommonDict {
     streakTooltip: (days: number) => string
     audioAriaLabel: (text: string) => string
     speechError: (code: string) => string
+    mutationSuccess: { create: string; update: string; delete: string }
+    mutationFailed: { create: (error: string) => string; update: (error: string) => string; delete: (error: string) => string }
   }
 }
 
@@ -14,6 +16,12 @@ export const commonTranslations: Partial<Record<Locale, CommonDict>> = {
   vi: {
     common: {
       streakTooltip: (days) => `Chuỗi ${days} ngày học liên tiếp`,
+      mutationSuccess: { create: '✅ Tạo mới thành công', update: '✅ Cập nhật thành công', delete: '✅ Đã xoá thành công' },
+      mutationFailed: {
+        create: (error) => `❌ Tạo mới thất bại: ${error}`,
+        update: (error) => `❌ Cập nhật thất bại: ${error}`,
+        delete: (error) => `❌ Xoá thất bại: ${error}`,
+      },
       audioAriaLabel: (text) => `Phát âm "${text}"`,
       speechError: (code) => {
         const hint =
@@ -31,6 +39,12 @@ export const commonTranslations: Partial<Record<Locale, CommonDict>> = {
   en: {
     common: {
       streakTooltip: (days) => `${days}-day streak`,
+      mutationSuccess: { create: '✅ Created successfully', update: '✅ Updated successfully', delete: '✅ Deleted successfully' },
+      mutationFailed: {
+        create: (error) => `❌ Create failed: ${error}`,
+        update: (error) => `❌ Update failed: ${error}`,
+        delete: (error) => `❌ Delete failed: ${error}`,
+      },
       audioAriaLabel: (text) => `Play pronunciation for "${text}"`,
       speechError: (code) => {
         const hint =

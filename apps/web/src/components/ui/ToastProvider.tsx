@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 interface Toast {
@@ -12,6 +12,8 @@ interface Toast {
 type ToastFn = (message: string, variant?: Toast['variant']) => void
 
 const ToastContext = createContext<ToastFn | null>(null)
+// Số toast đã hiện — MutationToaster dùng để bỏ thông báo chung khi màn hình đã tự báo cụ thể hơn
+const ToastSeqContext = createContext<MutableRefObject<number> | null>(null)
 
 const DURATION_MS = 3000
 
@@ -22,10 +24,18 @@ export function useToast(): ToastFn {
   return ctx
 }
 
+export function useToastSeq(): MutableRefObject<number> {
+  const ctx = useContext(ToastSeqContext)
+  if (!ctx) throw new Error('useToastSeq phải được gọi trong ToastProvider')
+  return ctx
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const seq = useRef(0)
 
   const show = useCallback<ToastFn>((message, variant = 'success') => {
+    seq.current++
     const id = Date.now() + Math.random()
     setToasts((prev) => [...prev, { id, message, variant }])
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), DURATION_MS)
@@ -33,7 +43,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   return (
     <ToastContext.Provider value={show}>
-      {children}
+      <ToastSeqContext.Provider value={seq}>{children}</ToastSeqContext.Provider>
       <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2 sm:bottom-4 sm:left-auto sm:right-4 sm:translate-x-0">
         {toasts.map((t) => (
           <div

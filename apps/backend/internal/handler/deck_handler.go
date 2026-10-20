@@ -23,6 +23,7 @@ func (h *DeckHandler) RegisterRoutes(router fiber.Router) {
 	api.Get("/:id", h.Get)
 	api.Put("/:id", h.Update)
 	api.Delete("/:id", h.Delete)
+	api.Post("/:id/practice-complete", h.CompletePractice)
 	api.Post("/:id/vocabularies", h.AddVocabulary)
 	api.Delete("/:id/vocabularies/:vocabularyId", h.RemoveVocabulary)
 }
@@ -139,6 +140,31 @@ func (h *DeckHandler) Delete(c *fiber.Ctx) error {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+type deckPracticeResponse struct {
+	PracticeCount int32 `json:"practice_count"`
+}
+
+// CompletePractice godoc
+// @Summary      Ghi nhận đã làm xong 1 lượt "Học lại list" (+1 số lần ôn của list)
+// @Tags         decks
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Deck ID"  format(uuid)
+// @Success      200  {object}  handler.deckPracticeResponse
+// @Failure      404  {object}  ErrorResponse
+// @Router       /decks/{id}/practice-complete [post]
+func (h *DeckHandler) CompletePractice(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	n, err := h.svc.CompletePractice(c.UserContext(), currentUserID(c), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(deckPracticeResponse{PracticeCount: n})
 }
 
 type addDeckVocabularyRequest struct {

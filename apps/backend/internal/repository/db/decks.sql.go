@@ -38,7 +38,7 @@ func (q *Queries) AddVocabularyToDeck(ctx context.Context, arg AddVocabularyToDe
 const createDeck = `-- name: CreateDeck :one
 INSERT INTO user_decks (user_id, name, description, color, icon)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, user_id, name, description, color, icon, is_public, is_system, created_at, updated_at
+RETURNING id, user_id, name, description, color, icon, is_public, is_system, practice_count, created_at, updated_at
 `
 
 type CreateDeckParams struct {
@@ -67,6 +67,7 @@ func (q *Queries) CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDec
 		&i.Icon,
 		&i.IsPublic,
 		&i.IsSystem,
+		&i.PracticeCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -91,7 +92,7 @@ func (q *Queries) DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, 
 }
 
 const getDeckForUser = `-- name: GetDeckForUser :one
-SELECT id, user_id, name, description, color, icon, is_public, is_system, created_at, updated_at FROM user_decks WHERE id = $1 AND user_id = $2
+SELECT id, user_id, name, description, color, icon, is_public, is_system, practice_count, created_at, updated_at FROM user_decks WHERE id = $1 AND user_id = $2
 `
 
 type GetDeckForUserParams struct {
@@ -111,10 +112,31 @@ func (q *Queries) GetDeckForUser(ctx context.Context, arg GetDeckForUserParams) 
 		&i.Icon,
 		&i.IsPublic,
 		&i.IsSystem,
+		&i.PracticeCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const incrementDeckPracticeCount = `-- name: IncrementDeckPracticeCount :one
+UPDATE user_decks
+SET practice_count = practice_count + 1
+WHERE id = $1 AND user_id = $2
+RETURNING practice_count
+`
+
+type IncrementDeckPracticeCountParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+// +1 khi user làm xong 1 lượt "Học lại list"; không phải list của user → no rows
+func (q *Queries) IncrementDeckPracticeCount(ctx context.Context, arg IncrementDeckPracticeCountParams) (int32, error) {
+	row := q.db.QueryRow(ctx, incrementDeckPracticeCount, arg.ID, arg.UserID)
+	var practice_count int32
+	err := row.Scan(&practice_count)
+	return practice_count, err
 }
 
 const listDeckVocabularies = `-- name: ListDeckVocabularies :many
@@ -204,6 +226,7 @@ SELECT
     d.description,
     d.color,
     d.icon,
+    d.practice_count,
     d.created_at,
     (SELECT COUNT(*) FROM deck_vocabularies dv WHERE dv.deck_id = d.id)::int AS word_count,
     (SELECT COUNT(*) FROM deck_vocabularies dv
@@ -227,6 +250,7 @@ type ListDecksForUserRow struct {
 	Description        pgtype.Text        `json:"description"`
 	Color              pgtype.Text        `json:"color"`
 	Icon               pgtype.Text        `json:"icon"`
+	PracticeCount      int32              `json:"practice_count"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	WordCount          int32              `json:"word_count"`
 	DueCount           int32              `json:"due_count"`
@@ -253,6 +277,7 @@ func (q *Queries) ListDecksForUser(ctx context.Context, arg ListDecksForUserPara
 			&i.Description,
 			&i.Color,
 			&i.Icon,
+			&i.PracticeCount,
 			&i.CreatedAt,
 			&i.WordCount,
 			&i.DueCount,
@@ -295,7 +320,7 @@ const updateDeck = `-- name: UpdateDeck :one
 UPDATE user_decks
 SET name = $3, description = $4, color = $5, icon = $6, updated_at = NOW()
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, name, description, color, icon, is_public, is_system, created_at, updated_at
+RETURNING id, user_id, name, description, color, icon, is_public, is_system, practice_count, created_at, updated_at
 `
 
 type UpdateDeckParams struct {
@@ -326,6 +351,7 @@ func (q *Queries) UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDec
 		&i.Icon,
 		&i.IsPublic,
 		&i.IsSystem,
+		&i.PracticeCount,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

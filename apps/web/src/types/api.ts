@@ -825,6 +825,7 @@ export interface DeckSummary {
   icon: string
   word_count: number
   due_count: number
+  practice_count: number // số lượt "Học lại list" đã làm xong
   contains_vocabulary: boolean // list có chứa từ được hỏi (?vocabulary_id=) không
   created_at: string
 }

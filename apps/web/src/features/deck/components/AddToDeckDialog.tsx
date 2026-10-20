@@ -91,7 +91,8 @@ export function AddToDeckDialog({
       setDecks((ds) => [{ ...deck, word_count: 0, contains_vocabulary: false }, ...(ds ?? [])])
       onMembershipChange?.(deck, false) // báo list mới ngay cả khi bước thêm từ bên dưới lỗi
       setNewName('')
-      await deckService.addWord(deck.id, vocabularyId)
+      // Đã có toast "Tạo mới" của list — bước thêm từ không báo thêm (lỗi vẫn hiện ngay trong hộp thoại)
+      await deckService.addWord(deck.id, vocabularyId, { notify: false })
       onAdded()
       onMembershipChange?.(deck, true)
       setDecks((ds) => ds?.map((d) => (d.id === deck.id ? { ...d, word_count: 1, contains_vocabulary: true } : d)) ?? null)

@@ -24,6 +24,7 @@ export interface DecksDict {
     emptyHint: string
     wordCount: (n: number) => string
     dueCount: (n: number) => string
+    listPracticeCount: (n: number) => string
     practiceBtn: string
     viewBtn: string
     backToLists: string
@@ -79,6 +80,7 @@ export const decksTranslations: Partial<Record<Locale, DecksDict>> = {
       emptyHint: 'Tạo danh sách ở trên, hoặc bấm "Thêm vào ôn tập" trên thẻ từ khi học từ mới.',
       wordCount: (n) => `${n} từ`,
       dueCount: (n) => `${n} đến hạn`,
+      listPracticeCount: (n) => `🔁 Đã ôn ${n} lần`,
       practiceBtn: '▶ Học lại list',
       viewBtn: 'Xem từ',
       backToLists: 'Danh sách ôn tập',
@@ -130,6 +132,7 @@ export const decksTranslations: Partial<Record<Locale, DecksDict>> = {
       emptyHint: 'Create one above, or tap "Add to review" on a word card while learning new words.',
       wordCount: (n) => `${n} word${n === 1 ? '' : 's'}`,
       dueCount: (n) => `${n} due`,
+      listPracticeCount: (n) => `🔁 Reviewed ${n} time${n === 1 ? '' : 's'}`,
       practiceBtn: '▶ Practice list',
       viewBtn: 'View words',
       backToLists: 'Review lists',

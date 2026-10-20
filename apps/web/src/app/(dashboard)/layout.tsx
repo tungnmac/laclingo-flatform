@@ -6,6 +6,7 @@ import { SpeechErrorToaster } from '@/components/audio/SpeechErrorToaster'
 import { BottomNav, MobileHeader, Sidebar } from '@/components/layout/DashboardNav'
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
+import { MutationToaster } from '@/components/ui/MutationToaster'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
 import { browserTimezone } from '@/features/reminder/push'
@@ -49,6 +50,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <ConfirmDialogProvider>
         <BackgroundSync />
         <SpeechErrorToaster />
+        <MutationToaster />
         <div className="flex min-h-screen">
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">

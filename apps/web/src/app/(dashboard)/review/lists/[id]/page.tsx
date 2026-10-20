@@ -85,7 +85,7 @@ export default function DeckDetailPage({ params }: { params: { id: string } }) {
                 <h1 className="text-2xl font-bold text-slate-900">{deck.name}</h1>
                 {deck.description && <p className="mt-1 text-sm text-slate-500">{deck.description}</p>}
                 <p className="mt-2 text-xs font-semibold text-slate-500">
-                  {t.decks.wordCount(deck.word_count)}
+                  {t.decks.wordCount(deck.word_count)} · {t.decks.listPracticeCount(deck.practice_count)}
                   {deck.due_count > 0 && <span className="text-rose-600"> · {t.decks.dueCount(deck.due_count)}</span>}
                 </p>
               </div>
@@ -188,8 +188,8 @@ function MoveCopyPanel({
     setBusy(true)
     setError(null)
     try {
-      await deckService.addWord(target.id, word.vocabulary_id)
-      if (move) await deckService.removeWord(deckId, word.vocabulary_id)
+      await deckService.addWord(target.id, word.vocabulary_id, { notify: false })
+      if (move) await deckService.removeWord(deckId, word.vocabulary_id, { notify: false })
       onDone(move ? t.decks.moved(target.name) : t.decks.copied(target.name), move)
     } catch (err) {
       setError((err as Error).message)

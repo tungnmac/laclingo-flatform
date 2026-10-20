@@ -53,6 +53,7 @@ export default function DeckListPage() {
               </Link>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600">{t.decks.wordCount(deck.word_count)}</span>
+                <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-indigo-700">{t.decks.listPracticeCount(deck.practice_count)}</span>
                 {deck.due_count > 0 && (
                   <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-rose-700 ring-1 ring-inset ring-rose-200">
                     {t.decks.dueCount(deck.due_count)}
