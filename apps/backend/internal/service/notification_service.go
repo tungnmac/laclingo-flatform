@@ -22,6 +22,8 @@ const (
 	NotificationStudyReminder    = "study_reminder"
 	NotificationBlogComment      = "blog_comment"
 	NotificationBlogReply        = "blog_reply"
+	NotificationBlogMention      = "blog_mention"      // được @nhắc tên trong bình luận
+	NotificationBlogCommentLike  = "blog_comment_like" // bình luận của mình được ♥
 	NotificationAnnouncement     = "announcement"
 )
 

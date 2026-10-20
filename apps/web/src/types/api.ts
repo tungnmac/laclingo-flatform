@@ -894,7 +894,15 @@ export interface PushPublicKey {
 
 // --- Thông báo trong app (chuông) ---
 
-export type NotificationType = 'mission_completed' | 'level_up' | 'study_reminder' | 'blog_comment' | 'blog_reply' | 'announcement'
+export type NotificationType =
+  | 'mission_completed'
+  | 'level_up'
+  | 'study_reminder'
+  | 'blog_comment'
+  | 'blog_reply'
+  | 'blog_mention'
+  | 'blog_comment_like'
+  | 'announcement'
 
 export interface AppNotification {
   id: string

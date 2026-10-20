@@ -38,6 +38,7 @@ export interface AdminVocabularyDict {
     noDeckOption: string
     addedToDeck: (term: string, deck: string) => string
     addToDeckFailed: (term: string, error: string) => string
+    deckNotFound: (term: string) => string
     termLabel: string
     phoneticLabel: string
     partOfSpeechLabel: string
@@ -97,8 +98,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Thêm từ mới',
       deckLabel: 'Thêm vào list ôn tập (không bắt buộc)',
       noDeckOption: '— Không thêm —',
-      addedToDeck: (term, deck) => `Đã thêm "${term}" vào list "${deck}"`,
-      addToDeckFailed: (term, error) => `Đã tạo "${term}" nhưng chưa thêm được vào list: ${error}`,
+      addedToDeck: (term, deck) => `✅ Đã tạo "${term}" và thêm vào list "${deck}"`,
+      deckNotFound: (term) => `⚠️ Đã tạo "${term}" nhưng không tìm thấy list đã chọn (có thể vừa bị xoá)`,
+      addToDeckFailed: (term, error) => `⚠️ Đã tạo "${term}" nhưng chưa thêm được vào list: ${error}`,
       termLabel: 'Từ',
       phoneticLabel: 'Phiên âm',
       partOfSpeechLabel: 'Từ loại',
@@ -156,8 +158,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       addWordTitle: 'Add a new word',
       deckLabel: 'Add to a review list (optional)',
       noDeckOption: '— None —',
-      addedToDeck: (term, deck) => `Added "${term}" to the list "${deck}"`,
-      addToDeckFailed: (term, error) => `Created "${term}" but could not add it to the list: ${error}`,
+      addedToDeck: (term, deck) => `✅ Created "${term}" and added it to the list "${deck}"`,
+      deckNotFound: (term) => `⚠️ Created "${term}" but the selected list was not found (it may have been deleted)`,
+      addToDeckFailed: (term, error) => `⚠️ Created "${term}" but could not add it to the list: ${error}`,
       termLabel: 'Term',
       phoneticLabel: 'Phonetic',
       partOfSpeechLabel: 'Part of speech',

@@ -157,8 +157,13 @@ ORDER BY c.created_at;
 
 -- ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
 
--- name: LikeBlogComment :exec
+-- name: LikeBlogComment :execrows
+-- 1 = vừa ♥ mới (gửi thông báo cho tác giả comment), 0 = đã ♥ từ trước
 INSERT INTO blog_comment_likes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: MarkCommentLikeNoticed :execrows
+-- 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
+INSERT INTO blog_comment_like_notices (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
 -- name: UnlikeBlogComment :exec
 DELETE FROM blog_comment_likes WHERE user_id = $1 AND comment_id = $2;

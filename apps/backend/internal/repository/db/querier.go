@@ -179,7 +179,8 @@ type Querier interface {
 	// cùng lúc.
 	JoinGameRoom(ctx context.Context, arg JoinGameRoomParams) (GameParticipant, error)
 	// ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
-	LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) error
+	// 1 = vừa ♥ mới (gửi thông báo cho tác giả comment), 0 = đã ♥ từ trước
+	LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) (int64, error)
 	LikeBlogPost(ctx context.Context, arg LikeBlogPostParams) error
 	LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error
 	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
@@ -300,6 +301,8 @@ type Querier interface {
 	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
+	// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
+	MarkCommentLikeNoticed(ctx context.Context, arg MarkCommentLikeNoticedParams) (int64, error)
 	// WHERE completed_at IS NULL đảm bảo chỉ 1 lần cộng thưởng dù gọi nhiều lần
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)

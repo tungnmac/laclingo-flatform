@@ -1,4 +1,6 @@
-import { emitMutationNotice, mutationNotice } from '@/lib/mutationNotice'
+import { apiErrorText } from '@/lib/apiErrorText'
+import { emitMutationNotice, mutationNotice, type NotifyOption } from '@/lib/mutationNotice'
+import { useLocale } from '@/store/locale'
 import { useSession } from '@/store/session'
 import type { ErrorResponse } from '@/types/api'
 
@@ -14,8 +16,11 @@ export class ApiError extends Error {
   }
 }
 
-/** RequestInit + `notify: false` để tắt thông báo chung khi màn hình đã tự báo cụ thể hơn */
-export type ApiInit = RequestInit & { notify?: boolean }
+/**
+ * RequestInit + `notify`: false = tắt thông báo chung; 'error' = chỉ báo khi lỗi (màn hình tự báo thành công
+ * cụ thể hơn, hoặc thao tác gồm nhiều request chỉ báo 1 lần ở cuối).
+ */
+export type ApiInit = RequestInit & { notify?: NotifyOption }
 
 /**
  * Gọi backend, tự gắn Bearer token của phiên hiện tại, parse JSON và chuẩn hoá lỗi về ApiError.
@@ -40,13 +45,13 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   try {
     res = await fetch(`${API_URL}${path}`, { ...requestInit, headers })
   } catch {
-    throw fail(new ApiError('Không kết nối được tới máy chủ. Vui lòng thử lại.', 0))
+    throw fail(new ApiError(apiErrorText(0, undefined, useLocale.getState().locale), 0))
   }
 
   if (!res.ok) {
     if (res.status === 401 && token) useSession.getState().logout()
     const body = (await res.json().catch(() => null)) as ErrorResponse | null
-    throw fail(new ApiError(body?.error ?? `Lỗi ${res.status}`, res.status))
+    throw fail(new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token), res.status))
   }
 
   // Đọc xong body rồi mới báo thành công — body lỗi thì nơi gọi nhận lỗi, không có toast "thành công" sai

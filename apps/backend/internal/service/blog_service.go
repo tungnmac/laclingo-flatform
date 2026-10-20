@@ -43,13 +43,16 @@ type BlogRepository interface {
 
 	CreateBlogComment(ctx context.Context, arg db.CreateBlogCommentParams) (db.BlogComment, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (db.BlogComment, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
+	GetUserByUsername(ctx context.Context, username string) (db.User, error)
+	MarkCommentLikeNoticed(ctx context.Context, arg db.MarkCommentLikeNoticedParams) (int64, error)
 	UpdateBlogComment(ctx context.Context, arg db.UpdateBlogCommentParams) (db.BlogComment, error)
 	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	UnhideBlogComment(ctx context.Context, id pgtype.UUID) error
 	ListBlogCommentsByPost(ctx context.Context, arg db.ListBlogCommentsByPostParams) ([]db.ListBlogCommentsByPostRow, error)
 
-	LikeBlogComment(ctx context.Context, arg db.LikeBlogCommentParams) error
+	LikeBlogComment(ctx context.Context, arg db.LikeBlogCommentParams) (int64, error)
 	UnlikeBlogComment(ctx context.Context, arg db.UnlikeBlogCommentParams) error
 	CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
 	DislikeBlogComment(ctx context.Context, arg db.DislikeBlogCommentParams) error
@@ -669,6 +672,58 @@ func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, co
 			Title: commenterName + " đã bình luận bài viết \"" + post.Title + "\"", Body: preview,
 		})
 	}
+	// Người được @nhắc tên — trừ người bình luận và người đã nhận thông báo ở trên (mỗi người tối đa 1)
+	notified := map[uuid.UUID]bool{commenterID: true, parentAuthorID: true, postAuthorID: true}
+	s.notifyMentions(ctx, content, notified, NotificationInput{
+		Type: NotificationBlogMention, Icon: "📣", URL: url,
+		Title: commenterName + " đã nhắc đến bạn trong một bình luận", Body: preview,
+	})
+}
+
+// notifyMentions gửi n cho từng user được @username trong content (bỏ qua username không tồn tại và user trong skip)
+func (s *BlogService) notifyMentions(ctx context.Context, content string, skip map[uuid.UUID]bool, n NotificationInput) {
+	for _, username := range extractMentions(content) {
+		u, err := s.repo.GetUserByUsername(ctx, username)
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				log.Printf("❌ blog: tìm user @%s để báo nhắc tên: %v", username, err)
+			}
+			continue
+		}
+		id := uuid.UUID(u.ID.Bytes)
+		if skip[id] || !u.IsActive { // tài khoản bị khoá không nhận thông báo
+			continue
+		}
+		skip[id] = true
+		s.notifier.Notify(ctx, id, n)
+	}
+}
+
+// notifyCommentLiked báo tác giả comment khi có người ♥ — không báo khi tự ♥ comment của mình
+func (s *BlogService) notifyCommentLiked(ctx context.Context, comment db.BlogComment, likerID uuid.UUID) {
+	authorID := uuid.UUID(comment.AuthorID.Bytes)
+	if authorID == likerID {
+		return
+	}
+	// Mỗi người ♥ 1 bình luận chỉ báo 1 lần — ♥ / bỏ ♥ / ♥ lại không spam tác giả
+	n, err := s.repo.MarkCommentLikeNoticed(ctx, db.MarkCommentLikeNoticedParams{UserID: toPgUUID(likerID), CommentID: comment.ID})
+	if err != nil {
+		log.Printf("❌ blog: ghi nhận đã báo ♥ bình luận %s: %v", uuid.UUID(comment.ID.Bytes), err)
+		return
+	}
+	if n == 0 {
+		return
+	}
+	liker, err := s.repo.GetUserByID(ctx, toPgUUID(likerID))
+	if err != nil {
+		log.Printf("❌ blog: đọc user %s để báo ♥ bình luận: %v", likerID, err)
+		return
+	}
+	s.notifier.Notify(ctx, authorID, NotificationInput{
+		Type: NotificationBlogCommentLike, Icon: "❤️", URL: "/blog/" + uuid.UUID(comment.PostID.Bytes).String(),
+		Title: displayNameOf(liker.FullName, liker.Username) + " đã thích bình luận của bạn",
+		Body:  truncateRunes(strings.TrimSpace(comment.Content), 120),
+	})
 }
 
 // displayNameOf — họ tên nếu có, không thì username
@@ -844,9 +899,13 @@ func (s *BlogService) ensureCommentExists(ctx context.Context, commentID uuid.UU
 
 // SetCommentLike/SetCommentDislike loại trừ nhau — khớp pattern SetLike/SetDislike (bài viết).
 func (s *BlogService) SetCommentLike(ctx context.Context, userID, commentID uuid.UUID, on bool) (BlogCommentToggleResponse, error) {
-	if err := s.ensureCommentExists(ctx, commentID); err != nil {
+	comment, err := s.repo.GetBlogCommentByID(ctx, toPgUUID(commentID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return BlogCommentToggleResponse{}, ErrNotFound
+	} else if err != nil {
 		return BlogCommentToggleResponse{}, err
 	}
+	newlyLiked := false
 	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return BlogCommentToggleResponse{}, err
@@ -858,14 +917,19 @@ func (s *BlogService) SetCommentLike(ctx context.Context, userID, commentID uuid
 		if err := qtx.UndislikeBlogComment(ctx, db.UndislikeBlogCommentParams(arg)); err != nil {
 			return BlogCommentToggleResponse{}, err
 		}
-		if err := qtx.LikeBlogComment(ctx, arg); err != nil {
+		n, err := qtx.LikeBlogComment(ctx, arg)
+		if err != nil {
 			return BlogCommentToggleResponse{}, err
 		}
+		newlyLiked = n == 1
 	} else if err := qtx.UnlikeBlogComment(ctx, db.UnlikeBlogCommentParams(arg)); err != nil {
 		return BlogCommentToggleResponse{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return BlogCommentToggleResponse{}, err
+	}
+	if newlyLiked { // bấm ♥ lại khi đã ♥ (hoặc mạng gửi trùng) → không báo lần nữa
+		s.notifyCommentLiked(ctx, comment, userID)
 	}
 	count, err := s.repo.CountBlogCommentLikes(ctx, toPgUUID(commentID))
 	if err != nil {

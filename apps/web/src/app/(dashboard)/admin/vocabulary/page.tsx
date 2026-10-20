@@ -445,9 +445,11 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     try {
       if (editing) await vocabularyService.updateVocabulary(editing.id, body)
       else {
-        const created = await vocabularyService.createVocabulary(body)
         const deckId = String(form.get('deck_id') ?? '')
         const deck = decksApi.data?.find((d) => d.id === deckId)
+        // Có chọn list → báo 1 lần ở cuối ("Đã thêm X vào list Y"); không chọn → thông báo chung "Tạo mới thành công"
+        const created = await vocabularyService.createVocabulary(body, deckId ? { notify: 'error' } : undefined)
+        if (deckId && !deck) toast(t.adminVocabulary.deckNotFound(created.term), 'error')
         if (deck) {
           // Từ đã tạo xong — thêm vào list lỗi thì báo riêng, không coi cả thao tác là thất bại
           try {
