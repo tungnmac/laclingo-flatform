@@ -14,6 +14,9 @@ export interface MutationNotice {
 /** Mức thông báo: 'all' = thành công & thất bại; 'error' = chỉ khi thất bại; 'none' = không bao giờ */
 type NotifyMode = 'all' | 'error' | 'none'
 
+/** Tuỳ chọn ở nơi gọi: false = không báo; 'error' = chỉ báo khi thất bại; bỏ trống = theo RULES */
+export type NotifyOption = false | 'error'
+
 /**
  * API chạy ngầm / lặp liên tục / đã có phản hồi riêng trên màn hình → không hiện thông báo chung,
  * tránh toast dồn dập (vd mỗi từ khi luyện SRS).
@@ -28,7 +31,7 @@ const RULES: [RegExp, NotifyMode][] = [
   [/^\/listening\/questions\/[^/]+\/submit$/, 'none'], // trả lời bài nghe (có chấm ngay)
   [/^\/speaking\/items\/[^/]+\/attempts$/, 'none'], // lượt nói (có chấm ngay)
   [/\/(images|audio)$/, 'error'], // tải file lên trong form — chỉ báo khi lỗi
-  [/\/(like|dislike|favorite|star|marker)$/, 'error'], // bấm qua lại ♥/★ — báo "đã xoá" khi bỏ ♥ dễ hiểu nhầm
+  [/\/(like|dislike|favorite|star|marker)$/, 'none'], // bấm ♥/★ — không thông báo (kể cả lỗi; nút tự trả về trạng thái cũ)
   [/\/bulk$/, 'error'], // nhập hàng loạt — màn hình có bảng kết quả từng dòng
   // Màn hình đã tự hiện thông báo thành công cụ thể hơn → chỉ báo chung khi lỗi
   [/^\/notifications\/push\/test$/, 'error'],
@@ -45,11 +48,12 @@ const KIND: Record<string, MutationKind> = { POST: 'create', PUT: 'update', PATC
  * Thông báo cần hiện cho 1 request, hoặc null. `notify: false` ở nơi gọi tắt hẳn
  * (dùng khi màn hình đã tự hiện thông báo cụ thể hơn).
  */
-export function mutationNotice(method: string | undefined, path: string, ok: boolean, error?: string, notify?: boolean): MutationNotice | null {
+export function mutationNotice(method: string | undefined, path: string, ok: boolean, error?: string, notify?: NotifyOption): MutationNotice | null {
   const kind = KIND[(method ?? 'GET').toUpperCase()]
   if (!kind || notify === false) return null
   const pathname = path.split('?')[0]
-  const mode = RULES.find(([re]) => re.test(pathname))?.[1] ?? 'all'
+  const rule = RULES.find(([re]) => re.test(pathname))?.[1] ?? 'all'
+  const mode = notify === 'error' && rule === 'all' ? 'error' : rule
   if (mode === 'none' || (mode === 'error' && ok)) return null
   return ok ? { kind, ok } : { kind, ok, error }
 }

@@ -1,0 +1,52 @@
+package service
+
+import (
+	"reflect"
+	"testing"
+)
+
+func TestExtractMentions(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"chào @nguyenvana nhé", []string{"nguyenvana"}},
+		{"@An.B và @an.b, @c_d-e!", []string{"an.b", "c_d-e"}}, // không phân biệt hoa thường, bỏ trùng, giữ thứ tự
+		{"cuối câu @bob.", []string{"bob"}},                    // dấu chấm cuối câu không thuộc username
+		{"email a@example.com không phải tag", nil},            // @ dính chữ phía trước
+		{"@ab quá ngắn, @@xyz", nil},                           // < 3 ký tự; @@ không hợp lệ
+		{"(@hoa) [@lan]", []string{"hoa", "lan"}},
+	}
+	for _, c := range cases {
+		if got := extractMentions(c.in); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("extractMentions(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestExtractMentionsCapsAtTen(t *testing.T) {
+	in := ""
+	for i := 0; i < 15; i++ {
+		in += " @user" + string(rune('a'+i)) + "xx"
+	}
+	if got := extractMentions(in); len(got) != maxMentionsPerComment {
+		t.Fatalf("got %d mentions, want %d", len(got), maxMentionsPerComment)
+	}
+}
+
+func TestExtractMentionsIgnoresUrlsCodeAndPartialUnicode(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"xem https://youtube.com/@channel nhé", nil},             // @ trong URL
+		{"dùng `@Override` và ```\n@app.route\n``` thôi", nil}, // trong code
+		{"chào @nguyễn", nil},                                    // username không có dấu → @nguyễn không phải tag
+		{"@lan: xem này", []string{"lan"}},                       // dấu : sau tên vẫn là tag
+	}
+	for _, c := range cases {
+		if got := extractMentions(c.in); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("extractMentions(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

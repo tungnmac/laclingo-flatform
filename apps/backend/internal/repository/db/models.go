@@ -41,6 +41,12 @@ type BlogCommentLike struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type BlogCommentLikeNotice struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	CommentID pgtype.UUID        `json:"comment_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type BlogPost struct {
 	ID         pgtype.UUID        `json:"id"`
 	AuthorID   pgtype.UUID        `json:"author_id"`

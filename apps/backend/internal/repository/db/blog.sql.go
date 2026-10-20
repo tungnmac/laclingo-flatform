@@ -414,7 +414,7 @@ func (q *Queries) IncrementBlogPostViewCount(ctx context.Context, id pgtype.UUID
 	return err
 }
 
-const likeBlogComment = `-- name: LikeBlogComment :exec
+const likeBlogComment = `-- name: LikeBlogComment :execrows
 
 INSERT INTO blog_comment_likes (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
@@ -425,9 +425,13 @@ type LikeBlogCommentParams struct {
 }
 
 // ===== Like/dislike cho comment (độc lập với like/dislike bài viết) =====
-func (q *Queries) LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) error {
-	_, err := q.db.Exec(ctx, likeBlogComment, arg.UserID, arg.CommentID)
-	return err
+// 1 = vừa ♥ mới (gửi thông báo cho tác giả comment), 0 = đã ♥ từ trước
+func (q *Queries) LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, likeBlogComment, arg.UserID, arg.CommentID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const likeBlogPost = `-- name: LikeBlogPost :exec
@@ -753,6 +757,24 @@ type MarkBlogPostParams struct {
 func (q *Queries) MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error {
 	_, err := q.db.Exec(ctx, markBlogPost, arg.UserID, arg.PostID)
 	return err
+}
+
+const markCommentLikeNoticed = `-- name: MarkCommentLikeNoticed :execrows
+INSERT INTO blog_comment_like_notices (user_id, comment_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type MarkCommentLikeNoticedParams struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	CommentID pgtype.UUID `json:"comment_id"`
+}
+
+// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
+func (q *Queries) MarkCommentLikeNoticed(ctx context.Context, arg MarkCommentLikeNoticedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markCommentLikeNoticed, arg.UserID, arg.CommentID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const starBlogPost = `-- name: StarBlogPost :exec

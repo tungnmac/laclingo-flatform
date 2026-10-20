@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api'
+import { apiFetch, type ApiInit } from '@/lib/api'
 import { buildQuery } from '@/lib/query'
 import type {
   BulkImportResult,
@@ -38,8 +38,8 @@ export const vocabularyService = {
     }),
 
   // Admin
-  createVocabulary: (body: VocabularyRequest) =>
-    apiFetch<VocabularyAdmin>('/admin/vocabularies', { method: 'POST', body: JSON.stringify(body) }),
+  createVocabulary: (body: VocabularyRequest, opts?: Pick<ApiInit, 'notify'>) =>
+    apiFetch<VocabularyAdmin>('/admin/vocabularies', { method: 'POST', body: JSON.stringify(body), ...opts }),
   listVocabulariesAdmin: (
     languageId: string,
     params: { page?: number; pageSize?: number; q?: string; topic?: string; level?: string } = {},
