@@ -1,0 +1,174 @@
+import type { Locale } from '@/store/locale'
+import type { DailyTaskKind } from '@/types/api'
+
+// Namespace "daily" — trang Nhật ký học (riêng tư của học viên). Chỉ vi+en — zh/ja/ko fallback về en.
+export interface DailyDict {
+  daily: {
+    pageTitle: string
+    pageDesc: string
+    privateNote: string
+    today: string
+    prevDay: string
+    nextDay: string
+    backToToday: string
+    summary: (done: number, total: number) => string
+    streak: (n: number) => string
+    readOnly: string
+    noNote: string
+    empty: string
+    kinds: Record<DailyTaskKind, string>
+    auto: string
+    goStudy: string
+    repeat: string
+    carriedIn: string
+    carried: string
+    addTitle: string
+    titlePlaceholder: string
+    kindLabel: string
+    targetLabel: string
+    targetPlaceholder: string
+    repeatLabel: string
+    addBtn: string
+    suggestions: string
+    suggestionItems: { title: string; kind: DailyTaskKind; target?: number }[]
+    memoPlaceholder: string
+    edit: string
+    save: string
+    cancel: string
+    delete: string
+    deleteConfirm: (title: string) => string
+    moveUp: string
+    moveDown: string
+    journalTitle: string
+    journalPlaceholder: string
+    saving: string
+    saved: string
+    unfinishedTitle: (n: number) => string
+    carryBtn: string
+    calendarTitle: string
+    weekdays: string[]
+  }
+}
+
+export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
+  vi: {
+    daily: {
+      pageTitle: 'Nhật ký học',
+      pageDesc: 'Đặt việc cần làm mỗi ngày và theo dõi đã làm tới đâu.',
+      privateNote: '🔒 Chỉ mình bạn xem được nhật ký này.',
+      today: 'Hôm nay',
+      prevDay: 'Ngày trước',
+      nextDay: 'Ngày sau',
+      backToToday: 'Về hôm nay',
+      summary: (done, total) => `${done}/${total} việc xong`,
+      streak: (n) => `🔥 ${n} ngày liên tiếp hoàn thành`,
+      readOnly: 'Ngày đã qua — chỉ xem. Việc chưa xong có thể chuyển sang hôm nay.',
+      noNote: 'Ngày này chưa có nhật ký.',
+      empty: 'Chưa có việc nào — thêm việc đầu tiên ở dưới, hoặc chọn một gợi ý.',
+      kinds: {
+        free: '📝 Tự do',
+        srs_review: '🧠 Ôn từ',
+        learn_word: '📚 Học từ mới',
+        grammar_exercise: '✍️ Ngữ pháp',
+        listening_practice: '🎧 Luyện nghe',
+        speaking_practice: '🎤 Luyện nói',
+        challenge_participate: '🎮 Thi đấu',
+      },
+      auto: 'tự cập nhật',
+      goStudy: 'Học ngay →',
+      repeat: '🔁 Lặp lại hằng ngày',
+      carriedIn: '↪ chuyển từ hôm trước',
+      carried: '↪ đã chuyển sang ngày sau',
+      addTitle: 'Thêm việc',
+      titlePlaceholder: 'Vd: Ôn 30 từ',
+      kindLabel: 'Loại',
+      targetLabel: 'Mục tiêu (số)',
+      targetPlaceholder: 'Để trống = tích xong',
+      repeatLabel: 'Lặp lại hằng ngày',
+      addBtn: '＋ Thêm',
+      suggestions: 'Gợi ý:',
+      suggestionItems: [
+        { title: 'Ôn 30 từ', kind: 'srs_review', target: 30 },
+        { title: 'Học 10 từ mới', kind: 'learn_word', target: 10 },
+        { title: 'Nghe 1 bài', kind: 'listening_practice', target: 1 },
+        { title: 'Làm 10 câu ngữ pháp', kind: 'grammar_exercise', target: 10 },
+      ],
+      memoPlaceholder: 'Ghi chú ngắn cho việc này…',
+      edit: 'Sửa',
+      save: 'Lưu',
+      cancel: 'Huỷ',
+      delete: 'Xoá',
+      deleteConfirm: (title) => `Xoá việc "${title}" khỏi hôm nay?`,
+      moveUp: 'Lên',
+      moveDown: 'Xuống',
+      journalTitle: 'Ghi chú trong ngày',
+      journalPlaceholder: 'Hôm nay học được gì, cảm thấy thế nào…',
+      saving: 'Đang lưu…',
+      saved: 'Đã lưu',
+      unfinishedTitle: (n) => `Còn ${n} việc dở hôm qua`,
+      carryBtn: 'Chuyển sang hôm nay',
+      calendarTitle: 'Lịch',
+      weekdays: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+    },
+  },
+  en: {
+    daily: {
+      pageTitle: 'Daily note',
+      pageDesc: 'Set what to do each day and track how far you got.',
+      privateNote: '🔒 Only you can see this note.',
+      today: 'Today',
+      prevDay: 'Previous day',
+      nextDay: 'Next day',
+      backToToday: 'Back to today',
+      summary: (done, total) => `${done}/${total} tasks done`,
+      streak: (n) => `🔥 ${n}-day completion streak`,
+      readOnly: 'Past day — read only. Unfinished tasks can be moved to today.',
+      noNote: 'No note for this day.',
+      empty: 'No tasks yet — add your first one below or pick a suggestion.',
+      kinds: {
+        free: '📝 Free',
+        srs_review: '🧠 Review words',
+        learn_word: '📚 Learn new words',
+        grammar_exercise: '✍️ Grammar',
+        listening_practice: '🎧 Listening',
+        speaking_practice: '🎤 Speaking',
+        challenge_participate: '🎮 Challenges',
+      },
+      auto: 'auto-tracked',
+      goStudy: 'Study now →',
+      repeat: '🔁 Repeats daily',
+      carriedIn: '↪ moved from a previous day',
+      carried: '↪ moved to a later day',
+      addTitle: 'Add a task',
+      titlePlaceholder: 'E.g. Review 30 words',
+      kindLabel: 'Type',
+      targetLabel: 'Target (number)',
+      targetPlaceholder: 'Leave empty = checkbox',
+      repeatLabel: 'Repeat every day',
+      addBtn: '＋ Add',
+      suggestions: 'Suggestions:',
+      suggestionItems: [
+        { title: 'Review 30 words', kind: 'srs_review', target: 30 },
+        { title: 'Learn 10 new words', kind: 'learn_word', target: 10 },
+        { title: 'Do 1 listening', kind: 'listening_practice', target: 1 },
+        { title: 'Do 10 grammar questions', kind: 'grammar_exercise', target: 10 },
+      ],
+      memoPlaceholder: 'Short note for this task…',
+      edit: 'Edit',
+      save: 'Save',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      deleteConfirm: (title) => `Remove "${title}" from today?`,
+      moveUp: 'Move up',
+      moveDown: 'Move down',
+      journalTitle: 'Today’s journal',
+      journalPlaceholder: 'What did you learn today, how did it go…',
+      saving: 'Saving…',
+      saved: 'Saved',
+      unfinishedTitle: (n) => `${n} unfinished task${n === 1 ? '' : 's'} from yesterday`,
+      carryBtn: 'Move to today',
+      calendarTitle: 'Calendar',
+      weekdays: ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'],
+    },
+  },
+}
