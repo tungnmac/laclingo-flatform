@@ -42,6 +42,9 @@ const topicBulkPlaceholder = `[
 
 type VocabTab = 'topics' | 'words'
 
+/** Giá trị đặc biệt của ô chọn list ôn tập: tạo list mới (id thật là UUID nên không trùng) */
+const NEW_DECK = '__new__'
+
 export default function AdminVocabularyPage() {
   const [languageId, setLanguageId] = useState('en')
   const [tab, setTab] = useState<VocabTab>('words')
@@ -383,6 +386,8 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   const [uploadingImage, setUploadingImage] = useState(false)
   // List ôn tập của chính tài khoản admin — chọn để thêm luôn từ vừa tạo (không bắt buộc)
   const decksApi = useApi(() => deckService.list(), [showForm, editing?.id], showForm && !editing)
+  // List ôn tập chọn trong form tạo từ: '' = không thêm, NEW_DECK = tạo list mới theo tên nhập bên dưới
+  const [deckChoice, setDeckChoice] = useState('')
   const toast = useToast()
 
   // Option chủ đề cho form: cha trước, con thụt vào ngay dưới cha. Từ đang sửa
@@ -413,6 +418,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     setEditing(null)
     setShowForm(true)
     setFormError(null)
+    setDeckChoice('')
   }
 
   const onDelete = async (v: VocabularyAdmin) => {
@@ -445,16 +451,18 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     try {
       if (editing) await vocabularyService.updateVocabulary(editing.id, body)
       else {
-        const deckId = String(form.get('deck_id') ?? '')
-        const deck = decksApi.data?.find((d) => d.id === deckId)
-        // Có chọn list → báo 1 lần ở cuối ("Đã thêm X vào list Y"); không chọn → thông báo chung "Tạo mới thành công"
-        const created = await vocabularyService.createVocabulary(body, deckId ? { notify: 'error' } : undefined)
-        if (deckId && !deck) toast(t.adminVocabulary.deckNotFound(created.term), 'error')
-        if (deck) {
-          // Từ đã tạo xong — thêm vào list lỗi thì báo riêng, không coi cả thao tác là thất bại
+        const newDeckName = deckChoice === NEW_DECK ? String(form.get('new_deck_name') ?? '').trim() : ''
+        const deck = decksApi.data?.find((d) => d.id === deckChoice)
+        const wantsDeck = deckChoice !== ''
+        // Có chọn / tạo list → báo 1 lần ở cuối ("Đã tạo X và thêm vào list Y"); không → thông báo chung "Tạo mới thành công"
+        const created = await vocabularyService.createVocabulary(body, wantsDeck ? { notify: 'error' } : undefined)
+        if (wantsDeck && !deck && !newDeckName) toast(t.adminVocabulary.deckNotFound(created.term), 'error')
+        if (deck || newDeckName) {
+          // Từ đã tạo xong — tạo list / thêm vào list lỗi thì báo riêng, không coi cả thao tác là thất bại
           try {
-            await deckService.addWord(deck.id, created.id, { notify: false })
-            toast(t.adminVocabulary.addedToDeck(created.term, deck.name))
+            const target = deck ?? (await deckService.create({ name: newDeckName }, { notify: false }))
+            await deckService.addWord(target.id, created.id, { notify: false })
+            toast(t.adminVocabulary.addedToDeck(created.term, target.name))
           } catch (err) {
             toast(t.adminVocabulary.addToDeckFailed(created.term, (err as Error).message), 'error')
           }
@@ -601,14 +609,30 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             {!editing && (
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminVocabulary.deckLabel}
-                <select name="deck_id" defaultValue="" className={inputClass}>
+                <select value={deckChoice} onChange={(e) => setDeckChoice(e.target.value)} className={inputClass}>
                   <option value="">{t.adminVocabulary.noDeckOption}</option>
                   {(decksApi.data ?? []).map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.icon} {d.name}
                     </option>
                   ))}
+                  <option value={NEW_DECK}>{t.adminVocabulary.newDeckOption}</option>
                 </select>
+              </label>
+            )}
+            {!editing && deckChoice === NEW_DECK && (
+              <label className="block text-sm font-medium text-slate-700">
+                {t.adminVocabulary.newDeckNameLabel}
+                <input
+                  name="new_deck_name"
+                  type="text"
+                  required
+                  maxLength={100}
+                  pattern=".*\S.*"
+                  autoFocus
+                  placeholder={t.adminVocabulary.newDeckNamePlaceholder}
+                  className={inputClass}
+                />
               </label>
             )}
             <label className="block text-sm font-medium text-slate-700">

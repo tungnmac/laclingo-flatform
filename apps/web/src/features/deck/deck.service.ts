@@ -8,7 +8,8 @@ export const deckService = {
   list: (vocabularyId?: string) =>
     apiFetch<DeckSummary[]>(`/decks${vocabularyId ? `?vocabulary_id=${encodeURIComponent(vocabularyId)}` : ''}`),
   get: (id: string) => apiFetch<DeckDetail>(deckPath(id)),
-  create: (body: DeckRequest) => apiFetch<DeckSummary>('/decks', { method: 'POST', body: JSON.stringify(body) }),
+  create: (body: DeckRequest, opts?: Pick<ApiInit, 'notify'>) =>
+    apiFetch<DeckSummary>('/decks', { method: 'POST', body: JSON.stringify(body), ...opts }),
   update: (id: string, body: DeckRequest) => apiFetch<DeckSummary>(deckPath(id), { method: 'PUT', body: JSON.stringify(body) }),
   delete: (id: string) => apiFetch<void>(deckPath(id), { method: 'DELETE' }),
   // Làm xong 1 lượt "Học lại list" → +1 số lần ôn của list
