@@ -2,12 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
+import { isTypingTarget } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn, displayName } from '@/lib/utils'
+import { useLayout } from '@/store/layout'
+import { LOCALES, useLocale } from '@/store/locale'
 import { useSession } from '@/store/session'
 import type { User } from '@/types/api'
 
@@ -49,56 +53,128 @@ function useNavPathname() {
   return pathname
 }
 
-/** Sidebar cho màn hình md+ */
+/**
+ * Sidebar cho màn hình md+. Thu gọn được (nút ‹ › cạnh logo hoặc Ctrl/⌘+B) —
+ * thu gọn chỉ còn icon, rê chuột xem tên mục; trạng thái nhớ ở localStorage.
+ */
 export function Sidebar({ user }: { user: User }) {
   const pathname = useNavPathname()
   const router = useRouter()
   const logout = useSession((s) => s.logout)
+  const collapsed = useLayout((s) => s.sidebarCollapsed)
+  const toggleSidebar = useLayout((s) => s.toggleSidebar)
+  const setSidebarCollapsed = useLayout((s) => s.setSidebarCollapsed)
+  const locale = useLocale((s) => s.locale)
   const t = useTranslation()
   const isAdmin = user.role === 'admin' || user.role === 'owner'
   const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+  const toggleLabel = collapsed ? t.nav.expandMenu : t.nav.collapseMenu
+
+  // Ctrl/⌘+B: chỉ khi sidebar đang hiện (md+), không đang gõ chữ (Ctrl+B = in đậm),
+  // không có hộp thoại mở; e.code để chạy cả với bàn phím không phải Latin
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.code !== 'KeyB') return
+      if (e.repeat || e.defaultPrevented || isTypingTarget(e.target)) return
+      if (!window.matchMedia('(min-width: 768px)').matches || document.querySelector('[aria-modal="true"]')) return
+      e.preventDefault()
+      toggleSidebar()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleSidebar])
 
   return (
-    <aside className="sticky top-0 z-30 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-6 md:flex lg:w-64">
-      <Link href="/learn" className="mb-8 flex items-center gap-2 px-2 text-2xl font-bold text-indigo-600">
-        <img src="/logo.svg" alt="" className="h-9 w-9 rounded-xl" /> LacLingo
-      </Link>
+    <aside
+      id="app-sidebar"
+      className={cn(
+        'sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-slate-200 bg-white py-6 transition-[width] duration-200 md:flex',
+        collapsed ? 'w-[4.5rem] px-2' : 'w-60 px-4 lg:w-64',
+      )}
+    >
+      <div className={cn('mb-8 flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}>
+        <Link
+          href="/learn"
+          title={collapsed ? 'LacLingo' : undefined}
+          className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap px-2 text-2xl font-bold text-indigo-600"
+        >
+          <img src="/logo.svg" alt={collapsed ? 'LacLingo' : ''} className="h-9 w-9 shrink-0 rounded-xl" />
+          {!collapsed && 'LacLingo'}
+        </Link>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          aria-label={toggleLabel}
+          aria-expanded={!collapsed}
+          aria-controls="app-sidebar"
+          title={`${toggleLabel} (Ctrl/⌘ + B)`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        >
+          <span aria-hidden>{collapsed ? '›' : '‹'}</span>
+        </button>
+      </div>
 
-      <nav className="flex flex-1 flex-col gap-1">
+      {/* min-h-0 + cuộn dọc: màn hình thấp thì danh sách menu tự cuộn, khối dưới (chuông,
+          hồ sơ, đăng xuất) luôn nằm trong màn hình. nowrap + ẩn tràn ngang: lúc đang giãn
+          rộng (200ms) chữ không xuống dòng / hiện thanh cuộn ngang */}
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden whitespace-nowrap">
         {sidebarItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+            aria-label={collapsed ? t.nav[item.key] : undefined}
+            title={collapsed ? t.nav[item.key] : undefined}
             className={cn(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
+              'flex items-center gap-3 rounded-xl py-2.5 text-sm font-semibold transition',
+              collapsed ? 'justify-center px-0' : 'px-3',
               isActive(pathname, item.href) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100',
             )}
           >
-            <span className="text-lg">{item.icon}</span>
-            {t.nav[item.key]}
+            <span className="text-lg" aria-hidden>
+              {item.icon}
+            </span>
+            {!collapsed && t.nav[item.key]}
           </Link>
         ))}
       </nav>
 
       <div className="border-t border-slate-200 pt-4">
         <div className="mb-2">
-          <NotificationBell variant="sidebar" />
+          <NotificationBell variant={collapsed ? 'rail' : 'sidebar'} />
         </div>
-        <LanguageSwitcher className="mb-3" />
+        {collapsed ? (
+          // Thu gọn: hiện cờ ngôn ngữ hiện tại — bấm để mở rộng rồi đổi ở ô chọn
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(false)}
+            aria-label={t.nav.expandMenu}
+            title={LOCALES.find((l) => l.value === locale)?.label}
+            className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-slate-100"
+          >
+            <span aria-hidden>{LOCALES.find((l) => l.value === locale)?.flag}</span>
+          </button>
+        ) : (
+          <LanguageSwitcher className="mb-3" />
+        )}
         <Link
           href="/profile"
           aria-current={isActive(pathname, '/profile') ? 'page' : undefined}
+          aria-label={collapsed ? t.nav.profile : undefined}
+          title={collapsed ? `${displayName(user)} · ${user.email}` : undefined}
           className={cn(
-            'flex items-center gap-3 rounded-xl px-2 py-2 transition',
+            'flex items-center gap-3 rounded-xl py-2 transition',
+            collapsed ? 'justify-center px-0' : 'px-2',
             isActive(pathname, '/profile') ? 'bg-indigo-50' : 'hover:bg-slate-100',
           )}
         >
-          <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-9 w-9 text-sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
-            <p className="truncate text-xs text-slate-500">{user.email}</p>
-          </div>
+          <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-9 w-9 shrink-0 text-sm" />
+          {!collapsed && (
+            <div className="min-w-0 flex-1 whitespace-nowrap">
+              <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
+              <p className="truncate text-xs text-slate-500">{user.email}</p>
+            </div>
+          )}
         </Link>
         <button
           type="button"
@@ -106,9 +182,14 @@ export function Sidebar({ user }: { user: User }) {
             logout()
             router.replace('/login')
           }}
-          className="mt-3 w-full rounded-lg px-3 py-2 text-left text-sm text-slate-500 hover:bg-slate-100"
+          aria-label={collapsed ? t.nav.logout : undefined}
+          title={collapsed ? t.nav.logout : undefined}
+          className={cn(
+            'mt-3 w-full rounded-lg py-2 text-sm text-slate-500 hover:bg-slate-100',
+            collapsed ? 'px-0 text-center text-lg' : 'px-3 text-left',
+          )}
         >
-          {t.nav.logout}
+          {collapsed ? <span aria-hidden>🚪</span> : t.nav.logout}
         </button>
       </div>
     </aside>
