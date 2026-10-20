@@ -130,6 +130,7 @@ function TopicsSection({
       name: editing ? editing.name : String(form.get('name') ?? '').trim(),
       icon: String(form.get('icon') ?? '🎧').trim() || '🎧',
       order_index: editing ? editing.order_index : allTopics.length,
+      create_only: !editing,
     }
     setSaving(true)
     setFormError(null)

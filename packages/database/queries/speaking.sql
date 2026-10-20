@@ -41,6 +41,12 @@ ON CONFLICT (language_id, name) DO UPDATE
 SET icon = EXCLUDED.icon, description = EXCLUDED.description, order_index = EXCLUDED.order_index
 RETURNING *;
 
+-- name: InsertSpeakingTopic :one
+-- Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+INSERT INTO speaking_topics (language_id, name, icon, description, order_index)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
 -- name: ListSpeakingTopicsAdmin :many
 SELECT t.*, (SELECT COUNT(*) FROM speaking_items i WHERE i.language_id = t.language_id AND i.topic = t.name)::int AS item_count
 FROM speaking_topics t

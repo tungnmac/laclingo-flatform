@@ -150,6 +150,40 @@ func (q *Queries) GetSpeakingItem(ctx context.Context, id pgtype.UUID) (Speaking
 	return i, err
 }
 
+const insertSpeakingTopic = `-- name: InsertSpeakingTopic :one
+INSERT INTO speaking_topics (language_id, name, icon, description, order_index)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING language_id, name, icon, description, order_index
+`
+
+type InsertSpeakingTopicParams struct {
+	LanguageID  string `json:"language_id"`
+	Name        string `json:"name"`
+	Icon        string `json:"icon"`
+	Description string `json:"description"`
+	OrderIndex  int32  `json:"order_index"`
+}
+
+// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+func (q *Queries) InsertSpeakingTopic(ctx context.Context, arg InsertSpeakingTopicParams) (SpeakingTopic, error) {
+	row := q.db.QueryRow(ctx, insertSpeakingTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.Description,
+		arg.OrderIndex,
+	)
+	var i SpeakingTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.Description,
+		&i.OrderIndex,
+	)
+	return i, err
+}
+
 const listSpeakingItemsAdmin = `-- name: ListSpeakingItemsAdmin :many
 SELECT id, language_id, topic, kind, prompt, prompt_meaning, sample_answer, keywords, level, order_index, created_at, updated_at, COUNT(*) OVER() AS total_count FROM speaking_items
 WHERE language_id = $1

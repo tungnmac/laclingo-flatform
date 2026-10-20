@@ -171,6 +171,7 @@ func (s *MissionService) CreateMission(ctx context.Context, createdBy uuid.UUID,
 		EndsAt:       toTimestamptz(req.EndsAt),
 		CreatedBy:    toPgUUID(createdBy),
 	})
+	err = asDuplicate(err, fmt.Sprintf("Nhiệm vụ \"%s\" đã tồn tại", shortText(req.Title)))
 	if err != nil {
 		return MissionResponse{}, err
 	}
@@ -213,6 +214,7 @@ func (s *MissionService) UpdateMission(ctx context.Context, id uuid.UUID, req Mi
 		EndsAt:       toTimestamptz(req.EndsAt),
 		IsActive:     isActive,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Nhiệm vụ \"%s\" đã tồn tại", shortText(req.Title)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MissionResponse{}, ErrNotFound
 	}

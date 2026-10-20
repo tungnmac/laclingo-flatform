@@ -69,6 +69,7 @@ function TopicsSection({
         icon: String(form.get('icon') ?? '').trim(),
         description: String(form.get('description') ?? '').trim(),
         order_index: Number(form.get('order_index') ?? 0),
+        create_only: !editing,
       })
       setEditing(null)
       formEl.reset()

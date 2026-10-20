@@ -219,6 +219,40 @@ func (q *Queries) GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabul
 	return i, err
 }
 
+const insertVocabularyTopic = `-- name: InsertVocabularyTopic :one
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING language_id, name, icon, order_index, parent_name
+`
+
+type InsertVocabularyTopicParams struct {
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	ParentName pgtype.Text `json:"parent_name"`
+}
+
+// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+func (q *Queries) InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error) {
+	row := q.db.QueryRow(ctx, insertVocabularyTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.OrderIndex,
+		arg.ParentName,
+	)
+	var i VocabularyTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.OrderIndex,
+		&i.ParentName,
+	)
+	return i, err
+}
+
 const likeVocabulary = `-- name: LikeVocabulary :exec
 INSERT INTO vocabulary_likes (user_id, vocabulary_id) VALUES ($1, $2)
 ON CONFLICT (user_id, vocabulary_id) DO NOTHING

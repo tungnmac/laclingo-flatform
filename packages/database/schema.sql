@@ -653,3 +653,24 @@ CREATE TABLE IF NOT EXISTS blog_mention_notices (
 );
 CREATE INDEX IF NOT EXISTS idx_blog_mention_notices_mentioner ON blog_mention_notices(mentioner_id, user_id, created_at) WHERE notified;
 CREATE INDEX IF NOT EXISTS idx_blog_mention_notices_user ON blog_mention_notices(user_id);
+
+-- Chặn tạo trùng (migration 000034) — so sánh bỏ khoảng trắng thừa + không phân biệt hoa/thường
+CREATE OR REPLACE FUNCTION dedupe_key(t TEXT) RETURNS TEXT
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$ SELECT lower(btrim(regexp_replace(t, '[[:space:]  ﻿]+', ' ', 'g'))) $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_vocabularies_term_ci ON vocabularies (language_id, dedupe_key(term));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_vocabulary_topics_name_ci ON vocabulary_topics (language_id, dedupe_key(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_listening_topics_name_ci ON listening_topics (language_id, dedupe_key(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_speaking_topics_name_ci ON speaking_topics (language_id, dedupe_key(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_user_decks_name_ci ON user_decks (user_id, dedupe_key(name));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_listening_passages_title_ci ON listening_passages (language_id, dedupe_key(title));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_listening_questions_question_ci ON listening_questions (passage_id, md5(dedupe_key(question)));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_speaking_items_prompt_ci ON speaking_items (language_id, topic, md5(dedupe_key(prompt)));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_challenge_questions_question_ci ON challenge_questions (COALESCE(language_id, ''), md5(dedupe_key(question)));
+-- Nhiệm vụ: trùng theo chu kỳ (ngày/tuần…) + tên, chỉ xét nhiệm vụ đang bật (xoá = tắt, tên cũ được dùng lại)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_missions_title_ci ON missions (period, dedupe_key(title)) WHERE is_active;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_classes_title_ci ON classes (language_id, dedupe_key(title));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grammar_topics_code_ci ON grammar_topics (dedupe_key(code));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grammar_lessons_code_ci ON grammar_lessons (dedupe_key(code));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_grammar_exercises_question_ci ON grammar_exercises (lesson_id, md5(dedupe_key(question)));

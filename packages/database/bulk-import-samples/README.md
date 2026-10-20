@@ -20,6 +20,13 @@ Các field `language_id` ở `vocabulary-topics`, `vocabulary`, `grammar-topics`
 ngữ đang chọn ở dropdown nếu để trống trong file — có sẵn trong file mẫu chỉ
 để dễ đọc, không bắt buộc phải khớp.
 
+## Dòng trùng
+
+Mỗi dòng trùng với dữ liệu đã có (hoặc với 1 dòng phía trên trong cùng file) được báo lỗi riêng, các dòng khác
+vẫn nhập bình thường. "Trùng" = giống nhau sau khi bỏ khoảng trắng thừa và không phân biệt hoa/thường, ví dụ
+`Apple` trùng `  apple `. Riêng **chủ đề**: nhập lại file có tên chủ đề đã tồn tại sẽ báo lỗi dòng đó, KHÔNG còn
+cập nhật icon/thứ tự như trước — muốn đổi icon/thứ tự thì sửa trực tiếp trên trang.
+
 ## Cách lấy `topic_id` thật cho `grammar-lessons.sample.json`
 
 1. Vào `/admin/grammar` → tab 🗂️ Chủ đề.

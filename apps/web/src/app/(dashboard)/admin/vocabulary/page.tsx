@@ -156,6 +156,7 @@ function TopicsSection({
       icon: String(form.get('icon') ?? '📘').trim() || '📘',
       order_index: Number(form.get('order_index')),
       parent_name: String(form.get('parent_name') ?? '').trim() || null,
+      create_only: !editing,
     }
     setSaving(true)
     setFormError(null)
