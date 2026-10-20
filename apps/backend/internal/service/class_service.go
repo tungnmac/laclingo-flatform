@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -261,6 +262,7 @@ func (s *ClassService) Create(ctx context.Context, req ClassRequest) (ClassAdmin
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
 		Level:       req.Level, OrderIndex: req.OrderIndex,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Lớp \"%s\" đã tồn tại", shortText(req.Title)))
 	if err != nil {
 		return ClassAdminResponse{}, err
 	}
@@ -276,6 +278,7 @@ func (s *ClassService) Update(ctx context.Context, id uuid.UUID, req ClassReques
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
 		Level:       req.Level, OrderIndex: req.OrderIndex,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Lớp \"%s\" đã tồn tại", shortText(req.Title)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ClassAdminResponse{}, ErrNotFound
 	}

@@ -124,6 +124,12 @@ VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name
 RETURNING *;
 
+-- name: InsertVocabularyTopic :one
+-- Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
 -- name: ListVocabularyTopicsByLanguageAdmin :many
 SELECT *, COUNT(*) OVER() AS total_count FROM vocabulary_topics
 WHERE language_id = sqlc.arg('language_id')

@@ -293,7 +293,7 @@ func (s *GrammarService) CreateTopic(ctx context.Context, req GrammarTopicReques
 		OrderIndex:  pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
 	if isPgError(err, pgUniqueViolation) {
-		return GrammarTopicAdminResponse{}, fmt.Errorf("mã chủ đề \"%s\" đã tồn tại: %w", req.Code, ErrDuplicate)
+		return GrammarTopicAdminResponse{}, newDuplicate("Mã chủ đề \"%s\" đã tồn tại", req.Code)
 	}
 	if err != nil {
 		return GrammarTopicAdminResponse{}, err
@@ -336,6 +336,7 @@ func (s *GrammarService) UpdateTopic(ctx context.Context, id uuid.UUID, req Gram
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
 		OrderIndex:  pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
+	err = asDuplicate(err, fmt.Sprintf("Mã chủ đề \"%s\" đã tồn tại", req.Code))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GrammarTopicAdminResponse{}, ErrNotFound
 	}
@@ -384,7 +385,7 @@ func (s *GrammarService) CreateLesson(ctx context.Context, req GrammarLessonRequ
 		Content:    req.Content,
 	})
 	if isPgError(err, pgUniqueViolation) {
-		return GrammarLessonAdminResponse{}, fmt.Errorf("mã bài học \"%s\" đã tồn tại: %w", req.Code, ErrDuplicate)
+		return GrammarLessonAdminResponse{}, newDuplicate("Mã bài học \"%s\" đã tồn tại", req.Code)
 	}
 	if isPgError(err, pgForeignKeyViolation) {
 		return GrammarLessonAdminResponse{}, fmt.Errorf("không tìm thấy chủ đề: %w", ErrInvalidInput)
@@ -443,6 +444,7 @@ func (s *GrammarService) UpdateLesson(ctx context.Context, id uuid.UUID, req Gra
 		OrderIndex: pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 		Content:    req.Content,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Mã bài học \"%s\" đã tồn tại", req.Code))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GrammarLessonAdminResponse{}, ErrNotFound
 	}
@@ -511,7 +513,7 @@ func (s *GrammarService) CreateExercise(ctx context.Context, req GrammarExercise
 		XpReward:      pgtype.Int4{Int32: xpReward, Valid: true},
 	})
 	if isPgError(err, pgUniqueViolation) {
-		return GrammarExerciseResponse{}, fmt.Errorf("câu hỏi này đã tồn tại trong bài học: %w", ErrDuplicate)
+		return GrammarExerciseResponse{}, newDuplicate("Câu hỏi này đã tồn tại trong bài học")
 	}
 	if isPgError(err, pgForeignKeyViolation) {
 		return GrammarExerciseResponse{}, fmt.Errorf("không tìm thấy bài học: %w", ErrInvalidInput)
@@ -568,6 +570,7 @@ func (s *GrammarService) UpdateExercise(ctx context.Context, id uuid.UUID, req G
 		Hint:          pgtype.Text{String: req.Hint, Valid: req.Hint != ""},
 		XpReward:      pgtype.Int4{Int32: req.XPReward, Valid: req.XPReward != 0},
 	})
+	err = asDuplicate(err, "Câu hỏi này đã tồn tại trong bài học")
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GrammarExerciseResponse{}, ErrNotFound
 	}

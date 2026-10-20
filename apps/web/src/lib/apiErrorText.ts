@@ -9,7 +9,7 @@ const EN_BY_STATUS: Record<number, string> = {
   401: 'Your session has expired. Please sign in again.',
   403: 'You do not have permission to do this.',
   404: 'The requested data was not found.',
-  409: 'This conflicts with existing data.',
+  409: 'This conflicts with existing data (it may already exist).',
   413: 'The file or data is too large.',
   422: 'The submitted data is invalid.',
   429: 'Too many requests. Please wait a moment and try again.',

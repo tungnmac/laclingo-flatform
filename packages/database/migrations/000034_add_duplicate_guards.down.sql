@@ -1,0 +1,15 @@
+DROP INDEX IF EXISTS uq_vocabularies_term_ci;
+DROP INDEX IF EXISTS uq_vocabulary_topics_name_ci;
+DROP INDEX IF EXISTS uq_listening_topics_name_ci;
+DROP INDEX IF EXISTS uq_speaking_topics_name_ci;
+DROP INDEX IF EXISTS uq_user_decks_name_ci;
+DROP INDEX IF EXISTS uq_listening_passages_title_ci;
+DROP INDEX IF EXISTS uq_listening_questions_question_ci;
+DROP INDEX IF EXISTS uq_speaking_items_prompt_ci;
+DROP INDEX IF EXISTS uq_challenge_questions_question_ci;
+DROP INDEX IF EXISTS uq_missions_title_ci;
+DROP INDEX IF EXISTS uq_classes_title_ci;
+DROP INDEX IF EXISTS uq_grammar_topics_code_ci;
+DROP INDEX IF EXISTS uq_grammar_lessons_code_ci;
+DROP INDEX IF EXISTS uq_grammar_exercises_question_ci;
+DROP FUNCTION IF EXISTS dedupe_key(TEXT);

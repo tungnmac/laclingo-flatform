@@ -94,6 +94,7 @@ func (s *ChallengeQuestionService) CreateQuestion(ctx context.Context, req Chall
 		Explanation:  pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
 		Difficulty:   difficulty,
 	})
+	err = asDuplicate(err, "Câu hỏi này đã tồn tại")
 	if err != nil {
 		return ChallengeQuestionResponse{}, err
 	}
@@ -144,6 +145,7 @@ func (s *ChallengeQuestionService) UpdateQuestion(ctx context.Context, id uuid.U
 		Explanation:  pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
 		Difficulty:   req.Difficulty,
 	})
+	err = asDuplicate(err, "Câu hỏi này đã tồn tại")
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ChallengeQuestionResponse{}, ErrNotFound
 	}

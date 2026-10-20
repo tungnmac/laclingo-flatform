@@ -42,6 +42,7 @@ type SpeakingRepository interface {
 	CreateSpeakingAttempt(ctx context.Context, arg db.CreateSpeakingAttemptParams) error
 	GetBestSpeakingScore(ctx context.Context, arg db.GetBestSpeakingScoreParams) (int32, error)
 	UpsertSpeakingTopic(ctx context.Context, arg db.UpsertSpeakingTopicParams) (db.SpeakingTopic, error)
+	InsertSpeakingTopic(ctx context.Context, arg db.InsertSpeakingTopicParams) (db.SpeakingTopic, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]db.ListSpeakingTopicsAdminRow, error)
 	ListSpeakingItemsAdmin(ctx context.Context, arg db.ListSpeakingItemsAdminParams) ([]db.ListSpeakingItemsAdminRow, error)
 	CreateSpeakingItem(ctx context.Context, arg db.CreateSpeakingItemParams) (db.SpeakingItem, error)
@@ -92,6 +93,8 @@ type SpeakingTopicRequest struct {
 	Icon        string `json:"icon" example:"💼"`
 	Description string `json:"description"`
 	OrderIndex  int32  `json:"order_index"`
+	// CreateOnly — form "Thêm chủ đề": trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
+	CreateOnly bool `json:"create_only,omitempty"`
 }
 
 type SpeakingTopicAdmin struct {
@@ -241,9 +244,17 @@ func (s *SpeakingService) UpsertTopic(ctx context.Context, req SpeakingTopicRequ
 	if req.Icon == "" {
 		req.Icon = "🎤"
 	}
-	t, err := s.repo.UpsertSpeakingTopic(ctx, db.UpsertSpeakingTopicParams{
+	params := db.UpsertSpeakingTopicParams{
 		LanguageID: req.LanguageID, Name: req.Name, Icon: req.Icon, Description: req.Description, OrderIndex: req.OrderIndex,
-	})
+	}
+	var t db.SpeakingTopic
+	var err error
+	if req.CreateOnly {
+		t, err = s.repo.InsertSpeakingTopic(ctx, db.InsertSpeakingTopicParams(params))
+	} else {
+		t, err = s.repo.UpsertSpeakingTopic(ctx, params)
+	}
+	err = asDuplicate(err, fmt.Sprintf("Chủ đề \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Name)))
 	if isPgError(err, pgForeignKeyViolation) {
 		return SpeakingTopicRequest{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
 	}
@@ -293,6 +304,7 @@ func (s *SpeakingService) CreateItem(ctx context.Context, req SpeakingItemReques
 		LanguageID: req.LanguageID, Topic: req.Topic, Kind: req.Kind, Prompt: req.Prompt, PromptMeaning: req.PromptMeaning,
 		SampleAnswer: req.SampleAnswer, Keywords: req.Keywords, Level: req.Level, OrderIndex: req.OrderIndex,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Câu \"%s\" đã có trong chủ đề này", shortText(req.Prompt)))
 	if err != nil {
 		return SpeakingItemAdmin{}, speakingTopicError(err, req.Topic)
 	}
@@ -316,6 +328,7 @@ func (s *SpeakingService) UpdateItem(ctx context.Context, id uuid.UUID, req Spea
 		ID: toPgUUID(id), Topic: req.Topic, Kind: req.Kind, Prompt: req.Prompt, PromptMeaning: req.PromptMeaning,
 		SampleAnswer: req.SampleAnswer, Keywords: req.Keywords, Level: req.Level, OrderIndex: req.OrderIndex,
 	})
+	err = asDuplicate(err, fmt.Sprintf("Câu \"%s\" đã có trong chủ đề này", shortText(req.Prompt)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SpeakingItemAdmin{}, ErrNotFound
 	}

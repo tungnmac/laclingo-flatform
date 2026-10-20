@@ -97,6 +97,12 @@ VALUES ($1, $2, $3, $4)
 ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index
 RETURNING *;
 
+-- name: InsertListeningTopic :one
+-- Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+INSERT INTO listening_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
 -- name: ListListeningTopicsByLanguageAdmin :many
 SELECT *, COUNT(*) OVER() AS total_count FROM listening_topics
 WHERE language_id = sqlc.arg('language_id')

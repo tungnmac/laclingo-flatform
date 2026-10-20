@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -156,6 +157,7 @@ func (s *DeckService) CreateDeck(ctx context.Context, userID uuid.UUID, req Deck
 	deck, err := s.repo.CreateDeck(ctx, db.CreateDeckParams{
 		UserID: toPgUUID(userID), Name: params.Name, Description: params.Description, Color: params.Color, Icon: params.Icon,
 	})
+	err = asDuplicate(err, fmt.Sprintf("List \"%s\" đã tồn tại", params.Name))
 	if err != nil {
 		return DeckSummary{}, err
 	}
@@ -172,6 +174,7 @@ func (s *DeckService) UpdateDeck(ctx context.Context, userID, deckID uuid.UUID, 
 		ID: toPgUUID(deckID), UserID: toPgUUID(userID),
 		Name: params.Name, Description: params.Description, Color: params.Color, Icon: params.Icon,
 	})
+	err = asDuplicate(err, fmt.Sprintf("List \"%s\" đã tồn tại", params.Name))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return DeckSummary{}, ErrNotFound
 	}

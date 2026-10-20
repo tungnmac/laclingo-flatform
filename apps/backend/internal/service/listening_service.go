@@ -36,6 +36,7 @@ type ListeningRepository interface {
 	UpdateListeningQuestion(ctx context.Context, arg db.UpdateListeningQuestionParams) (db.ListeningQuestion, error)
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
 	CreateListeningTopic(ctx context.Context, arg db.CreateListeningTopicParams) (db.ListeningTopic, error)
+	InsertListeningTopic(ctx context.Context, arg db.InsertListeningTopicParams) (db.ListeningTopic, error)
 	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg db.ListListeningTopicsByLanguageAdminParams) ([]db.ListListeningTopicsByLanguageAdminRow, error)
 	DeleteListeningTopic(ctx context.Context, arg db.DeleteListeningTopicParams) error
 	UpdateListeningPassageAudioKey(ctx context.Context, arg db.UpdateListeningPassageAudioKeyParams) (db.ListeningPassage, error)
@@ -289,6 +290,7 @@ func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassa
 		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
 		OrderIndex: pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
+	err = asDuplicate(err, fmt.Sprintf("Bài nghe \"%s\" đã tồn tại trong ngôn ngữ này", shortText(req.Title)))
 	if isPgError(err, pgForeignKeyViolation) {
 		return ListeningPassageAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
 	}
@@ -337,6 +339,7 @@ func (s *ListeningService) UpdatePassage(ctx context.Context, id uuid.UUID, req 
 		Level:      pgtype.Text{String: req.Level, Valid: req.Level != ""},
 		OrderIndex: pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
+	err = asDuplicate(err, fmt.Sprintf("Bài nghe \"%s\" đã tồn tại trong ngôn ngữ này", shortText(req.Title)))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ListeningPassageAdminResponse{}, ErrNotFound
 	}
@@ -476,6 +479,7 @@ func (s *ListeningService) CreateQuestion(ctx context.Context, req ListeningQues
 		Explanation:   pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
 		OrderIndex:    pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
+	err = asDuplicate(err, "Câu hỏi này đã có trong bài nghe")
 	if isPgError(err, pgForeignKeyViolation) {
 		return ListeningQuestionAdminResponse{}, fmt.Errorf("không tìm thấy bài luyện nghe: %w", ErrInvalidInput)
 	}
@@ -526,6 +530,7 @@ func (s *ListeningService) UpdateQuestion(ctx context.Context, id uuid.UUID, req
 		Explanation:   pgtype.Text{String: req.Explanation, Valid: req.Explanation != ""},
 		OrderIndex:    pgtype.Int4{Int32: req.OrderIndex, Valid: true},
 	})
+	err = asDuplicate(err, "Câu hỏi này đã có trong bài nghe")
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ListeningQuestionAdminResponse{}, ErrNotFound
 	}
@@ -555,6 +560,8 @@ type ListeningTopicRequest struct {
 	Name       string `json:"name" example:"Daily life"`
 	Icon       string `json:"icon" example:"🎧"`
 	OrderIndex int32  `json:"order_index"`
+	// CreateOnly — form "Thêm chủ đề" / nhập hàng loạt: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
+	CreateOnly bool `json:"create_only,omitempty"`
 }
 
 type ListeningTopicAdminResponse struct {
@@ -578,12 +585,15 @@ func (s *ListeningService) CreateOrUpdateTopic(ctx context.Context, req Listenin
 	if icon == "" {
 		icon = "🎧"
 	}
-	t, err := s.repo.CreateListeningTopic(ctx, db.CreateListeningTopicParams{
-		LanguageID: req.LanguageID,
-		Name:       req.Name,
-		Icon:       icon,
-		OrderIndex: req.OrderIndex,
-	})
+	params := db.CreateListeningTopicParams{LanguageID: req.LanguageID, Name: req.Name, Icon: icon, OrderIndex: req.OrderIndex}
+	var t db.ListeningTopic
+	var err error
+	if req.CreateOnly {
+		t, err = s.repo.InsertListeningTopic(ctx, db.InsertListeningTopicParams(params))
+	} else {
+		t, err = s.repo.CreateListeningTopic(ctx, params)
+	}
+	err = asDuplicate(err, fmt.Sprintf("Chủ đề \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Name)))
 	if isPgError(err, pgForeignKeyViolation) {
 		return ListeningTopicAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
 	}
@@ -659,6 +669,7 @@ func (s *ListeningService) DeleteTopic(ctx context.Context, languageID, name str
 // BulkImportTopics nhập hàng loạt chủ đề luyện nghe
 func (s *ListeningService) BulkImportTopics(ctx context.Context, items []ListeningTopicRequest) []BulkImportResult {
 	return runBulkImport(items, func(req ListeningTopicRequest) error {
+		req.CreateOnly = true // nhập hàng loạt: dòng trùng báo lỗi, không ghi đè
 		_, err := s.CreateOrUpdateTopic(ctx, req)
 		return err
 	})

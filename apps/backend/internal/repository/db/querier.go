@@ -176,6 +176,12 @@ type Querier interface {
 	// lịch SM-2 — luyện sớm không được đẩy interval lên.
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
+	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+	InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error)
+	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+	InsertSpeakingTopic(ctx context.Context, arg InsertSpeakingTopicParams) (SpeakingTopic, error)
+	// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+	InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error)
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối

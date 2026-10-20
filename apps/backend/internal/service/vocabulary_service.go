@@ -32,6 +32,7 @@ type VocabularyRepository interface {
 	UpdateVocabulary(ctx context.Context, arg db.UpdateVocabularyParams) (db.Vocabulary, error)
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	CreateVocabularyTopic(ctx context.Context, arg db.CreateVocabularyTopicParams) (db.VocabularyTopic, error)
+	InsertVocabularyTopic(ctx context.Context, arg db.InsertVocabularyTopicParams) (db.VocabularyTopic, error)
 	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg db.ListVocabularyTopicsByLanguageAdminParams) ([]db.ListVocabularyTopicsByLanguageAdminRow, error)
 	DeleteVocabularyTopic(ctx context.Context, arg db.DeleteVocabularyTopicParams) error
 	GetVocabularyTopic(ctx context.Context, arg db.GetVocabularyTopicParams) (db.VocabularyTopic, error)
@@ -400,6 +401,8 @@ type VocabularyTopicRequest struct {
 	// chủ đề cấp cao nhất. Chủ đề cha phải là chủ đề cấp cao nhất và chưa có
 	// con nào khác lồng trên nó — không lồng quá 2 cấp (xem CreateOrUpdateTopic).
 	ParentName *string `json:"parent_name,omitempty" example:"Công việc & Nghề nghiệp"`
+	// CreateOnly — form "Thêm chủ đề" / nhập hàng loạt: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
+	CreateOnly bool `json:"create_only,omitempty"`
 }
 
 type VocabularyTopicAdminResponse struct {
@@ -456,7 +459,7 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 		ImageEmoji:     pgtype.Text{String: req.ImageEmoji, Valid: req.ImageEmoji != ""},
 	})
 	if isPgError(err, pgUniqueViolation) {
-		return VocabularyAdminResponse{}, fmt.Errorf("từ \"%s\" đã tồn tại trong ngôn ngữ này: %w", req.Term, ErrDuplicate)
+		return VocabularyAdminResponse{}, newDuplicate("Từ \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Term))
 	}
 	if isPgError(err, pgForeignKeyViolation) {
 		return VocabularyAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
@@ -518,7 +521,7 @@ func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, 
 		return VocabularyAdminResponse{}, ErrNotFound
 	}
 	if isPgError(err, pgUniqueViolation) {
-		return VocabularyAdminResponse{}, fmt.Errorf("từ \"%s\" đã tồn tại trong ngôn ngữ này: %w", req.Term, ErrDuplicate)
+		return VocabularyAdminResponse{}, newDuplicate("Từ \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Term))
 	}
 	if err != nil {
 		return VocabularyAdminResponse{}, err
@@ -583,13 +586,15 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 		parentName = pgtype.Text{String: parent, Valid: true}
 	}
 
-	t, err := s.repo.CreateVocabularyTopic(ctx, db.CreateVocabularyTopicParams{
-		LanguageID: req.LanguageID,
-		Name:       req.Name,
-		Icon:       icon,
-		OrderIndex: req.OrderIndex,
-		ParentName: parentName,
-	})
+	params := db.CreateVocabularyTopicParams{LanguageID: req.LanguageID, Name: req.Name, Icon: icon, OrderIndex: req.OrderIndex, ParentName: parentName}
+	var t db.VocabularyTopic
+	var err error
+	if req.CreateOnly {
+		t, err = s.repo.InsertVocabularyTopic(ctx, db.InsertVocabularyTopicParams(params))
+	} else {
+		t, err = s.repo.CreateVocabularyTopic(ctx, params)
+	}
+	err = asDuplicate(err, fmt.Sprintf("Chủ đề \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Name)))
 	if isPgError(err, pgForeignKeyViolation) {
 		return VocabularyTopicAdminResponse{}, fmt.Errorf("không tìm thấy ngôn ngữ: %w", ErrInvalidInput)
 	}
@@ -632,6 +637,7 @@ func (s *VocabularyService) DeleteTopic(ctx context.Context, languageID, name st
 // BulkImportTopics nhập hàng loạt chủ đề từ vựng
 func (s *VocabularyService) BulkImportTopics(ctx context.Context, items []VocabularyTopicRequest) []BulkImportResult {
 	return runBulkImport(items, func(req VocabularyTopicRequest) error {
+		req.CreateOnly = true // nhập hàng loạt: dòng trùng báo lỗi, không ghi đè
 		_, err := s.CreateOrUpdateTopic(ctx, req)
 		return err
 	})

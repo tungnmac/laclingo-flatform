@@ -561,6 +561,7 @@ export interface ListeningTopicRequest {
   name: string
   icon: string
   order_index: number
+  create_only?: boolean // tạo mới: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
 }
 
 export interface ListeningTopicAdmin {
@@ -627,6 +628,7 @@ export interface VocabularyTopicRequest {
   icon: string
   order_index: number
   parent_name?: string | null
+  create_only?: boolean // tạo mới: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
 }
 
 export interface VocabularyTopicAdmin {
@@ -984,6 +986,15 @@ export interface SpeakingTopicAdmin {
   description: string
   order_index: number
   item_count?: number
+}
+
+export interface SpeakingTopicRequest {
+  language_id: string
+  name: string
+  icon: string
+  description: string
+  order_index: number
+  create_only?: boolean // tạo mới: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
 }
 
 export interface SpeakingItemAdmin {

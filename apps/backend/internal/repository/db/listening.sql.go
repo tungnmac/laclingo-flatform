@@ -196,6 +196,37 @@ func (q *Queries) GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const insertListeningTopic = `-- name: InsertListeningTopic :one
+INSERT INTO listening_topics (language_id, name, icon, order_index)
+VALUES ($1, $2, $3, $4)
+RETURNING language_id, name, icon, order_index
+`
+
+type InsertListeningTopicParams struct {
+	LanguageID string `json:"language_id"`
+	Name       string `json:"name"`
+	Icon       string `json:"icon"`
+	OrderIndex int32  `json:"order_index"`
+}
+
+// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
+func (q *Queries) InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error) {
+	row := q.db.QueryRow(ctx, insertListeningTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.OrderIndex,
+	)
+	var i ListeningTopic
+	err := row.Scan(
+		&i.LanguageID,
+		&i.Name,
+		&i.Icon,
+		&i.OrderIndex,
+	)
+	return i, err
+}
+
 const listListeningPassagesAdminPaged = `-- name: ListListeningPassagesAdminPaged :many
 SELECT id, language_id, title, script, topic, level, order_index, audio_key, created_at, updated_at, COUNT(*) OVER() AS total_count FROM listening_passages
 WHERE language_id = $1

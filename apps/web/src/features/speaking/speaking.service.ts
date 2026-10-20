@@ -8,6 +8,7 @@ import type {
   SpeakingItemRequest,
   SpeakingTopic,
   SpeakingTopicAdmin,
+  SpeakingTopicRequest,
 } from '@/types/api'
 
 export const speakingService = {
@@ -21,7 +22,7 @@ export const speakingService = {
 
   // Admin
   listTopicsAdmin: (languageId: string) => apiFetch<SpeakingTopicAdmin[]>(`/admin/speaking-topics${buildQuery({ language_id: languageId })}`),
-  upsertTopic: (body: SpeakingTopicAdmin) =>
+  upsertTopic: (body: SpeakingTopicRequest) =>
     apiFetch<SpeakingTopicAdmin>('/admin/speaking-topics', { method: 'POST', body: JSON.stringify(body) }),
   deleteTopic: (languageId: string, name: string) =>
     apiFetch<void>('/admin/speaking-topics', { method: 'DELETE', body: JSON.stringify({ language_id: languageId, name }) }),
