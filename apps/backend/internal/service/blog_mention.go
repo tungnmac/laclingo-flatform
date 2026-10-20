@@ -47,3 +47,19 @@ func extractMentions(content string) []string {
 	}
 	return out
 }
+
+// addedMentions — username được tag trong nội dung MỚI mà nội dung cũ chưa tag (sửa comment chỉ báo người mới,
+// kể cả comment đăng trước khi có nhật ký blog_mention_notices)
+func addedMentions(oldContent, newContent string) []string {
+	old := map[string]bool{}
+	for _, name := range extractMentions(oldContent) {
+		old[name] = true
+	}
+	var out []string
+	for _, name := range extractMentions(newContent) {
+		if !old[name] {
+			out = append(out, name)
+		}
+	}
+	return out
+}

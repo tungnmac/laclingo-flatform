@@ -50,3 +50,21 @@ func TestExtractMentionsIgnoresUrlsCodeAndPartialUnicode(t *testing.T) {
 		}
 	}
 }
+
+func TestAddedMentionsOnlyReturnsNewTags(t *testing.T) {
+	cases := []struct {
+		old, new string
+		want     []string
+	}{
+		{"@lan chào", "@lan chào (sửa)", nil},  // giữ nguyên tag cũ → không báo lại
+		{"@lan", "@LAN @hoa", []string{"hoa"}}, // không phân biệt hoa thường
+		{"không tag", "@lan @hoa", []string{"lan", "hoa"}},
+		{"@lan @hoa", "@hoa", nil},                          // bỏ bớt tag → không ai mới
+		{"`@lan` trong code", "@lan thật", []string{"lan"}}, // tag cũ trong code không tính là đã tag
+	}
+	for _, c := range cases {
+		if got := addedMentions(c.old, c.new); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("addedMentions(%q, %q) = %v, want %v", c.old, c.new, got, c.want)
+		}
+	}
+}

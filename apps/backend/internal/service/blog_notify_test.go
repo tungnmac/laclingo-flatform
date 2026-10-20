@@ -99,7 +99,7 @@ func TestNotifyMentionsSkipsUnknownSelfAndAlreadyNotified(t *testing.T) {
 	svc := NewBlogService(&fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "hoa": hoa, "me": me}, now: time.Now()}, nil, notifier)
 
 	skip := map[uuid.UUID]bool{me: true, hoa: true} // người bình luận + người đã nhận thông báo trả lời
-	svc.notifyMentions(context.Background(), uuid.New(), me, "@lan @hoa @me @ghost @lan", skip, NotificationInput{Type: NotificationBlogMention})
+	svc.notifyMentions(context.Background(), uuid.New(), me, extractMentions("@lan @hoa @me @ghost @lan"), skip, NotificationInput{Type: NotificationBlogMention})
 
 	if len(notifier.sent) != 1 || notifier.sent[0].to != lan || notifier.sent[0].n.Type != NotificationBlogMention {
 		t.Fatalf("sent = %+v, want exactly one mention to lan", notifier.sent)
@@ -143,7 +143,7 @@ func TestNotifyMentionsSkipsLockedAccounts(t *testing.T) {
 	locked := uuid.New()
 	notifier := &blogFakeNotifier{}
 	svc := NewBlogService(&fakeBlogUsers{users: map[string]uuid.UUID{"locked": locked}, inactive: map[string]bool{"locked": true}}, nil, notifier)
-	svc.notifyMentions(context.Background(), uuid.New(), uuid.New(), "@locked", map[uuid.UUID]bool{}, NotificationInput{Type: NotificationBlogMention})
+	svc.notifyMentions(context.Background(), uuid.New(), uuid.New(), extractMentions("@locked"), map[uuid.UUID]bool{}, NotificationInput{Type: NotificationBlogMention})
 	if len(notifier.sent) != 0 {
 		t.Fatalf("locked account notified: %+v", notifier.sent)
 	}
@@ -156,9 +156,9 @@ func TestNotifyMentionsOncePerCommentAndOnlyNewOnEdit(t *testing.T) {
 	svc := NewBlogService(repo, nil, notifier)
 	comment := uuid.New()
 
-	svc.notifyMentions(context.Background(), comment, me, "@lan", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), comment, me, extractMentions("@lan"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	// Sửa comment: thêm @hoa, vẫn giữ @lan → chỉ hoa được báo thêm
-	svc.notifyMentions(context.Background(), comment, me, "@lan @hoa", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), comment, me, extractMentions("@lan @hoa"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 
 	if len(notifier.sent) != 2 || notifier.sent[0].to != lan || notifier.sent[1].to != hoa {
 		t.Fatalf("sent = %+v, want lan then hoa once each", notifier.sent)
@@ -172,7 +172,7 @@ func TestNotifyMentionsThrottlesSamePairAcrossComments(t *testing.T) {
 	svc := NewBlogService(repo, nil, notifier)
 
 	for i := 0; i < 3; i++ { // 3 comment liên tiếp cùng tag @lan
-		svc.notifyMentions(context.Background(), uuid.New(), me, "@lan", map[uuid.UUID]bool{me: true}, NotificationInput{})
+		svc.notifyMentions(context.Background(), uuid.New(), me, extractMentions("@lan"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	}
 	if len(notifier.sent) != 1 {
 		t.Fatalf("sent %d, want 1 within the throttle window", len(notifier.sent))
@@ -196,7 +196,7 @@ func TestNotifyMentionsCapsPerMentionerPerHour(t *testing.T) {
 	names := strings.Fields(content)
 	for i := 0; i < len(names); i += maxMentionsPerComment {
 		end := min(i+maxMentionsPerComment, len(names))
-		svc.notifyMentions(context.Background(), uuid.New(), me, strings.Join(names[i:end], " "), map[uuid.UUID]bool{me: true}, NotificationInput{})
+		svc.notifyMentions(context.Background(), uuid.New(), me, extractMentions(strings.Join(names[i:end], " ")), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	}
 	if len(notifier.sent) != maxMentionNoticesPerHour {
 		t.Fatalf("sent %d, want cap %d", len(notifier.sent), maxMentionNoticesPerHour)
@@ -211,18 +211,18 @@ func TestEditDoesNotNotifyUsersSkippedOrThrottledEarlier(t *testing.T) {
 
 	// Comment X: bob là người được trả lời (đã nhận thông báo reply) → bỏ qua tag; sửa X sau đó cũng không báo
 	x := uuid.New()
-	svc.notifyMentions(context.Background(), x, me, "@bob", map[uuid.UUID]bool{me: true, bob: true}, NotificationInput{})
-	svc.notifyMentions(context.Background(), x, me, "@bob sửa", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), x, me, extractMentions("@bob"), map[uuid.UUID]bool{me: true, bob: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), x, me, extractMentions("@bob sửa"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	if len(notifier.sent) != 0 {
 		t.Fatalf("skipped user notified on edit: %+v", notifier.sent)
 	}
 
 	// Comment Y báo bob; comment Z tag lại bob trong 10' → chặn; 15' sau sửa Z → vẫn không báo
-	svc.notifyMentions(context.Background(), uuid.New(), me, "@bob", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), uuid.New(), me, extractMentions("@bob"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	z := uuid.New()
-	svc.notifyMentions(context.Background(), z, me, "@bob", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), z, me, extractMentions("@bob"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	repo.now = repo.now.Add(15 * time.Minute)
-	svc.notifyMentions(context.Background(), z, me, "@bob sửa chính tả", map[uuid.UUID]bool{me: true}, NotificationInput{})
+	svc.notifyMentions(context.Background(), z, me, extractMentions("@bob sửa chính tả"), map[uuid.UUID]bool{me: true}, NotificationInput{})
 	if len(notifier.sent) != 1 {
 		t.Fatalf("sent %d, want only the first mention in Y", len(notifier.sent))
 	}

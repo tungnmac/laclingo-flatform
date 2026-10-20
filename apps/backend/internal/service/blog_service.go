@@ -677,7 +677,7 @@ func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, co
 	}
 	// Người được @nhắc tên — trừ người bình luận và người đã nhận thông báo ở trên (mỗi người tối đa 1)
 	notified := map[uuid.UUID]bool{commenterID: true, parentAuthorID: true, postAuthorID: true}
-	s.notifyMentions(ctx, commentID, commenterID, content, notified, mentionNotice(commenterName, url, preview))
+	s.notifyMentions(ctx, commentID, commenterID, extractMentions(content), notified, mentionNotice(commenterName, url, preview))
 	s.markMentionHandled(ctx, commentID, commenterID, postAuthorID, parentAuthorID)
 }
 
@@ -688,13 +688,12 @@ func mentionNotice(commenterName, url, preview string) NotificationInput {
 	}
 }
 
-// notifyMentions gửi n cho từng user được @username trong content của comment commentID.
+// notifyMentions gửi n cho từng username trong mentions (đã tách từ nội dung comment commentID).
 // Mỗi (comment, người được tag) chỉ xử lý 1 lần (blog_mention_notices) → sửa comment chỉ báo người MỚI được tag.
 // Không gửi (nhưng vẫn ghi nhận, notified = false) cho: user trong skip (đã nhận thông báo khác), người vừa được
 // chính mentioner tag trong mentionPairWindow, hoặc khi mentioner đã gửi đủ maxMentionNoticesPerHour / giờ.
 // Bỏ qua hẳn: username không tồn tại, tài khoản bị khoá.
-func (s *BlogService) notifyMentions(ctx context.Context, commentID, mentionerID uuid.UUID, content string, skip map[uuid.UUID]bool, n NotificationInput) {
-	mentions := extractMentions(content)
+func (s *BlogService) notifyMentions(ctx context.Context, commentID, mentionerID uuid.UUID, mentions []string, skip map[uuid.UUID]bool, n NotificationInput) {
 	if len(mentions) == 0 {
 		return
 	}
@@ -823,10 +822,12 @@ func (s *BlogService) UpdateComment(ctx context.Context, authorID, commentID uui
 	return nil
 }
 
-// notifyEditedMentions — sửa comment có thêm @tag: báo người MỚI được tag. Người đã xử lý trong comment này
+// notifyEditedMentions — sửa comment có thêm @tag: báo người MỚI được tag (so với nội dung cũ). Người đã xử lý trong comment này
 // (đã được báo, bị chặn spam, hoặc là chủ bài / người được trả lời — ghi lúc đăng) tự bị bỏ qua.
 func (s *BlogService) notifyEditedMentions(ctx context.Context, comment db.BlogComment, authorID uuid.UUID, content string) {
-	if len(extractMentions(content)) == 0 {
+	// Chỉ tag MỚI so với nội dung trước khi sửa — người đã có trong nội dung cũ không bị báo lại
+	mentions := addedMentions(comment.Content, content)
+	if len(mentions) == 0 {
 		return
 	}
 	post, err := s.repo.GetBlogPostByID(ctx, comment.PostID)
@@ -845,7 +846,7 @@ func (s *BlogService) notifyEditedMentions(ctx context.Context, comment db.BlogC
 	url := "/blog/" + uuid.UUID(post.ID.Bytes).String()
 	preview := truncateRunes(strings.TrimSpace(content), 120)
 	skip := map[uuid.UUID]bool{authorID: true, uuid.UUID(post.AuthorID.Bytes): true}
-	s.notifyMentions(ctx, uuid.UUID(comment.ID.Bytes), authorID, content, skip, mentionNotice(displayNameOf(author.FullName, author.Username), url, preview))
+	s.notifyMentions(ctx, uuid.UUID(comment.ID.Bytes), authorID, mentions, skip, mentionNotice(displayNameOf(author.FullName, author.Username), url, preview))
 }
 
 // DeleteComment xoá 1 comment của chính tác giả — cascade xoá luôn reply con.
