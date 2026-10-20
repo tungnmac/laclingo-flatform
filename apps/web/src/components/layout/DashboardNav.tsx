@@ -114,8 +114,10 @@ export function Sidebar({ user }: { user: User }) {
         </button>
       </div>
 
-      {/* nowrap + ẩn tràn ngang: lúc đang giãn rộng (200ms) chữ không xuống dòng / hiện thanh cuộn */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden whitespace-nowrap">
+      {/* min-h-0 + cuộn dọc: màn hình thấp thì danh sách menu tự cuộn, khối dưới (chuông,
+          hồ sơ, đăng xuất) luôn nằm trong màn hình. nowrap + ẩn tràn ngang: lúc đang giãn
+          rộng (200ms) chữ không xuống dòng / hiện thanh cuộn ngang */}
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden whitespace-nowrap">
         {sidebarItems.map((item) => (
           <Link
             key={item.href}
