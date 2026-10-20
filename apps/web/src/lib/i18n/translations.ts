@@ -45,6 +45,8 @@ interface Dictionary {
     blog: string
     admin: string
     logout: string
+    collapseMenu: string
+    expandMenu: string
   }
   auth: {
     loginTitle: string
@@ -107,6 +109,8 @@ const base: Record<Locale, Dictionary> = {
       blog: 'Blog',
       admin: 'Quản trị',
       logout: 'Đăng xuất',
+      collapseMenu: 'Thu gọn menu',
+      expandMenu: 'Mở rộng menu',
     },
     auth: {
       loginTitle: 'Đăng nhập',
@@ -167,6 +171,8 @@ const base: Record<Locale, Dictionary> = {
       blog: 'Blog',
       admin: 'Admin',
       logout: 'Log out',
+      collapseMenu: 'Collapse menu',
+      expandMenu: 'Expand menu',
     },
     auth: {
       loginTitle: 'Log in',
@@ -227,6 +233,8 @@ const base: Record<Locale, Dictionary> = {
       blog: '博客',
       admin: '管理',
       logout: '退出登录',
+      collapseMenu: '收起菜单',
+      expandMenu: '展开菜单',
     },
     auth: {
       loginTitle: '登录',
@@ -287,6 +295,8 @@ const base: Record<Locale, Dictionary> = {
       blog: 'ブログ',
       admin: '管理',
       logout: 'ログアウト',
+      collapseMenu: 'メニューを折りたたむ',
+      expandMenu: 'メニューを展開',
     },
     auth: {
       loginTitle: 'ログイン',
@@ -347,6 +357,8 @@ const base: Record<Locale, Dictionary> = {
       blog: '블로그',
       admin: '관리',
       logout: '로그아웃',
+      collapseMenu: '메뉴 접기',
+      expandMenu: '메뉴 펼치기',
     },
     auth: {
       loginTitle: '로그인',
