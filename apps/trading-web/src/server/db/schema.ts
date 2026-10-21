@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { boolean, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { bigint, boolean, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -344,6 +344,75 @@ export const glossaryTerms = pgTable(
   (t) => [uniqueIndex('glossary_terms_locale_term_uq').on(t.locale, sql`lower(${t.term})`)],
 )
 
+/** Tài liệu tham khảo: nguồn học gợi ý (khoá học, chương trình, YouTube, website, podcast) */
+export const learningResources = pgTable(
+  'learning_resources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: varchar('title', { length: 200 }).notNull(),
+    provider: varchar('provider', { length: 120 }).notNull().default(''),
+    url: text('url').notNull(),
+    type: varchar('type', { length: 12 }).notNull(), // course | program | youtube | website | podcast
+    language: varchar('language', { length: 2 }).notNull(), // ngôn ngữ nội dung: vi | en
+    isFree: boolean('is_free').notNull().default(true),
+    level: varchar('level', { length: 12 }).notNull().default('basic'),
+    topic: varchar('topic', { length: 20 }).notNull(),
+    descriptionVi: text('description_vi').notNull().default(''),
+    descriptionEn: text('description_en').notNull().default(''),
+    searchText: text('search_text').notNull().default(''), // tên + đơn vị, đã bỏ dấu (foldText)
+    published: boolean('published').notNull().default(false),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('learning_resources_url_uq').on(t.url), uniqueIndex('learning_resources_title_uq').on(sql`lower(btrim(${t.title}))`)],
+)
+
+export interface InvestorHolding {
+  name: string
+  kind: string // stock | company | real_estate | fund | crypto | bond | other
+  percent: number | null
+  note_vi: string | null
+  note_en: string | null
+}
+export interface InvestorMilestone {
+  year: number
+  text_vi: string
+  text_en: string
+}
+
+/** Tài liệu tham khảo: nhà đầu tư nổi tiếng — tài sản luôn kèm ngày + nguồn công khai */
+export const investors = pgTable(
+  'investors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 80 }).notNull(),
+    name: varchar('name', { length: 120 }).notNull(),
+    country: varchar('country', { length: 2 }).notNull(), // ISO 3166-1 alpha-2
+    birthYear: integer('birth_year'),
+    deathYear: integer('death_year'),
+    photoUrl: text('photo_url'),
+    roleVi: varchar('role_vi', { length: 200 }).notNull().default(''),
+    roleEn: varchar('role_en', { length: 200 }).notNull().default(''),
+    style: varchar('style', { length: 16 }).notNull(),
+    netWorthUsd: bigint('net_worth_usd', { mode: 'number' }),
+    netWorthAsOf: date('net_worth_as_of', { mode: 'string' }),
+    netWorthSourceUrl: text('net_worth_source_url'),
+    holdings: jsonb('holdings').$type<InvestorHolding[]>().notNull().default([]),
+    storyVi: text('story_vi').notNull().default(''),
+    storyEn: text('story_en').notNull().default(''),
+    milestones: jsonb('milestones').$type<InvestorMilestone[]>().notNull().default([]),
+    lessonsVi: jsonb('lessons_vi').$type<string[]>().notNull().default([]),
+    lessonsEn: jsonb('lessons_en').$type<string[]>().notNull().default([]),
+    searchText: text('search_text').notNull().default(''),
+    published: boolean('published').notNull().default(false),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('investors_slug_uq').on(t.slug), index('investors_country_idx').on(t.country)],
+)
+
 /** Kế hoạch đầu tư của user — dự phóng tính lại từ các tham số, không lưu kết quả */
 export const investmentPlans = pgTable(
   'investment_plans',
@@ -384,5 +453,7 @@ export type PracticeTradeRow = typeof practiceTrades.$inferSelect
 export type CompanyRow = typeof companies.$inferSelect
 export type CompanyAnalysisRow = typeof companyAnalyses.$inferSelect
 export type BookRow = typeof books.$inferSelect
+export type LearningResourceRow = typeof learningResources.$inferSelect
+export type InvestorRow = typeof investors.$inferSelect
 export type GlossaryTermRow = typeof glossaryTerms.$inferSelect
 export type InvestmentPlanRow = typeof investmentPlans.$inferSelect
