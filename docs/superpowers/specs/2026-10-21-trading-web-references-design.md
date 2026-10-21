@@ -58,7 +58,7 @@ Người đã mất: không ghi `net_worth_*` hiện tại; thành tích tiêu b
 ## 3. Quy tắc
 
 - **Học viên** (đã đăng nhập) chỉ thấy bản ghi `published = true`; slug ẩn → 404.
-- **Admin** (`requireAdmin`, giống Thư viện) thấy tất cả, CRUD, ẩn/hiện, đổi thứ tự.
+- **Admin** (`requireAdmin`, giống Thư viện) thấy tất cả, CRUD, ẩn/hiện, đổi thứ tự qua `position`.
 - **Validation** (zod, dùng chung server cho POST/PATCH; PATCH không áp default):
   link `https://`; slug định dạng & duy nhất; tên nguồn học không trùng; quốc gia 2 chữ hoa;
   tài sản ≥ 0 và có tài sản ⇒ có ngày + link nguồn, ngày không ở tương lai; `death_year ≥ birth_year`;
@@ -74,8 +74,11 @@ Người đã mất: không ghi `net_worth_*` hiện tại; thành tích tiêu b
 | `GET /api/references/resources?type&language&free&level&topic&q` | user | danh sách đã công bố |
 | `GET /api/references/investors?country&style&status=alive\|deceased&q&sort` | user | danh sách + `countries: [{code, count}]` (trên tập đã công bố) |
 | `GET /api/references/investors/:slug` | user | chi tiết (404 nếu ẩn/không có) |
-| `GET/POST /api/admin/references/resources`, `PATCH/DELETE …/:id`, `POST …/:id/move` | admin | CRUD |
-| `GET/POST /api/admin/references/investors`, `PATCH/DELETE …/:id`, `POST …/:id/move` | admin | CRUD |
+| `GET/POST /api/admin/references/resources`, `PATCH/DELETE …/:id` | admin | CRUD |
+| `GET/POST /api/admin/references/investors`, `PATCH/DELETE …/:id` | admin | CRUD |
+
+Thứ tự hiển thị chỉnh bằng trường `position` trong form (giống trang Thư viện), không có endpoint di chuyển riêng.
+`references` được thêm vào `RESERVED_LESSON_SLUGS` (bài học slug `references` sẽ không mở được vì trùng trang).
 
 ## 5. Giao diện
 
@@ -88,7 +91,7 @@ Người đã mất: không ghi `net_worth_*` hiện tại; thành tích tiêu b
 - `/learn/references/investors/[slug]` — đầu trang, ô tài sản ("Số liệu tính đến <ngày> · nguồn: <link>"),
   bảng nắm giữ, câu chuyện, dòng thời gian lộ trình, bài học, dòng miễn trừ
   "Thông tin chỉ mang tính tham khảo, không phải lời khuyên đầu tư."
-- `/admin/references` (link trong menu admin) — 2 tab; danh sách + thêm/sửa/ẩn-hiện/lên-xuống/xoá (xác nhận);
+- `/admin/references` (link trong menu admin) — 2 tab; danh sách + thêm/sửa/ẩn-hiện/thứ tự (`position`)/xoá (xác nhận);
   form nhà đầu tư có danh sách dòng cho holdings, milestones, bài học; ô vi/en.
 - Tên quốc gia: `Intl.DisplayNames` theo locale; cờ từ mã ISO (regional indicator). Tiền rút gọn theo locale
   (`Intl.NumberFormat` compact: "140 tỷ US$" / "$140B").
