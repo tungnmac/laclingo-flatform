@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState, use } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { ChapterList } from '@/components/learn/ChapterList'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
@@ -10,8 +10,17 @@ import { errorMessage } from '@/lib/error-message'
 import type { CatalogDto } from '@/server/learn/learn-service'
 import { LEVELS } from '@/server/learn/validation'
 
-export default function LearnPage(props: { searchParams: Promise<{ untranslated?: string; level?: string }> }) {
-  const searchParams = use(props.searchParams)
+export default function LearnPage() {
+  return (
+    <Suspense>
+      <LearnPageContent />
+    </Suspense>
+  )
+}
+
+function LearnPageContent() {
+  const query = useSearchParams()
+  const searchParams: { untranslated?: string; level?: string } = { untranslated: query.get('untranslated') ?? undefined, level: query.get('level') ?? undefined }
   const level = LEVELS.find((l) => l === searchParams.level) ?? null
   const { t, locale } = useT()
   const router = useRouter()
