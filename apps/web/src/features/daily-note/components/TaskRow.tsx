@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import type { DailyTask, DailyTaskUpdateRequest } from '@/types/api'
 import { dailyNoteService } from '../daily.service'
 import { KIND_LINKS } from '../kinds'
+import { SubtaskList } from './SubtaskList'
 
 /** 1 việc: thanh tiến độ + nút ±/ô tích + checklist việc con; mở rộng để sửa ghi chú, mục tiêu, lặp lại, thứ tự, xoá */
 export function TaskRow({
@@ -44,15 +45,17 @@ export function TaskRow({
   const [addingItem, setAddingItem] = useState(false)
   const [itemTitle, setItemTitle] = useState('')
 
-  const run = async (action: () => Promise<unknown>) => {
+  // reload: tải lại note sau khi thành công (tổng kết ngày/lịch); lỗi thì luôn tải lại để khớp server
+  const run = async (action: () => Promise<unknown>, reload = true) => {
     setBusy(true)
     setError(null)
     try {
       await action()
-      onChanged()
+      if (reload) onChanged()
       return true
     } catch (err) {
       setError(inlineError(err))
+      if (!reload) onChanged()
       return false
     } finally {
       setBusy(false)
@@ -153,33 +156,19 @@ export function TaskRow({
             </div>
           )}
           {(hasItems || (editable && addingItem)) && (
-            <ul className="mt-2 space-y-1">
-              {task.items.map((item) => (
-                <li key={item.id} className="group flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    disabled={!editable || busy}
-                    onChange={() => void itemAction(() => dailyNoteService.updateItem(item.id, { done: !item.done }))}
-                    className="h-4 w-4 shrink-0 accent-emerald-600"
-                    aria-label={item.title}
-                  />
-                  <span className={cn('min-w-0 flex-1 break-words', item.done ? 'text-slate-400 line-through' : 'text-slate-700')}>{item.title}</span>
-                  {editable && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void itemAction(() => dailyNoteService.deleteItem(item.id))}
-                      className="shrink-0 rounded px-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
-                      aria-label={t.daily.deleteItem(item.title)}
-                      title={t.daily.deleteItem(item.title)}
-                    >
-                      ×
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <SubtaskList
+              items={task.items}
+              editable={editable}
+              busy={busy}
+              onToggle={(item) => void itemAction(() => dailyNoteService.updateItem(item.id, { done: !item.done }))}
+              onDelete={(item) => void itemAction(() => dailyNoteService.deleteItem(item.id))}
+              onReorder={(items) => {
+                // Hiện thứ tự mới ngay; đổi thứ tự không đổi tổng kết ngày → không tải lại note.
+                // Lỗi (vd danh sách vừa đổi ở tab khác) → run() tải lại note để về đúng dữ liệu server
+                setTask((prev) => ({ ...prev, items }))
+                void run(async () => setTask(await dailyNoteService.reorderItems(task.id, items.map((i) => i.id))), false)
+              }}
+            />
           )}
           {editable &&
             (addingItem ? (

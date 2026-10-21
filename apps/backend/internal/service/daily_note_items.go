@@ -177,3 +177,45 @@ func (s *DailyNoteService) DeleteTaskItem(ctx context.Context, userID, itemID uu
 	}
 	return s.finishItemChange(ctx, tx, qtx, userID, item.TaskID, true)
 }
+
+// ReorderTaskItems — sắp lại thứ tự việc con (ưu tiên) của việc hôm nay; itemIDs phải đúng bằng tập việc con hiện có
+func (s *DailyNoteService) ReorderTaskItems(ctx context.Context, userID, taskID uuid.UUID, itemIDs []uuid.UUID) (DailyTask, error) {
+	row, _, err := s.todayTask(ctx, userID, taskID)
+	if err != nil {
+		return DailyTask{}, err
+	}
+	tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return DailyTask{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.repo.WithTx(tx)
+	if _, err := qtx.LockDailyNoteTask(ctx, row.ID); err != nil {
+		return DailyTask{}, err
+	}
+	items, err := qtx.ListDailyTaskItems(ctx, []pgtype.UUID{row.ID})
+	if err != nil {
+		return DailyTask{}, err
+	}
+	current := make(map[pgtype.UUID]bool, len(items))
+	for _, it := range items {
+		current[it.ID] = true
+	}
+	if len(itemIDs) != len(items) {
+		return DailyTask{}, newDuplicate("Danh sách việc con vừa thay đổi, vui lòng tải lại")
+	}
+	ids := make([]pgtype.UUID, 0, len(itemIDs))
+	for _, id := range itemIDs {
+		pid := toPgUUID(id)
+		if !current[pid] { // thiếu / thừa / trùng id → danh sách đã đổi ở nơi khác
+			return DailyTask{}, newDuplicate("Danh sách việc con vừa thay đổi, vui lòng tải lại")
+		}
+		delete(current, pid)
+		ids = append(ids, pid)
+	}
+	if _, err := qtx.SetDailyTaskItemsOrder(ctx, db.SetDailyTaskItemsOrderParams{ItemIds: ids, TaskID: row.ID}); err != nil {
+		return DailyTask{}, err
+	}
+	// listChanged: việc đang lặp lại → mẫu lưu checklist theo thứ tự mới
+	return s.finishItemChange(ctx, tx, qtx, userID, row.ID, true)
+}

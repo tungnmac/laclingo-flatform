@@ -374,6 +374,8 @@ type Querier interface {
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
 	SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNoteTaskPositionParams) error
+	// Thứ tự mới = vị trí trong mảng item_ids; chỉ việc con của đúng task_id (1 câu lệnh cho cả danh sách)
+	SetDailyTaskItemsOrder(ctx context.Context, arg SetDailyTaskItemsOrderParams) (int64, error)
 	// Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
 	SetDailyTaskTemplateChecklist(ctx context.Context, arg SetDailyTaskTemplateChecklistParams) error
 	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,

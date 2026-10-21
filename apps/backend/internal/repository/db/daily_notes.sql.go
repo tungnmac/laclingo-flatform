@@ -687,6 +687,26 @@ func (q *Queries) SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNote
 	return err
 }
 
+const setDailyTaskItemsOrder = `-- name: SetDailyTaskItemsOrder :execrows
+UPDATE daily_task_items i SET position = o.ord - 1
+FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, ord)
+WHERE i.id = o.id AND i.task_id = $1
+`
+
+type SetDailyTaskItemsOrderParams struct {
+	TaskID  pgtype.UUID   `json:"task_id"`
+	ItemIds []pgtype.UUID `json:"item_ids"`
+}
+
+// Thứ tự mới = vị trí trong mảng item_ids; chỉ việc con của đúng task_id (1 câu lệnh cho cả danh sách)
+func (q *Queries) SetDailyTaskItemsOrder(ctx context.Context, arg SetDailyTaskItemsOrderParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setDailyTaskItemsOrder, arg.TaskID, arg.ItemIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setDailyTaskTemplateChecklist = `-- name: SetDailyTaskTemplateChecklist :exec
 UPDATE daily_task_templates SET checklist = $3::text[] WHERE id = $1 AND user_id = $2
 `
