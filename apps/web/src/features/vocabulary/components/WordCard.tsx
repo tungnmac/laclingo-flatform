@@ -84,7 +84,8 @@ export function WordCard({
         </span>
       )}
 
-      <h2 className={cn('break-words font-bold text-slate-900', compact ? 'text-2xl' : 'text-4xl sm:text-5xl')}>
+      <h2 className={cn('break-words font-bold text-slate-900', // từ dài giữ cỡ nhỏ hơn trên mobile để không bị ngắt giữa từ
+          compact ? 'text-2xl' : word.term.length > 10 ? 'text-4xl sm:text-6xl' : 'text-5xl sm:text-6xl')}>
         {word.term}
       </h2>
       {(word.phonetic || word.part_of_speech) && (

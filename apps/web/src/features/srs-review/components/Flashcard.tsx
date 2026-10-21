@@ -44,7 +44,8 @@ export function Flashcard({ vocab, flipped, onFlip }: { vocab: DueVocabulary; fl
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl bg-indigo-600 p-6 text-white shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <span className="text-xs font-medium uppercase tracking-widest text-indigo-200">{t.vocabCard.meaningLabel}</span>
           <p className="break-words text-center text-2xl font-semibold sm:text-3xl">{vocab.meaning}</p>
-          <p className="text-sm text-indigo-200">{vocab.term}</p>
+          <p className="break-words text-center text-3xl font-bold sm:text-4xl">{vocab.term}</p>
+          {vocab.phonetic && <p className="-mt-2 text-lg text-indigo-100">/{vocab.phonetic}/</p>}
         </div>
       </div>
     </div>
