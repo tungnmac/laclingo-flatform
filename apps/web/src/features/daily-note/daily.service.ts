@@ -26,5 +26,7 @@ export const dailyNoteService = {
     apiFetch<DailyTask>(`${taskPath(taskId)}/items`, { method: 'POST', body: JSON.stringify({ title }), notify: 'error' }),
   updateItem: (itemId: string, body: { title?: string; done?: boolean }) =>
     apiFetch<DailyTask>(itemPath(itemId), { method: 'PATCH', body: JSON.stringify(body), notify: 'error' }),
+  reorderItems: (taskId: string, itemIds: string[]) =>
+    apiFetch<DailyTask>(`${taskPath(taskId)}/items/order`, { method: 'PUT', body: JSON.stringify({ item_ids: itemIds }), notify: 'error' }),
   deleteItem: (itemId: string) => apiFetch<DailyTask>(itemPath(itemId), { method: 'DELETE', notify: 'error' }),
 }

@@ -170,3 +170,9 @@ RETURNING *;
 -- Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 UPDATE daily_note_tasks t SET completed_at = NULL
 WHERE t.id = $1 AND t.target IS NULL AND NOT EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id);
+
+-- name: SetDailyTaskItemsOrder :execrows
+-- Thứ tự mới = vị trí trong mảng item_ids; chỉ việc con của đúng task_id (1 câu lệnh cho cả danh sách)
+UPDATE daily_task_items i SET position = o.ord - 1
+FROM unnest(sqlc.arg('item_ids')::uuid[]) WITH ORDINALITY AS o(id, ord)
+WHERE i.id = o.id AND i.task_id = sqlc.arg('task_id');

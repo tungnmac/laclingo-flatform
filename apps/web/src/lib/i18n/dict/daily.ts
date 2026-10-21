@@ -47,6 +47,7 @@ export interface DailyDict {
     addItem: string
     itemPlaceholder: string
     deleteItem: (title: string) => string
+    dragItem: (title: string) => string
     checklistAuto: string
     calendarTitle: string
     prevMonth: string
@@ -114,6 +115,7 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       addItem: '+ Thêm việc con',
       itemPlaceholder: 'Tên việc con, Enter để thêm…',
       deleteItem: (title) => `Xoá việc con "${title}"`,
+      dragItem: (title) => `Kéo để đổi thứ tự "${title}"`,
       checklistAuto: 'Tự xong khi tích hết việc con',
       calendarTitle: 'Lịch',
       prevMonth: 'Tháng trước',
@@ -179,6 +181,7 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       addItem: '+ Add subtask',
       itemPlaceholder: 'Subtask name, press Enter to add…',
       deleteItem: (title) => `Remove subtask "${title}"`,
+      dragItem: (title) => `Drag to reorder "${title}"`,
       checklistAuto: 'Completes when every subtask is checked',
       calendarTitle: 'Calendar',
       prevMonth: 'Previous month',

@@ -4,6 +4,7 @@ import (
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 // DailyNoteHandler — Daily note (Nhật ký học) của CHÍNH học viên đang đăng nhập. Riêng tư: không có route admin.
@@ -26,6 +27,7 @@ func (h *DailyNoteHandler) RegisterRoutes(router fiber.Router) {
 	api.Post("/tasks/:id/move", h.MoveTask)
 	api.Post("/tasks/:id/carry-over", h.CarryOver)
 	api.Post("/tasks/:id/items", h.AddTaskItem)
+	api.Put("/tasks/:id/items/order", h.ReorderTaskItems)
 	api.Patch("/items/:id", h.UpdateTaskItem)
 	api.Delete("/items/:id", h.DeleteTaskItem)
 	api.Get("/:date", h.Day)
@@ -296,6 +298,38 @@ func (h *DailyNoteHandler) DeleteTaskItem(c *fiber.Ctx) error {
 		return err
 	}
 	res, err := h.svc.DeleteTaskItem(c.UserContext(), currentUserID(c), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
+}
+
+type dailyItemOrderRequest struct {
+	ItemIDs []uuid.UUID `json:"item_ids" swaggertype:"array,string"`
+}
+
+// ReorderTaskItems godoc
+// @Summary      Sắp lại thứ tự (ưu tiên) các việc con của việc hôm nay
+// @Tags         daily-notes
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                         true  "Task ID"  format(uuid)
+// @Param        body  body      handler.dailyItemOrderRequest  true  "Toàn bộ ID việc con theo thứ tự mới"
+// @Success      200   {object}  service.DailyTask  "Việc cha kèm checklist"
+// @Failure      404   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse  "Danh sách việc con đã đổi — tải lại"
+// @Router       /daily-notes/tasks/{id}/items/order [put]
+func (h *DailyNoteHandler) ReorderTaskItems(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	var req dailyItemOrderRequest
+	if err := c.BodyParser(&req); err != nil || len(req.ItemIDs) == 0 {
+		return fiber.NewError(fiber.StatusBadRequest, "cần item_ids: toàn bộ ID việc con theo thứ tự mới")
+	}
+	res, err := h.svc.ReorderTaskItems(c.UserContext(), currentUserID(c), id, req.ItemIDs)
 	if err != nil {
 		return err
 	}
