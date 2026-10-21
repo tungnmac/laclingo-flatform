@@ -9,6 +9,7 @@ const ITEMS = [
   { href: '/learn/books', label: 'learnNav.books', icon: '📚' },
   { href: '/learn/plans', label: 'learnNav.plans', icon: '🎯' },
   { href: '/learn/glossary', label: 'learnNav.glossary', icon: '📖' },
+  { href: '/learn/references', label: 'learnNav.references', icon: '🔗' },
 ]
 
 /** Lộ trình đang mở khi ở /learn hoặc 1 bài học (/learn/<slug>), không phải các mục con khác */
