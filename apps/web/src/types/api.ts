@@ -1070,3 +1070,19 @@ export interface DailyTaskUpdateRequest {
   memo?: string
   repeat?: boolean
 }
+
+// Gợi ý tự động khi admin thêm từ (POST /admin/vocabularies/suggest) — chỉ để điền form, chưa lưu
+export interface VocabularySuggestion {
+  term: string
+  phonetic?: string
+  audio_url?: string // file phát âm từ Free Dictionary API (tiếng Anh)
+  meaning?: string
+  part_of_speech?: string
+  example?: string
+  example_meaning?: string
+  level?: string
+  image_emoji?: string
+  sources: ('dictionary' | 'ai')[]
+  ai_available: boolean // server đã cấu hình Claude API chưa
+  ai_error?: string // AI có cấu hình nhưng lần này lỗi (vd hết credit) — vẫn có phần từ điển
+}

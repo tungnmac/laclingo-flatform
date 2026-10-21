@@ -8,6 +8,7 @@ import type {
   VocabularyAdmin,
   VocabularyCard,
   VocabularyRequest,
+  VocabularySuggestion,
   VocabularyTopic,
   VocabularyTopicAdmin,
   VocabularyTopicRequest,
@@ -38,6 +39,13 @@ export const vocabularyService = {
     }),
 
   // Admin
+  // Gợi ý phiên âm/audio (từ điển) + nghĩa, câu ví dụ, từ loại... (AI) để điền form thêm từ
+  suggestVocabulary: (languageId: string, term: string) =>
+    apiFetch<VocabularySuggestion>('/admin/vocabularies/suggest', {
+      method: 'POST',
+      body: JSON.stringify({ language_id: languageId, term }),
+      notify: false, // chỉ tra cứu, không tạo gì — form tự hiện kết quả/lỗi tại chỗ
+    }),
   createVocabulary: (body: VocabularyRequest, opts?: Pick<ApiInit, 'notify'>) =>
     apiFetch<VocabularyAdmin>('/admin/vocabularies', { method: 'POST', body: JSON.stringify(body), ...opts }),
   listVocabulariesAdmin: (

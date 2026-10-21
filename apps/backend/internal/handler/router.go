@@ -22,7 +22,7 @@ type ErrorResponse struct {
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
 // MissionService) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -81,6 +81,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	userHandler.RegisterAdminRoutes(admin)
 	NewMissionHandler(missions).RegisterAdminRoutes(admin)
 	vocabularyHandler.RegisterAdminRoutes(admin)
+	NewVocabularySuggestHandler(suggester).RegisterAdminRoutes(admin)
 	grammarHandler.RegisterAdminRoutes(admin)
 	NewChallengeQuestionHandler(service.NewChallengeQuestionService(repo)).RegisterAdminRoutes(admin)
 	listeningHandler.RegisterAdminRoutes(admin)

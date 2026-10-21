@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -32,6 +33,16 @@ type Config struct {
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
 	VAPIDSubject    string // mailto:... hoặc https://... — push service dùng để liên hệ khi có sự cố
+
+	// AI cho nút "Gợi ý tự động" khi admin thêm từ (nghĩa tiếng Việt, câu ví dụ, từ loại...).
+	// AIProvider: "claude" | "gemini"; trống = tự chọn theo key đang có (ưu tiên Claude).
+	// Không có key nào thì chỉ gợi ý phiên âm/audio từ Free Dictionary API.
+	// SuggestModel (Claude) mặc định claude-opus-5-5; GeminiModel mặc định gemini-3.5-flash-lite.
+	AIProvider      string
+	AnthropicAPIKey string
+	SuggestModel    string
+	GeminiAPIKey    string
+	GeminiModel     string
 }
 
 func Load() (*Config, error) {
@@ -87,6 +98,12 @@ func Load() (*Config, error) {
 		VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
 		VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
 		VAPIDSubject:    os.Getenv("VAPID_SUBJECT"),
+
+		AIProvider:      strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER"))),
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		SuggestModel:    os.Getenv("VOCAB_SUGGEST_MODEL"),
+		GeminiAPIKey:    os.Getenv("GEMINI_API_KEY"),
+		GeminiModel:     os.Getenv("GEMINI_MODEL"),
 	}, nil
 }
 
