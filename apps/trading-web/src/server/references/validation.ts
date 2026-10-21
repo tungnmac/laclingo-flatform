@@ -15,14 +15,15 @@ const MIN_YEAR = 1800
 
 const text = (max: number) => z.string('INVALID_INPUT').trim().max(max, 'TEXT_TOO_LONG')
 const required = (max: number) => z.string('TITLE_REQUIRED').trim().min(1, 'TITLE_REQUIRED').max(max, 'TEXT_TOO_LONG')
-const HTTPS = /^https:\/\/[^\s]+$/i
-const httpsUrl = z.string('INVALID_URL').trim().max(500, 'TEXT_TOO_LONG').regex(HTTPS, 'INVALID_URL')
+/** https và đọc được bằng URL parser (trang chi tiết gọi new URL() để lấy tên miền) */
+const isHttps = (s: string) => /^https:\/\/[^\s]+$/i.test(s) && URL.canParse(s) && new URL(s).protocol === 'https:'
+const httpsUrl = z.string('INVALID_HTTPS_URL').trim().max(500, 'TEXT_TOO_LONG').refine(isHttps, 'INVALID_HTTPS_URL')
 /** Link https tuỳ chọn: rỗng → null */
 const optionalHttps = z
-  .string('INVALID_URL')
+  .string('INVALID_HTTPS_URL')
   .trim()
   .max(500, 'TEXT_TOO_LONG')
-  .refine((s) => s === '' || HTTPS.test(s), 'INVALID_URL')
+  .refine((s) => s === '' || isHttps(s), 'INVALID_HTTPS_URL')
   .nullish()
   .transform((s) => s || null)
 const optional = (max: number) =>
@@ -36,7 +37,8 @@ const int = (min: number, max: number) => z.number('INVALID_INPUT').int('INVALID
 const year = () => int(MIN_YEAR, new Date().getUTCFullYear()).nullable()
 const position = int(0, 10_000)
 
-const today = () => new Date().toISOString().slice(0, 10)
+/** Ngày lớn nhất được nhận: "hôm nay" ở múi giờ sớm nhất (UTC+14) — người dùng ở VN trước 7h sáng vẫn nhập được ngày hôm nay */
+const latestToday = () => new Date(Date.now() + 14 * 3_600_000).toISOString().slice(0, 10)
 /** YYYY-MM-DD có thật, không ở tương lai; rỗng → null */
 const asOfDate = z
   .string('INVALID_DATE')
@@ -45,7 +47,7 @@ const asOfDate = z
     if (s === '') return true
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
     const d = new Date(`${s}T00:00:00Z`)
-    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s && s <= today()
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s && s <= latestToday()
   }, 'INVALID_DATE')
   .nullish()
   .transform((s) => s || null)

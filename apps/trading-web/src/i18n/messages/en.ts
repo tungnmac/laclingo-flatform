@@ -685,6 +685,7 @@ export const en: Messages = {
     storyEn: 'Life story (en)',
   },
   errors: {
+    INVALID_HTTPS_URL: 'Link must be a valid https:// address',
     DUPLICATE: 'This already exists (same title, link or slug)',
     NET_WORTH_SOURCE_REQUIRED: 'A net worth figure needs an "as of" date and a source link',
     INVALID_DATE: 'Invalid date (YYYY-MM-DD, not in the future)',

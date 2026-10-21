@@ -685,6 +685,7 @@ export const vi = {
     storyEn: 'Câu chuyện cuộc đời (en)',
   },
   errors: {
+    INVALID_HTTPS_URL: 'Link phải là địa chỉ https:// hợp lệ',
     DUPLICATE: 'Dữ liệu này đã tồn tại (trùng tên, link hoặc slug)',
     NET_WORTH_SOURCE_REQUIRED: 'Có số tài sản thì phải có ngày số liệu và link nguồn',
     INVALID_DATE: 'Ngày không hợp lệ (YYYY-MM-DD, không ở tương lai)',

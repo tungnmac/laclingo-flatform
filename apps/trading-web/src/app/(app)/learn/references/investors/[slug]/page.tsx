@@ -10,6 +10,9 @@ import { errorMessage } from '@/lib/error-message'
 import { countryName, flagEmoji, formatNetWorth } from '@/lib/reference-format'
 import type { InvestorDetailDto } from '@/server/references/references-service'
 
+/** Tên miền để hiển thị link nguồn; link lạ không làm sập trang */
+const hostOf = (url: string) => (URL.canParse(url) ? new URL(url).hostname.replace(/^www\./, '') : url)
+
 export default function InvestorPage() {
   const { slug } = useParams<{ slug: string }>()
   const { t, locale } = useT()
@@ -76,7 +79,7 @@ export default function InvestorPage() {
                 {t('references.asOfSource', { date: fullDate(x.net_worth_as_of) })}{' '}
                 {x.net_worth_source_url && (
                   <a href={x.net_worth_source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 underline">
-                    {new URL(x.net_worth_source_url).hostname.replace(/^www\./, '')}
+                    {hostOf(x.net_worth_source_url)}
                   </a>
                 )}
               </p>

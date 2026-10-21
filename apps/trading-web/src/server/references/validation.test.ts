@@ -46,8 +46,8 @@ describe('resourceSchema', () => {
     expect(r).toMatchObject({ description_vi: '', description_en: '', published: false, position: 0 })
   })
   it('requires https urls', () => {
-    expect(issue(resourceSchema.safeParse({ ...resource, url: 'http://x.com' }))).toBe('INVALID_URL')
-    expect(issue(resourceSchema.safeParse({ ...resource, url: '' }))).toBe('INVALID_URL')
+    expect(issue(resourceSchema.safeParse({ ...resource, url: 'http://x.com' }))).toBe('INVALID_HTTPS_URL')
+    expect(issue(resourceSchema.safeParse({ ...resource, url: '' }))).toBe('INVALID_HTTPS_URL')
   })
   it('rejects unknown type/language and long descriptions', () => {
     expect(resourceSchema.safeParse({ ...resource, type: 'tiktok' }).success).toBe(false)
@@ -82,7 +82,7 @@ describe('investorSchema', () => {
     expect(issue(investorSchema.safeParse({ ...investor, net_worth_as_of: '2999-01-01' }))).toBe('INVALID_DATE')
     expect(issue(investorSchema.safeParse({ ...investor, net_worth_as_of: '2026-13-01' }))).toBe('INVALID_DATE')
     expect(investorSchema.safeParse({ ...investor, net_worth_usd: -1 }).success).toBe(false)
-    expect(issue(investorSchema.safeParse({ ...investor, net_worth_source_url: 'http://forbes.com' }))).toBe('INVALID_URL')
+    expect(issue(investorSchema.safeParse({ ...investor, net_worth_source_url: 'http://forbes.com' }))).toBe('INVALID_HTTPS_URL')
   })
   it('checks years', () => {
     expect(issue(investorSchema.safeParse({ ...investor, death_year: 1920 }))).toBe('INVALID_YEARS')
@@ -117,5 +117,21 @@ describe('search text', () => {
   it('folds accents', () => {
     expect(investorSearchText({ name: 'Phạm Nhật Vượng' })).toBe('pham nhat vuong')
     expect(resourceSearchText({ title: 'Đầu tư', provider: 'SSI' })).toBe('dau tu ssi')
+  })
+})
+
+describe('review fixes', () => {
+  it('rejects https urls that the URL parser cannot read', () => {
+    for (const url of ['https://%', 'https://:80', 'https://[x']) {
+      expect(issue(resourceSchema.safeParse({ ...resource, url })), url).toBe('INVALID_HTTPS_URL')
+      expect(issue(investorSchema.safeParse({ ...investor, net_worth_source_url: url })), url).toBe('INVALID_HTTPS_URL')
+    }
+    expect(issue(resourceSchema.safeParse({ ...resource, url: 'http://x.com' }))).toBe('INVALID_HTTPS_URL')
+  })
+  it('accepts "today" for users ahead of UTC (e.g. Vietnam before 07:00)', () => {
+    const todayInVietnam = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10)
+    expect(investorSchema.safeParse({ ...investor, net_worth_as_of: todayInVietnam }).success).toBe(true)
+    const inTwoDays = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
+    expect(issue(investorSchema.safeParse({ ...investor, net_worth_as_of: inTwoDays }))).toBe('INVALID_DATE')
   })
 })

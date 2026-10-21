@@ -8,17 +8,14 @@ import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import { countryName, flagEmoji } from '@/lib/reference-format'
+import { nextReferenceParams, REFERENCE_PARAMS } from '@/lib/reference-params'
 import type { InvestorListDto, ResourceDto } from '@/server/references/references-service'
 import { INVESTOR_SORTS, INVESTOR_STYLES, RESOURCE_LANGUAGES, RESOURCE_TOPICS, RESOURCE_TYPES } from '@/server/references/validation'
 import { LEVELS } from '@/server/learn/validation'
 
 const SEARCH_DELAY_MS = 300
 type Tab = 'resources' | 'investors'
-/** Tham số lọc của từng tab — giữ trên URL để gửi link vẫn đúng bộ lọc */
-const PARAMS: Record<Tab, string[]> = {
-  resources: ['q', 'type', 'language', 'free', 'level', 'topic'],
-  investors: ['q', 'country', 'style', 'status', 'sort'],
-}
+const PARAMS = REFERENCE_PARAMS
 
 export default function ReferencesPage() {
   return (
@@ -35,14 +32,9 @@ function References() {
   const params = useSearchParams()
   const tab: Tab = params.get('tab') === 'investors' ? 'investors' : 'resources'
 
-  /** Đổi tham số trên URL (giá trị rỗng = bỏ); đổi tab thì bỏ bộ lọc của tab cũ */
+  /** Đổi tham số trên URL — đọc URL hiện tại lúc gọi (không dùng `params` cũ trong closure của timer tìm kiếm) */
   const update = (patch: Record<string, string>) => {
-    const next = new URLSearchParams(params)
-    if (patch.tab && patch.tab !== tab) for (const k of PARAMS[tab]) next.delete(k)
-    for (const [k, v] of Object.entries(patch)) {
-      if (v) next.set(k, v)
-      else next.delete(k)
-    }
+    const next = nextReferenceParams(new URLSearchParams(window.location.search), patch)
     router.replace(`${pathname}?${next}`, { scroll: false })
   }
 
@@ -74,8 +66,12 @@ type TabProps = { params: URLSearchParams; update: (patch: Record<string, string
 
 /** Ô tìm kiếm có debounce, đồng bộ với tham số q trên URL */
 function SearchBox({ params, update, placeholder }: TabProps & { placeholder: string }) {
-  const [query, setQuery] = useState(params.get('q') ?? '')
   const q = params.get('q') ?? ''
+  const [query, setQuery] = useState(q)
+  // URL đổi từ ngoài (back/forward, đổi tab) → ô nhập theo URL
+  useEffect(() => {
+    setQuery((cur) => (cur.trim() === q ? cur : q))
+  }, [q])
   useEffect(() => {
     if (query.trim() === q) return
     const id = setTimeout(() => update({ q: query.trim() }), SEARCH_DELAY_MS)
@@ -130,7 +126,7 @@ function useList<T>(url: string) {
   return { data, error, reload: () => setRetry((r) => r + 1) }
 }
 
-function query(params: URLSearchParams, keys: string[]): string {
+function query(params: URLSearchParams, keys: readonly string[]): string {
   const q = new URLSearchParams()
   for (const k of keys) {
     const v = params.get(k)
