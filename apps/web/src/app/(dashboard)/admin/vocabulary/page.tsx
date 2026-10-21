@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
+import { AudioButton } from '@/components/audio/AudioButton'
 import { ExportButton } from '@/components/admin/ExportButton'
 import { IconPickerInput } from '@/components/admin/IconPickerInput'
 import { Pagination } from '@/components/admin/Pagination'
@@ -383,6 +384,70 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // Gợi ý tự động (từ điển + AI) — điền vào các ô còn trống của form, admin duyệt rồi mới lưu
+  const formRef = useRef<HTMLFormElement>(null)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestMsg, setSuggestMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // Audio từ điển gắn với ĐÚNG từ đã gợi ý — đổi từ thì bỏ, lưu cũng kiểm tra lại (không lưu nhầm audio từ khác)
+  const [suggestedAudio, setSuggestedAudio] = useState<{ term: string; url: string } | null>(null)
+  const suggestReq = useRef(0) // bỏ qua kết quả về muộn của lần gợi ý cũ / form cũ
+  const normTerm = (s: string) => s.trim().toLowerCase()
+
+  const suggest = async () => {
+    const form = formRef.current
+    if (!form) return
+    const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null
+    const term = field('term')?.value.trim() ?? ''
+    if (!term) return setSuggestMsg({ ok: false, text: t.adminVocabulary.suggestNeedTerm })
+    const reqId = ++suggestReq.current
+    setSuggesting(true)
+    setSuggestMsg(null)
+    try {
+      const s = await vocabularyService.suggestVocabulary(languageId, term)
+      // Trong lúc chờ (AI có thể mất vài giây) admin đã đổi từ / đóng form / mở form khác → bỏ kết quả này
+      if (reqId !== suggestReq.current || formRef.current !== form || normTerm(field('term')?.value ?? '') !== normTerm(term)) return
+      if (s.sources.length === 0) {
+        setSuggestMsg({ ok: false, text: [t.adminVocabulary.suggestNotFound, !s.ai_available && t.adminVocabulary.suggestNoAI].filter(Boolean).join(' ') })
+        return
+      }
+      let filled = 0
+      // Chỉ điền ô còn trống — không ghi đè thứ admin đã nhập. Trình độ: "A1" mặc định của form mới coi như trống.
+      const fill = (name: string, value: string | undefined, isEmpty = (v: string) => !v.trim()) => {
+        const el = field(name)
+        if (!el || !value || !isEmpty(el.value)) return
+        el.value = value
+        filled++
+      }
+      fill('phonetic', s.phonetic)
+      fill('part_of_speech', s.part_of_speech)
+      fill('meaning', s.meaning)
+      fill('example', s.example)
+      fill('example_meaning', s.example_meaning)
+      fill('level', s.level, (v) => !v.trim() || (!editing && v === 'A1'))
+      fill('image_emoji', s.image_emoji)
+      if (s.audio_url && !editing?.audio_url) {
+        setSuggestedAudio({ term, url: s.audio_url })
+        filled++
+      }
+      const sources = s.sources
+        .map((src) => (src === 'ai' ? t.adminVocabulary.suggestSourceAI : t.adminVocabulary.suggestSourceDictionary))
+        .join(' + ')
+      const parts = [filled > 0 ? t.adminVocabulary.suggestFilled(filled, sources) : t.adminVocabulary.suggestNothingNew]
+      if (!s.ai_available) parts.push(t.adminVocabulary.suggestNoAI)
+      if (s.ai_error) parts.push(t.adminVocabulary.suggestAIError(s.ai_error))
+      setSuggestMsg({ ok: !s.ai_error, text: parts.join(' ') })
+    } catch (err) {
+      if (reqId === suggestReq.current) setSuggestMsg({ ok: false, text: (err as Error).message })
+    } finally {
+      if (reqId === suggestReq.current) setSuggesting(false)
+    }
+  }
+
+  // Sửa ô "Từ" sau khi đã gợi ý → audio/thông báo của từ cũ không còn đúng
+  const onTermInput = (value: string) => {
+    if (suggestedAudio && normTerm(value) !== normTerm(suggestedAudio.term)) setSuggestedAudio(null)
+    if (suggestMsg) setSuggestMsg(null)
+  }
   // List ôn tập của chính tài khoản admin — chọn để thêm luôn từ vừa tạo (không bắt buộc)
   const decksApi = useApi(() => deckService.list(), [showForm, editing?.id], showForm && !editing)
   // List ôn tập tích chọn trong form tạo từ (giống hộp "Thêm vào ôn tập") — thêm từ vào các list này khi lưu
@@ -438,12 +503,20 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     setEditing(v)
     setShowForm(true)
     setFormError(null)
+    setSuggestMsg(null)
+    setSuggestedAudio(null)
+    suggestReq.current++
+    setSuggesting(false)
   }
 
   const onCreateNew = () => {
     setEditing(null)
     setShowForm(true)
     setFormError(null)
+    setSuggestMsg(null)
+    setSuggestedAudio(null)
+    suggestReq.current++
+    setSuggesting(false)
     setSelectedDecks(new Set())
     setCreatedDecks([])
     setDeckError(null)
@@ -471,8 +544,10 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       level: String(form.get('level') ?? 'A1'),
       image_emoji: String(form.get('image_emoji') ?? '').trim() || undefined,
       image_url: String(form.get('image_url') ?? '').trim() || undefined,
-      // Form không có ô audio — giữ nguyên giá trị cũ, không để lần sửa xoá mất
-      audio_url: editing?.audio_url || undefined,
+      // Form không có ô audio — giữ nguyên giá trị cũ (không để lần sửa xoá mất), hoặc audio từ điển vừa gợi ý
+      audio_url:
+        editing?.audio_url ||
+        (suggestedAudio && normTerm(suggestedAudio.term) === normTerm(String(form.get('term') ?? '')) ? suggestedAudio.url : undefined),
     }
 
     if (deckBusy) return // đang tạo list — chờ xong để list mới được tính vào
@@ -602,11 +677,24 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
           <h3 className="text-base font-semibold text-slate-900">
             {editing ? t.adminVocabulary.editWordTitle(editing.term) : t.adminVocabulary.addWordTitle}
           </h3>
-          <form key={editing?.id ?? '__new__'} onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-medium text-slate-700">
-              {t.adminVocabulary.termLabel}
-              <input name="term" type="text" required defaultValue={editing?.term} className={inputClass} />
-            </label>
+          <form ref={formRef} key={editing?.id ?? '__new__'} onSubmit={onSubmit} className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="block text-sm font-medium text-slate-700">
+              <label htmlFor="vocab-term">{t.adminVocabulary.termLabel}</label>
+              <div className="flex gap-2">
+                <input
+                  id="vocab-term"
+                  name="term"
+                  type="text"
+                  required
+                  defaultValue={editing?.term}
+                  onChange={(e) => onTermInput(e.target.value)}
+                  className={cn(inputClass, 'flex-1')}
+                />
+                <Button type="button" variant="secondary" onClick={suggest} disabled={suggesting} className="mt-1 shrink-0">
+                  {suggesting ? t.adminVocabulary.suggesting : t.adminVocabulary.suggestBtn}
+                </Button>
+              </div>
+            </div>
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.phoneticLabel}
               <input name="phonetic" type="text" defaultValue={editing?.phonetic} className={inputClass} />
@@ -622,6 +710,22 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
                 ))}
               </select>
             </label>
+            {(suggestMsg || suggestedAudio) && (
+              <div className="space-y-2 sm:col-span-2">
+                {suggestMsg && (
+                  <p className={cn('rounded-lg px-3 py-2 text-sm', suggestMsg.ok ? 'bg-indigo-50 text-indigo-800' : 'bg-rose-50 text-rose-700')}>
+                    {suggestMsg.text}
+                  </p>
+                )}
+                {suggestedAudio && (
+                  <p className="flex items-center gap-2 text-xs text-slate-500">
+                    {t.adminVocabulary.suggestAudio}
+                    {/* key = url: AudioButton giữ <Audio> của lần phát đầu — đổi file thì dựng lại */}
+                    <AudioButton key={suggestedAudio.url} src={suggestedAudio.url} text="" languageId={languageId} className="h-8 w-8 text-sm" />
+                  </p>
+                )}
+              </div>
+            )}
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
               {t.adminVocabulary.meaningLabel}
               <input name="meaning" type="text" required defaultValue={editing?.meaning} className={inputClass} />
