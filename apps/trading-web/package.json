@@ -14,7 +14,8 @@
     "make-admin": "tsx scripts/make-admin.ts",
     "seed:lessons": "tsx scripts/seed-lessons.ts",
     "seed:companies": "tsx scripts/seed-companies.ts",
-    "seed:library": "tsx scripts/seed-library.ts"
+    "seed:library": "tsx scripts/seed-library.ts",
+    "seed:references": "tsx scripts/seed-references.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

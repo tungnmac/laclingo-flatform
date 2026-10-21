@@ -6,7 +6,7 @@ export const LIMITS = { slug: 80, title: 200, text: 2000, content: 100000, optio
 
 const slug = z.string().trim().max(LIMITS.slug, 'INVALID_SLUG').regex(SLUG_RE, 'INVALID_SLUG')
 /** Trùng tên trang con của /learn (sidebar) → bài không bao giờ mở được */
-export const RESERVED_LESSON_SLUGS = ['books', 'plans', 'glossary']
+export const RESERVED_LESSON_SLUGS = ['books', 'plans', 'glossary', 'references']
 const lessonSlug = slug.refine((s) => !RESERVED_LESSON_SLUGS.includes(s), 'RESERVED_SLUG')
 const title = z.string().trim().min(1, 'TITLE_REQUIRED').max(LIMITS.title, 'TEXT_TOO_LONG')
 /** Chuỗi tuỳ chọn: rỗng/khoảng trắng → null */
