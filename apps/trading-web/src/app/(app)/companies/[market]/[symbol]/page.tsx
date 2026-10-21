@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState, use } from 'react'
+import { useParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 import { FinancialsTable } from '@/components/companies/FinancialsTable'
 import { RevenueChart } from '@/components/companies/RevenueChart'
 import { Markdown } from '@/components/learn/Markdown'
@@ -19,8 +20,8 @@ const LESSONS: Record<Locale, Record<'valuation' | 'profitability' | 'health' | 
   en: { valuation: 'eps-pe-pb', profitability: 'roe-roa-margins', health: 'financial-health-ratios', statements: 'financial-statements-overview' },
 }
 
-export default function CompanyPage(props: { params: Promise<{ market: string; symbol: string }> }) {
-  const params = use(props.params)
+export default function CompanyPage() {
+  const params = useParams<{ market: string; symbol: string }>()
   const { t, locale } = useT()
   const [data, setData] = useState<CompanyDetailDto | null>(null)
   const [error, setError] = useState<unknown>(null)
