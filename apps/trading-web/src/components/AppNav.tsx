@@ -18,6 +18,7 @@ const ADMIN_ITEMS = [
   { href: '/admin/learn', labelKey: 'nav.admin' },
   { href: '/admin/companies', labelKey: 'nav.adminCompanies' },
   { href: '/admin/library', labelKey: 'nav.adminLibrary' },
+  { href: '/admin/references', labelKey: 'nav.adminReferences' },
 ]
 
 export function AppNav({ user }: { user: SessionUser }) {
