@@ -43,6 +43,11 @@ export interface DailyDict {
     saved: string
     unfinishedTitle: (n: number) => string
     carryBtn: string
+    itemsProgress: (done: number, total: number) => string
+    addItem: string
+    itemPlaceholder: string
+    deleteItem: (title: string) => string
+    checklistAuto: string
     calendarTitle: string
     prevMonth: string
     nextMonth: string
@@ -105,6 +110,11 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       saved: 'Đã lưu',
       unfinishedTitle: (n) => `Còn ${n} việc dở hôm qua`,
       carryBtn: 'Chuyển sang hôm nay',
+      itemsProgress: (done, total) => `${done}/${total} việc con`,
+      addItem: '+ Thêm việc con',
+      itemPlaceholder: 'Tên việc con, Enter để thêm…',
+      deleteItem: (title) => `Xoá việc con "${title}"`,
+      checklistAuto: 'Tự xong khi tích hết việc con',
       calendarTitle: 'Lịch',
       prevMonth: 'Tháng trước',
       nextMonth: 'Tháng sau',
@@ -165,6 +175,11 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
       saved: 'Saved',
       unfinishedTitle: (n) => `${n} unfinished task${n === 1 ? '' : 's'} from yesterday`,
       carryBtn: 'Move to today',
+      itemsProgress: (done, total) => `${done}/${total} subtask${total === 1 ? '' : 's'}`,
+      addItem: '+ Add subtask',
+      itemPlaceholder: 'Subtask name, press Enter to add…',
+      deleteItem: (title) => `Remove subtask "${title}"`,
+      checklistAuto: 'Completes when every subtask is checked',
       calendarTitle: 'Calendar',
       prevMonth: 'Previous month',
       nextMonth: 'Next month',

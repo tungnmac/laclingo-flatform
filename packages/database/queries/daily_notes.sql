@@ -73,7 +73,8 @@ UPDATE daily_note_tasks SET carried_at = NOW() WHERE id = $1 AND carried_at IS N
 UPDATE daily_note_tasks t
 SET progress = t.progress + sqlc.arg('amount')::int,
     completed_at = CASE
-        WHEN t.completed_at IS NULL AND t.progress + sqlc.arg('amount')::int >= COALESCE(t.target, 1) THEN NOW()
+        WHEN t.completed_at IS NULL AND t.progress + sqlc.arg('amount')::int >= COALESCE(t.target, 1)
+             AND NOT EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id AND i.done_at IS NULL) THEN NOW()
         ELSE t.completed_at END
 FROM daily_notes n
 WHERE t.note_id = n.id AND n.user_id = sqlc.arg('user_id') AND n.note_date = sqlc.arg('note_date') AND t.kind = sqlc.arg('kind');
@@ -104,7 +105,7 @@ ORDER BY t.position, t.created_at;
 SELECT * FROM daily_task_templates WHERE user_id = $1 ORDER BY created_at, id;
 
 -- name: CreateDailyTaskTemplate :one
-INSERT INTO daily_task_templates (user_id, title, kind, target) VALUES ($1, $2, $3, $4)
+INSERT INTO daily_task_templates (user_id, title, kind, target, checklist) VALUES ($1, $2, $3, $4, sqlc.arg('checklist')::text[])
 RETURNING *;
 
 -- name: CountDailyTaskTemplates :one
@@ -116,3 +117,56 @@ UPDATE daily_task_templates SET title = $3, target = $4 WHERE id = $1 AND user_i
 
 -- name: DeleteDailyTaskTemplate :exec
 DELETE FROM daily_task_templates WHERE id = $1 AND user_id = $2;
+
+-- name: SetDailyTaskTemplateChecklist :exec
+-- Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
+UPDATE daily_task_templates SET checklist = sqlc.arg('checklist')::text[] WHERE id = $1 AND user_id = $2;
+
+-- ===== Checklist việc con =====
+
+-- name: ListDailyTaskItems :many
+SELECT * FROM daily_task_items WHERE task_id = ANY(sqlc.arg('task_ids')::uuid[]) ORDER BY task_id, position, created_at, id;
+
+-- name: CountDailyTaskItems :one
+SELECT COUNT(*)::int FROM daily_task_items WHERE task_id = $1;
+
+-- name: CreateDailyTaskItem :one
+INSERT INTO daily_task_items (task_id, title, position)
+VALUES ($1, $2, (SELECT COALESCE(MAX(i.position), -1) + 1 FROM daily_task_items i WHERE i.task_id = $1))
+RETURNING *;
+
+-- name: GetDailyTaskItemForUser :one
+-- Việc con + ngày của note — chỉ khi note thuộc user (của người khác → không có dòng → 404)
+SELECT i.*, n.note_date
+FROM daily_task_items i
+JOIN daily_note_tasks t ON t.id = i.task_id
+JOIN daily_notes n ON n.id = t.note_id
+WHERE i.id = $1 AND n.user_id = $2;
+
+-- name: UpdateDailyTaskItem :execrows
+UPDATE daily_task_items SET title = $2, done_at = $3 WHERE id = $1;
+
+-- name: DeleteDailyTaskItem :exec
+DELETE FROM daily_task_items WHERE id = $1;
+
+-- name: LockDailyNoteTask :one
+-- Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
+SELECT id FROM daily_note_tasks WHERE id = $1 FOR UPDATE;
+
+-- name: RefreshDailyTaskCompletion :one
+-- Tính lại trạng thái xong của việc cha sau khi đổi việc con / tiến độ:
+--   còn việc con chưa tích → chưa xong; có mục tiêu → xong khi đủ mục tiêu; có checklist (đã tích hết) → xong;
+--   việc tích không có checklist → giữ nguyên (người học tự tích)
+UPDATE daily_note_tasks t
+SET completed_at = CASE
+    WHEN EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id AND i.done_at IS NULL) THEN NULL
+    WHEN t.target IS NOT NULL THEN CASE WHEN t.progress >= t.target THEN COALESCE(t.completed_at, NOW()) END
+    WHEN EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id) THEN COALESCE(t.completed_at, NOW())
+    ELSE t.completed_at END
+WHERE t.id = $1
+RETURNING *;
+
+-- name: ResetDailyTaskCompletionWithoutItems :exec
+-- Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
+UPDATE daily_note_tasks t SET completed_at = NULL
+WHERE t.id = $1 AND t.target IS NULL AND NOT EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id);

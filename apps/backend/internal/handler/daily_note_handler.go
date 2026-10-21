@@ -25,6 +25,9 @@ func (h *DailyNoteHandler) RegisterRoutes(router fiber.Router) {
 	api.Delete("/tasks/:id", h.DeleteTask)
 	api.Post("/tasks/:id/move", h.MoveTask)
 	api.Post("/tasks/:id/carry-over", h.CarryOver)
+	api.Post("/tasks/:id/items", h.AddTaskItem)
+	api.Patch("/items/:id", h.UpdateTaskItem)
+	api.Delete("/items/:id", h.DeleteTaskItem)
 	api.Get("/:date", h.Day)
 }
 
@@ -219,4 +222,82 @@ func (h *DailyNoteHandler) CarryOver(c *fiber.Ctx) error {
 		return err
 	}
 	return c.Status(fiber.StatusCreated).JSON(res)
+}
+
+// AddTaskItem godoc
+// @Summary      Thêm 1 việc con vào checklist của việc hôm nay
+// @Tags         daily-notes
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                        true  "Task ID"  format(uuid)
+// @Param        body  body      service.DailyTaskItemRequest  true  "Việc con (title)"
+// @Success      201   {object}  service.DailyTask  "Việc cha kèm checklist"
+// @Failure      400   {object}  ErrorResponse
+// @Failure      404   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /daily-notes/tasks/{id}/items [post]
+func (h *DailyNoteHandler) AddTaskItem(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	var req service.DailyTaskItemRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.svc.AddTaskItem(c.UserContext(), currentUserID(c), id, req)
+	if err != nil {
+		return err
+	}
+	return c.Status(fiber.StatusCreated).JSON(res)
+}
+
+// UpdateTaskItem godoc
+// @Summary      Đổi tên / tích xong 1 việc con hôm nay
+// @Tags         daily-notes
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path      string                        true  "Item ID"  format(uuid)
+// @Param        body  body      service.DailyTaskItemRequest  true  "Thay đổi"
+// @Success      200   {object}  service.DailyTask  "Việc cha kèm checklist"
+// @Failure      404   {object}  ErrorResponse
+// @Failure      409   {object}  ErrorResponse
+// @Router       /daily-notes/items/{id} [patch]
+func (h *DailyNoteHandler) UpdateTaskItem(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	var req service.DailyTaskItemRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.svc.UpdateTaskItem(c.UserContext(), currentUserID(c), id, req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
+}
+
+// DeleteTaskItem godoc
+// @Summary      Xoá 1 việc con hôm nay
+// @Tags         daily-notes
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path      string  true  "Item ID"  format(uuid)
+// @Success      200 {object}  service.DailyTask  "Việc cha kèm checklist"
+// @Failure      404 {object}  ErrorResponse
+// @Router       /daily-notes/items/{id} [delete]
+func (h *DailyNoteHandler) DeleteTaskItem(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	res, err := h.svc.DeleteTaskItem(c.UserContext(), currentUserID(c), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
 }

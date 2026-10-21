@@ -45,6 +45,17 @@ export interface AdminVocabularyDict {
     meaningLabel: string
     exampleLabel: string
     exampleMeaningLabel: string
+    suggestBtn: string
+    suggesting: string
+    suggestNeedTerm: string
+    suggestFilled: (filled: number, sources: string) => string
+    suggestNothingNew: string
+    suggestNotFound: string
+    suggestNoAI: string
+    suggestAIError: (reason: string) => string
+    suggestSourceDictionary: string
+    suggestSourceAI: string
+    suggestAudio: string
     illustrationEmojiLabel: string
     illustrationImageLabel: string
     illustrationImageHint: string
@@ -106,6 +117,17 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       meaningLabel: 'Nghĩa',
       exampleLabel: 'Ví dụ',
       exampleMeaningLabel: 'Nghĩa của câu ví dụ',
+      suggestBtn: '✨ Gợi ý tự động',
+      suggesting: 'Đang tra cứu...',
+      suggestNeedTerm: 'Nhập từ trước khi bấm gợi ý.',
+      suggestFilled: (filled, sources) => `Đã điền ${filled} ô từ ${sources} — kiểm tra lại trước khi lưu. Ô đã có nội dung được giữ nguyên.`,
+      suggestNothingNew: 'Đã có gợi ý nhưng các ô tương ứng đều đã có nội dung — giữ nguyên.',
+      suggestNotFound: 'Không tìm được gợi ý cho từ này.',
+      suggestNoAI: 'Server chưa cấu hình AI (ANTHROPIC_API_KEY hoặc GEMINI_API_KEY) nên chỉ gợi ý được phiên âm/audio — nghĩa và câu ví dụ cần nhập tay.',
+      suggestAIError: (reason) => `Phần AI (nghĩa, câu ví dụ...) không chạy được: ${reason}.`,
+      suggestSourceDictionary: 'từ điển',
+      suggestSourceAI: 'AI',
+      suggestAudio: 'Có file phát âm từ từ điển — sẽ lưu cùng từ:',
       illustrationEmojiLabel: 'Emoji minh họa',
       illustrationImageLabel: 'Ảnh minh họa',
       illustrationImageHint: 'JPG/PNG/WEBP/GIF, tối đa 5MB — có ảnh thì hiển thị thay emoji.',
@@ -165,6 +187,17 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       meaningLabel: 'Meaning',
       exampleLabel: 'Example',
       exampleMeaningLabel: 'Example translation (Vietnamese)',
+      suggestBtn: '✨ Auto-suggest',
+      suggesting: 'Looking up...',
+      suggestNeedTerm: 'Type the word before asking for suggestions.',
+      suggestFilled: (filled, sources) => `Filled ${filled} field(s) from ${sources} — review before saving. Fields you already filled were kept.`,
+      suggestNothingNew: 'Suggestions found, but every matching field already has content — nothing changed.',
+      suggestNotFound: 'No suggestions found for this word.',
+      suggestNoAI: 'AI is not configured on the server (ANTHROPIC_API_KEY or GEMINI_API_KEY), so only pronunciation/audio can be suggested — type the meaning and example yourself.',
+      suggestAIError: (reason) => `The AI part (meaning, example...) failed: ${reason}.`,
+      suggestSourceDictionary: 'the dictionary',
+      suggestSourceAI: 'AI',
+      suggestAudio: 'Pronunciation audio from the dictionary — saved with the word:',
       illustrationEmojiLabel: 'Illustration emoji',
       illustrationImageLabel: 'Illustration image',
       illustrationImageHint: 'JPG/PNG/WEBP/GIF, max 5MB — shown instead of the emoji when set.',

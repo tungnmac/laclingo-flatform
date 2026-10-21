@@ -18,6 +18,9 @@ import (
 	"laclingo-backend/internal/service"
 	"laclingo-backend/internal/storage"
 
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -101,7 +104,9 @@ func main() {
 	go reminderService.Start(schedulerCtx)
 	go notificationService.StartCleanup(schedulerCtx)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService)
+	suggester := service.NewVocabularySuggester(newSuggestAI(cfg))
+
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
@@ -116,4 +121,40 @@ func main() {
 	log.Println("🛑 Đang đóng kết nối server an toàn...")
 	stopScheduler()
 	_ = app.ShutdownWithTimeout(10 * time.Second)
+}
+
+// newSuggestAI chọn nhà cung cấp AI cho gợi ý từ mới theo AI_PROVIDER (trống = theo key đang có).
+// nil = không có AI, chỉ gợi ý phiên âm/audio từ điển.
+func newSuggestAI(cfg *config.Config) service.SuggestAI {
+	provider := cfg.AIProvider
+	if provider == "" {
+		switch {
+		case cfg.AnthropicAPIKey != "":
+			provider = "claude"
+		case cfg.GeminiAPIKey != "":
+			provider = "gemini"
+		}
+	}
+	switch provider {
+	case "claude":
+		if cfg.AnthropicAPIKey == "" {
+			log.Println("⚠️  AI_PROVIDER=claude nhưng ANTHROPIC_API_KEY trống — gợi ý từ mới chỉ có phiên âm/audio từ điển")
+			return nil
+		}
+		c := anthropic.NewClient(option.WithAPIKey(cfg.AnthropicAPIKey))
+		log.Println("✅ Gợi ý từ mới dùng Claude API")
+		return service.NewClaudeSuggestAI(&c, cfg.SuggestModel)
+	case "gemini":
+		if cfg.GeminiAPIKey == "" {
+			log.Println("⚠️  AI_PROVIDER=gemini nhưng GEMINI_API_KEY trống — gợi ý từ mới chỉ có phiên âm/audio từ điển")
+			return nil
+		}
+		log.Println("✅ Gợi ý từ mới dùng Gemini API")
+		return service.NewGeminiSuggestAI(cfg.GeminiAPIKey, cfg.GeminiModel)
+	case "":
+		log.Println("⚠️  Chưa cấu hình ANTHROPIC_API_KEY / GEMINI_API_KEY — gợi ý từ mới chỉ có phiên âm/audio từ điển")
+	default:
+		log.Printf("⚠️  AI_PROVIDER=%q không hợp lệ (claude|gemini) — gợi ý từ mới chỉ có phiên âm/audio từ điển", provider)
+	}
+	return nil
 }

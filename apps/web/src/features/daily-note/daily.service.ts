@@ -2,6 +2,7 @@ import { apiFetch, type ApiInit } from '@/lib/api'
 import type { DailyNote, DailyNoteDay, DailyTask, DailyTaskCreateRequest, DailyTaskUpdateRequest } from '@/types/api'
 
 const taskPath = (id: string) => `/daily-notes/tasks/${encodeURIComponent(id)}`
+const itemPath = (id: string) => `/daily-notes/items/${encodeURIComponent(id)}`
 
 // Nhật ký học — chỉ dữ liệu của chính học viên đang đăng nhập (riêng tư)
 export const dailyNoteService = {
@@ -20,4 +21,10 @@ export const dailyNoteService = {
   moveTask: (id: string, direction: 'up' | 'down') =>
     apiFetch<void>(`${taskPath(id)}/move`, { method: 'POST', body: JSON.stringify({ direction }), notify: 'error' }),
   carryOver: (id: string) => apiFetch<DailyTask>(`${taskPath(id)}/carry-over`, { method: 'POST' }),
+  // Việc con: trả lại việc cha kèm checklist + trạng thái xong mới; chỉ báo toast khi lỗi
+  addItem: (taskId: string, title: string) =>
+    apiFetch<DailyTask>(`${taskPath(taskId)}/items`, { method: 'POST', body: JSON.stringify({ title }), notify: 'error' }),
+  updateItem: (itemId: string, body: { title?: string; done?: boolean }) =>
+    apiFetch<DailyTask>(itemPath(itemId), { method: 'PATCH', body: JSON.stringify(body), notify: 'error' }),
+  deleteItem: (itemId: string) => apiFetch<DailyTask>(itemPath(itemId), { method: 'DELETE', notify: 'error' }),
 }
