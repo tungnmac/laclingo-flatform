@@ -16,6 +16,7 @@ import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSes
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { formatDate } from '@/lib/utils'
 import { useAutoplaySettings } from '@/store/autoplaySettings'
@@ -49,11 +50,21 @@ export default function VocabularyReviewPage({
   const repeatCount = useAutoplaySettings((s) => s.repeatCount)
   const gapSeconds = useAutoplaySettings((s) => s.gapSeconds)
   const shadowMode = useAutoplaySettings((s) => s.shadowMode)
+  const loop = useAutoplayLoop()
+  // Vòng mới quay về thẻ lúc BẬT tự động đọc, không về thẻ 0 — các thẻ đã luyện
+  // (chấm điểm) trước đó không bị đọc lại / mở lại để chấm lần 2
+  const autoplayStart = useRef(0)
+
+  const onAutoAdvance = () => {
+    const isLast = session.index >= session.cards.length - 1
+    if (isLast && loop.endOfList()) session.restartPass(autoplayStart.current)
+    else session.skip() // thẻ cuối + không lặp nữa → skip sang màn tổng kết như cũ
+  }
 
   useEffect(() => {
     if (autoplay && current && !flipped) flip()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoplay, current?.vocabulary_id])
+  }, [autoplay, current?.vocabulary_id, loop.pass]) // pass: lặp lại danh sách chỉ có 1 thẻ vẫn lật lại
 
   useWordAutoplay({
     enabled: autoplay && !!current,
@@ -63,7 +74,8 @@ export default function VocabularyReviewPage({
     repeatCount,
     gapSeconds,
     shadowMode,
-    onAdvance: session.skip,
+    pass: loop.pass,
+    onAdvance: onAutoAdvance,
   })
 
   // "Học lại list" làm xong (có ít nhất 1 từ được luyện, không chỉ nghe tự động) → +1 số lần ôn của list,
@@ -191,12 +203,25 @@ export default function VocabularyReviewPage({
 
         <div className="flex w-full flex-col gap-2 rounded-xl bg-slate-50 p-3">
           <div className="flex items-center justify-between gap-2">
-            <Button variant={autoplay ? 'danger' : 'secondary'} size="sm" onClick={() => setAutoplay((v) => !v)}>
+            <Button
+              variant={autoplay ? 'danger' : 'secondary'}
+              size="sm"
+              onClick={() => {
+                loop.start()
+                autoplayStart.current = session.index
+                setAutoplay((v) => !v)
+              }}
+            >
               {autoplay ? t.review.autoplayStopBtn : t.review.autoplayStartBtn}
             </Button>
             <AutoplaySettingsDropdown />
           </div>
-          {autoplay && <p className="text-center text-xs font-medium text-indigo-600">{t.review.srsAutoplayRunningHint}</p>}
+          {autoplay && (
+            <p className="text-center text-xs font-medium text-indigo-600">
+              {loop.label && <span className="mr-1 font-semibold">{loop.label} ·</span>}
+              {t.review.srsAutoplayRunningHint}
+            </p>
+          )}
         </div>
 
         {/* Tự động đọc = nghe lại bằng flashcard, skip() tự chuyển thẻ, không

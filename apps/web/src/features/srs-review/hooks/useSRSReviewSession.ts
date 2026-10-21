@@ -53,6 +53,13 @@ export function useSRSReviewSession(language?: string, deck?: string) {
     setFlipped(false)
   }, [])
 
+  // Tự động đọc lặp lại danh sách: quay về thẻ `from` (thẻ lúc bật tự động đọc —
+  // không tải lại, không chấm điểm, không quay về các thẻ đã luyện trước đó)
+  const restartPass = useCallback((from: number) => {
+    setIndex(from)
+    setFlipped(false)
+  }, [])
+
   const grade = useCallback(
     async (quality: number) => {
       if (!current || submitting) return
@@ -105,6 +112,7 @@ export function useSRSReviewSession(language?: string, deck?: string) {
     finished,
     flip,
     skip,
+    restartPass,
     grade,
     practice,
     reload: load,

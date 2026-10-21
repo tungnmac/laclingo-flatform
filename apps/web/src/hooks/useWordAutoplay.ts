@@ -3,8 +3,13 @@
 import { useEffect, useRef } from 'react'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { speakText, stopSpeech } from '@/lib/speech'
-import { useLocale } from '@/store/locale'
 import { useVoiceSettings } from '@/store/voiceSettings'
+
+// Nghĩa từ vựng (vocabularies.meaning) chỉ có 1 bản tiếng Việt, KHÔNG dịch theo
+// ngôn ngữ giao diện — phải đọc bằng giọng tiếng Việt (giọng "đọc nghĩa" chọn ở
+// Hồ sơ, lưu ở voiceByLang.vi). Đọc theo locale giao diện thì giao diện tiếng Anh
+// sẽ đọc "cô, dì, bác gái" bằng giọng Anh — nghe như bị bỏ qua.
+const MEANING_LANGUAGE = 'vi'
 
 interface QueueItem {
   text: string
@@ -16,6 +21,9 @@ interface QueueItem {
  * `gapSeconds`; nếu shadowMode thì mỗi lần lặp đọc thêm nghĩa ngay sau term)
  * rồi gọi onAdvance() để sang từ tiếp theo. Dừng/dọn sạch timer + hủy phát âm
  * đang chạy khi enabled=false, đổi từ, hoặc unmount — tránh đọc đè lên nhau.
+ * pass: số vòng đọc cả danh sách — đổi pass thì đọc lại kể cả khi vẫn là từ cũ
+ * (danh sách chỉ có 1 từ mà lặp lại). onAdvance luôn gọi bản mới nhất (ref) —
+ * đổi cài đặt lặp / danh sách lọc giữa lúc đang đọc vẫn được áp dụng.
  */
 export function useWordAutoplay({
   enabled,
@@ -25,6 +33,7 @@ export function useWordAutoplay({
   repeatCount,
   gapSeconds,
   shadowMode,
+  pass = 0,
   onAdvance,
 }: {
   enabled: boolean
@@ -34,15 +43,14 @@ export function useWordAutoplay({
   repeatCount: number
   gapSeconds: number
   shadowMode: boolean
+  pass?: number
   onAdvance: () => void
 }) {
   const voices = useSpeechVoices()
   const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
-  // Nghĩa hiển thị theo ngôn ngữ giao diện hệ thống (vi/en/zh/ja/ko đang chọn
-  // ở LanguageSwitcher), không cố định tiếng Việt — đọc nghĩa phải theo đúng
-  // ngôn ngữ đó thì mới khớp giọng/phát âm.
-  const locale = useLocale((s) => s.locale)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onAdvanceRef = useRef(onAdvance)
+  onAdvanceRef.current = onAdvance
 
   useEffect(() => {
     if (!enabled || !term) return
@@ -51,7 +59,7 @@ export function useWordAutoplay({
     const queue: QueueItem[] = []
     for (let i = 0; i < repeatCount; i++) {
       queue.push({ text: term, languageId })
-      if (shadowMode && meaning) queue.push({ text: meaning, languageId: locale })
+      if (shadowMode && meaning) queue.push({ text: meaning, languageId: MEANING_LANGUAGE })
     }
 
     let cancelled = false
@@ -68,7 +76,7 @@ export function useWordAutoplay({
         if (cancelled) return
         await wait(gapSeconds * 1000)
       }
-      if (!cancelled) onAdvance()
+      if (!cancelled) onAdvanceRef.current()
     }
 
     // speakText tự trễ 1 nhịp để né lỗi speak() ngay sau cancel() của Chrome
@@ -80,5 +88,5 @@ export function useWordAutoplay({
       stopSpeech() // huỷ cả lời đang đọc lẫn lệnh đọc đang chờ phát của từ cũ
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, term, meaning, languageId, repeatCount, gapSeconds, shadowMode, locale])
+  }, [enabled, term, meaning, languageId, repeatCount, gapSeconds, shadowMode, pass])
 }
