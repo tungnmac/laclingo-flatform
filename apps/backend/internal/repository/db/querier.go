@@ -56,6 +56,7 @@ type Querier interface {
 	CountBlogPostMarkers(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountBlogPostStars(ctx context.Context, postID pgtype.UUID) (int32, error)
 	CountDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) (int32, error)
+	CountDailyTaskItems(ctx context.Context, taskID pgtype.UUID) (int32, error)
 	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
@@ -78,6 +79,7 @@ type Querier interface {
 	// ===== Admin CRUD =====
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
 	CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTaskParams) (DailyNoteTask, error)
+	CreateDailyTaskItem(ctx context.Context, arg CreateDailyTaskItemParams) (DailyTaskItem, error)
 	CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTaskTemplateParams) (DailyTaskTemplate, error)
 	CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDeck, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
@@ -109,6 +111,7 @@ type Querier interface {
 	// Dùng trong ReplaceClassLessons (xoá hết rồi insert lại theo thứ tự mảng mới).
 	DeleteClassLessons(ctx context.Context, classID pgtype.UUID) error
 	DeleteDailyNoteTask(ctx context.Context, id pgtype.UUID) error
+	DeleteDailyTaskItem(ctx context.Context, id pgtype.UUID) error
 	DeleteDailyTaskTemplate(ctx context.Context, arg DeleteDailyTaskTemplateParams) error
 	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
@@ -149,6 +152,8 @@ type Querier interface {
 	GetDailyNote(ctx context.Context, arg GetDailyNoteParams) (DailyNote, error)
 	// Việc + ngày của note — chỉ khi note thuộc user (việc của người khác → không có dòng → 404)
 	GetDailyNoteTaskForUser(ctx context.Context, arg GetDailyNoteTaskForUserParams) (GetDailyNoteTaskForUserRow, error)
+	// Việc con + ngày của note — chỉ khi note thuộc user (của người khác → không có dòng → 404)
+	GetDailyTaskItemForUser(ctx context.Context, arg GetDailyTaskItemForUserParams) (GetDailyTaskItemForUserRow, error)
 	GetDeckForUser(ctx context.Context, arg GetDeckForUserParams) (UserDeck, error)
 	// "Học lại" 1 danh sách ôn tập: MỌI từ trong list (không chỉ từ đến hạn), từ
 	// sắp đến hạn trước. Cột giữ y hệt GetDueVocabulariesForUser — service dùng chung.
@@ -248,6 +253,8 @@ type Querier interface {
 	// bản chuyển sang ngày sau đã xong (chuyển mà không làm không giữ được chuỗi ngày)
 	ListDailyNoteSummaries(ctx context.Context, arg ListDailyNoteSummariesParams) ([]ListDailyNoteSummariesRow, error)
 	ListDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) ([]DailyNoteTask, error)
+	// ===== Checklist việc con =====
+	ListDailyTaskItems(ctx context.Context, taskIds []pgtype.UUID) ([]DailyTaskItem, error)
 	ListDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) ([]DailyTaskTemplate, error)
 	// Sắp đến hạn ôn trước (thời gian còn lại thấp → cao); từ chưa vào SRS xuống cuối
 	ListDeckVocabularies(ctx context.Context, arg ListDeckVocabulariesParams) ([]ListDeckVocabulariesRow, error)
@@ -336,6 +343,8 @@ type Querier interface {
 	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
 	// Khoá note trong transaction để đếm giới hạn 20 việc không bị 2 request cùng lúc vượt qua
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
+	LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
 	// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
@@ -356,9 +365,17 @@ type Querier interface {
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
 	PruneOldNotifications(ctx context.Context) (int64, error)
+	// Tính lại trạng thái xong của việc cha sau khi đổi việc con / tiến độ:
+	//   còn việc con chưa tích → chưa xong; có mục tiêu → xong khi đủ mục tiêu; có checklist (đã tích hết) → xong;
+	//   việc tích không có checklist → giữ nguyên (người học tự tích)
+	RefreshDailyTaskCompletion(ctx context.Context, id pgtype.UUID) (DailyNoteTask, error)
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
+	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
+	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
 	SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNoteTaskPositionParams) error
+	// Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
+	SetDailyTaskTemplateChecklist(ctx context.Context, arg SetDailyTaskTemplateChecklistParams) error
 	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,
 	// và cập nhật múi giờ trình duyệt — không đụng tới phần cấu hình khác.
 	SetUserReminderTimezone(ctx context.Context, arg SetUserReminderTimezoneParams) error
@@ -391,6 +408,7 @@ type Querier interface {
 	// Ghi đè có kiểm tra tiến độ đã đọc (expected_progress): hoạt động học vừa cộng thêm giữa chừng → không dòng nào
 	// (pgx.ErrNoRows) → báo tải lại thay vì làm mất phần vừa cộng
 	UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTaskParams) (DailyNoteTask, error)
+	UpdateDailyTaskItem(ctx context.Context, arg UpdateDailyTaskItemParams) (int64, error)
 	// Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
 	UpdateDailyTaskTemplate(ctx context.Context, arg UpdateDailyTaskTemplateParams) error
 	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)

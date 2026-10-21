@@ -59,14 +59,15 @@ func completedAt(target *int32, progress int32, prev *time.Time, done *bool, now
 	return &now
 }
 
-// carryTarget — mục tiêu của bản chuyển sang hôm nay = phần còn thiếu (tối thiểu 1); việc tích giữ nil
+// carryTarget — mục tiêu của bản chuyển sang hôm nay = phần còn thiếu; việc tích giữ nil.
+// Đã đủ mục tiêu mà chưa xong (còn việc con chưa tích) → nil: bản chuyển chỉ còn checklist phải làm.
 func carryTarget(target *int32, progress int32) *int32 {
 	if target == nil {
 		return nil
 	}
 	remaining := *target - progress
 	if remaining < 1 {
-		remaining = 1
+		return nil
 	}
 	return &remaining
 }

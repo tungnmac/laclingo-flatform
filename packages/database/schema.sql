@@ -683,7 +683,9 @@ CREATE TABLE IF NOT EXISTS daily_task_templates (
     kind VARCHAR(30) NOT NULL CHECK (kind IN (
         'free', 'srs_review', 'learn_word', 'grammar_exercise', 'listening_practice', 'speaking_practice', 'challenge_participate')),
     target INT CHECK (target BETWEEN 1 AND 1000),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Checklist việc con (migration 000036) — mỗi ngày mới tạo lại đủ việc con chưa tích
+    checklist TEXT[] NOT NULL DEFAULT '{}'
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_task_templates_title ON daily_task_templates (user_id, dedupe_key(title));
 
@@ -720,3 +722,14 @@ CREATE INDEX IF NOT EXISTS idx_daily_note_tasks_kind ON daily_note_tasks (note_i
 -- FK ON DELETE SET NULL — tránh quét cả bảng mỗi lần xoá việc / mẫu
 CREATE INDEX IF NOT EXISTS idx_daily_note_tasks_carried_from ON daily_note_tasks (carried_from) WHERE carried_from IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_daily_note_tasks_template ON daily_note_tasks (template_id) WHERE template_id IS NOT NULL;
+
+-- Checklist việc con của 1 việc (migration 000036) — việc cha có checklist chỉ xong khi tích hết việc con
+CREATE TABLE IF NOT EXISTS daily_task_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id UUID NOT NULL REFERENCES daily_note_tasks(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    done_at TIMESTAMPTZ,
+    position INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_task_items_title ON daily_task_items (task_id, dedupe_key(title));

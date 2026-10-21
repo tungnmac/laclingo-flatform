@@ -1034,6 +1034,13 @@ export interface DailyTask {
   repeat: boolean // lặp lại hằng ngày
   carried: boolean // đã chuyển sang ngày sau
   carried_in: boolean // được chuyển từ ngày trước
+  items: DailyTaskItem[] // checklist việc con — có thì việc chỉ xong khi tích hết
+}
+
+export interface DailyTaskItem {
+  id: string
+  title: string
+  done: boolean
 }
 
 export interface DailyNote {
