@@ -1,15 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { use, useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { PlanEditor } from '@/components/plans/PlanEditor'
 import { useT } from '@/i18n/I18nProvider'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { PlanDto } from '@/server/plans/plan-service'
 
-export default function PlanPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = use(props.params)
+export default function PlanPage() {
+  const { id } = useParams<{ id: string }>()
   const { t } = useT()
   const [plan, setPlan] = useState<PlanDto | null>(null)
   const [error, setError] = useState<unknown>(null)

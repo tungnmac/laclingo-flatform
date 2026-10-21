@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState, use } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
 import { Quiz } from '@/components/learn/Quiz'
 import { useT } from '@/i18n/I18nProvider'
@@ -11,8 +11,8 @@ import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { LessonDetailDto } from '@/server/learn/learn-service'
 
-export default function LessonPage(props: { params: Promise<{ slug: string }> }) {
-  const params = use(props.params)
+export default function LessonPage() {
+  const params = useParams<{ slug: string }>()
   const { t, locale } = useT()
   const router = useRouter()
   const openedIn = useRef(locale) // ngôn ngữ lúc mở trang — khác đi nghĩa là người học vừa đổi ngôn ngữ
