@@ -36,6 +36,8 @@ type DailyNoteRepository interface {
 	CreateDailyTaskTemplate(ctx context.Context, arg db.CreateDailyTaskTemplateParams) (db.DailyTaskTemplate, error)
 	DeleteDailyTaskTemplate(ctx context.Context, arg db.DeleteDailyTaskTemplateParams) error
 	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
+	ListDailyTaskItems(ctx context.Context, taskIds []pgtype.UUID) ([]db.DailyTaskItem, error)
+	GetDailyTaskItemForUser(ctx context.Context, arg db.GetDailyTaskItemForUserParams) (db.GetDailyTaskItemForUserRow, error)
 }
 
 // DailyTask — 1 việc trong note
@@ -51,6 +53,21 @@ type DailyTask struct {
 	Repeat      bool       `json:"repeat"`  // đang lặp lại hằng ngày
 	Carried     bool       `json:"carried"` // đã chuyển sang ngày sau
 	CarriedIn   bool       `json:"carried_in"`
+	// Checklist việc con — có việc con thì việc chỉ xong khi tích hết (và đủ mục tiêu nếu có)
+	Items []DailyTaskItem `json:"items"`
+}
+
+// DailyTaskItem — 1 việc con trong checklist của việc
+type DailyTaskItem struct {
+	ID    uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
+	Title string    `json:"title"`
+	Done  bool      `json:"done"`
+}
+
+// DailyTaskItemRequest — thêm / sửa 1 việc con; trường bỏ trống = giữ nguyên
+type DailyTaskItemRequest struct {
+	Title *string `json:"title,omitempty" example:"Đọc lý thuyết"`
+	Done  *bool   `json:"done,omitempty"`
 }
 
 // DailyNoteResponse — note của 1 ngày
@@ -126,7 +143,7 @@ func toDailyTask(t db.DailyNoteTask) DailyTask {
 	out := DailyTask{
 		ID: uuid.UUID(t.ID.Bytes), Title: t.Title, Kind: t.Kind, Progress: t.Progress, Memo: t.Memo,
 		Repeat: t.IsRepeat, Carried: t.CarriedAt.Valid, CarriedIn: t.CarriedFrom.Valid,
-		Done: t.CompletedAt.Valid,
+		Done: t.CompletedAt.Valid, Items: []DailyTaskItem{},
 	}
 	if t.Target.Valid {
 		v := t.Target.Int32
@@ -139,12 +156,44 @@ func toDailyTask(t db.DailyNoteTask) DailyTask {
 	return out
 }
 
-func toDailyTasks(rows []db.DailyNoteTask) []DailyTask {
+type dailyItemLister interface {
+	ListDailyTaskItems(ctx context.Context, taskIds []pgtype.UUID) ([]db.DailyTaskItem, error)
+}
+
+// toDailyTasks — các việc kèm checklist việc con (1 query cho cả danh sách)
+func toDailyTasks(ctx context.Context, q dailyItemLister, rows []db.DailyNoteTask) ([]DailyTask, error) {
 	out := make([]DailyTask, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, toDailyTask(r))
+	if len(rows) == 0 {
+		return out, nil
 	}
-	return out
+	ids := make([]pgtype.UUID, 0, len(rows))
+	for _, r := range rows {
+		ids = append(ids, r.ID)
+	}
+	items, err := q.ListDailyTaskItems(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	byTask := make(map[pgtype.UUID][]DailyTaskItem, len(rows))
+	for _, it := range items {
+		byTask[it.TaskID] = append(byTask[it.TaskID], DailyTaskItem{ID: uuid.UUID(it.ID.Bytes), Title: it.Title, Done: it.DoneAt.Valid})
+	}
+	for _, r := range rows {
+		t := toDailyTask(r)
+		if its := byTask[r.ID]; its != nil {
+			t.Items = its
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+func toDailyTaskWithItems(ctx context.Context, q dailyItemLister, row db.DailyNoteTask) (DailyTask, error) {
+	tasks, err := toDailyTasks(ctx, q, []db.DailyNoteTask{row})
+	if err != nil {
+		return DailyTask{}, err
+	}
+	return tasks[0], nil
 }
 
 // ensureNote trả note của ngày date; note HÔM NAY chưa có thì tạo kèm các việc lặp lại (1 transaction — 2 request
@@ -175,10 +224,19 @@ func (s *DailyNoteService) ensureNote(ctx context.Context, userID uuid.UUID, dat
 		if i >= maxDailyTasks {
 			break
 		}
-		if _, err := qtx.CreateDailyNoteTask(ctx, db.CreateDailyNoteTaskParams{
+		task, err := qtx.CreateDailyNoteTask(ctx, db.CreateDailyNoteTaskParams{
 			NoteID: note.ID, Title: tpl.Title, Kind: tpl.Kind, Target: tpl.Target, TemplateID: tpl.ID, IsRepeat: true,
-		}); err != nil {
+		})
+		if err != nil {
 			return db.DailyNote{}, err
+		}
+		for k, title := range tpl.Checklist { // checklist của mẫu → việc con chưa tích
+			if k >= maxDailyTaskItems {
+				break
+			}
+			if _, err := qtx.CreateDailyTaskItem(ctx, db.CreateDailyTaskItemParams{TaskID: task.ID, Title: title}); err != nil {
+				return db.DailyNote{}, err
+			}
 		}
 	}
 	return note, tx.Commit(ctx)
@@ -208,9 +266,17 @@ func (s *DailyNoteService) Today(ctx context.Context, userID uuid.UUID) (DailyNo
 	if err != nil {
 		return DailyNoteResponse{}, err
 	}
+	out, err := toDailyTasks(ctx, s.repo, tasks)
+	if err != nil {
+		return DailyNoteResponse{}, err
+	}
+	outUnfinished, err := toDailyTasks(ctx, s.repo, unfinished)
+	if err != nil {
+		return DailyNoteResponse{}, err
+	}
 	return DailyNoteResponse{
 		Date: today, Today: today, Editable: true, Exists: true, Journal: note.Journal,
-		Tasks: toDailyTasks(tasks), Streak: st, YesterdayUnfinished: toDailyTasks(unfinished),
+		Tasks: out, Streak: st, YesterdayUnfinished: outUnfinished,
 	}, nil
 }
 
@@ -256,7 +322,11 @@ func (s *DailyNoteService) Day(ctx context.Context, userID uuid.UUID, day string
 	if err != nil {
 		return DailyNoteResponse{}, err
 	}
-	resp.Exists, resp.Journal, resp.Tasks = true, note.Journal, toDailyTasks(tasks)
+	out, err := toDailyTasks(ctx, s.repo, tasks)
+	if err != nil {
+		return DailyNoteResponse{}, err
+	}
+	resp.Exists, resp.Journal, resp.Tasks = true, note.Journal, out
 	return resp, nil
 }
 
@@ -372,7 +442,7 @@ func (s *DailyNoteService) CreateTask(ctx context.Context, userID uuid.UUID, req
 			return DailyTask{}, err
 		}
 		tpl, err := qtx.CreateDailyTaskTemplate(ctx, db.CreateDailyTaskTemplateParams{
-			UserID: toPgUUID(userID), Title: req.Title, Kind: req.Kind, Target: pgInt4(req.Target),
+			UserID: toPgUUID(userID), Title: req.Title, Kind: req.Kind, Target: pgInt4(req.Target), Checklist: []string{},
 		})
 		if err != nil {
 			return DailyTask{}, asDuplicate(err, fmt.Sprintf("Việc lặp lại \"%s\" đã có", shortText(req.Title)))
@@ -474,6 +544,17 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.repo.WithTx(tx)
+	// Khoá việc: chạy lần lượt với thao tác việc con (checklist đọc dưới đây không bị thiếu việc con vừa thêm)
+	if _, err := qtx.LockDailyNoteTask(ctx, t.ID); err != nil {
+		return DailyTask{}, err
+	}
+	if req.Done != nil { // việc có checklist: xong/chưa theo việc con, không tích tay
+		if n, err := qtx.CountDailyTaskItems(ctx, t.ID); err != nil {
+			return DailyTask{}, err
+		} else if n > 0 {
+			return DailyTask{}, fmt.Errorf("việc có checklist tự xong khi tích hết việc con: %w", ErrInvalidInput)
+		}
+	}
 	templateID, isRepeat := t.TemplateID, t.IsRepeat
 	if req.Repeat != nil {
 		switch {
@@ -481,8 +562,12 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 			if err := s.checkTemplateLimit(ctx, userID); err != nil {
 				return DailyTask{}, err
 			}
+			checklist, err := itemTitles(ctx, qtx, t.ID)
+			if err != nil {
+				return DailyTask{}, err
+			}
 			tpl, err := qtx.CreateDailyTaskTemplate(ctx, db.CreateDailyTaskTemplateParams{
-				UserID: toPgUUID(userID), Title: title, Kind: t.Kind, Target: pgInt4(target),
+				UserID: toPgUUID(userID), Title: title, Kind: t.Kind, Target: pgInt4(target), Checklist: checklist,
 			})
 			if err != nil {
 				return DailyTask{}, asDuplicate(err, fmt.Sprintf("Việc lặp lại \"%s\" đã có", shortText(title)))
@@ -513,10 +598,15 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 	if err != nil {
 		return DailyTask{}, asDuplicate(err, fmt.Sprintf("Hôm nay đã có việc \"%s\"", shortText(title)))
 	}
-	if err := tx.Commit(ctx); err != nil {
+	// Có checklist: trạng thái xong theo việc con (+ mục tiêu)
+	if updated, err = qtx.RefreshDailyTaskCompletion(ctx, updated.ID); err != nil {
 		return DailyTask{}, err
 	}
-	return toDailyTask(updated), nil
+	res, err := toDailyTaskWithItems(ctx, qtx, updated)
+	if err != nil {
+		return DailyTask{}, err
+	}
+	return res, tx.Commit(ctx)
 }
 
 // DeleteTask — xoá 1 việc hôm nay (việc lặp lại vẫn lặp từ hôm sau — tắt bằng repeat=false)
@@ -633,10 +723,23 @@ func (s *DailyNoteService) CarryOver(ctx context.Context, userID, taskID uuid.UU
 	if err != nil {
 		return DailyTask{}, asDuplicate(err, fmt.Sprintf("Hôm nay đã có việc \"%s\"", shortText(row.Title)))
 	}
-	if err := tx.Commit(ctx); err != nil {
+	items, err := qtx.ListDailyTaskItems(ctx, []pgtype.UUID{row.ID})
+	if err != nil {
 		return DailyTask{}, err
 	}
-	return toDailyTask(task), nil
+	for _, it := range items { // chỉ mang theo việc con chưa xong
+		if it.DoneAt.Valid {
+			continue
+		}
+		if _, err := qtx.CreateDailyTaskItem(ctx, db.CreateDailyTaskItemParams{TaskID: task.ID, Title: it.Title}); err != nil {
+			return DailyTask{}, err
+		}
+	}
+	res, err := toDailyTaskWithItems(ctx, qtx, task)
+	if err != nil {
+		return DailyTask{}, err
+	}
+	return res, tx.Commit(ctx)
 }
 
 // RecordAction — hoạt động học (gọi từ MissionService.RecordAction) cộng tiến độ cho các việc cùng loại trong note

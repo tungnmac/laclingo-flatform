@@ -154,6 +154,15 @@ type DailyNoteTask struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type DailyTaskItem struct {
+	ID        pgtype.UUID        `json:"id"`
+	TaskID    pgtype.UUID        `json:"task_id"`
+	Title     string             `json:"title"`
+	DoneAt    pgtype.Timestamptz `json:"done_at"`
+	Position  int32              `json:"position"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type DailyTaskTemplate struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
@@ -161,6 +170,7 @@ type DailyTaskTemplate struct {
 	Kind      string             `json:"kind"`
 	Target    pgtype.Int4        `json:"target"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Checklist []string           `json:"checklist"`
 }
 
 type DeckVocabulary struct {

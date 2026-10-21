@@ -15,7 +15,8 @@ const addDailyTaskProgress = `-- name: AddDailyTaskProgress :exec
 UPDATE daily_note_tasks t
 SET progress = t.progress + $1::int,
     completed_at = CASE
-        WHEN t.completed_at IS NULL AND t.progress + $1::int >= COALESCE(t.target, 1) THEN NOW()
+        WHEN t.completed_at IS NULL AND t.progress + $1::int >= COALESCE(t.target, 1)
+             AND NOT EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id AND i.done_at IS NULL) THEN NOW()
         ELSE t.completed_at END
 FROM daily_notes n
 WHERE t.note_id = n.id AND n.user_id = $2 AND n.note_date = $3 AND t.kind = $4
@@ -56,6 +57,17 @@ SELECT COUNT(*)::int FROM daily_note_tasks WHERE note_id = $1
 
 func (q *Queries) CountDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countDailyNoteTasks, noteID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countDailyTaskItems = `-- name: CountDailyTaskItems :one
+SELECT COUNT(*)::int FROM daily_task_items WHERE task_id = $1
+`
+
+func (q *Queries) CountDailyTaskItems(ctx context.Context, taskID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countDailyTaskItems, taskID)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -125,16 +137,42 @@ func (q *Queries) CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTa
 	return i, err
 }
 
+const createDailyTaskItem = `-- name: CreateDailyTaskItem :one
+INSERT INTO daily_task_items (task_id, title, position)
+VALUES ($1, $2, (SELECT COALESCE(MAX(i.position), -1) + 1 FROM daily_task_items i WHERE i.task_id = $1))
+RETURNING id, task_id, title, done_at, position, created_at
+`
+
+type CreateDailyTaskItemParams struct {
+	TaskID pgtype.UUID `json:"task_id"`
+	Title  string      `json:"title"`
+}
+
+func (q *Queries) CreateDailyTaskItem(ctx context.Context, arg CreateDailyTaskItemParams) (DailyTaskItem, error) {
+	row := q.db.QueryRow(ctx, createDailyTaskItem, arg.TaskID, arg.Title)
+	var i DailyTaskItem
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Title,
+		&i.DoneAt,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createDailyTaskTemplate = `-- name: CreateDailyTaskTemplate :one
-INSERT INTO daily_task_templates (user_id, title, kind, target) VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, title, kind, target, created_at
+INSERT INTO daily_task_templates (user_id, title, kind, target, checklist) VALUES ($1, $2, $3, $4, $5::text[])
+RETURNING id, user_id, title, kind, target, created_at, checklist
 `
 
 type CreateDailyTaskTemplateParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Title  string      `json:"title"`
-	Kind   string      `json:"kind"`
-	Target pgtype.Int4 `json:"target"`
+	UserID    pgtype.UUID `json:"user_id"`
+	Title     string      `json:"title"`
+	Kind      string      `json:"kind"`
+	Target    pgtype.Int4 `json:"target"`
+	Checklist []string    `json:"checklist"`
 }
 
 func (q *Queries) CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTaskTemplateParams) (DailyTaskTemplate, error) {
@@ -143,6 +181,7 @@ func (q *Queries) CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTa
 		arg.Title,
 		arg.Kind,
 		arg.Target,
+		arg.Checklist,
 	)
 	var i DailyTaskTemplate
 	err := row.Scan(
@@ -152,6 +191,7 @@ func (q *Queries) CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTa
 		&i.Kind,
 		&i.Target,
 		&i.CreatedAt,
+		&i.Checklist,
 	)
 	return i, err
 }
@@ -162,6 +202,15 @@ DELETE FROM daily_note_tasks WHERE id = $1
 
 func (q *Queries) DeleteDailyNoteTask(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteDailyNoteTask, id)
+	return err
+}
+
+const deleteDailyTaskItem = `-- name: DeleteDailyTaskItem :exec
+DELETE FROM daily_task_items WHERE id = $1
+`
+
+func (q *Queries) DeleteDailyTaskItem(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteDailyTaskItem, id)
 	return err
 }
 
@@ -249,6 +298,45 @@ func (q *Queries) GetDailyNoteTaskForUser(ctx context.Context, arg GetDailyNoteT
 		&i.CarriedAt,
 		&i.TemplateID,
 		&i.IsRepeat,
+		&i.Position,
+		&i.CreatedAt,
+		&i.NoteDate,
+	)
+	return i, err
+}
+
+const getDailyTaskItemForUser = `-- name: GetDailyTaskItemForUser :one
+SELECT i.id, i.task_id, i.title, i.done_at, i.position, i.created_at, n.note_date
+FROM daily_task_items i
+JOIN daily_note_tasks t ON t.id = i.task_id
+JOIN daily_notes n ON n.id = t.note_id
+WHERE i.id = $1 AND n.user_id = $2
+`
+
+type GetDailyTaskItemForUserParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+type GetDailyTaskItemForUserRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	TaskID    pgtype.UUID        `json:"task_id"`
+	Title     string             `json:"title"`
+	DoneAt    pgtype.Timestamptz `json:"done_at"`
+	Position  int32              `json:"position"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	NoteDate  pgtype.Date        `json:"note_date"`
+}
+
+// Việc con + ngày của note — chỉ khi note thuộc user (của người khác → không có dòng → 404)
+func (q *Queries) GetDailyTaskItemForUser(ctx context.Context, arg GetDailyTaskItemForUserParams) (GetDailyTaskItemForUserRow, error) {
+	row := q.db.QueryRow(ctx, getDailyTaskItemForUser, arg.ID, arg.UserID)
+	var i GetDailyTaskItemForUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.TaskID,
+		&i.Title,
+		&i.DoneAt,
 		&i.Position,
 		&i.CreatedAt,
 		&i.NoteDate,
@@ -435,8 +523,41 @@ func (q *Queries) ListDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) ([
 	return items, nil
 }
 
+const listDailyTaskItems = `-- name: ListDailyTaskItems :many
+
+SELECT id, task_id, title, done_at, position, created_at FROM daily_task_items WHERE task_id = ANY($1::uuid[]) ORDER BY task_id, position, created_at, id
+`
+
+// ===== Checklist việc con =====
+func (q *Queries) ListDailyTaskItems(ctx context.Context, taskIds []pgtype.UUID) ([]DailyTaskItem, error) {
+	rows, err := q.db.Query(ctx, listDailyTaskItems, taskIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DailyTaskItem
+	for rows.Next() {
+		var i DailyTaskItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Title,
+			&i.DoneAt,
+			&i.Position,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDailyTaskTemplates = `-- name: ListDailyTaskTemplates :many
-SELECT id, user_id, title, kind, target, created_at FROM daily_task_templates WHERE user_id = $1 ORDER BY created_at, id
+SELECT id, user_id, title, kind, target, created_at, checklist FROM daily_task_templates WHERE user_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) ([]DailyTaskTemplate, error) {
@@ -455,6 +576,7 @@ func (q *Queries) ListDailyTaskTemplates(ctx context.Context, userID pgtype.UUID
 			&i.Kind,
 			&i.Target,
 			&i.CreatedAt,
+			&i.Checklist,
 		); err != nil {
 			return nil, err
 		}
@@ -478,6 +600,18 @@ func (q *Queries) LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUI
 	return id_2, err
 }
 
+const lockDailyNoteTask = `-- name: LockDailyNoteTask :one
+SELECT id FROM daily_note_tasks WHERE id = $1 FOR UPDATE
+`
+
+// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
+func (q *Queries) LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockDailyNoteTask, id)
+	var id_2 pgtype.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const markDailyNoteTaskCarried = `-- name: MarkDailyNoteTaskCarried :execrows
 UPDATE daily_note_tasks SET carried_at = NOW() WHERE id = $1 AND carried_at IS NULL
 `
@@ -491,6 +625,54 @@ func (q *Queries) MarkDailyNoteTaskCarried(ctx context.Context, id pgtype.UUID) 
 	return result.RowsAffected(), nil
 }
 
+const refreshDailyTaskCompletion = `-- name: RefreshDailyTaskCompletion :one
+UPDATE daily_note_tasks t
+SET completed_at = CASE
+    WHEN EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id AND i.done_at IS NULL) THEN NULL
+    WHEN t.target IS NOT NULL THEN CASE WHEN t.progress >= t.target THEN COALESCE(t.completed_at, NOW()) END
+    WHEN EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id) THEN COALESCE(t.completed_at, NOW())
+    ELSE t.completed_at END
+WHERE t.id = $1
+RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, is_repeat, position, created_at
+`
+
+// Tính lại trạng thái xong của việc cha sau khi đổi việc con / tiến độ:
+//
+//	còn việc con chưa tích → chưa xong; có mục tiêu → xong khi đủ mục tiêu; có checklist (đã tích hết) → xong;
+//	việc tích không có checklist → giữ nguyên (người học tự tích)
+func (q *Queries) RefreshDailyTaskCompletion(ctx context.Context, id pgtype.UUID) (DailyNoteTask, error) {
+	row := q.db.QueryRow(ctx, refreshDailyTaskCompletion, id)
+	var i DailyNoteTask
+	err := row.Scan(
+		&i.ID,
+		&i.NoteID,
+		&i.Title,
+		&i.Kind,
+		&i.Target,
+		&i.Progress,
+		&i.Memo,
+		&i.CompletedAt,
+		&i.CarriedFrom,
+		&i.CarriedAt,
+		&i.TemplateID,
+		&i.IsRepeat,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const resetDailyTaskCompletionWithoutItems = `-- name: ResetDailyTaskCompletionWithoutItems :exec
+UPDATE daily_note_tasks t SET completed_at = NULL
+WHERE t.id = $1 AND t.target IS NULL AND NOT EXISTS (SELECT 1 FROM daily_task_items i WHERE i.task_id = t.id)
+`
+
+// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
+func (q *Queries) ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, resetDailyTaskCompletionWithoutItems, id)
+	return err
+}
+
 const setDailyNoteTaskPosition = `-- name: SetDailyNoteTaskPosition :exec
 UPDATE daily_note_tasks SET position = $2 WHERE id = $1
 `
@@ -502,6 +684,22 @@ type SetDailyNoteTaskPositionParams struct {
 
 func (q *Queries) SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNoteTaskPositionParams) error {
 	_, err := q.db.Exec(ctx, setDailyNoteTaskPosition, arg.ID, arg.Position)
+	return err
+}
+
+const setDailyTaskTemplateChecklist = `-- name: SetDailyTaskTemplateChecklist :exec
+UPDATE daily_task_templates SET checklist = $3::text[] WHERE id = $1 AND user_id = $2
+`
+
+type SetDailyTaskTemplateChecklistParams struct {
+	ID        pgtype.UUID `json:"id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	Checklist []string    `json:"checklist"`
+}
+
+// Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
+func (q *Queries) SetDailyTaskTemplateChecklist(ctx context.Context, arg SetDailyTaskTemplateChecklistParams) error {
+	_, err := q.db.Exec(ctx, setDailyTaskTemplateChecklist, arg.ID, arg.UserID, arg.Checklist)
 	return err
 }
 
@@ -582,6 +780,24 @@ func (q *Queries) UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTa
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateDailyTaskItem = `-- name: UpdateDailyTaskItem :execrows
+UPDATE daily_task_items SET title = $2, done_at = $3 WHERE id = $1
+`
+
+type UpdateDailyTaskItemParams struct {
+	ID     pgtype.UUID        `json:"id"`
+	Title  string             `json:"title"`
+	DoneAt pgtype.Timestamptz `json:"done_at"`
+}
+
+func (q *Queries) UpdateDailyTaskItem(ctx context.Context, arg UpdateDailyTaskItemParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateDailyTaskItem, arg.ID, arg.Title, arg.DoneAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateDailyTaskTemplate = `-- name: UpdateDailyTaskTemplate :exec

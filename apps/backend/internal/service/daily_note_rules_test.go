@@ -58,8 +58,8 @@ func TestCarryTarget(t *testing.T) {
 	if carryTarget(nil, 0) != nil {
 		t.Fatal("checkbox task keeps nil target")
 	}
-	if got := carryTarget(i32(5), 9); got == nil || *got != 1 { // phòng thủ: còn lại tối thiểu 1
-		t.Fatalf("min 1, got %v", got)
+	if got := carryTarget(i32(5), 5); got != nil { // đủ mục tiêu, chỉ còn checklist → việc tích
+		t.Fatalf("target reached → nil, got %v", *got)
 	}
 }
 

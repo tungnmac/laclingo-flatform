@@ -12,7 +12,7 @@ import type { DailyTask, DailyTaskUpdateRequest } from '@/types/api'
 import { dailyNoteService } from '../daily.service'
 import { KIND_LINKS } from '../kinds'
 
-/** 1 việc: thanh tiến độ + nút ±/ô tích; mở rộng để sửa ghi chú, mục tiêu, lặp lại, thứ tự, xoá */
+/** 1 việc: thanh tiến độ + nút ±/ô tích + checklist việc con; mở rộng để sửa ghi chú, mục tiêu, lặp lại, thứ tự, xoá */
 export function TaskRow({
   task: initial,
   editable,
@@ -41,6 +41,8 @@ export function TaskRow({
   const [title, setTitle] = useState(task.title)
   const [target, setTarget] = useState(task.target ? String(task.target) : '')
   const [memo, setMemo] = useState(task.memo)
+  const [addingItem, setAddingItem] = useState(false)
+  const [itemTitle, setItemTitle] = useState('')
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true)
@@ -77,12 +79,23 @@ export function TaskRow({
     if (ok) setOpen(false)
   }
 
+  // Việc con: API trả lại việc cha (checklist + trạng thái xong mới) → áp ngay vào bản cục bộ
+  const itemAction = (action: () => Promise<DailyTask>) => run(async () => setTask(await action()))
+  const addItem = async () => {
+    const title = itemTitle.trim()
+    if (!title || busy) return
+    if (await itemAction(() => dailyNoteService.addItem(task.id, title))) setItemTitle('')
+  }
+
   const remove = async () => {
     if (!(await confirm({ description: t.daily.deleteConfirm(task.title), danger: true }))) return
     await run(() => dailyNoteService.deleteTask(task.id))
   }
 
+  const itemsDone = task.items.filter((i) => i.done).length
+  const hasItems = task.items.length > 0
   const pct = task.target ? Math.min(100, Math.round((task.progress / task.target) * 100)) : task.done ? 100 : 0
+  const itemsPct = hasItems ? Math.round((itemsDone / task.items.length) * 100) : 0
   const link = KIND_LINKS[task.kind]
 
   return (
@@ -92,10 +105,12 @@ export function TaskRow({
           <input
             type="checkbox"
             checked={task.done}
-            disabled={!editable || busy}
+            // Có checklist: xong/chưa theo việc con, không tích tay
+            disabled={!editable || busy || hasItems}
             onChange={() => void quick({ done: !task.done })}
-            className="mt-1 h-5 w-5 accent-emerald-600"
+            className="mt-1 h-5 w-5 accent-emerald-600 disabled:cursor-not-allowed"
             aria-label={task.title}
+            title={hasItems ? t.daily.checklistAuto : undefined}
           />
         )}
         <div className="min-w-0 flex-1">
@@ -129,6 +144,69 @@ export function TaskRow({
               )}
             </div>
           )}
+          {hasItems && (
+            <div className="mt-2 flex items-center gap-2" title={t.daily.checklistAuto}>
+              <div className="h-1.5 flex-1 rounded-full bg-slate-100">
+                <div className={cn('h-1.5 rounded-full', itemsDone === task.items.length ? 'bg-emerald-500' : 'bg-sky-500')} style={{ width: `${itemsPct}%` }} />
+              </div>
+              <span className="text-xs font-semibold tabular-nums text-slate-600">{t.daily.itemsProgress(itemsDone, task.items.length)}</span>
+            </div>
+          )}
+          {(hasItems || (editable && addingItem)) && (
+            <ul className="mt-2 space-y-1">
+              {task.items.map((item) => (
+                <li key={item.id} className="group flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={item.done}
+                    disabled={!editable || busy}
+                    onChange={() => void itemAction(() => dailyNoteService.updateItem(item.id, { done: !item.done }))}
+                    className="h-4 w-4 shrink-0 accent-emerald-600"
+                    aria-label={item.title}
+                  />
+                  <span className={cn('min-w-0 flex-1 break-words', item.done ? 'text-slate-400 line-through' : 'text-slate-700')}>{item.title}</span>
+                  {editable && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void itemAction(() => dailyNoteService.deleteItem(item.id))}
+                      className="shrink-0 rounded px-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                      aria-label={t.daily.deleteItem(item.title)}
+                      title={t.daily.deleteItem(item.title)}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable &&
+            (addingItem ? (
+              <form
+                className="mt-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void addItem()
+                }}
+              >
+                <input
+                  autoFocus
+                  value={itemTitle}
+                  onChange={(e) => setItemTitle(e.target.value)}
+                  onBlur={() => !itemTitle.trim() && setAddingItem(false)}
+                  onKeyDown={(e) => e.key === 'Escape' && setAddingItem(false)}
+                  maxLength={200}
+                  // không disable khi đang lưu: giữ focus để gõ tiếp việc con sau (Enter)
+                  placeholder={t.daily.itemPlaceholder}
+                  className={cn(inputClass, 'py-1.5 text-sm')}
+                />
+              </form>
+            ) : (
+              <button type="button" onClick={() => setAddingItem(true)} className="mt-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600">
+                {t.daily.addItem}
+              </button>
+            ))}
           {task.memo && !open && <p className="mt-1 text-sm text-slate-500">{task.memo}</p>}
         </div>
         {editable && link && !task.done && (
