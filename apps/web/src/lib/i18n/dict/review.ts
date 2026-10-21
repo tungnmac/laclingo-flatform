@@ -65,6 +65,12 @@ export interface ReviewDict {
     repeatCountLabel: string
     gapSecondsLabel: string
     shadowModeLabel: string
+    loopLabel: string
+    loopOnce: string
+    loopCount: string
+    loopInfinite: string
+    loopCountLabel: string
+    loopPass: (pass: number, total: number | null) => string
     autoplayRunningHint: string
     srsAutoplayRunningHint: string
 
@@ -173,6 +179,12 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       repeatCountLabel: 'Số lần đọc mỗi từ',
       gapSecondsLabel: 'Cách nhau (giây)',
       shadowModeLabel: 'Shadowing — xen đọc nghĩa giữa các lần đọc từ',
+      loopLabel: 'Lặp lại cả danh sách',
+      loopOnce: 'Không lặp — đọc hết thì dừng',
+      loopCount: 'Theo số vòng',
+      loopInfinite: 'Lặp vô hạn (tới khi bấm dừng)',
+      loopCountLabel: 'Số vòng đọc cả danh sách',
+      loopPass: (pass, total) => (total ? `Vòng ${pass}/${total}` : `Vòng ${pass} · lặp vô hạn`),
       autoplayRunningHint: '🔊 Đang tự động đọc — bấm ← → hoặc Trước/Tiếp để dừng và tự chuyển từ.',
       srsAutoplayRunningHint: '🔊 Đang tự động đọc — tự lật thẻ, đọc từ + nghĩa rồi tự chuyển thẻ tiếp theo, bỏ qua bước tự chấm điểm. Bấm "Dừng tự động" để quay lại ôn tập bình thường.',
 
@@ -290,6 +302,12 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       repeatCountLabel: 'Repeats per word',
       gapSecondsLabel: 'Gap (seconds)',
       shadowModeLabel: 'Shadowing — read the meaning between word repeats',
+      loopLabel: 'Repeat the whole list',
+      loopOnce: "Don't repeat — stop at the end",
+      loopCount: 'A number of rounds',
+      loopInfinite: 'Forever (until you stop)',
+      loopCountLabel: 'Rounds through the whole list',
+      loopPass: (pass, total) => (total ? `Round ${pass}/${total}` : `Round ${pass} · repeating forever`),
       autoplayRunningHint: '🔊 Auto-playing — press ← → or Previous/Next to stop and move manually.',
       srsAutoplayRunningHint:
         '🔊 Auto-playing — auto-flips, reads the word + meaning, then moves to the next card, skipping the self-grading step. Press "Stop auto-play" to go back to normal review.',

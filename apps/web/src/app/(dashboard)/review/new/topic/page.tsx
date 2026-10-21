@@ -12,6 +12,7 @@ import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
 import { useKeypress } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
@@ -151,12 +152,19 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
   const repeatCount = useAutoplaySettings((s) => s.repeatCount)
   const gapSeconds = useAutoplaySettings((s) => s.gapSeconds)
   const shadowMode = useAutoplaySettings((s) => s.shadowMode)
+  const loop = useAutoplayLoop()
 
   const isLastWord = index >= view.length - 1
-  const onAutoAdvance = useCallback(() => {
-    if (isLastWord) setAutoplay(false)
-    else goNext()
-  }, [isLastWord, goNext])
+  const onAutoAdvance = () => {
+    if (!isLastWord) return goNext()
+    if (loop.endOfList()) setIndex(0) // vòng mới: đọc lại từ đầu danh sách (đang lọc thì trong danh sách lọc)
+    else setAutoplay(false)
+  }
+
+  const toggleAutoplay = () => {
+    loop.start()
+    setAutoplay((v) => !v)
+  }
 
   useWordAutoplay({
     enabled: autoplay && !!current,
@@ -166,6 +174,7 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
     repeatCount,
     gapSeconds,
     shadowMode,
+    pass: loop.pass,
     onAdvance: onAutoAdvance,
   })
 
@@ -306,12 +315,17 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
 
               <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Button variant={autoplay ? 'danger' : 'secondary'} size="sm" onClick={() => setAutoplay((v) => !v)}>
+                  <Button variant={autoplay ? 'danger' : 'secondary'} size="sm" onClick={toggleAutoplay}>
                     {autoplay ? t.review.autoplayStopBtn : t.review.autoplayStartBtn}
                   </Button>
                   <AutoplaySettingsDropdown />
                 </div>
-                {autoplay && <p className="text-center text-xs font-medium text-indigo-600">{t.review.autoplayRunningHint}</p>}
+                {autoplay && (
+                  <p className="text-center text-xs font-medium text-indigo-600">
+                    {loop.label && <span className="mr-1 font-semibold">{loop.label} ·</span>}
+                    {t.review.autoplayRunningHint}
+                  </p>
+                )}
               </div>
             </>
           )}
