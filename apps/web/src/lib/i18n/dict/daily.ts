@@ -18,6 +18,8 @@ export interface DailyDict {
     empty: string
     kinds: Record<DailyTaskKind, string>
     auto: string
+    /** Giải thích cách tự cộng tiến độ theo loại việc (hiện khi rê chuột nhãn "tự cập nhật" và trong phần sửa) */
+    autoHints: Record<Exclude<DailyTaskKind, 'free'>, string>
     goStudy: string
     repeat: string
     carriedIn: string
@@ -82,6 +84,14 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
         challenge_participate: '🎮 Thi đấu',
       },
       auto: 'tự cập nhật',
+      autoHints: {
+        srs_review: 'Tự +1 mỗi từ ôn xong trong phiên ôn tập',
+        learn_word: 'Tự +1 mỗi từ mới thêm vào ôn tập',
+        grammar_exercise: 'Tự +1 mỗi câu ngữ pháp trả lời đúng',
+        listening_practice: 'Tự +1 mỗi câu nghe trả lời đúng',
+        speaking_practice: 'Tự +1 mỗi lần luyện nói đạt từ 60 điểm',
+        challenge_participate: 'Tự +1 mỗi trận thách đấu tham gia',
+      },
       goStudy: 'Học ngay →',
       repeat: '🔁 Lặp lại hằng ngày',
       carriedIn: '↪ chuyển từ hôm trước',
@@ -149,6 +159,14 @@ export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
         challenge_participate: '🎮 Challenges',
       },
       auto: 'auto-tracked',
+      autoHints: {
+        srs_review: '+1 for every word you finish in a review session',
+        learn_word: '+1 for every new word added to review',
+        grammar_exercise: '+1 for every grammar question answered correctly',
+        listening_practice: '+1 for every listening question answered correctly',
+        speaking_practice: '+1 for every speaking attempt scoring 60 or more',
+        challenge_participate: '+1 for every challenge match you join',
+      },
       goStudy: 'Study now →',
       repeat: '🔁 Repeats daily',
       carriedIn: '↪ moved from a previous day',

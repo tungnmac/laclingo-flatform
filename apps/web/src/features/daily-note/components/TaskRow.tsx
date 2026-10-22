@@ -8,9 +8,9 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { DailyTask, DailyTaskUpdateRequest } from '@/types/api'
+import type { DailyTask, DailyTaskKind, DailyTaskUpdateRequest } from '@/types/api'
 import { dailyNoteService } from '../daily.service'
-import { KIND_LINKS } from '../kinds'
+import { DAILY_TASK_KINDS, KIND_LINKS } from '../kinds'
 import { SubtaskList } from './SubtaskList'
 
 /** 1 việc: thanh tiến độ + nút ±/ô tích + checklist việc con; mở rộng để sửa ghi chú, mục tiêu, lặp lại, thứ tự, xoá */
@@ -41,6 +41,7 @@ export function TaskRow({
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState(task.title)
   const [target, setTarget] = useState(task.target ? String(task.target) : '')
+  const [kind, setKind] = useState<DailyTaskKind>(task.kind)
   const [memo, setMemo] = useState(task.memo)
   const [addingItem, setAddingItem] = useState(false)
   const [itemTitle, setItemTitle] = useState('')
@@ -68,6 +69,7 @@ export function TaskRow({
     if (!open) {
       // mở form → lấy lại giá trị mới nhất
       setTitle(task.title)
+      setKind(task.kind)
       setTarget(task.target ? String(task.target) : '')
       setMemo(task.memo)
     }
@@ -77,7 +79,12 @@ export function TaskRow({
   const save = async () => {
     const n = target.trim() ? Number(target) : undefined
     const ok = await run(() =>
-      dailyNoteService.updateTask(task.id, { title, memo, ...(n === undefined ? { clear_target: true } : { target: n }) }),
+      dailyNoteService.updateTask(task.id, {
+        title,
+        memo,
+        ...(kind !== task.kind && { kind }),
+        ...(n === undefined ? { clear_target: true } : { target: n }),
+      }),
     )
     if (ok) setOpen(false)
   }
@@ -121,7 +128,8 @@ export function TaskRow({
             <p className={cn('font-medium text-slate-900', task.done && 'line-through decoration-emerald-500')}>{task.title}</p>
             <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500">
               <span>{t.daily.kinds[task.kind]}</span>
-              {task.kind !== 'free' && <span className="text-indigo-600">· {t.daily.auto}</span>}
+              {/* Nhãn, không phải nút (nằm trong nút mở phần sửa) — màu xám để không trông như link; rê chuột xem cách tính */}
+              {task.kind !== 'free' && <span title={t.daily.autoHints[task.kind]}>· ⚡ {t.daily.auto}</span>}
               {task.repeat && <span>· {t.daily.repeat}</span>}
               {task.carried_in && <span>· {t.daily.carriedIn}</span>}
               {task.carried && <span>· {t.daily.carried}</span>}
@@ -213,10 +221,18 @@ export function TaskRow({
 
       {open && editable && (
         <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-          <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_11rem_8rem]">
             <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className={inputClass} />
+            <select value={kind} onChange={(e) => setKind(e.target.value as DailyTaskKind)} className={inputClass} aria-label={t.daily.kindLabel}>
+              {DAILY_TASK_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {t.daily.kinds[k]}
+                </option>
+              ))}
+            </select>
             <input type="number" min={1} max={1000} value={target} onChange={(e) => setTarget(e.target.value)} placeholder={t.daily.targetPlaceholder} className={inputClass} />
           </div>
+          {kind !== 'free' && <p className="text-xs text-slate-500">⚡ {t.daily.autoHints[kind]}</p>}
           <textarea value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={500} rows={2} placeholder={t.daily.memoPlaceholder} className={inputClass} />
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={task.repeat} disabled={busy} onChange={() => void quick({ repeat: !task.repeat })} className="h-4 w-4 accent-indigo-600" />

@@ -45,7 +45,7 @@ WHERE t.id = $1 AND n.user_id = $2;
 -- Ghi đè có kiểm tra tiến độ đã đọc (expected_progress): hoạt động học vừa cộng thêm giữa chừng → không dòng nào
 -- (pgx.ErrNoRows) → báo tải lại thay vì làm mất phần vừa cộng
 UPDATE daily_note_tasks
-SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7, is_repeat = $8
+SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7, is_repeat = $8, kind = $9
 WHERE id = $1 AND progress = sqlc.arg('expected_progress')
 RETURNING *;
 
@@ -112,8 +112,8 @@ RETURNING *;
 SELECT COUNT(*)::int FROM daily_task_templates WHERE user_id = $1;
 
 -- name: UpdateDailyTaskTemplate :exec
--- Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
-UPDATE daily_task_templates SET title = $3, target = $4 WHERE id = $1 AND user_id = $2;
+-- Sửa tiêu đề/loại/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
+UPDATE daily_task_templates SET title = $3, target = $4, kind = $5 WHERE id = $1 AND user_id = $2;
 
 -- name: DeleteDailyTaskTemplate :exec
 DELETE FROM daily_task_templates WHERE id = $1 AND user_id = $2;
