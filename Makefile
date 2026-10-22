@@ -1,7 +1,7 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 N ?= 1
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test vn-sync
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test vn-sync migrate-all seed-all
 
 # ========================
 # SETUP
@@ -142,8 +142,10 @@ trading-db-create:
 trading-migrate:
 	cd apps/trading-web && npm run db:migrate
 
+# Seed của trading-web nằm trong chính project (apps/trading-web/scripts) — Makefile chỉ gọi.
+# seed:all = danh mục mã → bài học → doanh nghiệp → thư viện (đều idempotent, không ghi đè chỉnh sửa admin)
 trading-seed:
-	cd apps/trading-web && npm run db:seed
+	cd apps/trading-web && npm run seed:all
 
 trading-dev:
 	cd apps/trading-web && npm run dev
@@ -156,3 +158,10 @@ trading-test:
 vn-sync:
 	@test -n "$(job)" || (echo "❌ Thiếu job. VD: make vn-sync job=symbols" && exit 1)
 	cd apps/trading-web && npm run vn:sync -- $(job) $(args)
+
+# ========================
+# TẤT CẢ (app chính + trading-web) — mỗi app giữ migration/seed của riêng mình
+# ========================
+migrate-all: migrate trading-migrate
+
+seed-all: seed trading-seed
