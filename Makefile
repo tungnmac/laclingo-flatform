@@ -1,7 +1,7 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 N ?= 1
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test vn-sync
 
 # ========================
 # SETUP
@@ -150,3 +150,9 @@ trading-dev:
 
 trading-test:
 	cd apps/trading-web && npm test
+
+# Đồng bộ dữ liệu cổ phiếu VN vào trading_db. VD: make vn-sync job=symbols | prices | profiles | financials | all
+# Thêm tham số: make vn-sync job=prices args="--symbols FPT,VNM"
+vn-sync:
+	@test -n "$(job)" || (echo "❌ Thiếu job. VD: make vn-sync job=symbols" && exit 1)
+	cd apps/trading-web && npm run vn:sync -- $(job) $(args)

@@ -493,6 +493,88 @@ export const manualTrades = pgTable(
   ],
 )
 
+// ===== Cổ phiếu Việt Nam — đồng bộ bằng `npm run vn:sync` (SSI: mã + nến ngày; Vietcap: hồ sơ, BCTC, chỉ số) =====
+
+export const vnStocks = pgTable(
+  'vn_stocks',
+  {
+    symbol: varchar('symbol', { length: 20 }).primaryKey(),
+    exchange: varchar('exchange', { length: 10 }).notNull(), // HOSE | HNX | UPCOM
+    nameVi: varchar('name_vi', { length: 300 }).notNull(),
+    nameEn: varchar('name_en', { length: 300 }).notNull(),
+    searchText: text('search_text').notNull().default(''), // mã + tên vi/en đã bỏ dấu
+    active: boolean('active').notNull().default(true), // false = không còn trong danh mục SSI lần đồng bộ gần nhất
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('vn_stocks_exchange_idx').on(t.exchange, t.symbol)],
+)
+
+export const vnPrices = pgTable(
+  'vn_prices',
+  {
+    symbol: varchar('symbol', { length: 20 }).notNull(),
+    date: date('date').notNull(),
+    open: numeric('open', { precision: 20, scale: 4 }).notNull(),
+    high: numeric('high', { precision: 20, scale: 4 }).notNull(),
+    low: numeric('low', { precision: 20, scale: 4 }).notNull(),
+    close: numeric('close', { precision: 20, scale: 4 }).notNull(),
+    volume: numeric('volume', { precision: 24, scale: 0 }).notNull(),
+    value: numeric('value', { precision: 28, scale: 0 }),
+  },
+  (t) => [primaryKey({ columns: [t.symbol, t.date] })],
+)
+
+export const vnProfiles = pgTable('vn_profiles', {
+  symbol: varchar('symbol', { length: 20 }).primaryKey(),
+  data: jsonb('data').notNull(), // VnProfile (không gồm khuyến nghị đầu tư của nguồn)
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const vnFinancials = pgTable(
+  'vn_financials',
+  {
+    symbol: varchar('symbol', { length: 20 }).notNull(),
+    statement: varchar('statement', { length: 20 }).notNull(), // INCOME_STATEMENT | BALANCE_SHEET | CASH_FLOW | RATIO
+    period: varchar('period', { length: 10 }).notNull(), // Y2025 | Q2026-2
+    year: integer('year').notNull(),
+    quarter: integer('quarter'),
+    values: jsonb('values').notNull(), // { isa1: 123, … }
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.symbol, t.statement, t.period] })],
+)
+
+/** Tên chỉ tiêu BCTC theo mã (isa1, bsb108…) — ngân hàng & doanh nghiệp thường dùng bộ mã khác nhau */
+export const vnFinFields = pgTable(
+  'vn_fin_fields',
+  {
+    statement: varchar('statement', { length: 20 }).notNull(),
+    field: varchar('field', { length: 12 }).notNull(),
+    titleVi: varchar('title_vi', { length: 300 }).notNull(),
+    titleEn: varchar('title_en', { length: 300 }).notNull(),
+    level: integer('level').notNull(),
+    parent: text('parent'),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.statement, t.field] })],
+)
+
+/** Lịch sử chạy job đồng bộ (admin theo dõi) */
+export const vnSyncRuns = pgTable(
+  'vn_sync_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    job: varchar('job', { length: 20 }).notNull(), // symbols | prices | profiles | financials
+    status: varchar('status', { length: 10 }).notNull(), // running | ok | partial | failed
+    processed: integer('processed').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    message: text('message'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [index('vn_sync_runs_job_started_idx').on(t.job, t.startedAt)],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect

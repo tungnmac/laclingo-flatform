@@ -1,0 +1,19 @@
+{
+ "message": "Success",
+ "status": 200,
+ "totalRecord": 2,
+ "data": [
+  {
+   "Market": "HOSE",
+   "Symbol": "FPT",
+   "StockName": "CTCP FPT",
+   "StockEnName": "FPT Corporation"
+  },
+  {
+   "Market": "HOSE",
+   "Symbol": "E1VFVN30",
+   "StockName": "Quỹ ETF DCVFMVN30",
+   "StockEnName": "DCVFMVN30 ETF Fund"
+  }
+ ]
+}
