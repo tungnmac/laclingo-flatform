@@ -18,8 +18,9 @@ interface QueueItem {
 
 /**
  * Tự động đọc 1 từ theo chuỗi (lặp lại term `repeatCount` lần, cách nhau
- * `gapSeconds`; nếu shadowMode thì mỗi lần lặp đọc thêm nghĩa ngay sau term)
- * rồi gọi onAdvance() để sang từ tiếp theo. Dừng/dọn sạch timer + hủy phát âm
+ * `gapSeconds`; shadowMode: mỗi lần lặp đọc thêm nghĩa ngay sau term, tắt thì
+ * đọc nghĩa 1 lần sau khi đọc xong các lần lặp) rồi gọi onAdvance() để sang từ
+ * tiếp theo. Dừng/dọn sạch timer + hủy phát âm
  * đang chạy khi enabled=false, đổi từ, hoặc unmount — tránh đọc đè lên nhau.
  * pass: số vòng đọc cả danh sách — đổi pass thì đọc lại kể cả khi vẫn là từ cũ
  * (danh sách chỉ có 1 từ mà lặp lại). onAdvance luôn gọi bản mới nhất (ref) —
@@ -61,6 +62,7 @@ export function useWordAutoplay({
       queue.push({ text: term, languageId })
       if (shadowMode && meaning) queue.push({ text: meaning, languageId: MEANING_LANGUAGE })
     }
+    if (!shadowMode && meaning) queue.push({ text: meaning, languageId: MEANING_LANGUAGE })
 
     let cancelled = false
 
