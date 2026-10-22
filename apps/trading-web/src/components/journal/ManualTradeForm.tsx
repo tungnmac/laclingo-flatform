@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
-import type { ManualMarket } from '@/server/journal/manual-markets'
+import { ORDER_STATUSES, isExecuted, type ManualMarket, type OrderStatus } from '@/server/journal/manual-markets'
 import type { LedgerDto, ManualTradeDto } from '@/server/journal/manual-service'
 import { EMOTIONS } from '@/server/journal/validation'
 
@@ -21,6 +21,8 @@ function localDateTime(d: Date): string {
 const roundFee = (n: number, currency: string) => (currency === 'VND' ? Math.round(n).toFixed(0) : n.toFixed(8).replace(/\.?0+$/, '') || '0')
 
 interface Form {
+  status: OrderStatus
+  filled_qty: string
   executed_at: string
   symbol: string
   side: 'buy' | 'sell'
@@ -36,6 +38,8 @@ interface Form {
 }
 
 const fromTrade = (tr: ManualTradeDto): Form => ({
+  status: tr.status,
+  filled_qty: tr.filled_qty ?? '',
   executed_at: localDateTime(new Date(tr.executed_at)),
   symbol: tr.symbol,
   side: tr.side,
@@ -68,16 +72,19 @@ export function ManualTradeForm({
   const [form, setForm] = useState<Form>(
     trade
       ? fromTrade(trade)
-      : { executed_at: localDateTime(new Date()), symbol: '', side: 'buy', qty: '', price: '', fee: '', tax: '', reason: '', lesson: '', emotion: '', rating: '', tags: '' },
+      : { status: 'filled', filled_qty: '', executed_at: localDateTime(new Date()), symbol: '', side: 'buy', qty: '', price: '', fee: '', tax: '', reason: '', lesson: '', emotion: '', rating: '', tags: '' },
   )
-  const [autoFee, setAutoFee] = useState(!trade) // sửa lệnh cũ: giữ phí/thuế đã nhập
+  // Lệnh mới, hoặc sửa lệnh CHƯA khớp (phí còn 0): tự tính phí; sửa lệnh đã khớp: giữ phí/thuế đã nhập
+  const [autoFee, setAutoFee] = useState(!trade || !isExecuted(trade.status))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
   const value = Number(form.qty) * Number(form.price)
   /** Phí = giá trị × % phí; thuế chỉ khi bán = giá trị × % thuế (theo cài đặt sổ) */
   const withFees = (f: Form): Form => {
-    const v = Number(f.qty) * Number(f.price)
+    // Phí / thuế chỉ phát sinh trên phần ĐÃ khớp
+    const executed = f.status === 'filled' ? Number(f.qty) : f.status === 'partial' ? Number(f.filled_qty) : 0
+    const v = executed * Number(f.price)
     if (!Number.isFinite(v)) return f
     return {
       ...f,
@@ -97,6 +104,8 @@ export function ManualTradeForm({
       if (Number.isNaN(date.getTime())) throw new ApiError('invalid date', 400, 'INVALID_DATE')
       const body = {
         executed_at: date.toISOString(), // giờ địa phương của người dùng → UTC
+        status: form.status,
+        filled_qty: form.status === 'partial' ? form.filled_qty.trim() : null,
         symbol: form.symbol,
         side: form.side,
         qty: form.qty.trim(),
@@ -141,6 +150,17 @@ export function ManualTradeForm({
           </select>
         </label>
         {field('qty', t('manual.qty'), { inputMode: 'decimal', required: true })}
+        <label className="block text-xs font-medium text-slate-600">
+          {t('manual.status')}
+          <select value={form.status} onChange={(e) => set({ status: e.target.value as OrderStatus })} className={inputClass}>
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {t(`manual.status_${s}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {form.status === 'partial' && field('filled_qty', t('manual.filledQty'), { inputMode: 'decimal', required: true })}
         <div>
           {field('price', t('manual.price'), { inputMode: 'decimal', required: true })}
           {market === 'vn' && <p className="mt-0.5 text-[11px] text-slate-400">{t('manual.priceHintVn')}</p>}
@@ -148,6 +168,7 @@ export function ManualTradeForm({
         {field('fee', `${t('manual.fee')} (${ledger.currency})`, { inputMode: 'decimal', onInput: () => setAutoFee(false) })}
         {field('tax', `${t('manual.tax')} (${ledger.currency})`, { inputMode: 'decimal', onInput: () => setAutoFee(false) })}
         <div className="flex flex-col justify-end text-xs text-slate-500">
+          <span className="text-[11px] text-slate-400">{t('manual.statusHint')}</span>
           {Number.isFinite(value) && value > 0 && (
             <span>
               {t('manual.total')}: <b className="tabular-nums text-slate-700">{value.toLocaleString(undefined, { maximumFractionDigits: 8 })}</b>

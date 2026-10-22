@@ -1,6 +1,7 @@
 import { z } from 'zod'
+import { D } from '../trading/decimal'
 import { decimalString } from '../trading/validation'
-import { MANUAL_MARKETS } from './manual-markets'
+import { MANUAL_MARKETS, ORDER_STATUSES } from './manual-markets'
 import { noteSchema, RANGES } from './validation'
 
 export const MANUAL_LIMITS = { tradesPerMarket: 10_000, maxPct: 5, maxCapital: 1e15 }
@@ -24,6 +25,16 @@ const executedAt = z
   .transform((s) => new Date(s))
   .refine((d) => !Number.isNaN(d.getTime()) && d.getTime() <= Date.now() + 5 * 60_000 && d.getFullYear() >= 1970, 'INVALID_DATE')
 
+/** Khớp 1 phần: bắt buộc 0 < filled_qty < qty */
+function checkFilled(v: { status: string; qty: string; filled_qty?: string | null }, ctx: z.RefinementCtx) {
+  if (v.status !== 'partial') return
+  if (!v.filled_qty || !D(v.filled_qty).lt(D(v.qty))) ctx.addIssue({ code: 'custom', message: 'INVALID_FILLED_QTY', path: ['filled_qty'] })
+}
+/** filled_qty chỉ có nghĩa khi partial — trạng thái khác bỏ đi */
+function normalizeFilled<T extends { status: string; filled_qty?: string | null }>(v: T): T & { filled_qty: string | null } {
+  return { ...v, filled_qty: v.status === 'partial' ? (v.filled_qty ?? null) : null }
+}
+
 export const manualTradeSchema = z
   .object({
     symbol: z
@@ -37,9 +48,21 @@ export const manualTradeSchema = z
     fee: nonNegative('INVALID_FEE').default('0'),
     tax: nonNegative('INVALID_FEE').default('0'),
     executed_at: executedAt,
+    status: z.enum(ORDER_STATUSES, 'INVALID_INPUT').default('filled'),
+    filled_qty: decimalString('INVALID_QTY').nullish(),
   })
   .extend(noteSchema.shape)
+  .superRefine(checkFilled)
+  .transform(normalizeFilled)
 export type ManualTradeInput = z.infer<typeof manualTradeSchema>
+
+/** Đổi trạng thái nhanh (khớp / khớp 1 phần / không khớp / huỷ) */
+export const statusSchema = z
+  .object({
+    status: z.enum(ORDER_STATUSES, 'INVALID_INPUT'),
+    filled_qty: decimalString('INVALID_QTY').nullish(),
+  })
+export type StatusInput = z.infer<typeof statusSchema>
 
 const fourDecimals = (n: number) => Math.abs(Math.round(n * 1e4) - n * 1e4) < 1e-6
 
@@ -64,6 +87,7 @@ export const manualFilterSchema = z.object({
     .optional()
     .transform((s) => s || undefined),
   range: z.enum(RANGES, 'INVALID_INPUT').default('all'),
+  status: z.enum(ORDER_STATUSES, 'INVALID_INPUT').optional(),
   page: z.coerce.number('INVALID_INPUT').int('INVALID_INPUT').min(1, 'INVALID_INPUT').default(1),
   page_size: z.coerce.number('INVALID_INPUT').int('INVALID_INPUT').min(1, 'INVALID_INPUT').max(100, 'INVALID_INPUT').default(20),
 })
