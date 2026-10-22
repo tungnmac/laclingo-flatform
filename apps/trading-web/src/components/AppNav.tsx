@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: '/portfolio', labelKey: 'nav.portfolio' },
   { href: '/journal', labelKey: 'nav.journal' },
   { href: '/companies', labelKey: 'nav.companies' },
+  { href: '/vn-stocks', labelKey: 'nav.vnStocks' },
   { href: '/learn', labelKey: 'nav.learn' },
   { href: '/practice', labelKey: 'nav.practice' },
 ]
@@ -19,6 +20,7 @@ const ADMIN_ITEMS = [
   { href: '/admin/companies', labelKey: 'nav.adminCompanies' },
   { href: '/admin/library', labelKey: 'nav.adminLibrary' },
   { href: '/admin/references', labelKey: 'nav.adminReferences' },
+  { href: '/admin/vn-data', labelKey: 'nav.adminVnData' },
 ]
 
 export function AppNav({ user }: { user: SessionUser }) {

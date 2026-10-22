@@ -1,0 +1,31 @@
+{
+ "message": "Success",
+ "status": 200,
+ "totalRecord": 2,
+ "data": [
+  {
+   "Symbol": "FPT",
+   "Market": "HOSE",
+   "TradingDate": "21/10/2026",
+   "Time": null,
+   "Open": "57000",
+   "High": "57800",
+   "Low": "56900",
+   "Close": "57400",
+   "Volume": "5123400",
+   "Value": "293000000000"
+  },
+  {
+   "Symbol": "FPT",
+   "Market": "HOSE",
+   "TradingDate": "22/10/2026",
+   "Time": null,
+   "Open": "57400",
+   "High": "58200",
+   "Low": "57300",
+   "Close": "58000",
+   "Volume": "4210000",
+   "Value": "244000000000"
+  }
+ ]
+}

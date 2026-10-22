@@ -32,3 +32,19 @@ export function r2Config() {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
   return accountId && bucket && accessKeyId && secretAccessKey ? { accountId, bucket, accessKeyId, secretAccessKey } : null
 }
+
+/** SSI FastConnect Data (nguồn chính thức: danh mục mã + nến ngày) — thiếu key → null (tắt đồng bộ SSI) */
+export function ssiConfig() {
+  const consumerId = process.env.SSI_CONSUMER_ID
+  const consumerSecret = process.env.SSI_CONSUMER_SECRET
+  if (!consumerId || !consumerSecret) return null
+  return { consumerId, consumerSecret, baseUrl: process.env.SSI_FC_DATA_URL || 'https://fc-data.ssi.com.vn/api/v2' }
+}
+
+/**
+ * Nguồn KHÔNG chính thức (API công khai của Vietcap: hồ sơ công ty, BCTC, chỉ số) — mặc định TẮT.
+ * Chỉ bật cho môi trường nội bộ (VN_UNOFFICIAL_SOURCES=1); API có thể đổi bất kỳ lúc nào.
+ */
+export const vietcapConfig = () =>
+  process.env.VN_UNOFFICIAL_SOURCES === '1' ? { baseUrl: process.env.VIETCAP_IQ_URL || 'https://iq.vietcap.com.vn/api/iq-insight-service/v1' } : null
+

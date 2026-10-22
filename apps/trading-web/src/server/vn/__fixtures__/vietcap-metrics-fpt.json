@@ -1,0 +1,499 @@
+{
+ "serverDateTime": "2026-10-22T09:39:50.667977292",
+ "traceId": "29f43e2a66c4c6e62e0449577575667a",
+ "status": 200,
+ "code": 0,
+ "msg": "Successful",
+ "exception": null,
+ "successful": true,
+ "data": {
+  "BALANCE_SHEET": [
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "CURRENT ASSETS",
+    "titleVi": "TÀI SẢN NGẮN HẠN",
+    "fullTitleVi": "TÀI SẢN NGẮN HẠN",
+    "fullTitleEn": "CURRENT ASSETS",
+    "field": "bsa1",
+    "name": "BSA1"
+   },
+   {
+    "level": 1,
+    "parent": "BSA1",
+    "titleEn": "Cash and cash equivalents",
+    "titleVi": "Tiền và tương đương tiền",
+    "fullTitleVi": "Tiền và tương đương tiền",
+    "fullTitleEn": "Cash and cash equivalents",
+    "field": "bsa2",
+    "name": "BSA2"
+   },
+   {
+    "level": 2,
+    "parent": "BSA2",
+    "titleEn": "Cash",
+    "titleVi": "Tiền",
+    "fullTitleVi": "Tiền",
+    "fullTitleEn": "Cash",
+    "field": "bsa3",
+    "name": "BSA3"
+   },
+   {
+    "level": 2,
+    "parent": "BSA2",
+    "titleEn": "Cash equivalents",
+    "titleVi": "Các khoản tương đương tiền",
+    "fullTitleVi": "Các khoản tương đương tiền",
+    "fullTitleEn": "Cash equivalents",
+    "field": "bsa4",
+    "name": "BSA4"
+   },
+   {
+    "level": 1,
+    "parent": "BSA1",
+    "titleEn": "Short-term investments",
+    "titleVi": "Đầu tư ngắn hạn",
+    "fullTitleVi": "Đầu tư ngắn hạn",
+    "fullTitleEn": "Short-term investments",
+    "field": "bsa5",
+    "name": "BSA5"
+   },
+   {
+    "level": 2,
+    "parent": "BSA5",
+    "titleEn": "Short-term investments",
+    "titleVi": "Đầu tư ngắn hạn",
+    "fullTitleVi": "Đầu tư ngắn hạn",
+    "fullTitleEn": "Short-term investments",
+    "field": "bsa6",
+    "name": "BSA6"
+   },
+   {
+    "level": 2,
+    "parent": "BSA5",
+    "titleEn": "Provision for diminution",
+    "titleVi": "Dự phòng giảm giá",
+    "fullTitleVi": "Dự phòng giảm giá",
+    "fullTitleEn": "Provision for diminution",
+    "field": "bsa7",
+    "name": "BSA7"
+   },
+   {
+    "level": 2,
+    "parent": "BSA5",
+    "titleEn": "Held-to-maturity investment",
+    "titleVi": "Đầu tư nắm giữ đến ngày đáo hạn",
+    "fullTitleVi": "Đầu tư nắm giữ đến ngày đáo hạn",
+    "fullTitleEn": "Held-to-maturity investment",
+    "field": "bsb108",
+    "name": "BSB108"
+   },
+   {
+    "level": 1,
+    "parent": "BSA1",
+    "titleEn": "Accounts receivable",
+    "titleVi": "Các khoản phải thu",
+    "fullTitleVi": "Các khoản phải thu",
+    "fullTitleEn": "Accounts receivable",
+    "field": "bsa8",
+    "name": "BSA8"
+   },
+   {
+    "level": 2,
+    "parent": "BSA8",
+    "titleEn": "Trade accounts receivable",
+    "titleVi": "Phải thu khách hàng",
+    "fullTitleVi": "Phải thu khách hàng",
+    "fullTitleEn": "Trade accounts receivable",
+    "field": "bsa9",
+    "name": "BSA9"
+   },
+   {
+    "level": 2,
+    "parent": "BSA8",
+    "titleEn": "Prepayments to suppliers",
+    "titleVi": "Trả trước người bán",
+    "fullTitleVi": "Trả trước người bán",
+    "fullTitleEn": "Prepayments to suppliers",
+    "field": "bsa10",
+    "name": "BSA10"
+   },
+   {
+    "level": 2,
+    "parent": "BSA8",
+    "titleEn": "Intercompany receivables",
+    "titleVi": "Phải thu nội bộ",
+    "fullTitleVi": "Phải thu nội bộ",
+    "fullTitleEn": "Intercompany receivables",
+    "field": "bsa11",
+    "name": "BSA11"
+   }
+  ],
+  "INCOME_STATEMENT": [
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Sales",
+    "titleVi": "Doanh thu bán hàng và cung cấp dịch vụ",
+    "fullTitleVi": "Doanh thu bán hàng và cung cấp dịch vụ",
+    "fullTitleEn": "Sales",
+    "field": "isa1",
+    "name": "ISA1"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Sales deductions",
+    "titleVi": "Các khoản giảm trừ doanh thu",
+    "fullTitleVi": "Các khoản giảm trừ doanh thu",
+    "fullTitleEn": "Sales deductions",
+    "field": "isa2",
+    "name": "ISA2"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Net sales",
+    "titleVi": "Doanh thu thuần",
+    "fullTitleVi": "Doanh thu thuần",
+    "fullTitleEn": "Net sales",
+    "field": "isa3",
+    "name": "ISA3"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Cost of sales",
+    "titleVi": "Giá vốn hàng bán",
+    "fullTitleVi": "Giá vốn hàng bán",
+    "fullTitleEn": "Cost of sales",
+    "field": "isa4",
+    "name": "ISA4"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Gross Profit",
+    "titleVi": "Lợi nhuận gộp",
+    "fullTitleVi": "Lợi nhuận gộp",
+    "fullTitleEn": "Gross Profit",
+    "field": "isa5",
+    "name": "ISA5"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Financial income",
+    "titleVi": "Doanh thu hoạt động tài chính",
+    "fullTitleVi": "Doanh thu hoạt động tài chính",
+    "fullTitleEn": "Financial income",
+    "field": "isa6",
+    "name": "ISA6"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Financial expenses",
+    "titleVi": "Chi phí tài chính",
+    "fullTitleVi": "Chi phí tài chính",
+    "fullTitleEn": "Financial expenses",
+    "field": "isa7",
+    "name": "ISA7"
+   },
+   {
+    "level": 2,
+    "parent": "ISA7",
+    "titleEn": "Interest expenses",
+    "titleVi": "Chi phí lãi vay",
+    "fullTitleVi": "Chi phí lãi vay",
+    "fullTitleEn": "Interest expenses",
+    "field": "isa8",
+    "name": "ISA8"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Gain/(loss) from joint ventures (from 2015)",
+    "titleVi": "Lãi/(lỗ) từ công ty liên doanh (từ năm 2015)",
+    "fullTitleVi": "Lãi/(lỗ) từ công ty liên doanh (từ năm 2015)",
+    "fullTitleEn": "Gain/(loss) from joint ventures (from 2015)",
+    "field": "isa102",
+    "name": "ISA102"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Selling expenses",
+    "titleVi": "Chi phí bán hàng",
+    "fullTitleVi": "Chi phí bán hàng",
+    "fullTitleEn": "Selling expenses",
+    "field": "isa9",
+    "name": "ISA9"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "General and admin expenses",
+    "titleVi": "Chi phí quản lý doanh nghiệp",
+    "fullTitleVi": "Chi phí quản lý doanh nghiệp",
+    "fullTitleEn": "General and admin expenses",
+    "field": "isa10",
+    "name": "ISA10"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Operating profit/(loss)",
+    "titleVi": "Lãi/(lỗ) từ hoạt động kinh doanh",
+    "fullTitleVi": "Lãi/(lỗ) từ hoạt động kinh doanh",
+    "fullTitleEn": "Operating profit/(loss)",
+    "field": "isa11",
+    "name": "ISA11"
+   }
+  ],
+  "CASH_FLOW": [
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Net profit/(loss) before tax",
+    "titleVi": "Lợi nhuận/(lỗ) trước thuế",
+    "fullTitleVi": "Lợi nhuận/(lỗ) trước thuế",
+    "fullTitleEn": "Net profit/(loss) before tax",
+    "field": "cfa1",
+    "name": "CFA1"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Depreciation and amortization",
+    "titleVi": "Khấu hao TSCĐ và BĐSĐT",
+    "fullTitleVi": "Khấu hao TSCĐ và BĐSĐT",
+    "fullTitleEn": "Depreciation and amortization",
+    "field": "cfa2",
+    "name": "CFA2"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Amortization of goodwill",
+    "titleVi": "Phân bổ lợi thế thương mại",
+    "fullTitleVi": "Phân bổ lợi thế thương mại",
+    "fullTitleEn": "Amortization of goodwill",
+    "field": "cfa103",
+    "name": "CFA103"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Provisions",
+    "titleVi": "Chi phí dự phòng",
+    "fullTitleVi": "Chi phí dự phòng",
+    "fullTitleEn": "Provisions",
+    "field": "cfa3",
+    "name": "CFA3"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Unrealized foreign exchange gain/(loss)",
+    "titleVi": "Lãi/lỗ chênh lệch tỷ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",
+    "fullTitleVi": "Lãi/lỗ chênh lệch tỷ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",
+    "fullTitleEn": "Unrealized foreign exchange gain/(loss)",
+    "field": "cfa4",
+    "name": "CFA4"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Profit/loss from liquidating fixed assets",
+    "titleVi": "Lãi/(lỗ) từ thanh lý tài sản cố định",
+    "fullTitleVi": "Lãi/(lỗ) từ thanh lý tài sản cố định",
+    "fullTitleEn": "Profit/loss from liquidating fixed assets",
+    "field": "cfa5",
+    "name": "CFA5"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Profit/loss from investing activities",
+    "titleVi": "(Lãi)/lỗ từ hoạt động đầu tư",
+    "fullTitleVi": "(Lãi)/lỗ từ hoạt động đầu tư",
+    "fullTitleEn": "Profit/loss from investing activities",
+    "field": "cfa6",
+    "name": "CFA6"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Interest expense",
+    "titleVi": "Chi phí lãi vay",
+    "fullTitleVi": "Chi phí lãi vay",
+    "fullTitleEn": "Interest expense",
+    "field": "cfa7",
+    "name": "CFA7"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Interest income and dividend",
+    "titleVi": "Thu lãi và cổ tức",
+    "fullTitleVi": "Thu lãi và cổ tức",
+    "fullTitleEn": "Interest income and dividend",
+    "field": "cfa8",
+    "name": "CFA8"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Other adjustments",
+    "titleVi": "Các khoản điều chỉnh khác",
+    "fullTitleVi": "Các khoản điều chỉnh khác",
+    "fullTitleEn": "Other adjustments",
+    "field": "cfa104",
+    "name": "CFA104"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Net cash inflows/(outflows) from operating activities",
+    "titleVi": "Lưu chuyển tiền tệ ròng từ các hoạt động sản xuất kinh doanh",
+    "fullTitleVi": "Lưu chuyển tiền tệ ròng từ các hoạt động sản xuất kinh doanh",
+    "fullTitleEn": "Net cash inflows/(outflows) from operating activities",
+    "field": "cfa18",
+    "name": "CFA18"
+   },
+   {
+    "level": 2,
+    "parent": "CFA18",
+    "titleEn": "Operating profit/(loss) before changes in Working Capital",
+    "titleVi": "Lợi nhuận/(lỗ) từ hoạt động kinh doanh trước những thay đổi vốn lưu động",
+    "fullTitleVi": "Lợi nhuận/(lỗ) từ hoạt động kinh doanh trước những thay đổi vốn lưu động",
+    "fullTitleEn": "Operating profit/(loss) before changes in Working Capital",
+    "field": "cfa9",
+    "name": "CFA9"
+   }
+  ],
+  "NOTE": [
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Cash and cash equivalents",
+    "titleVi": "Tiền và tương đương tiền",
+    "fullTitleVi": "Tiền và tương đương tiền",
+    "fullTitleEn": "Cash and cash equivalents",
+    "field": "noc1",
+    "name": "NOC1"
+   },
+   {
+    "level": 2,
+    "parent": "NOC1",
+    "titleEn": "Cash on hand",
+    "titleVi": "Tiền mặt",
+    "fullTitleVi": "Tiền mặt",
+    "fullTitleEn": "Cash on hand",
+    "field": "noc2",
+    "name": "NOC2"
+   },
+   {
+    "level": 2,
+    "parent": "NOC1",
+    "titleEn": "Cash in banks",
+    "titleVi": "Tiền gửi Ngân hàng",
+    "fullTitleVi": "Tiền gửi Ngân hàng",
+    "fullTitleEn": "Cash in banks",
+    "field": "noc3",
+    "name": "NOC3"
+   },
+   {
+    "level": 2,
+    "parent": "NOC1",
+    "titleEn": "Cash in transit",
+    "titleVi": "Tiền đang chuyển",
+    "fullTitleVi": "Tiền đang chuyển",
+    "fullTitleEn": "Cash in transit",
+    "field": "noc4",
+    "name": "NOC4"
+   },
+   {
+    "level": 2,
+    "parent": "NOC1",
+    "titleEn": "Cash equivalents",
+    "titleVi": "Tiền và tương đương tiền",
+    "fullTitleVi": "Tiền và tương đương tiền",
+    "fullTitleEn": "Cash equivalents",
+    "field": "noc5",
+    "name": "NOC5"
+   },
+   {
+    "level": 2,
+    "parent": "NOC1",
+    "titleEn": "Short-term investments",
+    "titleVi": "Đầu tư tài chính NH",
+    "fullTitleVi": "Đầu tư tài chính NH",
+    "fullTitleEn": "Short-term investments",
+    "field": "noc6",
+    "name": "NOC6"
+   },
+   {
+    "level": 1,
+    "parent": null,
+    "titleEn": "Short-term securities investments",
+    "titleVi": "Chứng khoán đầu tư ngắn hạn",
+    "fullTitleVi": "Chứng khoán đầu tư ngắn hạn",
+    "fullTitleEn": "Short-term securities investments",
+    "field": "noc7",
+    "name": "NOC7"
+   },
+   {
+    "level": 2,
+    "parent": "NOC7",
+    "titleEn": "Held-to-maturity investment",
+    "titleVi": "Đầu tư nắm giữ đến ngày đáo hạn",
+    "fullTitleVi": "Đầu tư nắm giữ đến ngày đáo hạn",
+    "fullTitleEn": "Held-to-maturity investment",
+    "field": "noc156",
+    "name": "NOC156"
+   },
+   {
+    "level": 2,
+    "parent": "NOC7",
+    "titleEn": "Short-term",
+    "titleVi": "Đầu tư ngắn hạn",
+    "fullTitleVi": "Đầu tư ngắn hạn",
+    "fullTitleEn": "Short-term",
+    "field": "noc157",
+    "name": "NOC157"
+   },
+   {
+    "level": 2,
+    "parent": "NOC7",
+    "titleEn": "Long-term",
+    "titleVi": "Đầu tư dài hạn",
+    "fullTitleVi": "Đầu tư dài hạn",
+    "fullTitleEn": "Long-term",
+    "field": "noc158",
+    "name": "NOC158"
+   },
+   {
+    "level": 2,
+    "parent": "NOC7",
+    "titleEn": "Other short-term investments",
+    "titleVi": "Đầu tư NH khác",
+    "fullTitleVi": "Đầu tư NH khác",
+    "fullTitleEn": "Other short-term investments",
+    "field": "noc8",
+    "name": "NOC8"
+   },
+   {
+    "level": 2,
+    "parent": "NOC7",
+    "titleEn": "Provision for diminution in value of short-term investments",
+    "titleVi": "Dự phòng giảm giá ĐTNH",
+    "fullTitleVi": "Dự phòng giảm giá ĐTNH",
+    "fullTitleEn": "Provision for diminution in value of short-term investments",
+    "field": "noc9",
+    "name": "NOC9"
+   }
+  ]
+ }
+}

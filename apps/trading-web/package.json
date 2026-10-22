@@ -15,6 +15,7 @@
     "seed:lessons": "tsx scripts/seed-lessons.ts",
     "seed:companies": "tsx scripts/seed-companies.ts",
     "seed:library": "tsx scripts/seed-library.ts",
+    "vn:sync": "tsx scripts/vn-sync.ts",
     "seed:references": "tsx scripts/seed-references.ts"
   },
   "dependencies": {
