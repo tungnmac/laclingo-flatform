@@ -5,7 +5,7 @@ import { useT } from '@/i18n/I18nProvider'
 import { formatPnl } from '@/lib/trading-format'
 import type { SymbolStats } from '@/server/journal/stats'
 
-export function SymbolTable({ rows }: { rows: SymbolStats[] }) {
+export function SymbolTable({ rows, pnl = formatPnl }: { rows: SymbolStats[]; pnl?: (v: string) => string }) {
   const { t } = useT()
   return (
     <table className="w-full text-sm">
@@ -25,7 +25,7 @@ export function SymbolTable({ rows }: { rows: SymbolStats[] }) {
             <td className="px-4 py-2 text-right tabular-nums">{r.trades}</td>
             <td className="px-4 py-2 text-right tabular-nums">{r.closing_trades}</td>
             <td className="px-4 py-2 text-right tabular-nums">{r.win_rate === null ? '—' : `${r.win_rate}%`}</td>
-            <td className={`px-4 py-2 text-right font-semibold tabular-nums ${pnlColor(r.net_pnl)}`}>{formatPnl(r.net_pnl)}</td>
+            <td className={`px-4 py-2 text-right font-semibold tabular-nums ${pnlColor(r.net_pnl)}`}>{pnl(r.net_pnl)}</td>
           </tr>
         ))}
       </tbody>

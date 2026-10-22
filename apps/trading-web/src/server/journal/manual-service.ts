@@ -1,0 +1,275 @@
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { db } from '../db/client'
+import { manualLedgers, manualTrades, users, type ManualTradeRow } from '../db/schema'
+import { HttpError } from '../http'
+import { D, toApi, toDb } from '../trading/decimal'
+import { rangeStart } from './journal-service'
+import { firstOversell, replay, type LedgerTrade, type ManualMarket } from './manual-ledger'
+import { MANUAL_LIMITS, type LedgerInput, type ManualFilter, type ManualTradeInput } from './manual-validation'
+import { computeStats, drawdownBase, type Stats, type StatTrade } from './stats'
+import type { NoteDto } from './journal-service'
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// ── Cài đặt từng thị trường ──
+
+export interface LedgerDto {
+  market: ManualMarket
+  currency: string
+  currency_fixed: boolean // VN = VND, Mỹ = USD — không đổi được
+  starting_capital: string
+  fee_rate_pct: number
+  sell_tax_pct: number
+}
+
+const DEFAULTS: Record<ManualMarket, Omit<LedgerDto, 'market' | 'currency_fixed' | 'starting_capital'>> = {
+  vn: { currency: 'VND', fee_rate_pct: 0.15, sell_tax_pct: 0.1 }, // phí môi giới phổ biến; thuế TNCN 0,1% giá trị bán
+  us: { currency: 'USD', fee_rate_pct: 0, sell_tax_pct: 0 },
+  crypto: { currency: 'USDT', fee_rate_pct: 0.1, sell_tax_pct: 0 },
+  other: { currency: 'USD', fee_rate_pct: 0, sell_tax_pct: 0 },
+}
+const FIXED_CURRENCY: Partial<Record<ManualMarket, string>> = { vn: 'VND', us: 'USD' }
+
+export async function getLedger(userId: string, market: ManualMarket): Promise<LedgerDto> {
+  const [row] = await db
+    .select()
+    .from(manualLedgers)
+    .where(and(eq(manualLedgers.userId, userId), eq(manualLedgers.market, market)))
+  const d = DEFAULTS[market]
+  return {
+    market,
+    currency: FIXED_CURRENCY[market] ?? row?.currency ?? d.currency,
+    currency_fixed: market in FIXED_CURRENCY,
+    starting_capital: row ? toApi(D(row.startingCapital)) : '0',
+    fee_rate_pct: row ? Number(row.feeRatePct) : d.fee_rate_pct,
+    sell_tax_pct: row ? Number(row.sellTaxPct) : d.sell_tax_pct,
+  }
+}
+
+export async function saveLedger(userId: string, market: ManualMarket, input: LedgerInput): Promise<LedgerDto> {
+  const values = {
+    currency: FIXED_CURRENCY[market] ?? input.currency,
+    startingCapital: input.starting_capital,
+    feeRatePct: String(input.fee_rate_pct),
+    sellTaxPct: String(input.sell_tax_pct),
+  }
+  await db
+    .insert(manualLedgers)
+    .values({ userId, market, ...values })
+    .onConflictDoUpdate({ target: [manualLedgers.userId, manualLedgers.market], set: { ...values, updatedAt: sql`now()` } })
+  return getLedger(userId, market)
+}
+
+// ── Đọc ──
+
+const toLedgerTrade = (r: ManualTradeRow): LedgerTrade => ({
+  id: r.id,
+  symbol: r.symbol,
+  side: r.side as 'buy' | 'sell',
+  qty: D(r.qty),
+  price: D(r.price),
+  fee: D(r.fee).plus(D(r.tax)),
+  executedAt: r.executedAt.getTime(),
+  createdAt: r.createdAt.getTime(),
+})
+
+/** Mọi lệnh của 1 thị trường — sổ nhỏ (≤ 10.000 lệnh), phát lại toàn bộ để giá vốn luôn đúng */
+const rowsOf = (ex: Tx | typeof db, userId: string, market: ManualMarket) =>
+  ex
+    .select()
+    .from(manualTrades)
+    .where(and(eq(manualTrades.userId, userId), eq(manualTrades.market, market)))
+
+export interface ManualPositionDto {
+  symbol: string
+  side: 'long' | 'short'
+  qty: string
+  avg_price: string
+  cost: string
+}
+
+export interface ManualOverviewDto {
+  ledger: LedgerDto
+  stats: Stats
+  positions: ManualPositionDto[]
+  symbols: string[]
+}
+
+export async function getManualOverview(userId: string, market: ManualMarket, filter: ManualFilter): Promise<ManualOverviewDto> {
+  const [ledger, rows] = await Promise.all([getLedger(userId, market), rowsOf(db, userId, market)])
+  const { results, positions } = replay(rows.map(toLedgerTrade), { buysFirstOnTie: market === 'vn' })
+  const start = rangeStart(filter.range)?.getTime() ?? null
+  const statOf = (r: ManualTradeRow): StatTrade => ({
+    symbol: r.symbol,
+    executedAt: r.executedAt.getTime(),
+    realizedPnl: results.get(r.id)!.realizedPnl,
+    fee: D(r.fee).plus(D(r.tax)),
+    closedQty: results.get(r.id)!.closedQty,
+  })
+  const all = rows.map(statOf)
+  const inRange = all.filter((t) => (!filter.symbol || t.symbol === filter.symbol) && (start === null || t.executedAt >= start))
+  // Mốc drawdown: vốn đã khai + lãi/lỗ ròng của mọi lệnh trước khoảng lọc (giống ví TradeLab)
+  const base = drawdownBase(D(ledger.starting_capital), start, all)
+  const stats = computeStats(inRange, base)
+  // Chưa khai vốn → mốc drawdown = 0, % drawdown vô nghĩa (vd lãi 100 rồi lỗ về −50 = "−150%") → không trả %
+  if (D(ledger.starting_capital).isZero()) stats.metrics.max_drawdown_pct = ''
+  return {
+    ledger,
+    stats,
+    positions: positions
+      .filter((p) => !filter.symbol || p.symbol === filter.symbol)
+      .map((p) => ({ symbol: p.symbol, side: p.qty.gt(0) ? 'long' : 'short', qty: toApi(p.qty.abs()), avg_price: toApi(p.avgPrice), cost: toApi(p.cost) })),
+    symbols: [...new Set(rows.map((r) => r.symbol))].sort(),
+  }
+}
+
+export interface ManualTradeDto {
+  id: string
+  market: string
+  symbol: string
+  side: 'buy' | 'sell'
+  qty: string
+  price: string
+  fee: string
+  tax: string
+  executed_at: string
+  realized_pnl: string
+  closed_qty: string
+  position_after: string
+  note: NoteDto | null
+}
+
+function toDto(r: ManualTradeRow, rep: ReturnType<typeof replay>['results']): ManualTradeDto {
+  const x = rep.get(r.id)!
+  const hasNote = r.reason || r.lesson || r.emotion || r.rating || r.tags.length > 0
+  return {
+    id: r.id,
+    market: r.market,
+    symbol: r.symbol,
+    side: r.side as 'buy' | 'sell',
+    qty: toApi(D(r.qty)),
+    price: toApi(D(r.price)),
+    fee: toApi(D(r.fee)),
+    tax: toApi(D(r.tax)),
+    executed_at: r.executedAt.toISOString(),
+    realized_pnl: toApi(x.realizedPnl),
+    closed_qty: toApi(x.closedQty),
+    position_after: toApi(x.positionAfter),
+    note: hasNote
+      ? { reason: r.reason, lesson: r.lesson, emotion: r.emotion, rating: r.rating, tags: r.tags, updated_at: r.updatedAt.toISOString() }
+      : null,
+  }
+}
+
+export async function listManualTrades(userId: string, market: ManualMarket, filter: ManualFilter): Promise<{ items: ManualTradeDto[]; total: number }> {
+  const rows = await rowsOf(db, userId, market)
+  const { results } = replay(rows.map(toLedgerTrade), { buysFirstOnTie: market === 'vn' })
+  const start = rangeStart(filter.range)?.getTime() ?? null
+  const shown = rows
+    .filter((r) => (!filter.symbol || r.symbol === filter.symbol) && (start === null || r.executedAt.getTime() >= start))
+    .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime() || b.id.localeCompare(a.id)) // mới nhất trước
+  const from = (filter.page - 1) * filter.page_size
+  return { items: shown.slice(from, from + filter.page_size).map((r) => toDto(r, results)), total: shown.length }
+}
+
+// ── Ghi ──
+
+/** Khoá dòng user: các thao tác ghi của cùng user xếp hàng (giới hạn số lệnh, kiểm tra bán vượt nhất quán) */
+const lockUser = (tx: Tx, userId: string) => tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update')
+
+function columns(input: ManualTradeInput) {
+  return {
+    symbol: input.symbol,
+    side: input.side,
+    qty: toDb(D(input.qty)),
+    price: toDb(D(input.price)),
+    fee: toDb(D(input.fee)),
+    tax: toDb(D(input.tax)),
+    executedAt: input.executed_at,
+    reason: input.reason ?? null,
+    lesson: input.lesson ?? null,
+    emotion: input.emotion ?? null,
+    rating: input.rating ?? null,
+    tags: input.tags ?? [],
+  }
+}
+
+/** CK Việt Nam: khối lượng nguyên, không bán vượt số đang giữ tại thời điểm bán (không bán khống) */
+async function checkVn(tx: Tx, userId: string, market: ManualMarket, input: ManualTradeInput | null, symbols: string[]) {
+  if (market !== 'vn') return
+  if (input && !D(input.qty).isInteger()) throw new HttpError(400, 'VN_QTY_INTEGER')
+  const unique = [...new Set(symbols)]
+  const rows = await tx
+    .select()
+    .from(manualTrades)
+    .where(and(eq(manualTrades.userId, userId), eq(manualTrades.market, market), inArray(manualTrades.symbol, unique)))
+  for (const symbol of unique) {
+    const bad = firstOversell(rows.filter((r) => r.symbol === symbol).map(toLedgerTrade))
+    // ngày theo giờ Việt Nam (lệnh 0h–7h sáng không bị lùi 1 ngày như UTC)
+    if (bad) throw new HttpError(400, 'VN_OVERSELL', { symbol, date: new Date(bad.executedAt).toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }) })
+  }
+}
+
+async function findOwn(tx: Tx, userId: string, id: string): Promise<ManualTradeRow> {
+  if (!UUID.test(id)) throw new HttpError(404, 'NOT_FOUND')
+  const [row] = await tx
+    .select()
+    .from(manualTrades)
+    .where(and(eq(manualTrades.id, id), eq(manualTrades.userId, userId)))
+  if (!row) throw new HttpError(404, 'NOT_FOUND')
+  return row
+}
+
+/** DTO của 1 lệnh sau khi ghi — các mã phát lại độc lập nên chỉ cần lệnh cùng mã */
+async function reload(tx: Tx, userId: string, row: ManualTradeRow): Promise<ManualTradeDto> {
+  const rows = await tx
+    .select()
+    .from(manualTrades)
+    .where(and(eq(manualTrades.userId, userId), eq(manualTrades.market, row.market), eq(manualTrades.symbol, row.symbol)))
+  return toDto(row, replay(rows.map(toLedgerTrade), { buysFirstOnTie: row.market === 'vn' }).results)
+}
+
+export async function createManualTrade(userId: string, market: ManualMarket, input: ManualTradeInput): Promise<ManualTradeDto> {
+  return db.transaction(async (tx) => {
+    await lockUser(tx, userId)
+    const [{ n }] = await tx
+      .select({ n: count() })
+      .from(manualTrades)
+      .where(and(eq(manualTrades.userId, userId), eq(manualTrades.market, market)))
+    if (n >= MANUAL_LIMITS.tradesPerMarket) throw new HttpError(409, 'TOO_MANY_TRADES', { max: MANUAL_LIMITS.tradesPerMarket })
+    if (market === 'vn' && !D(input.qty).isInteger()) throw new HttpError(400, 'VN_QTY_INTEGER')
+    const [row] = await tx
+      .insert(manualTrades)
+      .values({ userId, market, ...columns(input) })
+      .returning()
+    await checkVn(tx, userId, market, input, [input.symbol]) // lỗi → rollback, lệnh không được lưu
+    return reload(tx, userId, row)
+  })
+}
+
+export async function updateManualTrade(userId: string, id: string, input: ManualTradeInput): Promise<ManualTradeDto> {
+  return db.transaction(async (tx) => {
+    await lockUser(tx, userId)
+    const current = await findOwn(tx, userId, id)
+    const market = current.market as ManualMarket
+    if (market === 'vn' && !D(input.qty).isInteger()) throw new HttpError(400, 'VN_QTY_INTEGER')
+    const [row] = await tx
+      .update(manualTrades)
+      .set({ ...columns(input), updatedAt: sql`now()` })
+      .where(eq(manualTrades.id, id))
+      .returning()
+    await checkVn(tx, userId, market, input, [current.symbol, input.symbol]) // đổi mã: kiểm cả mã cũ lẫn mới
+    return reload(tx, userId, row)
+  })
+}
+
+export async function deleteManualTrade(userId: string, id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await lockUser(tx, userId)
+    const current = await findOwn(tx, userId, id)
+    await tx.delete(manualTrades).where(eq(manualTrades.id, id))
+    // Xoá lệnh mua có thể làm lệnh bán sau đó thành bán vượt
+    await checkVn(tx, userId, current.market as ManualMarket, null, [current.symbol])
+  })
+}

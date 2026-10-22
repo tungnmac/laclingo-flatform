@@ -78,7 +78,7 @@ async function resolveAccounts(userId: string, account: string): Promise<{ accou
   return { accounts: [row], single: row }
 }
 
-const rangeStart = (range: JournalFilter['range']) => {
+export const rangeStart = (range: JournalFilter['range']) => {
   const days = RANGE_DAYS[range]
   return days === null ? null : new Date(Date.now() - days * DAY)
 }

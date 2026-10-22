@@ -15,10 +15,18 @@ function Card({ label, value, sub, valueClass = '' }: { label: string; value: st
   )
 }
 
-const pnlOrDash = (v: string | null) => (v === null ? '—' : formatPnl(v))
-
-export function MetricCards({ metrics: m }: { metrics: Metrics }) {
+/** `money`: định dạng tiền của sổ (mặc định USD của ví TradeLab) */
+export function MetricCards({
+  metrics: m,
+  money = { pnl: formatPnl, amount: formatUsd },
+}: {
+  metrics: Metrics
+  money?: { pnl: (v: string) => string; amount: (v: string) => string }
+}) {
   const { t } = useT()
+  const formatPnl = money.pnl
+  const formatUsd = money.amount
+  const pnlOrDash = (v: string | null) => (v === null ? '—' : formatPnl(v))
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Card
@@ -37,7 +45,7 @@ export function MetricCards({ metrics: m }: { metrics: Metrics }) {
         label={t('journal.maxDrawdown')}
         value={m.max_drawdown === '0' ? '—' : `-${formatUsd(m.max_drawdown)}`}
         valueClass={m.max_drawdown === '0' ? '' : 'text-rose-600'}
-        sub={m.max_drawdown === '0' ? undefined : `-${m.max_drawdown_pct}%`}
+        sub={m.max_drawdown === '0' || m.max_drawdown_pct === '' ? undefined : `-${m.max_drawdown_pct}%`}
       />
       <Card label={t('journal.avgWinLoss')} value={`${pnlOrDash(m.avg_win)} / ${pnlOrDash(m.avg_loss)}`} />
       <Card label={t('journal.largest')} value={`${pnlOrDash(m.largest_win)} / ${pnlOrDash(m.largest_loss)}`} />
