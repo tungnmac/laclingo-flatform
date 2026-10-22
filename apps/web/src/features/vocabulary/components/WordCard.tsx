@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { Card } from '@/components/ui/Card'
@@ -101,6 +102,16 @@ export function WordCard({
         <div className="flex max-w-md items-center gap-2">
           <p className="text-sm italic text-slate-500">“{word.example}”</p>
           <AudioButton text={word.example} languageId={word.language_id} className="shrink-0" />
+          {(word.language_id === 'en' || word.language_id === 'zh') && (
+            <Link
+              href={`/analyze?language=${word.language_id}&text=${encodeURIComponent(word.example)}`}
+              title={t.analyze.analyzeExample}
+              aria-label={t.analyze.analyzeExample}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-lg hover:bg-indigo-100"
+            >
+              🔍
+            </Link>
+          )}
         </div>
       )}
 

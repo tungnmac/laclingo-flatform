@@ -104,9 +104,11 @@ func main() {
 	go reminderService.Start(schedulerCtx)
 	go notificationService.StartCleanup(schedulerCtx)
 
-	suggester := service.NewVocabularySuggester(newSuggestAI(cfg))
+	aiClient := newAIClient(cfg)
+	suggester := service.NewVocabularySuggester(aiClient)
+	analyzer := service.NewSentenceAnalyzer(repo, aiClient)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
@@ -123,9 +125,9 @@ func main() {
 	_ = app.ShutdownWithTimeout(10 * time.Second)
 }
 
-// newSuggestAI chọn nhà cung cấp AI cho gợi ý từ mới theo AI_PROVIDER (trống = theo key đang có).
-// nil = không có AI, chỉ gợi ý phiên âm/audio từ điển.
-func newSuggestAI(cfg *config.Config) service.SuggestAI {
+// newAIClient chọn nhà cung cấp AI (gợi ý từ mới, phân tích câu) theo AI_PROVIDER (trống = theo key đang có).
+// nil = không có AI: gợi ý từ mới chỉ có phiên âm/audio từ điển, phân tích câu báo chưa cấu hình.
+func newAIClient(cfg *config.Config) service.AIClient {
 	provider := cfg.AIProvider
 	if provider == "" {
 		switch {
@@ -142,15 +144,15 @@ func newSuggestAI(cfg *config.Config) service.SuggestAI {
 			return nil
 		}
 		c := anthropic.NewClient(option.WithAPIKey(cfg.AnthropicAPIKey))
-		log.Println("✅ Gợi ý từ mới dùng Claude API")
-		return service.NewClaudeSuggestAI(&c, cfg.SuggestModel)
+		log.Println("✅ AI (gợi ý từ mới, phân tích câu) dùng Claude API")
+		return service.NewClaudeClient(&c, cfg.SuggestModel)
 	case "gemini":
 		if cfg.GeminiAPIKey == "" {
 			log.Println("⚠️  AI_PROVIDER=gemini nhưng GEMINI_API_KEY trống — gợi ý từ mới chỉ có phiên âm/audio từ điển")
 			return nil
 		}
-		log.Println("✅ Gợi ý từ mới dùng Gemini API")
-		return service.NewGeminiSuggestAI(cfg.GeminiAPIKey, cfg.GeminiModel)
+		log.Println("✅ AI (gợi ý từ mới, phân tích câu) dùng Gemini API")
+		return service.NewGeminiClient(cfg.GeminiAPIKey, cfg.GeminiModel)
 	case "":
 		log.Println("⚠️  Chưa cấu hình ANTHROPIC_API_KEY / GEMINI_API_KEY — gợi ý từ mới chỉ có phiên âm/audio từ điển")
 	default:

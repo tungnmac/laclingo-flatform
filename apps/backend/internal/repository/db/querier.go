@@ -139,6 +139,8 @@ type Querier interface {
 	// Gửi tới mọi tài khoản đang active (1 dòng thông báo / user).
 	FanOutAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
+	// Từ trong câu (AI tách ra) đã có trong kho từ vựng của app → học viên thêm vào ôn tập được
+	FindVocabulariesByTerms(ctx context.Context, arg FindVocabulariesByTermsParams) ([]FindVocabulariesByTermsRow, error)
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
 	GetBestSpeakingScore(ctx context.Context, arg GetBestSpeakingScoreParams) (int32, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
@@ -174,6 +176,7 @@ type Querier interface {
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
+	GetSentenceAnalysisUsage(ctx context.Context, arg GetSentenceAnalysisUsageParams) (int32, error)
 	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
@@ -369,6 +372,8 @@ type Querier interface {
 	//   còn việc con chưa tích → chưa xong; có mục tiêu → xong khi đủ mục tiêu; có checklist (đã tích hết) → xong;
 	//   việc tích không có checklist → giữ nguyên (người học tự tích)
 	RefreshDailyTaskCompletion(ctx context.Context, id pgtype.UUID) (DailyNoteTask, error)
+	// AI lỗi → trả lại lượt vừa trừ
+	RefundSentenceAnalysisQuota(ctx context.Context, arg RefundSentenceAnalysisQuotaParams) error
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
@@ -447,6 +452,9 @@ type Querier interface {
 	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
 	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
+	// Phân tích câu bằng AI — lượt dùng mỗi ngày + đối chiếu từ vựng có sẵn trong app
+	// +1 lượt của ngày; đã đủ daily_limit lượt → không trả dòng nào (pgx.ErrNoRows) = hết lượt
+	UseSentenceAnalysisQuota(ctx context.Context, arg UseSentenceAnalysisQuotaParams) (int32, error)
 }
 
 var _ Querier = (*Queries)(nil)

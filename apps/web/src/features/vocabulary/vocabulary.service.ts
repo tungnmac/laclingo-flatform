@@ -40,10 +40,11 @@ export const vocabularyService = {
 
   // Admin
   // Gợi ý phiên âm/audio (từ điển) + nghĩa, câu ví dụ, từ loại... (AI) để điền form thêm từ
-  suggestVocabulary: (languageId: string, term: string) =>
+  // topic: chủ đề đang chọn (không bắt buộc) — AI chọn nghĩa/câu ví dụ theo chủ đề
+  suggestVocabulary: (languageId: string, term: string, topic?: string) =>
     apiFetch<VocabularySuggestion>('/admin/vocabularies/suggest', {
       method: 'POST',
-      body: JSON.stringify({ language_id: languageId, term }),
+      body: JSON.stringify({ language_id: languageId, term, topic: topic || undefined }),
       notify: false, // chỉ tra cứu, không tạo gì — form tự hiện kết quả/lỗi tại chỗ
     }),
   createVocabulary: (body: VocabularyRequest, opts?: Pick<ApiInit, 'notify'>) =>

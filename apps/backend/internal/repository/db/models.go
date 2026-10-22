@@ -359,6 +359,12 @@ type ReminderDefault struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SentenceAnalysisUsage struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	UsageDate pgtype.Date `json:"usage_date"`
+	Count     int32       `json:"count"`
+}
+
 type SpeakingItem struct {
 	ID            pgtype.UUID        `json:"id"`
 	LanguageID    string             `json:"language_id"`

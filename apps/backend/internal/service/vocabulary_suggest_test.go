@@ -44,10 +44,10 @@ func fakeClaude(t *testing.T, captured *map[string]any, answer string) *httptest
 }
 
 func newTestSuggester(dictURL string, claudeURL string) *VocabularySuggester {
-	var ai SuggestAI
+	var ai AIClient
 	if claudeURL != "" {
 		client := anthropic.NewClient(option.WithAPIKey("test"), option.WithBaseURL(claudeURL), option.WithMaxRetries(0))
-		ai = NewClaudeSuggestAI(&client, "")
+		ai = NewClaudeClient(&client, "")
 	}
 	s := NewVocabularySuggester(ai)
 	s.dictURL = dictURL + "/"
