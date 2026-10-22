@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { api, ApiError } from '@/lib/api'
@@ -140,7 +141,20 @@ export function ManualTradeForm({
   )
 
   return (
-    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-emerald-200">
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onCancel() // Esc đóng form
+      }}
+      className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-emerald-200"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-slate-700">
+          {trade ? t('manual.editTitle', { side: t(`manual.${trade.side}`), symbol: trade.symbol }) : t('manual.addTitle')}
+        </h2>
+        <CloseButton label={t('manual.close')} onClick={onCancel} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {field('executed_at', t('manual.date'), { type: 'datetime-local', required: true })}
         {field('symbol', t('manual.symbol'), { 'data-autofocus': trade ? undefined : true, required: true, maxLength: 30, placeholder: market === 'vn' ? 'FPT' : market === 'us' ? 'AAPL' : market === 'crypto' ? 'BTCUSDT' : 'EURUSD' })}

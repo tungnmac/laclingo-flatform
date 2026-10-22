@@ -692,6 +692,9 @@ export const vi = {
     other: 'Forex / Khác',
   },
   manual: {
+    close: 'Đóng',
+    addTitle: 'Ghi giao dịch',
+    editTitle: 'Sửa lệnh {side} {symbol}',
     status: 'Trạng thái',
     status_pending: 'Chờ khớp',
     status_filled: 'Đã khớp',

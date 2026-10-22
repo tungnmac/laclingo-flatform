@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { pnlColor } from '@/components/trading/labels'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { api, ApiError } from '@/lib/api'
@@ -172,16 +173,21 @@ export function ManualJournal({ market }: { market: ManualMarket }) {
           ))}
         </div>
         <div className="ml-auto flex gap-2">
-          <button onClick={() => setSettingsOpen((o) => !o)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">
+          <button onClick={() => setSettingsOpen((o) => !o)} aria-expanded={settingsOpen} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">
             ⚙️ {t('manual.settings')}
           </button>
-          <button onClick={() => setEditing('new')} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500">
-            {t('manual.add')}
+          {/* Bấm lại khi form "Ghi giao dịch" đang mở → đóng */}
+          <button
+            onClick={() => setEditing((e) => (e === 'new' ? null : 'new'))}
+            aria-expanded={editing === 'new'}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${editing === 'new' ? 'bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50' : 'bg-emerald-600 text-white hover:bg-emerald-500'}`}
+          >
+            {editing === 'new' ? `✕ ${t('manual.close')}` : t('manual.add')}
           </button>
         </div>
       </div>
 
-      {settingsOpen && overview && <LedgerSettings market={market} ledger={overview.ledger} onSaved={refresh} />}
+      {settingsOpen && overview && <LedgerSettings market={market} ledger={overview.ledger} onSaved={refresh} onClose={() => setSettingsOpen(false)} />}
 
       {editing && overview && (
         <ManualTradeForm
@@ -358,7 +364,7 @@ export function ManualJournal({ market }: { market: ManualMarket }) {
   )
 }
 
-function LedgerSettings({ market, ledger, onSaved }: { market: ManualMarket; ledger: LedgerDto; onSaved: () => void }) {
+function LedgerSettings({ market, ledger, onSaved, onClose }: { market: ManualMarket; ledger: LedgerDto; onSaved: () => void; onClose: () => void }) {
   const { t } = useT()
   const [form, setForm] = useState({
     currency: ledger.currency,
@@ -390,7 +396,18 @@ function LedgerSettings({ market, ledger, onSaved }: { market: ManualMarket; led
   }
 
   return (
-    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose()
+      }}
+      className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-slate-700">{t('manual.settings')}</h2>
+        <CloseButton label={t('manual.close')} onClick={onClose} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs font-medium text-slate-600">
           {t('manual.currency')}

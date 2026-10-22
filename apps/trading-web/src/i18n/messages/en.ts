@@ -692,6 +692,9 @@ export const en: Messages = {
     other: 'Forex / Other',
   },
   manual: {
+    close: 'Close',
+    addTitle: 'Log a trade',
+    editTitle: 'Edit {side} {symbol} order',
     status: 'Status',
     status_pending: 'Pending',
     status_filled: 'Filled',
