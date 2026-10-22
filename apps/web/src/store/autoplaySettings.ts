@@ -9,7 +9,7 @@ interface AutoplaySettingsState {
   repeatCount: number
   /** Số giây nghỉ giữa mỗi lần đọc */
   gapSeconds: number
-  /** Shadowing — mỗi lần lặp đọc từ xong thì đọc luôn nghĩa trước khi nghỉ */
+  /** Shadowing — mỗi lần lặp đọc từ xong thì đọc luôn nghĩa trước khi nghỉ; tắt thì chỉ đọc nghĩa 1 lần ở cuối */
   shadowMode: boolean
   loopMode: AutoplayLoopMode
   /** Tổng số vòng đọc cả danh sách khi loopMode = count */
