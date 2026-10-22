@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { bigint, boolean, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
+import { bigint, boolean, check, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -469,6 +469,10 @@ export const manualTrades = pgTable(
     price: money('price').notNull(),
     fee: money('fee').notNull().default('0'),
     tax: money('tax').notNull().default('0'),
+    // pending | filled | partial | unfilled | cancelled — chỉ phần ĐÃ KHỚP được tính vào giá vốn / lãi lỗ / thống kê
+    status: varchar('status', { length: 10 }).notNull().default('filled'),
+    filledQty: money('filled_qty'), // chỉ dùng khi partial (0 < filled_qty < qty)
+    amendedAt: timestamp('amended_at', { withTimezone: true }), // lần cuối sửa mã / chiều / khối lượng / giá
     executedAt: timestamp('executed_at', { withTimezone: true }).notNull(),
     reason: text('reason'),
     lesson: text('lesson'),
@@ -478,7 +482,15 @@ export const manualTrades = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('manual_trades_user_market_time_idx').on(t.userId, t.market, t.executedAt, t.id)],
+  (t) => [
+    index('manual_trades_user_market_time_idx').on(t.userId, t.market, t.executedAt, t.id),
+    check('manual_trades_status_check', sql`${t.status} in ('pending', 'filled', 'partial', 'unfilled', 'cancelled')`),
+    // khớp 1 phần ⇔ có filled_qty, và 0 < filled_qty < qty
+    check(
+      'manual_trades_partial_check',
+      sql`(${t.status} = 'partial') = (${t.filledQty} is not null) and (${t.filledQty} is null or (${t.filledQty} > 0 and ${t.filledQty} < ${t.qty}))`,
+    ),
+  ],
 )
 
 export type UserRow = typeof users.$inferSelect

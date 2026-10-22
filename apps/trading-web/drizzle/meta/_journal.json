@@ -92,6 +92,20 @@
       "when": 1792639999372,
       "tag": "0012_manual_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792647885983,
+      "tag": "0013_manual_order_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792648202401,
+      "tag": "0014_manual_status_checks",
+      "breakpoints": true
     }
   ]
 }

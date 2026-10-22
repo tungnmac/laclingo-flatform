@@ -1,0 +1,2 @@
+ALTER TABLE "manual_trades" ADD CONSTRAINT "manual_trades_status_check" CHECK ("manual_trades"."status" in ('pending', 'filled', 'partial', 'unfilled', 'cancelled'));--> statement-breakpoint
+ALTER TABLE "manual_trades" ADD CONSTRAINT "manual_trades_partial_check" CHECK (("manual_trades"."status" = 'partial') = ("manual_trades"."filled_qty" is not null) and ("manual_trades"."filled_qty" is null or ("manual_trades"."filled_qty" > 0 and "manual_trades"."filled_qty" < "manual_trades"."qty")));

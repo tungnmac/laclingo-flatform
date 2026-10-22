@@ -17,3 +17,18 @@ export function moneyFormat(currency: string, locale: Locale) {
   const plain = (value: string | number) => Number(value).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { maximumFractionDigits: 8 })
   return { amount, pnl, plain }
 }
+
+/**
+ * Số gõ tay theo cách viết của ngôn ngữ → chuỗi số chuẩn (dấu chấm thập phân), không hợp lệ → null.
+ * vi: "5.000" = 5000, "1,5" = 1.5 · en: "5,000" = 5000, "1.5" = 1.5. CK Việt Nam: chỉ số nguyên.
+ */
+export function parseQty(input: string, market: string, locale: Locale): string | null {
+  const s = input.trim().replace(/\s/g, '')
+  const [group, decimal] = locale === 'vi' ? ['.', ','] : [',', '.']
+  if (s.split(decimal).length > 2) return null
+  const normalized = s.split(group).join('').replace(decimal, '.')
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null
+  if (market === 'vn' && normalized.includes('.')) return null
+  return normalized
+}
+
