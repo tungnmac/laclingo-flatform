@@ -162,6 +162,7 @@ export function TaskRow({
               busy={busy}
               onToggle={(item) => void itemAction(() => dailyNoteService.updateItem(item.id, { done: !item.done }))}
               onDelete={(item) => void itemAction(() => dailyNoteService.deleteItem(item.id))}
+              onRename={(item, title) => itemAction(() => dailyNoteService.updateItem(item.id, { title }))}
               onReorder={(items) => {
                 // Hiện thứ tự mới ngay; đổi thứ tự không đổi tổng kết ngày → không tải lại note.
                 // Lỗi (vd danh sách vừa đổi ở tab khác) → run() tải lại note để về đúng dữ liệu server

@@ -105,7 +105,7 @@ const base: Record<Locale, Dictionary> = {
       listening: 'Luyện nghe',
       speaking: 'Luyện nói',
       missions: 'Nhiệm vụ',
-      daily: 'Nhật ký học',
+      daily: 'Nhật ký',
       blog: 'Blog',
       admin: 'Quản trị',
       logout: 'Đăng xuất',
