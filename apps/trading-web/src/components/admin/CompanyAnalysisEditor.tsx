@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import type { Locale } from '@/i18n/locales'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
@@ -45,6 +46,7 @@ export function CompanyAnalysisEditor({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const formRef = useFocusOnOpen<HTMLFormElement>(form ? `${company.id}:${locale}` : null) // nội dung tải xong → cuộn tới & focus
 
   useEffect(() => {
     let alive = true
@@ -88,7 +90,7 @@ export function CompanyAnalysisEditor({
   if (!form) return error !== null ? <p className="text-sm text-rose-600">{errorMessage(error, t)}</p> : <p className="text-sm text-slate-400">{t('common.loading')}</p>
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold">
           {company.symbol} · {locale.toUpperCase()}

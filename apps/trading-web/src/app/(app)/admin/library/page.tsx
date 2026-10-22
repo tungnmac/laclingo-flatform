@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Checkbox, Field, inputClass } from '@/components/admin/fields'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { LOCALES, type Locale } from '@/i18n/locales'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
@@ -48,6 +49,8 @@ function BooksAdmin() {
   const [editing, setEditing] = useState<{ id: string | null; form: BookForm } | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
+  // chọn Sửa 1 dòng / Tạo mới → cuộn tới form & focus (theo id, không theo từng lần gõ)
+  const formRef = useFocusOnOpen<HTMLFormElement>(editing ? (editing.id ?? 'new') : null)
 
   const load = useCallback(() => {
     api<AdminBookDto[]>('/api/admin/books').then(setList, setError)
@@ -112,7 +115,7 @@ function BooksAdmin() {
         </ul>
       </section>
       {editing && (
-        <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           <Field label={t('adminLibrary.bookTitle')}>
             <input value={editing.form.title} onChange={(e) => set({ title: e.target.value })} className={inputClass} />
           </Field>
@@ -190,6 +193,8 @@ function GlossaryAdmin() {
   const [editing, setEditing] = useState<{ id: string | null; form: TermForm } | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [saved, setSaved] = useState(false)
+  // chọn Sửa 1 dòng / Tạo mới → cuộn tới form & focus (theo id, không theo từng lần gõ)
+  const formRef = useFocusOnOpen<HTMLFormElement>(editing ? (editing.id ?? 'new') : null)
 
   const [reload, setReload] = useState(0)
   const load = useCallback(() => setReload((n) => n + 1), [])
@@ -282,7 +287,7 @@ function GlossaryAdmin() {
         </ul>
       </section>
       {editing && (
-        <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           <Field label={t('adminLibrary.term')}>
             <input value={editing.form.term} onChange={(e) => set({ term: e.target.value })} className={inputClass} />
           </Field>

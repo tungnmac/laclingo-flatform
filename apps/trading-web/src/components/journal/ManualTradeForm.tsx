@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import { ORDER_STATUSES, isExecuted, type ManualMarket, type OrderStatus } from '@/server/journal/manual-markets'
@@ -78,6 +79,7 @@ export function ManualTradeForm({
   const [autoFee, setAutoFee] = useState(!trade || !isExecuted(trade.status))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const formRef = useFocusOnOpen<HTMLFormElement>(trade?.id ?? 'new') // mở form (ghi mới / sửa 1 dòng) → cuộn tới & focus
 
   const value = Number(form.qty) * Number(form.price)
   /** Phí = giá trị × % phí; thuế chỉ khi bán = giá trị × % thuế (theo cài đặt sổ) */
@@ -138,10 +140,10 @@ export function ManualTradeForm({
   )
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-emerald-200">
+    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-emerald-200">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {field('executed_at', t('manual.date'), { type: 'datetime-local', required: true })}
-        {field('symbol', t('manual.symbol'), { required: true, maxLength: 30, placeholder: market === 'vn' ? 'FPT' : market === 'us' ? 'AAPL' : market === 'crypto' ? 'BTCUSDT' : 'EURUSD' })}
+        {field('symbol', t('manual.symbol'), { 'data-autofocus': trade ? undefined : true, required: true, maxLength: 30, placeholder: market === 'vn' ? 'FPT' : market === 'us' ? 'AAPL' : market === 'crypto' ? 'BTCUSDT' : 'EURUSD' })}
         <label className="block text-xs font-medium text-slate-600">
           {t('manual.side')}
           <select value={form.side} onChange={(e) => set({ side: e.target.value as Form['side'] })} className={inputClass}>
@@ -162,7 +164,7 @@ export function ManualTradeForm({
         </label>
         {form.status === 'partial' && field('filled_qty', t('manual.filledQty'), { inputMode: 'decimal', required: true })}
         <div>
-          {field('price', t('manual.price'), { inputMode: 'decimal', required: true })}
+          {field('price', t('manual.price'), { 'data-autofocus': trade ? true : undefined, inputMode: 'decimal', required: true })}
           {market === 'vn' && <p className="mt-0.5 text-[11px] text-slate-400">{t('manual.priceHintVn')}</p>}
         </div>
         {field('fee', `${t('manual.fee')} (${ledger.currency})`, { inputMode: 'decimal', onInput: () => setAutoFee(false) })}
