@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import { CryptoMarket } from '@/components/markets/CryptoMarket'
+import { VnIndexStrip } from '@/components/vn/VnIndexStrip'
 import { VnStockList } from '@/components/vn/VnStockList'
 import { useT } from '@/i18n/I18nProvider'
 import { MARKET_TABS, type MarketTab } from './market-tabs'
@@ -35,9 +36,12 @@ export function MarketsTabs({ tab }: { tab: MarketTab }) {
       {tab === 'crypto' && <CryptoMarket />}
       {tab === 'vn' && (
         // VnStockList đọc useSearchParams → cần Suspense
-        <Suspense fallback={<p className="py-10 text-center text-slate-400">{t('common.loading')}</p>}>
-          <VnStockList />
-        </Suspense>
+        <>
+          <VnIndexStrip />
+          <Suspense fallback={<p className="py-10 text-center text-slate-400">{t('common.loading')}</p>}>
+            <VnStockList />
+          </Suspense>
+        </>
       )}
       {(tab === 'us' || tab === 'other') && (
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">

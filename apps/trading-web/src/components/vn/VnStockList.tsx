@@ -8,7 +8,12 @@ import { api } from '@/lib/api'
 import { DASH, formatNumber } from '@/lib/company-format'
 import { errorMessage } from '@/lib/error-message'
 import type { VnStockListDto } from '@/server/vn/repo'
-import { VN_EXCHANGES, type VnExchange } from '@/server/vn/types'
+import { VN_EXCHANGES } from '@/server/vn/types'
+
+/** Nhóm mã trên URL (?group=): không có = VN30 (mặc định), HOSE / HNX / UPCOM, all = tất cả */
+const GROUPS = ['VN30', ...VN_EXCHANGES, 'all'] as const
+type Group = (typeof GROUPS)[number]
+const DEFAULT_GROUP: Group = 'VN30'
 
 /** Danh sách cổ phiếu VN (tab "CK Việt Nam" của trang Thị trường) — bộ lọc nằm trên URL, giữ các tham số khác (VD ?tab=vn) */
 export function VnStockList() {
@@ -16,7 +21,7 @@ export function VnStockList() {
   const router = useRouter()
   const pathname = usePathname()
   const { t, locale } = useT()
-  const exchange = VN_EXCHANGES.find((e) => e === query.get('exchange')) ?? null
+  const group: Group = GROUPS.find((g) => g === query.get('group')) ?? DEFAULT_GROUP
   const q = query.get('q') ?? ''
   const page = Math.max(1, Number(query.get('page')) || 1)
   const [text, setText] = useState(q)
@@ -24,12 +29,12 @@ export function VnStockList() {
   const [error, setError] = useState<unknown>(null)
   const [retry, setRetry] = useState(0)
 
-  const go = (next: { exchange?: VnExchange | null; q?: string; page?: number }) => {
+  const go = (next: { group?: Group; q?: string; page?: number }) => {
     const p = new URLSearchParams(query.toString())
-    for (const k of ['exchange', 'q', 'page']) p.delete(k)
-    const ex = next.exchange === undefined ? exchange : next.exchange
+    for (const k of ['group', 'q', 'page']) p.delete(k)
+    const g = next.group ?? group
     const qq = next.q ?? q
-    if (ex) p.set('exchange', ex)
+    if (g !== DEFAULT_GROUP) p.set('group', g)
     if (qq) p.set('q', qq)
     if ((next.page ?? 1) > 1) p.set('page', String(next.page))
     router.replace(`${pathname}${p.size ? `?${p}` : ''}`, { scroll: false })
@@ -38,18 +43,19 @@ export function VnStockList() {
   // URL đổi từ ngoài (back/forward, bấm menu) → ô tìm kiếm theo URL; giữ nguyên khi chỉ khác khoảng trắng đang gõ
   useEffect(() => setText((cur) => (cur.trim() === q ? cur : q)), [q])
 
-  // Gõ tìm kiếm: chờ 300 ms rồi mới cập nhật URL (về trang 1). exchange trong deps: đổi sàn khi đang chờ → hẹn lại với sàn mới
+  // Gõ tìm kiếm: chờ 300 ms rồi mới cập nhật URL (về trang 1). group trong deps: đổi nhóm khi đang chờ → hẹn lại với nhóm mới
   useEffect(() => {
     if (text.trim() === q) return
     const id = setTimeout(() => go({ q: text.trim() }), 300)
     return () => clearTimeout(id)
-  }, [text, exchange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [text, group]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let alive = true
     setError(null)
     const p = new URLSearchParams({ page: String(page) })
-    if (exchange) p.set('exchange', exchange)
+    if (group === 'VN30') p.set('index', 'VN30')
+    else if (group !== 'all') p.set('exchange', group)
     if (q) p.set('q', q)
     api<VnStockListDto>(`/api/vn/stocks?${p}`).then(
       (d) => alive && setData(d),
@@ -58,7 +64,7 @@ export function VnStockList() {
     return () => {
       alive = false
     }
-  }, [exchange, q, page, locale, retry])
+  }, [group, q, page, locale, retry])
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1
   const tab = (active: boolean) =>
@@ -69,12 +75,9 @@ export function VnStockList() {
       <p className="text-sm text-slate-500">{t('vnStocks.subtitle')}</p>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2" role="tablist">
-          <button role="tab" aria-selected={!exchange} onClick={() => go({ exchange: null })} className={tab(!exchange)}>
-            {t('vnStocks.allExchanges')}
-          </button>
-          {VN_EXCHANGES.map((e) => (
-            <button key={e} role="tab" aria-selected={e === exchange} onClick={() => go({ exchange: e })} className={tab(e === exchange)}>
-              {e}
+          {GROUPS.map((g) => (
+            <button key={g} role="tab" aria-selected={g === group} onClick={() => go({ group: g })} className={tab(g === group)}>
+              {g === 'all' ? t('vnStocks.allExchanges') : g}
             </button>
           ))}
         </div>
@@ -101,8 +104,17 @@ export function VnStockList() {
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{t('vnStocks.notSynced')}</p>
       ) : !data ? (
         error === null && <p className="py-10 text-center text-slate-400">{t('common.loading')}</p>
+      ) : !data.basket_synced ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{t('vnStocks.basketNotSynced')}</p>
       ) : data.items.length === 0 ? (
-        <p className="py-10 text-center text-slate-500">{t('vnStocks.noResults')}</p>
+        <div className="space-y-2 py-10 text-center text-slate-500">
+          <p>{t('vnStocks.noResults')}</p>
+          {group !== 'all' && q && (
+            <button onClick={() => go({ group: 'all' })} className="text-sm font-semibold text-emerald-700 hover:underline">
+              {t('vnStocks.searchAll')}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
           <table className="w-full text-sm">

@@ -1,0 +1,47 @@
+{
+ "message": "Success",
+ "status": 200,
+ "totalRecord": 2,
+ "data": [
+  {
+   "IndexCode": "VN30",
+   "IndexName": "VN30",
+   "Exchange": "HOSE",
+   "TotalSymbolNo": "30",
+   "IndexComponent": [
+    {
+     "Isin": "VN000000ACB6",
+     "StockSymbol": "ACB"
+    },
+    {
+     "Isin": "VN000000FPT1",
+     "StockSymbol": "FPT"
+    },
+    {
+     "Isin": "VN000000VCB4",
+     "StockSymbol": "vcb"
+    },
+    {
+     "Isin": "VN000000FPT1",
+     "StockSymbol": "FPT"
+    },
+    {
+     "Isin": "",
+     "StockSymbol": ""
+    }
+   ]
+  },
+  {
+   "IndexCode": "VN100",
+   "IndexName": "VN100",
+   "Exchange": "HOSE",
+   "TotalSymbolNo": "100",
+   "IndexComponent": [
+    {
+     "Isin": "VN000000HPG4",
+     "StockSymbol": "HPG"
+    }
+   ]
+  }
+ ]
+}

@@ -2,10 +2,10 @@ import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, sql } from 'dri
 import type { z } from 'zod'
 import type { Locale } from '@/i18n/locales'
 import { db } from '../db/client'
-import { vnFinancials, vnFinFields, vnPrices, vnProfiles, vnStocks, vnSyncRuns } from '../db/schema'
+import { vnFinancials, vnFinFields, vnIndexMembers, vnIndexPrices, vnPrices, vnProfiles, vnStocks, vnSyncRuns } from '../db/schema'
 import { HttpError } from '../http'
 import { searchWords } from '../library/validation'
-import type { VnProfile, VnStatement } from './types'
+import { VN_INDEX_LABELS, VN_INDEXES, type VnIndexCode, type VnProfile, type VnStatement } from './types'
 import { VN_CANDLE_RANGES, VN_PAGE_SIZE, type vnListQuerySchema, type vnStatementQuerySchema } from './validation'
 
 const DAY = 86_400_000
@@ -27,16 +27,18 @@ export interface VnStockListDto {
   page: number
   page_size: number
   synced: boolean // false = chưa chạy đồng bộ danh mục lần nào
+  basket_synced: boolean // lọc theo rổ (VN30) mà chưa đồng bộ thành phần rổ → false
 }
 
 export async function listVnStocks(locale: Locale, f: z.infer<typeof vnListQuerySchema>): Promise<VnStockListDto> {
   const s = vnStocks
   const words = searchWords(f.q)
-  const where = and(eq(s.active, true), f.exchange ? eq(s.exchange, f.exchange) : undefined, ...words.map((w) => ilike(s.searchText, `%${w}%`)))
+  const inBasket = f.index ? inArray(s.symbol, db.select({ symbol: vnIndexMembers.symbol }).from(vnIndexMembers).where(eq(vnIndexMembers.indexCode, f.index))) : undefined
+  const where = and(eq(s.active, true), f.exchange ? eq(s.exchange, f.exchange) : undefined, inBasket, ...words.map((w) => ilike(s.searchText, `%${w}%`)))
   // Gõ đúng mã (FPT) → mã đó lên đầu, rồi các mã bắt đầu bằng từ khoá, rồi theo bảng chữ cái
   const q = words.join('').toUpperCase()
   const order = q ? [sql`case when ${s.symbol} = ${q} then 0 when ${s.symbol} like ${`${q}%`} then 1 else 2 end`, asc(s.symbol)] : [asc(s.symbol)]
-  const [[{ total }], rows, [{ any }]] = await Promise.all([
+  const [[{ total }], rows, [{ any }], [{ members }]] = await Promise.all([
     db.select({ total: count() }).from(s).where(where),
     db
       .select({
@@ -54,6 +56,7 @@ export async function listVnStocks(locale: Locale, f: z.infer<typeof vnListQuery
       .limit(VN_PAGE_SIZE)
       .offset((f.page - 1) * VN_PAGE_SIZE),
     db.select({ any: count() }).from(s),
+    f.index ? db.select({ members: count() }).from(vnIndexMembers).where(eq(vnIndexMembers.indexCode, f.index)) : Promise.resolve([{ members: 1 }]),
   ])
   return {
     items: rows.map((r) => {
@@ -73,6 +76,7 @@ export async function listVnStocks(locale: Locale, f: z.infer<typeof vnListQuery
     page: f.page,
     page_size: VN_PAGE_SIZE,
     synced: any > 0,
+    basket_synced: members > 0,
   }
 }
 
@@ -213,23 +217,68 @@ export async function getVnCandles(symbol: string, range: keyof typeof VN_CANDLE
   }))
 }
 
+// ── Chỉ số (VN-Index, VN30…) ──
+
+export interface VnIndexDto {
+  code: VnIndexCode
+  name: string
+  value: number | null
+  change: number | null // điểm, so với phiên trước
+  change_pct: number | null // %
+  date: string | null
+}
+
+/** Giá trị mới nhất + thay đổi so với phiên trước của từng chỉ số (chưa đồng bộ → null) */
+export async function listVnIndexes(): Promise<VnIndexDto[]> {
+  const rows = await db.execute<{ index_code: string; date: string; value: string; rn: number }>(sql`
+    select index_code, date::text as date, value, rn from (
+      select ${vnIndexPrices.indexCode} as index_code, ${vnIndexPrices.date} as date, ${vnIndexPrices.value} as value,
+             row_number() over (partition by ${vnIndexPrices.indexCode} order by ${vnIndexPrices.date} desc) as rn
+      from ${vnIndexPrices}) t
+    where rn <= 2`)
+  return VN_INDEXES.map((code) => {
+    const mine = rows.rows.filter((r) => r.index_code === code).sort((a, b) => Number(a.rn) - Number(b.rn))
+    const now = mine[0] ? Number(mine[0].value) : null
+    const prev = mine[1] ? Number(mine[1].value) : null
+    const change = now !== null && prev !== null ? now - prev : null
+    return { code, name: VN_INDEX_LABELS[code], value: now, change, change_pct: change !== null && prev ? (change / prev) * 100 : null, date: mine[0]?.date ?? null }
+  })
+}
+
+export interface VnIndexPointDto {
+  time: number // unix giây (00:00 UTC của ngày giao dịch)
+  value: number
+}
+
+export async function getVnIndexHistory(code: VnIndexCode, range: keyof typeof VN_CANDLE_RANGES): Promise<VnIndexPointDto[]> {
+  const since = new Date(Date.now() - VN_CANDLE_RANGES[range] * DAY).toISOString().slice(0, 10)
+  const rows = await db
+    .select({ date: vnIndexPrices.date, value: vnIndexPrices.value })
+    .from(vnIndexPrices)
+    .where(and(eq(vnIndexPrices.indexCode, code), gte(vnIndexPrices.date, since)))
+    .orderBy(asc(vnIndexPrices.date))
+  return rows.map((r) => ({ time: Date.parse(`${r.date}T00:00:00Z`) / 1000, value: Number(r.value) }))
+}
+
 // ── Trạng thái đồng bộ (admin) ──
 
 export interface VnSyncStatusDto {
-  counts: { stocks: number; prices: number; profiles: number; financial_symbols: number; last_price_date: string | null }
+  counts: { stocks: number; prices: number; profiles: number; financial_symbols: number; last_price_date: string | null; vn30_members: number; index_prices: number }
   runs: { id: string; job: string; status: string; processed: number; failed: number; message: string | null; started_at: string; finished_at: string | null }[]
 }
 
 export async function getVnSyncStatus(): Promise<VnSyncStatusDto> {
-  const [[stocks], [prices], [profiles], [fin], runs] = await Promise.all([
+  const [[stocks], [prices], [profiles], [fin], runs, [vn30], [idx]] = await Promise.all([
     db.select({ n: count() }).from(vnStocks).where(eq(vnStocks.active, true)),
     db.select({ n: count(), last: sql<string | null>`max(${vnPrices.date})` }).from(vnPrices),
     db.select({ n: count() }).from(vnProfiles),
     db.select({ n: sql<number>`count(distinct ${vnFinancials.symbol})::int` }).from(vnFinancials),
     db.select().from(vnSyncRuns).orderBy(desc(vnSyncRuns.startedAt)).limit(30),
+    db.select({ n: count() }).from(vnIndexMembers).where(eq(vnIndexMembers.indexCode, 'VN30')),
+    db.select({ n: count() }).from(vnIndexPrices),
   ])
   return {
-    counts: { stocks: stocks.n, prices: prices.n, profiles: profiles.n, financial_symbols: fin.n, last_price_date: prices.last },
+    counts: { stocks: stocks.n, prices: prices.n, profiles: profiles.n, financial_symbols: fin.n, last_price_date: prices.last, vn30_members: vn30.n, index_prices: idx.n },
     runs: runs.map((r) => ({
       id: r.id,
       job: r.job,

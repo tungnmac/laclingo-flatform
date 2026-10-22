@@ -1,0 +1,28 @@
+{
+ "message": "Success",
+ "status": 200,
+ "totalRecord": 3,
+ "data": [
+  {
+   "Indexcode": "VN30",
+   "IndexValue": "1385.42",
+   "Trading Date": "21/10/2026",
+   "Change": "5.12",
+   "RatioChange": "0.37",
+   "Totalmatchvol": "210500000",
+   "Totalmatchval": "6123000000000",
+   "TypeIndex": "Main",
+   "IndexName": "VN30",
+   "Exchange": "HOSE"
+  },
+  {
+   "IndexId": "VN30",
+   "IndexValue": 1391.2,
+   "TradingDate": "22/10/2026",
+   "TotalMatchVol": 198000000,
+   "TotalMatchVal": 5870000000000,
+   "Exchange": "HOSE"
+  },
+  { "IndexId": "VN30", "IndexValue": "", "TradingDate": "23/10/2026" }
+ ]
+}
