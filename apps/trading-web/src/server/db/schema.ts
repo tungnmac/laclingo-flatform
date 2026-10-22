@@ -559,6 +559,30 @@ export const vnFinFields = pgTable(
   (t) => [primaryKey({ columns: [t.statement, t.field] })],
 )
 
+/** Thành phần rổ chỉ số (VN30) — thay cả rổ mỗi lần đồng bộ (rổ được cơ cấu 2 lần/năm) */
+export const vnIndexMembers = pgTable(
+  'vn_index_members',
+  {
+    indexCode: varchar('index_code', { length: 20 }).notNull(),
+    symbol: varchar('symbol', { length: 20 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.indexCode, t.symbol] })],
+)
+
+/** Giá trị đóng cửa theo phiên của chỉ số (VNIndex, VN30, HNXIndex, UpcomIndex) */
+export const vnIndexPrices = pgTable(
+  'vn_index_prices',
+  {
+    indexCode: varchar('index_code', { length: 20 }).notNull(),
+    date: date('date').notNull(),
+    value: numeric('value', { precision: 14, scale: 4 }).notNull(),
+    volume: numeric('volume', { precision: 24, scale: 0 }),
+    turnover: numeric('turnover', { precision: 28, scale: 0 }),
+  },
+  (t) => [primaryKey({ columns: [t.indexCode, t.date] })],
+)
+
 /** Lịch sử chạy job đồng bộ (admin theo dõi) */
 export const vnSyncRuns = pgTable(
   'vn_sync_runs',

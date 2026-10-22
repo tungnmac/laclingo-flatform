@@ -1,4 +1,4 @@
-import type { VnDailyBar, VnExchange, VnFieldLabel, VnProfile, VnSecurity, VnStatement, VnStatementPeriod } from './types'
+import type { VnDailyBar, VnExchange, VnIndexBar, VnFieldLabel, VnProfile, VnSecurity, VnStatement, VnStatementPeriod } from './types'
 
 type Raw = Record<string, unknown>
 const obj = (v: unknown): Raw => (v && typeof v === 'object' ? (v as Raw) : {})
@@ -52,6 +52,50 @@ export function mapDailyOhlc(json: unknown): VnDailyBar[] {
     out.push({ symbol, date, open, high, low, close, volume: num(x.Volume) ?? 0, value: num(x.Value) })
   }
   return out
+}
+
+/** Khoá không phân biệt hoa thường / khoảng trắng — tài liệu SSI ghi "Trading Date", "Totalmatchvol", ví dụ lại là "TradingDate", "TotalMatchVol" */
+function loose(x: Raw): (...names: string[]) => unknown {
+  const m = new Map(Object.entries(x).map(([k, v]) => [k.replace(/\s+/g, '').toLowerCase(), v]))
+  return (...names) => names.map((n) => m.get(n.toLowerCase())).find((v) => v !== undefined && v !== null && v !== '')
+}
+
+/** SSI IndexComponents → mã thành phần của rổ (VD 30 mã VN30); chỉ lấy dòng đúng mã chỉ số (nguồn có thể trả nhiều rổ) */
+export function mapIndexComponents(json: unknown, index: string): string[] {
+  const out = new Set<string>()
+  for (const r of (obj(json).data as unknown[]) ?? []) {
+    const f = loose(obj(r))
+    if (String(f('IndexCode') ?? '').toLowerCase() !== index.toLowerCase()) continue
+    const comps = f('IndexComponent')
+    for (const c of Array.isArray(comps) ? comps : []) {
+      const symbol = str(loose(obj(c))('StockSymbol', 'Symbol'))?.toUpperCase()
+      if (symbol && /^[A-Z0-9]{2,20}$/.test(symbol)) out.add(symbol)
+    }
+  }
+  return [...out]
+}
+
+/** SSI DailyIndex → giá trị đóng cửa từng phiên của chỉ số (bỏ dòng thiếu ngày/giá trị) */
+export function mapDailyIndex(json: unknown): VnIndexBar[] {
+  const out: VnIndexBar[] = []
+  for (const r of (obj(json).data as unknown[]) ?? []) {
+    const f = loose(obj(r))
+    const date = ssiDate(f('TradingDate'))
+    const value = num(f('IndexValue'))
+    if (!date || value === null || value <= 0) continue
+    out.push({ date, value, volume: num(f('TotalMatchVol')), turnover: num(f('TotalMatchVal')) })
+  }
+  return out
+}
+
+/** SSI IndexList → mã chỉ số đúng như nguồn dùng */
+export function mapIndexList(json: unknown): string[] {
+  return ((obj(json).data as unknown[]) ?? []).map((r) => str(loose(obj(r))('IndexCode'))).filter((c): c is string => c !== null)
+}
+
+/** Giữ 1 dòng mỗi ngày (dòng sau cùng) — tránh "ON CONFLICT … affect row a second time" khi nguồn trả trùng ngày */
+export function dedupeByDate<T extends { date: string }>(rows: T[]): T[] {
+  return [...new Map(rows.map((r) => [r.date, r])).values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
 /** Entity HTML có tên (Latin-1 + dấu câu thường gặp) → mã ký tự; tiếng Việt dùng nhiều &ocirc; &agrave;… */

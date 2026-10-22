@@ -1,8 +1,8 @@
 import { ssiConfig } from '../env'
 import { fetchJson, SourceError, Throttle } from './http'
-import { mapDailyOhlc, mapSecurities, toSsiDate } from './mappers'
+import { dedupeByDate, mapDailyIndex, mapDailyOhlc, mapIndexComponents, mapIndexList, mapSecurities, toSsiDate } from './mappers'
 import { dateWindows } from './symbols'
-import type { VnDailyBar, VnExchange, VnSecurity } from './types'
+import type { VnBasket, VnDailyBar, VnExchange, VnIndexBar, VnSecurity } from './types'
 
 const PAGE_SIZE = 1000 // lớn nhất SSI cho phép
 const MAX_PAGES = 10 // pageIndex 1–10 theo tài liệu
@@ -65,7 +65,7 @@ export function createSsiClient(perMinute = Number(process.env.SSI_RPM) || 30) {
   async function dailyBars(symbol: string, from: string, to: string): Promise<VnDailyBar[]> {
     const out: VnDailyBar[] = []
     for (const [start, end] of dateWindows(from, to)) out.push(...(await dailyBarsWindow(symbol, start, end)))
-    return out.sort((a, b) => a.date.localeCompare(b.date))
+    return dedupeByDate(out)
   }
 
   async function dailyBarsWindow(symbol: string, from: string, to: string): Promise<VnDailyBar[]> {
@@ -85,5 +85,31 @@ export function createSsiClient(perMinute = Number(process.env.SSI_RPM) || 30) {
     return out
   }
 
-  return { securities, dailyBars }
+  /** Mã thành phần của rổ chỉ số (VN30…) */
+  async function indexComponents(index: VnBasket): Promise<string[]> {
+    // tên tham số theo bảng tài liệu ("Indexcode"; ví dụ của SSI viết "indexCode" — binder .NET không phân biệt hoa thường)
+    return mapIndexComponents(await get('IndexComponents', { Indexcode: index, pageIndex: '1', pageSize: '100' }), index)
+  }
+
+  /** Mã chỉ số SSI đang dùng (HOSE + HNX) — để khớp đúng cách viết hoa/thường */
+  async function indexList(): Promise<string[]> {
+    const out: string[] = []
+    for (const exchange of ['HOSE', 'HNX']) out.push(...mapIndexList(await get('IndexList', { exchange, pageIndex: '1', pageSize: '1000' })))
+    return out
+  }
+
+  /** Giá trị đóng cửa từng phiên của chỉ số trong [from, to], theo đoạn ≤ 1 năm, tăng dần */
+  async function dailyIndex(indexId: string, from: string, to: string): Promise<VnIndexBar[]> {
+    const out: VnIndexBar[] = []
+    for (const [start, end] of dateWindows(from, to)) {
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const json = await get('DailyIndex', { indexId, fromDate: toSsiDate(start), toDate: toSsiDate(end), pageIndex: String(page), pageSize: String(PAGE_SIZE), ascending: 'true' })
+        out.push(...mapDailyIndex(json))
+        if (rawCount(json) < PAGE_SIZE) break
+      }
+    }
+    return dedupeByDate(out)
+  }
+
+  return { securities, dailyBars, indexComponents, indexList, dailyIndex }
 }

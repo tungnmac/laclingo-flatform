@@ -153,8 +153,8 @@ trading-dev:
 trading-test:
 	cd apps/trading-web && npm test
 
-# Đồng bộ dữ liệu cổ phiếu VN vào trading_db. VD: make vn-sync job=symbols | prices | profiles | financials | all
-# Thêm tham số: make vn-sync job=prices args="--symbols FPT,VNM"
+# Đồng bộ dữ liệu cổ phiếu VN vào trading_db. VD: make vn-sync job=symbols | indexes | prices | index-prices | profiles | financials | all
+# Thêm tham số: make vn-sync job=prices args="--symbols FPT,VNM"  ·  chỉ VN30: args="--vn30"
 vn-sync:
 	@test -n "$(job)" || (echo "❌ Thiếu job. VD: make vn-sync job=symbols" && exit 1)
 	cd apps/trading-web && npm run vn:sync -- $(job) $(args)

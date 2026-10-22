@@ -6,9 +6,26 @@ import ratios from './__fixtures__/vietcap-ratios-fpt.json'
 import shareholders from './__fixtures__/vietcap-shareholders-fpt.json'
 import ohlc from './__fixtures__/ssi-daily-ohlc.json'
 import securities from './__fixtures__/ssi-securities.json'
-import { htmlToText, mapDailyOhlc, mapFieldLabels, mapProfile, mapRatios, mapSecurities, mapStatement, ssiDate, toSsiDate } from './mappers'
+import dailyIndex from './__fixtures__/ssi-daily-index.json'
+import indexComponents from './__fixtures__/ssi-index-components.json'
+import { dedupeByDate, htmlToText, mapDailyIndex, mapDailyOhlc, mapFieldLabels, mapIndexComponents, mapIndexList, mapProfile, mapRatios, mapSecurities, mapStatement, ssiDate, toSsiDate } from './mappers'
 
 describe('SSI mappers', () => {
+  it('maps index components (dedup, uppercase, skip blanks)', () => {
+    expect(mapIndexComponents(indexComponents, 'VN30')).toEqual(['ACB', 'FPT', 'VCB']) // bỏ rổ VN100 trả kèm
+    expect(mapIndexComponents(indexComponents, 'vn100')).toEqual(['HPG'])
+    expect(mapIndexComponents({ data: null }, 'VN30')).toEqual([])
+  })
+  it('lists index codes and dedupes by date', () => {
+    expect(mapIndexList({ data: [{ IndexCode: 'VNINDEX' }, { indexcode: 'VN30' }, { IndexCode: '' }] })).toEqual(['VNINDEX', 'VN30'])
+    expect(dedupeByDate([{ date: '2026-10-22', v: 1 }, { date: '2026-10-21', v: 2 }, { date: '2026-10-22', v: 3 }])).toEqual([{ date: '2026-10-21', v: 2 }, { date: '2026-10-22', v: 3 }])
+  })
+  it('maps daily index values whichever field casing SSI uses', () => {
+    expect(mapDailyIndex(dailyIndex)).toEqual([
+      { date: '2026-10-21', value: 1385.42, volume: 210500000, turnover: 6123000000000 },
+      { date: '2026-10-22', value: 1391.2, volume: 198000000, turnover: 5870000000000 },
+    ])
+  })
   it('parses dd/mm/yyyy dates strictly', () => {
     expect(ssiDate('21/10/2026')).toBe('2026-10-21')
     expect(ssiDate('31/02/2026')).toBeNull()

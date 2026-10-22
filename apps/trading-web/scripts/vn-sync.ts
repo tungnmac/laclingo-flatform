@@ -1,10 +1,12 @@
 // Đồng bộ dữ liệu cổ phiếu Việt Nam vào DB (web chỉ đọc DB).
 //   npm run vn:sync -- symbols                    danh mục mã HOSE/HNX/UPCOM (SSI — chính thức)
+//   npm run vn:sync -- indexes                    thành phần rổ VN30 (SSI)
 //   npm run vn:sync -- prices [--from 2021-01-01] nến ngày, chỉ tải phần còn thiếu (SSI)
+//   npm run vn:sync -- index-prices [--from …]    giá trị đóng cửa VN-Index, VN30, HNX-Index, UPCOM-Index (SSI)
 //   npm run vn:sync -- profiles [--force]         hồ sơ công ty (Vietcap — KHÔNG chính thức, cần VN_UNOFFICIAL_SOURCES=1)
 //   npm run vn:sync -- financials [--force]       BCTC năm/quý + chỉ số (Vietcap — như trên)
-//   npm run vn:sync -- all                        lần lượt cả 4
-// Tuỳ chọn: --symbols FPT,VNM (chỉ các mã này) · --limit 50 (thử ít mã) · --force (bỏ qua mốc 30 ngày)
+//   npm run vn:sync -- all                        lần lượt tất cả
+// Tuỳ chọn: --symbols FPT,VNM (chỉ các mã này) · --vn30 (chỉ 30 mã VN30 — chạy `indexes` trước) · --limit 50 (thử ít mã) · --force (bỏ qua mốc 30 ngày)
 // Giới hạn tốc độ: SSI_RPM (mặc định 30/phút), VIETCAP_RPM (20/phút). Lần đầu với ~1.600 mã mất vài giờ — chạy lại được, tự tiếp tục.
 
 try {
@@ -15,7 +17,7 @@ try {
 
 export {}
 
-const JOBS = ['symbols', 'prices', 'profiles', 'financials'] as const
+const JOBS = ['symbols', 'indexes', 'prices', 'index-prices', 'profiles', 'financials'] as const
 type Job = (typeof JOBS)[number]
 const REFRESH_DAYS = 30
 const DAY = 86_400_000
@@ -34,7 +36,7 @@ function args() {
   }
   const jobs: Job[] = cmd === 'all' ? [...JOBS] : JOBS.includes(cmd as Job) ? [cmd as Job] : []
   if (jobs.length === 0) {
-    console.error('Cách dùng: npm run vn:sync -- <symbols|prices|profiles|financials|all> [--symbols A,B] [--from YYYY-MM-DD] [--limit N] [--force]')
+    console.error('Cách dùng: npm run vn:sync -- <symbols|indexes|prices|index-prices|profiles|financials|all> [--symbols A,B | --vn30] [--from YYYY-MM-DD] [--limit N] [--force]')
     process.exit(1)
   }
   const from = opt('from') ?? new Date(Date.now() - 5 * 365 * DAY).toISOString().slice(0, 10)
@@ -45,6 +47,7 @@ function args() {
     limit: opt('limit') === undefined ? undefined : positiveInt(opt('limit')!, '--limit'),
     from,
     force: rest.includes('--force'),
+    vn30: rest.includes('--vn30'),
   }
 }
 
@@ -56,7 +59,7 @@ async function main() {
   const { createSsiClient } = await import('../src/server/vn/ssi')
   const { createVietcapClient } = await import('../src/server/vn/vietcap')
   const { isStock, isStockOrEtf, lastClosedSession, priceRangeStart, stockSearchText } = await import('../src/server/vn/symbols')
-  const { VN_EXCHANGES, VN_STATEMENTS } = await import('../src/server/vn/types')
+  const { VN_BASKETS, VN_EXCHANGES, VN_INDEX_ALIASES, VN_INDEXES, VN_STATEMENTS } = await import('../src/server/vn/types')
 
   let stopping = false
   process.on('SIGINT', () => {
@@ -93,6 +96,11 @@ async function main() {
 
   async function targets(): Promise<string[]> {
     if (a.symbols) return a.symbols
+    if (a.vn30) {
+      const rows = await db.select({ symbol: s.vnIndexMembers.symbol }).from(s.vnIndexMembers).where(eq(s.vnIndexMembers.indexCode, 'VN30')).orderBy(asc(s.vnIndexMembers.symbol))
+      if (rows.length === 0) throw new Error('Chưa có danh sách VN30 — chạy `npm run vn:sync -- indexes` trước')
+      return rows.map((r) => r.symbol).slice(0, a.limit)
+    }
     const rows = await db.select({ symbol: s.vnStocks.symbol }).from(s.vnStocks).where(eq(s.vnStocks.active, true)).orderBy(asc(s.vnStocks.symbol))
     return rows.map((r) => r.symbol).slice(0, a.limit)
   }
@@ -123,6 +131,59 @@ async function main() {
               .where(and(eq(s.vnStocks.exchange, exchange), sql`${s.vnStocks.symbol} not in ${seen}`, lt(s.vnStocks.updatedAt, new Date(Date.now() - 60_000))))
           }
           console.log(`  ${exchange}: ${list.length} mã`)
+        })
+      }
+
+      if (job === 'indexes') {
+        const ssi = createSsiClient()
+        await run('indexes', [...VN_BASKETS], async (index) => {
+          const symbols = await ssi.indexComponents(index as (typeof VN_BASKETS)[number])
+          // VN30 luôn 30 mã — lệch nhiều → nghi nguồn trả sai/thiếu, giữ rổ cũ
+          if (symbols.length < 25 || symbols.length > 35) throw new Error(`SSI trả ${symbols.length} mã thành phần — bất thường, giữ nguyên rổ cũ`)
+          await db.transaction(async (tx) => {
+            await tx.delete(s.vnIndexMembers).where(eq(s.vnIndexMembers.indexCode, index))
+            await tx.insert(s.vnIndexMembers).values(symbols.map((symbol) => ({ indexCode: index, symbol })))
+          })
+          console.log(`  ${index}: ${symbols.length} mã`)
+        })
+      }
+
+      if (job === 'index-prices') {
+        const ssi = createSsiClient()
+        const today = lastClosedSession(new Date())
+        // Mã thật theo IndexList (tài liệu SSI viết không thống nhất: VNIndex / VNINDEX…); không lấy được → thử các cách viết đã biết
+        const known = await ssi.indexList().catch((err: unknown) => {
+          console.warn(`  ⚠️ IndexList: ${(err as Error).message} — dùng mã mặc định`)
+          return [] as string[]
+        })
+        const ssiId = (index: (typeof VN_INDEXES)[number]) =>
+          known.find((k) => VN_INDEX_ALIASES[index].some((a) => a.toLowerCase() === k.toLowerCase())) ?? VN_INDEX_ALIASES[index][0]
+        await run('index-prices', [...VN_INDEXES], async (index) => {
+          const [{ last }] = await db.select({ last: max(s.vnIndexPrices.date) }).from(s.vnIndexPrices).where(eq(s.vnIndexPrices.indexCode, index))
+          const from = priceRangeStart(last, a.from, today)
+          if (!from) return
+          const id = ssiId(index as (typeof VN_INDEXES)[number])
+          const bars = await ssi.dailyIndex(id, from, today)
+          // lần đầu mà không có phiên nào → gần như chắc sai mã chỉ số: báo lỗi thay vì "ok"
+          if (!last && bars.length === 0) throw new Error(`SSI không trả dữ liệu cho chỉ số "${id}" — kiểm tra mã (IndexList)`)
+          await db.transaction(async (tx) => {
+            for (let i = 0; i < bars.length; i += 500) {
+              const chunk = bars.slice(i, i + 500).map((b) => ({
+                indexCode: index,
+                date: b.date,
+                value: String(b.value),
+                volume: b.volume === null ? null : String(Math.round(b.volume)),
+                turnover: b.turnover === null ? null : String(Math.round(b.turnover)),
+              }))
+              await tx
+                .insert(s.vnIndexPrices)
+                .values(chunk)
+                .onConflictDoUpdate({
+                  target: [s.vnIndexPrices.indexCode, s.vnIndexPrices.date],
+                  set: { value: sql`excluded.value`, volume: sql`excluded.volume`, turnover: sql`excluded.turnover` },
+                })
+            }
+          })
         })
       }
 

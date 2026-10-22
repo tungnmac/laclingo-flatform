@@ -54,12 +54,14 @@ export default function AdminVnDataPage() {
         error === null && <p className="py-10 text-center text-slate-400">{t('common.loading')}</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             {(
               [
                 ['adminVnData.stocks', formatNumber(data.counts.stocks, locale, 0)],
                 ['adminVnData.prices', formatNumber(data.counts.prices, locale, 0)],
                 ['adminVnData.lastPrice', data.counts.last_price_date ?? DASH],
+                ['adminVnData.vn30', formatNumber(data.counts.vn30_members, locale, 0)],
+                ['adminVnData.indexPrices', formatNumber(data.counts.index_prices, locale, 0)],
                 ['adminVnData.profiles', formatNumber(data.counts.profiles, locale, 0)],
                 ['adminVnData.financials', formatNumber(data.counts.financial_symbols, locale, 0)],
               ] as const
@@ -74,7 +76,7 @@ export default function AdminVnDataPage() {
           <section className="rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-slate-200">
             <h2 className="font-semibold">{t('adminVnData.howTo')}</h2>
             <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
-              {['make vn-sync job=symbols', 'make vn-sync job=prices', 'VN_UNOFFICIAL_SOURCES=1 make vn-sync job=profiles', 'VN_UNOFFICIAL_SOURCES=1 make vn-sync job=financials'].join('\n')}
+              {['make vn-sync job=symbols', 'make vn-sync job=indexes', 'make vn-sync job=prices', 'make vn-sync job=index-prices', 'VN_UNOFFICIAL_SOURCES=1 make vn-sync job=profiles', 'VN_UNOFFICIAL_SOURCES=1 make vn-sync job=financials'].join('\n')}
             </pre>
             <p className="mt-2 text-xs text-slate-500">{t('adminVnData.sourcesNote')}</p>
           </section>
