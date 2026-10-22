@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { changedFields, insertAt } from '@/lib/admin-forms'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
@@ -67,6 +68,8 @@ export function LessonEditor({
   const [saved, setSaved] = useState(false)
   const [uploading, setUploading] = useState(false)
   const textarea = useRef<HTMLTextAreaElement>(null)
+  // bài mới: ngay khi mở; sửa bài: khi nội dung tải xong
+  const formRef = useFocusOnOpen<HTMLFormElement>(lessonId === null ? 'new' : lesson ? lessonId : null)
 
   useEffect(() => {
     if (!lessonId) return
@@ -131,7 +134,7 @@ export function LessonEditor({
 
   return (
     <div className="space-y-6">
-      <form onSubmit={submit} className="space-y-3">
+      <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">{lessonId ? form.title || '…' : t('admin.newLesson')}</h2>
           {lesson?.published && (

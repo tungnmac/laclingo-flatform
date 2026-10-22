@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { pnlColor } from '@/components/trading/labels'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import { moneyFormat, parseQty } from '@/lib/money-format'
@@ -367,6 +368,7 @@ function LedgerSettings({ market, ledger, onSaved }: { market: ManualMarket; led
   })
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<unknown>(null)
+  const formRef = useFocusOnOpen<HTMLFormElement>(market)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -388,7 +390,7 @@ function LedgerSettings({ market, ledger, onSaved }: { market: ManualMarket; led
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs font-medium text-slate-600">
           {t('manual.currency')}

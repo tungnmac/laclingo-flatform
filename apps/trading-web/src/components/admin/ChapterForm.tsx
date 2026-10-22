@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
+import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { LEVELS } from '@/server/learn/validation'
 import { changedFields } from '@/lib/admin-forms'
 import { api } from '@/lib/api'
@@ -28,6 +29,7 @@ export function ChapterForm({
   const [level, setLevel] = useState(chapter?.level ?? 'basic')
   const [published, setPublished] = useState(chapter?.published ?? false)
   const [saving, setSaving] = useState(false)
+  const formRef = useFocusOnOpen<HTMLFormElement>(chapter?.id ?? 'new')
   const loaded = {
     title: chapter?.title ?? '',
     slug: chapter?.slug ?? '',
@@ -60,7 +62,7 @@ export function ChapterForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3">
       <h2 className="text-lg font-bold">{chapter ? t('admin.editChapter') : t('admin.newChapter')}</h2>
       <Field label={t('admin.chapterTitle')}>
         <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
