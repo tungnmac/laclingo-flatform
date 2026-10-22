@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Checkbox, Field, inputClass } from '@/components/admin/fields'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { LOCALES, type Locale } from '@/i18n/locales'
@@ -115,7 +116,18 @@ function BooksAdmin() {
         </ul>
       </section>
       {editing && (
-        <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <form
+          ref={formRef}
+          onSubmit={submit}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setEditing(null) // Esc đóng form
+          }}
+          className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-700">{editing.id ? t('adminLibrary.edit') : t('adminLibrary.newBook')}</h2>
+            <CloseButton label={t('common.close')} onClick={() => setEditing(null)} />
+          </div>
           <Field label={t('adminLibrary.bookTitle')}>
             <input value={editing.form.title} onChange={(e) => set({ title: e.target.value })} className={inputClass} />
           </Field>
@@ -287,7 +299,18 @@ function GlossaryAdmin() {
         </ul>
       </section>
       {editing && (
-        <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <form
+          ref={formRef}
+          onSubmit={submit}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setEditing(null) // Esc đóng form
+          }}
+          className="scroll-mt-20 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-700">{editing.id ? t('adminLibrary.edit') : t('adminLibrary.newTerm')}</h2>
+            <CloseButton label={t('common.close')} onClick={() => setEditing(null)} />
+          </div>
           <Field label={t('adminLibrary.term')}>
             <input value={editing.form.term} onChange={(e) => set({ term: e.target.value })} className={inputClass} />
           </Field>

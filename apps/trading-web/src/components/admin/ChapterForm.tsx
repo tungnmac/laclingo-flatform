@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { LEVELS } from '@/server/learn/validation'
@@ -16,11 +17,13 @@ export function ChapterForm({
   locale,
   onSaved,
   onDirtyChange,
+  onClose,
 }: {
   chapter: AdminChapterDto | null
   locale: string
   onSaved: (c: AdminChapterDto) => void
   onDirtyChange: (dirty: boolean) => void
+  onClose: () => void
 }) {
   const { t } = useT()
   const [title, setTitle] = useState(chapter?.title ?? '')
@@ -62,8 +65,18 @@ export function ChapterForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3">
-      <h2 className="text-lg font-bold">{chapter ? t('admin.editChapter') : t('admin.newChapter')}</h2>
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose() // Esc đóng form
+      }}
+      className="scroll-mt-20 space-y-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold">{chapter ? t('admin.editChapter') : t('admin.newChapter')}</h2>
+        <CloseButton label={t('common.close')} onClick={onClose} />
+      </div>
       <Field label={t('admin.chapterTitle')}>
         <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
       </Field>

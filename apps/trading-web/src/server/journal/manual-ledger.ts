@@ -20,7 +20,9 @@ export interface ReplayedTrade {
   id: string
   realizedPnl: Decimal // lãi/lỗ GỘP của phần đóng vị thế (chưa trừ phí)
   closedQty: Decimal
+  positionBefore: Decimal // khối lượng (có dấu) của mã trước lệnh
   positionAfter: Decimal // khối lượng (có dấu) của mã sau lệnh
+  avgPriceAfter: Decimal // giá vốn bình quân sau lệnh (0 khi đã đóng hết)
 }
 
 export interface OpenPosition {
@@ -51,6 +53,7 @@ export function replay(trades: LedgerTrade[], options: ReplayOptions = {}): { re
   const results = new Map<string, ReplayedTrade>()
   for (const t of [...trades].sort(orderOf(options))) {
     const s = state.get(t.symbol) ?? { qty: ZERO, avg: ZERO }
+    const before = s.qty
     const dir = t.side === 'buy' ? 1 : -1
     let remaining = t.qty
     let realized = ZERO
@@ -71,7 +74,7 @@ export function replay(trades: LedgerTrade[], options: ReplayOptions = {}): { re
       s.qty = s.qty.plus(remaining.times(dir))
     }
     state.set(t.symbol, s)
-    results.set(t.id, { id: t.id, realizedPnl: realized, closedQty: closed, positionAfter: s.qty })
+    results.set(t.id, { id: t.id, realizedPnl: realized, closedQty: closed, positionBefore: before, positionAfter: s.qty, avgPriceAfter: s.avg })
   }
   const positions = [...state.entries()]
     .filter(([, s]) => !s.qty.isZero())

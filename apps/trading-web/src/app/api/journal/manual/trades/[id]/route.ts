@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/server/auth/require-user'
 import { handleRoute, readJson } from '@/server/http'
-import { deleteManualTrade, setManualTradeStatus, updateManualTrade } from '@/server/journal/manual-service'
+import { deleteManualTrade, getManualTrade, setManualTradeStatus, updateManualTrade } from '@/server/journal/manual-service'
 import { manualTradeSchema, statusSchema } from '@/server/journal/manual-validation'
 
 type Ctx = { params: Promise<{ id: string }> }
+export const dynamic = 'force-dynamic'
+
+/** Chi tiết 1 lệnh + diễn biến các lệnh cùng mã */
+export const GET = handleRoute(async (_req: Request, ctx: Ctx) => {
+  const user = await requireUser()
+  return NextResponse.json(await getManualTrade(user.id, (await ctx.params).id))
+})
 
 export const PUT = handleRoute(async (req: Request, ctx: Ctx) => {
   const user = await requireUser()

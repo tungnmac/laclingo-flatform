@@ -145,7 +145,7 @@ export default function AdminCompaniesPage() {
         </aside>
         <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           {selected ? (
-            <CompanyAnalysisEditor key={`${selected.id}:${locale}`} company={selected} locale={locale} onSaved={load} onDirtyChange={setDirty} />
+            <CompanyAnalysisEditor key={`${selected.id}:${locale}`} company={selected} locale={locale} onSaved={load} onDirtyChange={setDirty} onClose={() => guard(() => setSelectedId(null))} />
           ) : (
             <p className="text-sm text-slate-500">{t('adminCompanies.selectCompany')}</p>
           )}
