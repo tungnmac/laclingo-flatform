@@ -437,6 +437,50 @@ export const investmentPlans = pgTable(
   (t) => [index('investment_plans_user_updated_idx').on(t.userId, t.updatedAt)],
 )
 
+/** Nhật ký thủ công: cài đặt từng thị trường của user (đơn vị tiền, vốn làm mốc drawdown, phí/thuế mặc định) */
+export const manualLedgers = pgTable(
+  'manual_ledgers',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    market: varchar('market', { length: 10 }).notNull(), // vn | us | crypto | other
+    currency: varchar('currency', { length: 10 }).notNull(),
+    startingCapital: numeric('starting_capital', { precision: 24, scale: 2 }).notNull().default('0'),
+    feeRatePct: numeric('fee_rate_pct', { precision: 6, scale: 4 }).notNull().default('0'),
+    sellTaxPct: numeric('sell_tax_pct', { precision: 6, scale: 4 }).notNull().default('0'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.market] })],
+)
+
+/** Nhật ký thủ công: từng lệnh mua/bán user tự ghi (giao dịch thật ngoài TradeLab) */
+export const manualTrades = pgTable(
+  'manual_trades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    market: varchar('market', { length: 10 }).notNull(),
+    symbol: varchar('symbol', { length: 30 }).notNull(),
+    side: varchar('side', { length: 4 }).notNull(), // buy | sell
+    qty: money('qty').notNull(),
+    price: money('price').notNull(),
+    fee: money('fee').notNull().default('0'),
+    tax: money('tax').notNull().default('0'),
+    executedAt: timestamp('executed_at', { withTimezone: true }).notNull(),
+    reason: text('reason'),
+    lesson: text('lesson'),
+    emotion: varchar('emotion', { length: 12 }),
+    rating: integer('rating'),
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('manual_trades_user_market_time_idx').on(t.userId, t.market, t.executedAt, t.id)],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect
@@ -457,3 +501,5 @@ export type LearningResourceRow = typeof learningResources.$inferSelect
 export type InvestorRow = typeof investors.$inferSelect
 export type GlossaryTermRow = typeof glossaryTerms.$inferSelect
 export type InvestmentPlanRow = typeof investmentPlans.$inferSelect
+export type ManualTradeRow = typeof manualTrades.$inferSelect
+export type ManualLedgerRow = typeof manualLedgers.$inferSelect

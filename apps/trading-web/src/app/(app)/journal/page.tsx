@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { JournalFilters, type Filters } from '@/components/journal/JournalFilters'
+import { ManualJournal } from '@/components/journal/ManualJournal'
 import { JournalTrades } from '@/components/journal/JournalTrades'
 import { MetricCards } from '@/components/journal/MetricCards'
 import { SymbolTable } from '@/components/journal/SymbolTable'
@@ -11,6 +12,7 @@ import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import { normalizeAccountFilter } from '@/lib/journal-filter'
+import { MANUAL_MARKETS } from '@/server/journal/manual-markets'
 import type { AccountSummaryDto, JournalTradeDto, NoteDto } from '@/server/journal/journal-service'
 import type { Stats } from '@/server/journal/stats'
 import type { InstrumentDto } from '@/server/market/instruments'
@@ -112,11 +114,6 @@ function JournalView() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">{t('journal.title')}</h1>
-        <p className="text-sm text-slate-500">{t('journal.subtitle')}</p>
-      </div>
-
       <JournalFilters value={filters} onChange={update} accounts={accounts ?? []} symbols={symbolOptions} />
 
       {error !== null && (
@@ -176,10 +173,45 @@ function JournalView() {
   )
 }
 
+const TABS = ['tradelab', ...MANUAL_MARKETS] as const
+type Tab = (typeof TABS)[number]
+
+/** Tab thị trường: TradeLab (ví ảo, mặc định) + các sổ giao dịch thật ghi tay — ?tab=vn|us|crypto|other */
+function JournalShell() {
+  const { t } = useT()
+  const router = useRouter()
+  const params = useSearchParams()
+  const tab: Tab = TABS.find((x) => x === params.get('tab')) ?? 'tradelab'
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">{t('journal.title')}</h1>
+        <p className="text-sm text-slate-500">{t('journal.subtitle')}</p>
+      </div>
+      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 border-b border-slate-200" role="tablist">
+          {TABS.map((x) => (
+            <button
+              key={x}
+              role="tab"
+              aria-selected={x === tab}
+              onClick={() => router.replace(x === 'tradelab' ? '/journal' : `/journal?tab=${x}`, { scroll: false })}
+              className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold ${x === tab ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              {t(`journalTabs.${x}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tab === 'tradelab' ? <JournalView /> : <ManualJournal key={tab} market={tab} />}
+    </div>
+  )
+}
+
 export default function JournalPage() {
   return (
     <Suspense fallback={null}>
-      <JournalView />
+      <JournalShell />
     </Suspense>
   )
 }

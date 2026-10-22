@@ -1,0 +1,344 @@
+'use client'
+
+import dynamic from 'next/dynamic'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { pnlColor } from '@/components/trading/labels'
+import { useT } from '@/i18n/I18nProvider'
+import { api } from '@/lib/api'
+import { errorMessage } from '@/lib/error-message'
+import { moneyFormat } from '@/lib/money-format'
+import type { ManualMarket } from '@/server/journal/manual-markets'
+import type { LedgerDto, ManualOverviewDto, ManualTradeDto } from '@/server/journal/manual-service'
+import { RANGES } from '@/server/journal/validation'
+import { ManualTradeForm } from './ManualTradeForm'
+import { MetricCards } from './MetricCards'
+import { SymbolTable } from './SymbolTable'
+
+// Biểu đồ dùng canvas/window — chỉ render ở client (giống trang Nhật ký TradeLab)
+const PnlCurve = dynamic(() => import('./PnlCurve').then((m) => m.PnlCurve), { ssr: false })
+
+const PAGE_SIZE = 20
+const RANGE_KEYS: Record<(typeof RANGES)[number], string> = { '7d': 'journal.range7d', '30d': 'journal.range30d', '90d': 'journal.range90d', all: 'journal.rangeAll' }
+const inputClass = 'mt-1 block w-full rounded-lg border-0 px-3 py-2 text-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600'
+
+function Section({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-2">
+        <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/** Nhật ký giao dịch thật của 1 thị trường: cài đặt sổ, thống kê, vị thế, lịch sử lệnh, ghi/sửa/xoá lệnh */
+export function ManualJournal({ market }: { market: ManualMarket }) {
+  const { t, locale } = useT()
+  const [symbol, setSymbol] = useState('')
+  const [range, setRange] = useState<(typeof RANGES)[number]>('all')
+  const [page, setPage] = useState(1)
+  const [overview, setOverview] = useState<ManualOverviewDto | null>(null)
+  const [trades, setTrades] = useState<{ items: ManualTradeDto[]; total: number } | null>(null)
+  const [editing, setEditing] = useState<ManualTradeDto | 'new' | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const [reload, setReload] = useState(0)
+
+  const query = new URLSearchParams({ range, ...(symbol ? { symbol } : {}) }).toString()
+
+  useEffect(() => {
+    let alive = true
+    setError(null)
+    api<ManualOverviewDto>(`/api/journal/manual/${market}/overview?${query}`).then(
+      (o) => alive && setOverview(o),
+      (e) => alive && setError(e),
+    )
+    return () => {
+      alive = false
+    }
+  }, [market, query, reload])
+
+  useEffect(() => {
+    let alive = true
+    api<{ items: ManualTradeDto[]; total: number }>(`/api/journal/manual/${market}/trades?${query}&page=${page}&page_size=${PAGE_SIZE}`).then(
+      (r) => alive && setTrades(r),
+      (e) => alive && setError(e),
+    )
+    return () => {
+      alive = false
+    }
+  }, [market, query, page, reload])
+
+  const currency = overview?.ledger.currency ?? 'USD'
+  const money = useMemo(() => moneyFormat(currency, locale), [currency, locale])
+  const pages = trades ? Math.max(1, Math.ceil(trades.total / PAGE_SIZE)) : 1
+  // Xoá lệnh cuối của trang cuối → lùi về trang hợp lệ
+  useEffect(() => {
+    if (trades && page > pages) setPage(pages)
+  }, [trades, page, pages])
+  const refresh = () => setReload((n) => n + 1)
+  const changeFilter = (next: { symbol?: string; range?: (typeof RANGES)[number] }) => {
+    if (next.symbol !== undefined) setSymbol(next.symbol)
+    if (next.range !== undefined) setRange(next.range)
+    setPage(1)
+  }
+
+  const remove = async (tr: ManualTradeDto) => {
+    const date = new Date(tr.executed_at).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US')
+    if (!window.confirm(t('manual.deleteConfirm', { side: t(`manual.${tr.side}`), symbol: tr.symbol, date }))) return
+    try {
+      await api(`/api/journal/manual/trades/${tr.id}`, { method: 'DELETE' })
+      refresh()
+    } catch (err) {
+      setError(err)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-500">{t('manual.intro')}</p>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium text-slate-600">
+          {t('journal.symbol')}
+          <select value={symbol} onChange={(e) => changeFilter({ symbol: e.target.value })} className="mt-1 block rounded-lg border-0 py-1.5 text-sm ring-1 ring-slate-200">
+            <option value="">{t('journal.allSymbols')}</option>
+            {overview?.symbols.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <div className="flex gap-1" role="tablist">
+          {RANGES.map((r) => (
+            <button
+              key={r}
+              role="tab"
+              aria-selected={r === range}
+              onClick={() => changeFilter({ range: r })}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${r === range ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
+            >
+              {t(RANGE_KEYS[r])}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button onClick={() => setSettingsOpen((o) => !o)} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50">
+            ⚙️ {t('manual.settings')}
+          </button>
+          <button onClick={() => setEditing('new')} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500">
+            {t('manual.add')}
+          </button>
+        </div>
+      </div>
+
+      {settingsOpen && overview && <LedgerSettings market={market} ledger={overview.ledger} onSaved={refresh} />}
+
+      {editing && overview && (
+        <ManualTradeForm
+          key={editing === 'new' ? 'new' : editing.id}
+          market={market}
+          ledger={overview.ledger}
+          trade={editing === 'new' ? null : editing}
+          onCancel={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            refresh()
+          }}
+        />
+      )}
+
+      {error !== null && (
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          <span>{errorMessage(error, t)}</span>
+          <button onClick={refresh} className="font-semibold underline">
+            {t('common.retry')}
+          </button>
+        </div>
+      )}
+      {!overview && error === null && <p className="py-10 text-center text-slate-400">{t('common.loading')}</p>}
+
+      {overview && (
+        <>
+          <MetricCards metrics={overview.stats.metrics} money={money} />
+          <Section title={t('manual.positions')}>
+            {overview.positions.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-slate-400">{t('manual.noPositions')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-2">{t('manual.symbol')}</th>
+                      <th className="px-4 py-2 text-right">{t('manual.qty')}</th>
+                      <th className="px-4 py-2 text-right">{t('manual.avgPrice')}</th>
+                      <th className="px-4 py-2 text-right">{t('manual.cost')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {overview.positions.map((p) => (
+                      <tr key={p.symbol}>
+                        <td className="px-4 py-2 font-semibold">
+                          {p.symbol} <span className={`text-xs ${p.side === 'long' ? 'text-emerald-700' : 'text-rose-600'}`}>{t(`manual.${p.side}`)}</span>
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{money.plain(p.qty)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{money.plain(p.avg_price)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{money.amount(p.cost)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Section>
+          {overview.stats.curve.length > 0 && (
+            <Section title={t('journal.curveTitle')}>
+              <div className="p-2">
+                <PnlCurve points={overview.stats.curve} />
+              </div>
+            </Section>
+          )}
+          {overview.stats.by_symbol.length > 0 && (
+            <Section title={t('journal.bySymbol')}>
+              <div className="overflow-x-auto">
+                <SymbolTable rows={overview.stats.by_symbol} pnl={money.pnl} />
+              </div>
+            </Section>
+          )}
+        </>
+      )}
+
+      <Section title={t('manual.trades')}>
+        {!trades ? (
+          <p className="px-4 py-6 text-center text-sm text-slate-400">{t('common.loading')}</p>
+        ) : trades.items.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-slate-400">{t('manual.empty')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">{t('manual.date')}</th>
+                  <th className="px-3 py-2">{t('manual.symbol')}</th>
+                  <th className="px-3 py-2 text-right">{t('manual.qty')}</th>
+                  <th className="px-3 py-2 text-right">{t('manual.price')}</th>
+                  <th className="hidden px-3 py-2 text-right sm:table-cell">
+                    {t('manual.fee')}+{t('manual.tax')}
+                  </th>
+                  <th className="px-3 py-2 text-right">{t('manual.realized')}</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {trades.items.map((tr) => (
+                  <tr key={tr.id} className="align-top">
+                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">{new Date(tr.executed_at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <span className={`font-semibold ${tr.side === 'buy' ? 'text-emerald-700' : 'text-rose-600'}`}>{t(`manual.${tr.side}`)}</span> {tr.symbol}
+                      {tr.note && (
+                        <span title={tr.note.reason ?? tr.note.lesson ?? t('manual.hasNote')} className="ml-1 cursor-help">
+                          📝
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{money.plain(tr.qty)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{money.plain(tr.price)}</td>
+                    <td className="hidden px-3 py-2 text-right tabular-nums text-slate-500 sm:table-cell">{money.amount(Number(tr.fee) + Number(tr.tax))}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${Number(tr.closed_qty) > 0 ? pnlColor(tr.realized_pnl) : 'text-slate-300'}`}>
+                      {Number(tr.closed_qty) > 0 ? money.pnl(tr.realized_pnl) : '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-semibold">
+                      <button onClick={() => setEditing(tr)} className="text-slate-600 hover:underline">
+                        {t('manual.edit')}
+                      </button>
+                      <button onClick={() => remove(tr)} className="ml-2 text-rose-600 hover:underline">
+                        {t('manual.delete')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {pages > 1 && (
+          <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-2 text-sm">
+            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="rounded px-2 py-1 ring-1 ring-slate-200 disabled:opacity-40">
+              ← {t('common.prev')}
+            </button>
+            <span className="tabular-nums text-slate-500">
+              {page}/{pages}
+            </span>
+            <button disabled={page >= pages} onClick={() => setPage((p) => p + 1)} className="rounded px-2 py-1 ring-1 ring-slate-200 disabled:opacity-40">
+              {t('common.next')} →
+            </button>
+          </div>
+        )}
+      </Section>
+    </div>
+  )
+}
+
+function LedgerSettings({ market, ledger, onSaved }: { market: ManualMarket; ledger: LedgerDto; onSaved: () => void }) {
+  const { t } = useT()
+  const [form, setForm] = useState({
+    currency: ledger.currency,
+    starting_capital: ledger.starting_capital,
+    fee_rate_pct: String(ledger.fee_rate_pct),
+    sell_tax_pct: String(ledger.sell_tax_pct),
+  })
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    try {
+      await api(`/api/journal/manual/${market}/ledger`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...form, fee_rate_pct: Number(form.fee_rate_pct), sell_tax_pct: Number(form.sell_tax_pct) }),
+      })
+      setSaved(true)
+      onSaved()
+    } catch (err) {
+      setError(err)
+    }
+  }
+  const set = (patch: Partial<typeof form>) => {
+    setForm((f) => ({ ...f, ...patch }))
+    setSaved(false)
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="block text-xs font-medium text-slate-600">
+          {t('manual.currency')}
+          <input value={form.currency} disabled={ledger.currency_fixed} maxLength={5} onChange={(e) => set({ currency: e.target.value.toUpperCase() })} className={`${inputClass} disabled:bg-slate-50`} />
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          {t('manual.capital')}
+          <input inputMode="decimal" value={form.starting_capital} onChange={(e) => set({ starting_capital: e.target.value })} className={inputClass} />
+          <span className="mt-0.5 block font-normal text-slate-400">{t('manual.capitalHint')}</span>
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          {t('manual.feeRate')}
+          <input type="number" step="0.0001" min={0} max={5} value={form.fee_rate_pct} onChange={(e) => set({ fee_rate_pct: e.target.value })} className={inputClass} />
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          {t('manual.sellTax')}
+          <input type="number" step="0.0001" min={0} max={5} value={form.sell_tax_pct} onChange={(e) => set({ sell_tax_pct: e.target.value })} className={inputClass} />
+        </label>
+      </div>
+      {market === 'vn' && <p className="text-xs text-slate-500">{t('manual.vnTaxHint')}</p>}
+      {error !== null && <p className="text-sm text-rose-600">{errorMessage(error, t)}</p>}
+      <div className="flex items-center gap-3">
+        <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500">
+          {t('manual.save')}
+        </button>
+        {saved && <span className="text-sm text-emerald-700">{t('manual.saved')}</span>}
+      </div>
+    </form>
+  )
+}
