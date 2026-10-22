@@ -46,6 +46,7 @@ export interface AdminVocabularyDict {
     exampleLabel: string
     exampleMeaningLabel: string
     suggestBtn: string
+    topicSuggestHint: string
     suggesting: string
     suggestNeedTerm: string
     suggestFilled: (filled: number, sources: string) => string
@@ -118,6 +119,7 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       exampleLabel: 'Ví dụ',
       exampleMeaningLabel: 'Nghĩa của câu ví dụ',
       suggestBtn: '✨ Gợi ý tự động',
+      topicSuggestHint: 'Đã nhập từ thì chọn chủ đề sẽ tự gợi ý lại nghĩa, câu ví dụ theo chủ đề.',
       suggesting: 'Đang tra cứu...',
       suggestNeedTerm: 'Nhập từ trước khi bấm gợi ý.',
       suggestFilled: (filled, sources) => `Đã điền ${filled} ô từ ${sources} — kiểm tra lại trước khi lưu. Ô đã có nội dung được giữ nguyên.`,
@@ -188,6 +190,7 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       exampleLabel: 'Example',
       exampleMeaningLabel: 'Example translation (Vietnamese)',
       suggestBtn: '✨ Auto-suggest',
+      topicSuggestHint: 'With a word entered, picking a topic re-suggests the meaning and example for that topic.',
       suggesting: 'Looking up...',
       suggestNeedTerm: 'Type the word before asking for suggestions.',
       suggestFilled: (filled, sources) => `Filled ${filled} field(s) from ${sources} — review before saving. Fields you already filled were kept.`,

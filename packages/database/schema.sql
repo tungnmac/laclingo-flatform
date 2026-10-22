@@ -733,3 +733,11 @@ CREATE TABLE IF NOT EXISTS daily_task_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_task_items_title ON daily_task_items (task_id, dedupe_key(title));
+
+-- Lượt phân tích câu bằng AI mỗi ngày của học viên (migration 000037)
+CREATE TABLE IF NOT EXISTS sentence_analysis_usage (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    usage_date DATE NOT NULL,
+    count INT NOT NULL DEFAULT 0 CHECK (count >= 0),
+    PRIMARY KEY (user_id, usage_date)
+);

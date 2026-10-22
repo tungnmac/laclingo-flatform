@@ -33,8 +33,8 @@ func geminiAnswer(text string) string {
 	return `{"candidates":[{"content":{"role":"model","parts":[{"text":` + string(t) + `}]},"finishReason":"STOP"}]}`
 }
 
-func newTestGemini(url string) SuggestAI {
-	g := NewGeminiSuggestAI("test-key", "").(*geminiSuggestAI)
+func newTestGemini(url string) AIClient {
+	g := NewGeminiClient("test-key", "").(*geminiClient)
 	g.baseURL = url
 	return g
 }
@@ -83,7 +83,7 @@ func TestGeminiFailureKeepsDictionary(t *testing.T) {
 }
 
 func TestGeminiModelName(t *testing.T) {
-	g := NewGeminiSuggestAI(" k ", " models/gemini-x\n").(*geminiSuggestAI)
+	g := NewGeminiClient(" k ", " models/gemini-x\n").(*geminiClient)
 	if g.model != "gemini-x" || g.apiKey != "k" {
 		t.Fatalf("model=%q key-trimmed=%v", g.model, g.apiKey == "k")
 	}
@@ -120,5 +120,40 @@ func TestGeminiErrors(t *testing.T) {
 				t.Fatal("error leaks API key")
 			}
 		})
+	}
+}
+
+func TestSuggestWithTopic(t *testing.T) {
+	var req map[string]any
+	gem := fakeGemini(t, &req, http.StatusOK, geminiAnswer(`{"meaning":"bus dữ liệu","part_of_speech":"noun","phonetic":"bʌs","example":"The CPU sends data over the bus.","example_meaning":"CPU gửi dữ liệu qua bus.","level":"B2","image_emoji":"🖥️"}`))
+	defer gem.Close()
+	s := NewVocabularySuggester(newTestGemini(gem.URL))
+	s.dictURL = "http://127.0.0.1:0/" // tra từ điển lỗi → chỉ dùng AI
+
+	ask := func(topic string) string {
+		req = nil
+		if _, err := s.Suggest(context.Background(), VocabularySuggestRequest{LanguageID: "en", Term: "bus", Topic: topic}); err != nil {
+			t.Fatal(err)
+		}
+		if req == nil {
+			return "(cache)"
+		}
+		contents, _ := json.Marshal(req["contents"])
+		return string(contents)
+	}
+	if got := ask("Công nghệ thông tin"); !strings.Contains(got, "Topic: Công nghệ thông tin") {
+		t.Fatalf("topic not sent to AI: %s", got)
+	}
+	if got := ask("Công nghệ thông tin"); got != "(cache)" {
+		t.Errorf("same word + topic → cache, got AI call %s", got)
+	}
+	if got := ask("Giao thông"); !strings.Contains(got, "Topic: Giao thông") {
+		t.Errorf("other topic must ask AI again: %s", got)
+	}
+	if got := ask(""); strings.Contains(got, "Topic:") {
+		t.Errorf("no topic → no Topic line: %s", got)
+	}
+	if _, err := s.Suggest(context.Background(), VocabularySuggestRequest{LanguageID: "en", Term: "bus", Topic: strings.Repeat("x", 51)}); !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("topic too long → ErrInvalidInput, got %v", err)
 	}
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { BulkImportPanel } from '@/components/admin/BulkImportPanel'
 import { AudioButton } from '@/components/audio/AudioButton'
 import { ExportButton } from '@/components/admin/ExportButton'
@@ -391,6 +391,12 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   // Audio từ điển gắn với ĐÚNG từ đã gợi ý — đổi từ thì bỏ, lưu cũng kiểm tra lại (không lưu nhầm audio từ khác)
   const [suggestedAudio, setSuggestedAudio] = useState<{ term: string; url: string } | null>(null)
   const suggestReq = useRef(0) // bỏ qua kết quả về muộn của lần gợi ý cũ / form cũ
+  // Giá trị lần gợi ý trước đã tự điền — gợi ý lại (vd đổi chủ đề) được thay các ô này nếu admin chưa sửa tay
+  const autoFilled = useRef<Record<string, string>>({})
+  const topicSuggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (topicSuggestTimer.current) clearTimeout(topicSuggestTimer.current)
+  }, [])
   const normTerm = (s: string) => s.trim().toLowerCase()
 
   const suggest = async () => {
@@ -398,25 +404,49 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
     if (!form) return
     const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null
     const term = field('term')?.value.trim() ?? ''
+    const topic = field('topic')?.value ?? ''
     if (!term) return setSuggestMsg({ ok: false, text: t.adminVocabulary.suggestNeedTerm })
     const reqId = ++suggestReq.current
     setSuggesting(true)
     setSuggestMsg(null)
     try {
-      const s = await vocabularyService.suggestVocabulary(languageId, term)
+      const s = await vocabularyService.suggestVocabulary(languageId, term, topic)
       // Trong lúc chờ (AI có thể mất vài giây) admin đã đổi từ / đóng form / mở form khác → bỏ kết quả này
-      if (reqId !== suggestReq.current || formRef.current !== form || normTerm(field('term')?.value ?? '') !== normTerm(term)) return
+      if (
+        reqId !== suggestReq.current ||
+        formRef.current !== form ||
+        normTerm(field('term')?.value ?? '') !== normTerm(term) ||
+        (field('topic')?.value ?? '') !== topic // gợi ý theo chủ đề cũ — admin đã chọn chủ đề khác
+      )
+        return
       if (s.sources.length === 0) {
         setSuggestMsg({ ok: false, text: [t.adminVocabulary.suggestNotFound, !s.ai_available && t.adminVocabulary.suggestNoAI].filter(Boolean).join(' ') })
         return
       }
       let filled = 0
-      // Chỉ điền ô còn trống — không ghi đè thứ admin đã nhập. Trình độ: "A1" mặc định của form mới coi như trống.
+      // Chỉ điền ô còn trống hoặc ô lần gợi ý trước tự điền (admin chưa sửa) — không ghi đè thứ admin đã nhập.
+      // Trình độ: "A1" mặc định của form mới coi như trống.
       const fill = (name: string, value: string | undefined, isEmpty = (v: string) => !v.trim()) => {
         const el = field(name)
-        if (!el || !value || !isEmpty(el.value)) return
+        if (!el) return
+        const wasAutoFilled = autoFilled.current[name] !== undefined && el.value === autoFilled.current[name]
+        if (!value) {
+          // Lần gợi ý mới (vd chủ đề khác) không có ô này → bỏ giá trị lần trước tự điền, không để lẫn 2 nghĩa
+          if (wasAutoFilled) {
+            el.value = ''
+            delete autoFilled.current[name]
+          }
+          return
+        }
+        if (!isEmpty(el.value) && !wasAutoFilled) return
+        const before = el.value
         el.value = value
-        filled++
+        if (el.value !== value) {
+          el.value = before // <select> không có option này → giữ nguyên, không tính là đã điền
+          return
+        }
+        if (before !== value) filled++
+        autoFilled.current[name] = value
       }
       fill('phonetic', s.phonetic)
       fill('part_of_speech', s.part_of_speech)
@@ -426,8 +456,8 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       fill('level', s.level, (v) => !v.trim() || (!editing && v === 'A1'))
       fill('image_emoji', s.image_emoji)
       if (s.audio_url && !editing?.audio_url) {
+        if (suggestedAudio?.url !== s.audio_url) filled++
         setSuggestedAudio({ term, url: s.audio_url })
-        filled++
       }
       const sources = s.sources
         .map((src) => (src === 'ai' ? t.adminVocabulary.suggestSourceAI : t.adminVocabulary.suggestSourceDictionary))
@@ -500,6 +530,8 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   }
 
   const onEdit = (v: VocabularyAdmin) => {
+    autoFilled.current = {}
+    if (topicSuggestTimer.current) clearTimeout(topicSuggestTimer.current)
     setEditing(v)
     setShowForm(true)
     setFormError(null)
@@ -510,6 +542,8 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
   }
 
   const onCreateNew = () => {
+    autoFilled.current = {}
+    if (topicSuggestTimer.current) clearTimeout(topicSuggestTimer.current)
     setEditing(null)
     setShowForm(true)
     setFormError(null)
@@ -710,6 +744,31 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
                 ))}
               </select>
             </label>
+            <label className="block text-sm font-medium text-slate-700">
+              {t.adminVocabulary.topicFilterLabel}
+              <select
+                name="topic"
+                defaultValue={editing?.topic ?? ''}
+                // Thêm từ mới: chọn chủ đề → tự gợi ý lại theo chủ đề (nghĩa/câu ví dụ đúng ngữ cảnh). Sửa từ cũ thì
+                // không tự gọi (dữ liệu đã có) — bấm ✨ nếu muốn gợi ý lại
+                onChange={() => {
+                  const term = (formRef.current?.elements.namedItem('term') as HTMLInputElement | null)?.value.trim()
+                  if (editing || !term) return
+                  // Chờ chọn xong (lướt bằng phím mũi tên đổi option liên tục) mới gọi AI
+                  if (topicSuggestTimer.current) clearTimeout(topicSuggestTimer.current)
+                  topicSuggestTimer.current = setTimeout(() => void suggest(), 500)
+                }}
+                className={inputClass}
+              >
+                <option value="">{t.adminVocabulary.noTopicOption}</option>
+                {topicOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {!editing && <span className="mt-1 block text-xs font-normal text-slate-500">{t.adminVocabulary.topicSuggestHint}</span>}
+            </label>
             {(suggestMsg || suggestedAudio) && (
               <div className="space-y-2 sm:col-span-2">
                 {suggestMsg && (
@@ -737,17 +796,6 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
               {t.adminVocabulary.exampleMeaningLabel}
               <input name="example_meaning" type="text" defaultValue={editing?.example_meaning} className={inputClass} />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              {t.adminVocabulary.topicFilterLabel}
-              <select name="topic" defaultValue={editing?.topic ?? ''} className={inputClass}>
-                <option value="">{t.adminVocabulary.noTopicOption}</option>
-                {topicOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
             </label>
             {!editing && (
               <div className="block text-sm font-medium text-slate-700 sm:col-span-2">

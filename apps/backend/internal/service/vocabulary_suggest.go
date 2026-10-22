@@ -22,8 +22,8 @@ import (
 const (
 	freeDictionaryURL       = "https://api.dictionaryapi.dev/api/v2/entries/en/"
 	suggestDictTimeout      = 5 * time.Second
-	suggestAITimeout        = 60 * time.Second
 	maxSuggestTermLen       = 100
+	maxSuggestTopicLen      = 50 // = vocabularies.topic VARCHAR(50)
 	maxDictionaryHintSenses = 6
 	// Cache kết quả theo (ngôn ngữ, từ): admin bấm gợi ý lại cùng 1 từ không tốn thêm lần gọi AI
 	suggestCacheTTL  = 24 * time.Hour
@@ -57,12 +57,14 @@ type VocabularySuggestion struct {
 type VocabularySuggestRequest struct {
 	LanguageID string `json:"language_id" example:"en"`
 	Term       string `json:"term" example:"deploy"`
+	// Chủ đề của từ (không bắt buộc) — AI chọn nghĩa / câu ví dụ theo chủ đề (vd "bus" trong CNTT = bus dữ liệu)
+	Topic string `json:"topic,omitempty" example:"Công nghệ thông tin"`
 }
 
 type VocabularySuggester struct {
 	http    *http.Client
 	dictURL string
-	ai      SuggestAI // nil = chưa cấu hình key AI nào
+	ai      AIClient // nil = chưa cấu hình key AI nào
 
 	mu    sync.Mutex
 	cache map[string]cachedSuggestion
@@ -74,7 +76,7 @@ type cachedSuggestion struct {
 }
 
 // NewVocabularySuggester — ai nil khi chưa có API key (chỉ gợi ý phần từ điển)
-func NewVocabularySuggester(ai SuggestAI) *VocabularySuggester {
+func NewVocabularySuggester(ai AIClient) *VocabularySuggester {
 	return &VocabularySuggester{http: &http.Client{}, dictURL: freeDictionaryURL, ai: ai, cache: map[string]cachedSuggestion{}}
 }
 
@@ -83,7 +85,11 @@ func (s *VocabularySuggester) Suggest(ctx context.Context, req VocabularySuggest
 	if req.LanguageID == "" || term == "" || utf8.RuneCountInString(term) > maxSuggestTermLen {
 		return VocabularySuggestion{}, ErrInvalidInput
 	}
-	cacheKey := req.LanguageID + "\x00" + strings.ToLower(term)
+	topic := strings.TrimSpace(req.Topic)
+	if utf8.RuneCountInString(topic) > maxSuggestTopicLen {
+		return VocabularySuggestion{}, ErrInvalidInput
+	}
+	cacheKey := req.LanguageID + "\x00" + strings.ToLower(term) + "\x00" + strings.ToLower(topic)
 	if cached, ok := s.cached(cacheKey); ok {
 		cached.Term = term
 		return cached, nil
@@ -108,7 +114,7 @@ func (s *VocabularySuggester) Suggest(ctx context.Context, req VocabularySuggest
 	}
 
 	if s.ai != nil {
-		ai, err := s.ai.Suggest(ctx, req.LanguageID, term, dict.senses)
+		ai, err := askSuggestAI(ctx, s.ai, req.LanguageID, term, topic, dict.senses)
 		if err != nil {
 			log.Printf("❌ vocab suggest: AI %q: %v", term, err)
 			aiFailed = true

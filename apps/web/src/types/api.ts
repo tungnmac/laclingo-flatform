@@ -1094,3 +1094,46 @@ export interface VocabularySuggestion {
   ai_available: boolean // server đã cấu hình Claude API chưa
   ai_error?: string // AI có cấu hình nhưng lần này lỗi (vd hết credit) — vẫn có phần từ điển
 }
+
+// ===== Phân tích câu bằng AI (POST /sentences/analyze) =====
+export type SentenceErrorType =
+  | 'grammar'
+  | 'tense'
+  | 'agreement'
+  | 'article'
+  | 'preposition'
+  | 'particle'
+  | 'measure_word'
+  | 'word_order'
+  | 'word_choice'
+  | 'missing_word'
+  | 'extra_word'
+  | 'spelling'
+  | 'punctuation'
+  | 'other'
+
+export interface SentenceAnalysisQuota {
+  limit: number
+  remaining: number // lượt phân tích còn lại hôm nay
+  ai_available: boolean
+}
+
+export interface SentenceAnalysis extends SentenceAnalysisQuota {
+  language_id: string
+  sentence: string
+  is_correct: boolean
+  corrected: string
+  translation: string
+  errors: { type: SentenceErrorType; original: string; correction: string; explanation: string }[]
+  structure: { text: string; role: string; note?: string }[]
+  grammar_points: { name: string; explanation: string }[]
+  vocabulary: {
+    term: string
+    phonetic?: string
+    meaning: string
+    part_of_speech?: string
+    level?: string
+    vocabulary_id?: string // có trong kho từ của app → thêm vào ôn tập được
+  }[]
+  cached: boolean // câu đã có người phân tích — không tính lượt
+}
