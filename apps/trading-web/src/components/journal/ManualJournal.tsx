@@ -1,17 +1,20 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import Link from 'next/link'
+import { Fragment, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { pnlColor } from '@/components/trading/labels'
 import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { api, ApiError } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
+import { markFromJournal } from '@/lib/journal-nav'
 import { moneyFormat, parseQty } from '@/lib/money-format'
 import { ORDER_STATUSES, isExecuted, type ManualMarket, type OrderStatus } from '@/server/journal/manual-markets'
 import type { LedgerDto, ManualOverviewDto, ManualTradeDto } from '@/server/journal/manual-service'
 import { RANGES } from '@/server/journal/validation'
+import { ManualTradeDetail } from './ManualTradeDetail'
 import { ManualTradeForm } from './ManualTradeForm'
 import { MetricCards } from './MetricCards'
 import { SymbolTable } from './SymbolTable'
@@ -56,6 +59,8 @@ export function ManualJournal({ market }: { market: ManualMarket }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [reload, setReload] = useState(0)
+  const [expanded, setExpanded] = useState<string | null>(null) // dòng lịch sử đang mở rộng (1 dòng / lần)
+  const toggle = (id: string) => setExpanded((cur) => (cur === id ? null : id))
 
   const query = new URLSearchParams({ range, ...(symbol ? { symbol } : {}) }).toString()
   // Trạng thái chỉ lọc LỊCH SỬ LỆNH; thống kê luôn tính mọi lệnh đã khớp
@@ -287,60 +292,106 @@ export function ManualJournal({ market }: { market: ManualMarket }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {trades.items.map((tr) => (
-                  <tr key={tr.id} className={`align-top ${isExecuted(tr.status) ? '' : 'opacity-50'}`} title={isExecuted(tr.status) ? undefined : t('manual.notCounted')}>
-                    <td className="whitespace-nowrap px-3 py-2 text-slate-600">{new Date(tr.executed_at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <span className={`font-semibold ${tr.side === 'buy' ? 'text-emerald-700' : 'text-rose-600'}`}>{t(`manual.${tr.side}`)}</span> {tr.symbol}
-                      {tr.note && (
-                        <span title={tr.note.reason ?? tr.note.lesson ?? t('manual.hasNote')} className="ml-1 cursor-help">
-                          📝
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${STATUS_STYLES[tr.status]}`}>{t(`manual.status_${tr.status}`)}</span>
-                      {tr.amended_at && (
-                        <span
-                          title={t('manual.amendedAt', { time: new Date(tr.amended_at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }) })}
-                          className="ml-1 cursor-help rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-200"
+                  <Fragment key={tr.id}>
+                    <tr
+                      onClick={() => {
+                      if (window.getSelection()?.toString()) return // đang bôi đen chữ → không đóng/mở dòng
+                      toggle(tr.id)
+                    }}
+                      className={`cursor-pointer align-top hover:bg-slate-50 ${expanded === tr.id ? 'bg-emerald-50/40' : ''} ${isExecuted(tr.status) ? '' : 'opacity-50'}`}
+                      title={isExecuted(tr.status) ? undefined : t('manual.notCounted')}
+                    >
+                      <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggle(tr.id)
+                          }}
+                          aria-expanded={expanded === tr.id}
+                          aria-controls={`trade-${tr.id}`}
+                          aria-label={expanded === tr.id ? t('manual.collapse') : t('manual.expand')}
+                          className="mr-1 inline-block w-4 text-slate-400 transition-transform"
                         >
-                          {t('manual.amended')}
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
-                      {tr.status === 'partial' ? `${money.plain(tr.executed_qty)}/${money.plain(tr.qty)}` : money.plain(tr.qty)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{money.plain(tr.price)}</td>
-                    <td className="hidden px-3 py-2 text-right tabular-nums text-slate-500 sm:table-cell">{money.amount(Number(tr.fee) + Number(tr.tax))}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${Number(tr.closed_qty) > 0 ? pnlColor(tr.realized_pnl) : 'text-slate-300'}`}>
-                      {Number(tr.closed_qty) > 0 ? money.pnl(tr.realized_pnl) : '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-semibold">
-                      {tr.status === 'pending' && (
-                        <span className="mr-2 inline-flex gap-2">
-                          <button onClick={() => changeStatus(tr, 'filled')} className="text-emerald-700 hover:underline">
-                            {t('manual.actionFill')}
-                          </button>
-                          <button onClick={() => changeStatus(tr, 'partial')} className="text-sky-700 hover:underline">
-                            {t('manual.actionPartial')}
-                          </button>
-                          <button onClick={() => changeStatus(tr, 'unfilled')} className="text-slate-500 hover:underline">
-                            {t('manual.actionUnfilled')}
-                          </button>
-                          <button onClick={() => changeStatus(tr, 'cancelled')} className="text-rose-600 hover:underline">
-                            {t('manual.actionCancel')}
-                          </button>
-                        </span>
-                      )}
-                      <button onClick={() => setEditing(tr)} className="text-slate-600 hover:underline">
-                        {t('manual.edit')}
-                      </button>
-                      <button onClick={() => remove(tr)} className="ml-2 text-rose-600 hover:underline">
-                        {t('manual.delete')}
-                      </button>
-                    </td>
-                  </tr>
+                          <span aria-hidden className={`inline-block ${expanded === tr.id ? 'rotate-90' : ''}`}>▸</span>
+                        </button>
+                        {new Date(tr.executed_at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <span className={`font-semibold ${tr.side === 'buy' ? 'text-emerald-700' : 'text-rose-600'}`}>{t(`manual.${tr.side}`)}</span> {tr.symbol}
+                        {tr.note && (
+                          <span title={tr.note.reason ?? tr.note.lesson ?? t('manual.hasNote')} className="ml-1 cursor-help">
+                            📝
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${STATUS_STYLES[tr.status]}`}>{t(`manual.status_${tr.status}`)}</span>
+                        {tr.amended_at && (
+                          <span
+                            title={t('manual.amendedAt', { time: new Date(tr.amended_at).toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }) })}
+                            className="ml-1 cursor-help rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-200"
+                          >
+                            {t('manual.amended')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                        {tr.status === 'partial' ? `${money.plain(tr.executed_qty)}/${money.plain(tr.qty)}` : money.plain(tr.qty)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{money.plain(tr.price)}</td>
+                      <td className="hidden px-3 py-2 text-right tabular-nums text-slate-500 sm:table-cell">{money.amount(Number(tr.fee) + Number(tr.tax))}</td>
+                      <td className={`px-3 py-2 text-right tabular-nums ${Number(tr.closed_qty) > 0 ? pnlColor(tr.realized_pnl) : 'text-slate-300'}`}>
+                        {Number(tr.closed_qty) > 0 ? money.pnl(tr.realized_pnl) : '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-semibold" onClick={(e) => e.stopPropagation()}>
+                        {tr.status === 'pending' && (
+                          <span className="mr-2 inline-flex gap-2">
+                            <button onClick={() => changeStatus(tr, 'filled')} className="text-emerald-700 hover:underline">
+                              {t('manual.actionFill')}
+                            </button>
+                            <button onClick={() => changeStatus(tr, 'partial')} className="text-sky-700 hover:underline">
+                              {t('manual.actionPartial')}
+                            </button>
+                            <button onClick={() => changeStatus(tr, 'unfilled')} className="text-slate-500 hover:underline">
+                              {t('manual.actionUnfilled')}
+                            </button>
+                            <button onClick={() => changeStatus(tr, 'cancelled')} className="text-rose-600 hover:underline">
+                              {t('manual.actionCancel')}
+                            </button>
+                          </span>
+                        )}
+                        <button onClick={() => setEditing(tr)} className="text-slate-600 hover:underline">
+                          {t('manual.edit')}
+                        </button>
+                        <button onClick={() => remove(tr)} className="ml-2 text-rose-600 hover:underline">
+                          {t('manual.delete')}
+                        </button>
+                      </td>
+                    </tr>
+                    {expanded === tr.id && (
+                      <tr id={`trade-${tr.id}`} className="bg-slate-50/60">
+                        <td colSpan={8} className="px-4 py-4">
+                          {/* dính mép trái & rộng tối đa bằng màn hình: bảng rộng hơn màn hình (mobile) không đẩy chi tiết ra ngoài */}
+                          <div className="sticky left-4 max-w-[calc(100vw-4rem)] lg:max-w-none">
+                            <ManualTradeDetail
+                              trade={tr}
+                              money={money}
+                              actions={
+                                <span className="flex gap-3 font-semibold">
+                                  <button onClick={() => setEditing(tr)} className="text-slate-600 hover:underline">
+                                    {t('manual.edit')}
+                                  </button>
+                                  <Link href={`/journal/trades/${tr.id}`} onClick={markFromJournal} className="text-emerald-700 hover:underline">
+                                    {t('manual.viewDetail')}
+                                  </Link>
+                                </span>
+                              }
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

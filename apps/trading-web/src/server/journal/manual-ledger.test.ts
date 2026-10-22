@@ -27,6 +27,9 @@ describe('replay (average cost)', () => {
     expect(positions).toHaveLength(1)
     expect(positions[0].qty.toNumber()).toBe(200)
     expect(positions[0].avgPrice.toNumber()).toBe(115_000) // bán không đổi giá vốn
+    expect(results.get(b2.id)!.avgPriceAfter.toNumber()).toBe(115_000)
+    expect(results.get(s1.id)!.positionBefore.toNumber()).toBe(400)
+    expect(results.get(b1.id)!.positionBefore.toNumber()).toBe(0)
   })
   it('closes the whole position and starts a fresh average next time', () => {
     const { results, positions } = replay([tr('HPG', 'buy', 100, 20_000, 1), tr('HPG', 'sell', 100, 25_000, 2), tr('HPG', 'buy', 100, 30_000, 3)])
@@ -69,6 +72,23 @@ describe('same-timestamp trades', () => {
     const vn = replay([sell, buy], { buysFirstOnTie: true })
     expect(vn.results.get(sell.id)!.realizedPnl.toNumber()).toBe(200_000)
     expect(firstOversell([sell, buy])).toBeNull()
+  })
+})
+
+describe('position before / average cost after', () => {
+  it('flips, fully closes and adds to shorts correctly', () => {
+    const b = tr('ETH', 'buy', 100, 2_000, 1)
+    const flip = tr('ETH', 'sell', 150, 2_500, 2) // đóng 100 Long, mở 50 Short ở 2.500
+    const add = tr('ETH', 'sell', 50, 3_000, 3) // Short thêm → giá vốn BQ 2.750
+    const close = tr('ETH', 'buy', 100, 2_600, 4) // đóng hết
+    const { results } = replay([b, flip, add, close])
+    expect(results.get(flip.id)!.positionBefore.toNumber()).toBe(100)
+    expect(results.get(flip.id)!.positionAfter.toNumber()).toBe(-50)
+    expect(results.get(flip.id)!.avgPriceAfter.toNumber()).toBe(2_500)
+    expect(results.get(add.id)!.avgPriceAfter.toNumber()).toBe(2_750)
+    expect(results.get(close.id)!.positionAfter.toNumber()).toBe(0)
+    expect(results.get(close.id)!.avgPriceAfter.toNumber()).toBe(0)
+    expect(results.get(close.id)!.realizedPnl.toNumber()).toBe(15_000) // (2.750 − 2.600) × 100
   })
 })
 

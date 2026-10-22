@@ -4,9 +4,9 @@ import { manualLedgers, manualTrades, users, type ManualTradeRow } from '../db/s
 import { HttpError } from '../http'
 import { D, toApi, toDb } from '../trading/decimal'
 import { rangeStart } from './journal-service'
-import { firstOversell, replay, type ManualMarket } from './manual-ledger'
+import { firstOversell, orderOf, replay, type ManualMarket } from './manual-ledger'
 import { type OrderStatus } from './manual-markets'
-import { canChangeStatus, executedQty, feesFor, ledgerOf } from './manual-rows'
+import { canChangeStatus, executedQty, feesFor, ledgerOf, toLedgerTrade } from './manual-rows'
 import { MANUAL_LIMITS, type LedgerInput, type ManualFilter, type ManualTradeInput, type StatusInput } from './manual-validation'
 import { computeStats, drawdownBase, type Stats, type StatTrade } from './stats'
 import type { NoteDto } from './journal-service'
@@ -132,7 +132,10 @@ export interface ManualTradeDto {
   amended_at: string | null // "Đã sửa": lần cuối đổi mã / chiều / khối lượng / giá
   realized_pnl: string
   closed_qty: string
+  position_before: string | null
   position_after: string | null // null = lệnh không vào sổ
+  avg_price_after: string | null
+  created_at: string
   note: NoteDto | null
 }
 
@@ -155,7 +158,10 @@ function toDto(r: ManualTradeRow, rep: ReturnType<typeof replay>['results']): Ma
     amended_at: r.amendedAt?.toISOString() ?? null,
     realized_pnl: x ? toApi(x.realizedPnl) : '0',
     closed_qty: x ? toApi(x.closedQty) : '0',
+    position_before: x ? toApi(x.positionBefore) : null,
     position_after: x ? toApi(x.positionAfter) : null,
+    avg_price_after: x ? toApi(x.avgPriceAfter) : null,
+    created_at: r.createdAt.toISOString(),
     note: hasNote
       ? { reason: r.reason, lesson: r.lesson, emotion: r.emotion, rating: r.rating, tags: r.tags, updated_at: r.updatedAt.toISOString() }
       : null,
@@ -176,6 +182,35 @@ export async function listManualTrades(userId: string, market: ManualMarket, fil
     .sort((a, b) => b.executedAt.getTime() - a.executedAt.getTime() || b.id.localeCompare(a.id)) // mới nhất trước
   const from = (filter.page - 1) * filter.page_size
   return { items: shown.slice(from, from + filter.page_size).map((r) => toDto(r, results)), total: shown.length }
+}
+
+export interface ManualTradeDetailDto {
+  trade: ManualTradeDto
+  ledger: LedgerDto
+  /** Mọi lệnh cùng mã (cũ → mới, gồm cả lệnh chưa / không khớp) — diễn biến vị thế & giá vốn */
+  timeline: ManualTradeDto[]
+}
+
+export async function getManualTrade(userId: string, id: string): Promise<ManualTradeDetailDto> {
+  if (!UUID.test(id)) throw new HttpError(404, 'NOT_FOUND')
+  const [row] = await db
+    .select()
+    .from(manualTrades)
+    .where(and(eq(manualTrades.id, id), eq(manualTrades.userId, userId)))
+  if (!row) throw new HttpError(404, 'NOT_FOUND')
+  const market = row.market as ManualMarket
+  const [ledger, rows] = await Promise.all([
+    getLedger(userId, market),
+    db
+      .select()
+      .from(manualTrades)
+      .where(and(eq(manualTrades.userId, userId), eq(manualTrades.market, market), eq(manualTrades.symbol, row.symbol))),
+  ])
+  const { results } = replay(ledgerOf(rows), { buysFirstOnTie: market === 'vn' })
+  // Cùng thứ tự với lúc tính sổ (CK VN: mua trước bán khi trùng thời điểm) để cột "sau lệnh" đọc từ trên xuống hợp lý
+  const order = orderOf({ buysFirstOnTie: market === 'vn' })
+  const timeline = rows.sort((a, b) => order(toLedgerTrade(a), toLedgerTrade(b))).map((r) => toDto(r, results))
+  return { trade: timeline.find((t) => t.id === id)!, ledger, timeline }
 }
 
 // ── Ghi ──
