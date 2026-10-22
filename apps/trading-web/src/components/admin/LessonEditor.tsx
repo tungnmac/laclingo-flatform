@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import { changedFields, insertAt } from '@/lib/admin-forms'
@@ -51,12 +52,14 @@ export function LessonEditor({
   chapters,
   onSaved,
   onDirtyChange,
+  onClose,
 }: {
   lessonId: string | null
   chapterId: string
   chapters: AdminChapterDto[]
   onSaved: (lessonId: string) => void
   onDirtyChange: (dirty: boolean) => void
+  onClose: () => void
 }) {
   const { t } = useT()
   const [lesson, setLesson] = useState<AdminLessonDto | null>(null)
@@ -134,14 +137,24 @@ export function LessonEditor({
 
   return (
     <div className="space-y-6">
-      <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-3">
+      <form
+        ref={formRef}
+        onSubmit={submit}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose() // Esc đóng form
+        }}
+        className="scroll-mt-20 space-y-3"
+      >
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">{lessonId ? form.title || '…' : t('admin.newLesson')}</h2>
-          {lesson?.published && (
-            <Link href={`/learn/${lesson.slug}`} target="_blank" className="text-sm font-semibold text-emerald-700 hover:underline">
-              {t('admin.view')} ↗
-            </Link>
-          )}
+          <div className="flex items-center gap-3">
+            {lesson?.published && (
+              <Link href={`/learn/${lesson.slug}`} target="_blank" className="text-sm font-semibold text-emerald-700 hover:underline">
+                {t('admin.view')} ↗
+              </Link>
+            )}
+            <CloseButton label={t('common.close')} onClick={onClose} />
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t('admin.lessonTitle')}>

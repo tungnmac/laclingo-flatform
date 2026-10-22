@@ -171,6 +171,7 @@ export default function AdminLearnPage() {
               chapter={selectedChapter}
               locale={locale}
               onDirtyChange={setDirty}
+              onClose={() => select(null)}
               onSaved={(c) => {
                 load()
                 setSelection({ kind: 'chapter', id: c.id })
@@ -184,6 +185,7 @@ export default function AdminLearnPage() {
               chapterId={selection.chapterId}
               chapters={tree}
               onDirtyChange={setDirty}
+              onClose={() => select(null)}
               onSaved={(id) => {
                 load()
                 const chapterId = selection.chapterId

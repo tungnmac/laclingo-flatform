@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Markdown } from '@/components/learn/Markdown'
+import { CloseButton } from '@/components/CloseButton'
 import { useT } from '@/i18n/I18nProvider'
 import { useFocusOnOpen } from '@/hooks/useFocusOnOpen'
 import type { Locale } from '@/i18n/locales'
@@ -34,11 +35,13 @@ export function CompanyAnalysisEditor({
   locale,
   onSaved,
   onDirtyChange,
+  onClose,
 }: {
   company: AdminCompanyDto
   locale: Locale
   onSaved: () => void
   onDirtyChange: (dirty: boolean) => void
+  onClose: () => void
 }) {
   const { t } = useT()
   const [form, setForm] = useState<AnalysisInput | null>(null)
@@ -90,14 +93,24 @@ export function CompanyAnalysisEditor({
   if (!form) return error !== null ? <p className="text-sm text-rose-600">{errorMessage(error, t)}</p> : <p className="text-sm text-slate-400">{t('common.loading')}</p>
 
   return (
-    <form ref={formRef} onSubmit={submit} className="scroll-mt-20 space-y-4">
+    <form
+      ref={formRef}
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose() // Esc đóng form
+      }}
+      className="scroll-mt-20 space-y-4"
+    >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold">
           {company.symbol} · {locale.toUpperCase()}
         </h2>
-        <Link href={`/companies/${company.market}/${company.symbol}`} target="_blank" className="text-sm font-semibold text-emerald-700 hover:underline">
-          {t('adminCompanies.view')} ↗
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href={`/companies/${company.market}/${company.symbol}`} target="_blank" className="text-sm font-semibold text-emerald-700 hover:underline">
+            {t('adminCompanies.view')} ↗
+          </Link>
+          <CloseButton label={t('common.close')} onClick={onClose} />
+        </div>
       </div>
       <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">{t('adminCompanies.reviewNote')}</p>
       <Field label={t('adminCompanies.summary')}>
