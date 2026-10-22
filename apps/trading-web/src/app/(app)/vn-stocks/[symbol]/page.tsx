@@ -36,7 +36,7 @@ export default function VnStockPage() {
   }, [symbol, locale, retry])
 
   const backLink = (
-    <Link href="/vn-stocks" className="text-sm font-semibold text-emerald-700 hover:underline">
+    <Link href="/markets?tab=vn" className="text-sm font-semibold text-emerald-700 hover:underline">
       {t('vnStocks.back')}
     </Link>
   )

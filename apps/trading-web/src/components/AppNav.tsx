@@ -6,16 +6,15 @@ import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 
-const NAV_ITEMS = [
-  { href: '/markets', labelKey: 'nav.markets' },
+const NAV_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
+  { href: '/markets', labelKey: 'nav.markets', also: ['/vn-stocks'] }, // chi tiết cổ phiếu VN thuộc tab CK Việt Nam
   { href: '/portfolio', labelKey: 'nav.portfolio' },
   { href: '/journal', labelKey: 'nav.journal' },
   { href: '/companies', labelKey: 'nav.companies' },
-  { href: '/vn-stocks', labelKey: 'nav.vnStocks' },
   { href: '/learn', labelKey: 'nav.learn' },
   { href: '/practice', labelKey: 'nav.practice' },
 ]
-const ADMIN_ITEMS = [
+const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/admin/learn', labelKey: 'nav.admin' },
   { href: '/admin/companies', labelKey: 'nav.adminCompanies' },
   { href: '/admin/library', labelKey: 'nav.adminLibrary' },
@@ -42,7 +41,7 @@ export function AppNav({ user }: { user: SessionUser }) {
         </Link>
         <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {[...NAV_ITEMS, ...(user.role === 'admin' ? ADMIN_ITEMS : [])].map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+            const active = [item.href, ...(item.also ?? [])].some((h) => pathname === h || pathname.startsWith(`${h}/`))
             return (
               <Link
                 key={item.href}

@@ -34,7 +34,6 @@ export const en: Messages = {
     learn: 'Learn',
     practice: 'Practice',
     companies: 'Companies',
-    vnStocks: 'VN stocks',
     adminVnData: 'VN stock data',
     adminCompanies: 'Companies admin',
     admin: 'Admin',
@@ -53,7 +52,17 @@ export const en: Messages = {
     back: '← Markets',
     backHome: '← Back to Markets',
     notFound: 'Symbol “{symbol}” not found.',
+    comingSoon: 'Coming soon',
+    comingSoonUs: 'No US stock price source yet — we are looking for a suitable data provider.',
+    comingSoonOther: 'No forex / commodity price source yet — we are looking for a suitable data provider.',
+    usCompaniesLink: 'See US company profiles & ratios →',
     stats: 'High {high} · Low {low} · Vol {volume} {quote}',
+  },
+  marketTabs: {
+    crypto: 'Crypto',
+    vn: 'Vietnam stocks',
+    us: 'US stocks',
+    other: 'Forex / Other',
   },
   chart: {
     loading: 'Loading chart...',
@@ -782,7 +791,6 @@ export const en: Messages = {
     hasNote: 'Has notes',
   },
   vnStocks: {
-    title: 'Vietnam stocks',
     subtitle: 'Every HOSE · HNX · UPCOM listing — daily prices, profiles and financial statements',
     allExchanges: 'All',
     searchPlaceholder: 'Search symbol or name (e.g. FPT, milk)',
