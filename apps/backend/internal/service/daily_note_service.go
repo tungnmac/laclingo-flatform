@@ -102,6 +102,7 @@ type DailyTaskCreateRequest struct {
 // DailyTaskUpdateRequest — sửa 1 việc hôm nay; trường bỏ trống = giữ nguyên. ClearTarget = đổi thành việc tích.
 type DailyTaskUpdateRequest struct {
 	Title       *string `json:"title,omitempty"`
+	Kind        *string `json:"kind,omitempty" example:"srs_review"` // đổi loại việc; tiến độ hiện có giữ nguyên
 	Target      *int32  `json:"target,omitempty"`
 	ClearTarget bool    `json:"clear_target,omitempty"`
 	Progress    *int32  `json:"progress,omitempty"`
@@ -484,7 +485,7 @@ func taskFromRow(r db.GetDailyNoteTaskForUserRow) db.DailyNoteTask {
 	return db.DailyNoteTask{
 		ID: r.ID, NoteID: r.NoteID, Title: r.Title, Kind: r.Kind, Target: r.Target, Progress: r.Progress, Memo: r.Memo,
 		CompletedAt: r.CompletedAt, CarriedFrom: r.CarriedFrom, CarriedAt: r.CarriedAt, TemplateID: r.TemplateID,
-		Position: r.Position, CreatedAt: r.CreatedAt,
+		IsRepeat: r.IsRepeat, Position: r.Position, CreatedAt: r.CreatedAt,
 	}
 }
 
@@ -495,7 +496,10 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 		return DailyTask{}, err
 	}
 	t := taskFromRow(row)
-	title, memo := t.Title, t.Memo
+	title, memo, kind := t.Title, t.Memo, t.Kind
+	if req.Kind != nil {
+		kind = *req.Kind
+	}
 	if req.Title != nil {
 		title = strings.TrimSpace(*req.Title)
 	}
@@ -512,7 +516,7 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 	} else if req.Target != nil {
 		target = req.Target
 	}
-	if err := validateTaskInput(dailyTaskInput{Title: title, Kind: t.Kind, Target: target, Memo: memo}); err != nil {
+	if err := validateTaskInput(dailyTaskInput{Title: title, Kind: kind, Target: target, Memo: memo}); err != nil {
 		return DailyTask{}, err
 	}
 	progress := t.Progress
@@ -567,7 +571,7 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 				return DailyTask{}, err
 			}
 			tpl, err := qtx.CreateDailyTaskTemplate(ctx, db.CreateDailyTaskTemplateParams{
-				UserID: toPgUUID(userID), Title: title, Kind: t.Kind, Target: pgInt4(target), Checklist: checklist,
+				UserID: toPgUUID(userID), Title: title, Kind: kind, Target: pgInt4(target), Checklist: checklist,
 			})
 			if err != nil {
 				return DailyTask{}, asDuplicate(err, fmt.Sprintf("Việc lặp lại \"%s\" đã có", shortText(title)))
@@ -582,15 +586,15 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 			isRepeat = false
 		}
 	}
-	// Đang lặp lại và đổi tiêu đề/mục tiêu → áp dụng cho các ngày sau
-	if templateID.Valid && (title != t.Title || pgInt4(target) != t.Target) {
-		if err := qtx.UpdateDailyTaskTemplate(ctx, db.UpdateDailyTaskTemplateParams{ID: templateID, UserID: toPgUUID(userID), Title: title, Target: pgInt4(target)}); err != nil {
+	// Đang lặp lại và đổi tiêu đề/loại/mục tiêu → áp dụng cho các ngày sau
+	if templateID.Valid && (title != t.Title || kind != t.Kind || pgInt4(target) != t.Target) {
+		if err := qtx.UpdateDailyTaskTemplate(ctx, db.UpdateDailyTaskTemplateParams{ID: templateID, UserID: toPgUUID(userID), Title: title, Target: pgInt4(target), Kind: kind}); err != nil {
 			return DailyTask{}, asDuplicate(err, fmt.Sprintf("Việc lặp lại \"%s\" đã có", shortText(title)))
 		}
 	}
 	updated, err := qtx.UpdateDailyNoteTask(ctx, db.UpdateDailyNoteTaskParams{
 		ID: t.ID, Title: title, Target: pgInt4(target), Progress: progress, Memo: memo, CompletedAt: pgTime(completed),
-		TemplateID: templateID, IsRepeat: isRepeat, ExpectedProgress: t.Progress,
+		TemplateID: templateID, IsRepeat: isRepeat, Kind: kind, ExpectedProgress: t.Progress,
 	})
 	if errors.Is(err, pgx.ErrNoRows) { // hoạt động học vừa cộng tiến độ giữa chừng
 		return DailyTask{}, &duplicateError{msg: "Tiến độ vừa được cập nhật, vui lòng thử lại"}

@@ -1070,6 +1070,7 @@ export interface DailyTaskCreateRequest {
 
 export interface DailyTaskUpdateRequest {
   title?: string
+  kind?: DailyTaskKind // đổi loại việc; tiến độ hiện có giữ nguyên
   target?: number
   clear_target?: boolean
   progress?: number

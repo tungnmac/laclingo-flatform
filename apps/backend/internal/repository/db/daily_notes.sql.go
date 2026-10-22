@@ -751,8 +751,8 @@ func (q *Queries) UpdateDailyNoteJournal(ctx context.Context, arg UpdateDailyNot
 
 const updateDailyNoteTask = `-- name: UpdateDailyNoteTask :one
 UPDATE daily_note_tasks
-SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7, is_repeat = $8
-WHERE id = $1 AND progress = $9
+SET title = $2, target = $3, progress = $4, memo = $5, completed_at = $6, template_id = $7, is_repeat = $8, kind = $9
+WHERE id = $1 AND progress = $10
 RETURNING id, note_id, title, kind, target, progress, memo, completed_at, carried_from, carried_at, template_id, is_repeat, position, created_at
 `
 
@@ -765,6 +765,7 @@ type UpdateDailyNoteTaskParams struct {
 	CompletedAt      pgtype.Timestamptz `json:"completed_at"`
 	TemplateID       pgtype.UUID        `json:"template_id"`
 	IsRepeat         bool               `json:"is_repeat"`
+	Kind             string             `json:"kind"`
 	ExpectedProgress int32              `json:"expected_progress"`
 }
 
@@ -780,6 +781,7 @@ func (q *Queries) UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTa
 		arg.CompletedAt,
 		arg.TemplateID,
 		arg.IsRepeat,
+		arg.Kind,
 		arg.ExpectedProgress,
 	)
 	var i DailyNoteTask
@@ -821,7 +823,7 @@ func (q *Queries) UpdateDailyTaskItem(ctx context.Context, arg UpdateDailyTaskIt
 }
 
 const updateDailyTaskTemplate = `-- name: UpdateDailyTaskTemplate :exec
-UPDATE daily_task_templates SET title = $3, target = $4 WHERE id = $1 AND user_id = $2
+UPDATE daily_task_templates SET title = $3, target = $4, kind = $5 WHERE id = $1 AND user_id = $2
 `
 
 type UpdateDailyTaskTemplateParams struct {
@@ -829,15 +831,17 @@ type UpdateDailyTaskTemplateParams struct {
 	UserID pgtype.UUID `json:"user_id"`
 	Title  string      `json:"title"`
 	Target pgtype.Int4 `json:"target"`
+	Kind   string      `json:"kind"`
 }
 
-// Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
+// Sửa tiêu đề/loại/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
 func (q *Queries) UpdateDailyTaskTemplate(ctx context.Context, arg UpdateDailyTaskTemplateParams) error {
 	_, err := q.db.Exec(ctx, updateDailyTaskTemplate,
 		arg.ID,
 		arg.UserID,
 		arg.Title,
 		arg.Target,
+		arg.Kind,
 	)
 	return err
 }

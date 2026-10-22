@@ -411,7 +411,7 @@ type Querier interface {
 	// (pgx.ErrNoRows) → báo tải lại thay vì làm mất phần vừa cộng
 	UpdateDailyNoteTask(ctx context.Context, arg UpdateDailyNoteTaskParams) (DailyNoteTask, error)
 	UpdateDailyTaskItem(ctx context.Context, arg UpdateDailyTaskItemParams) (int64, error)
-	// Sửa tiêu đề/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
+	// Sửa tiêu đề/loại/mục tiêu của việc đang lặp → áp dụng cho các ngày sau
 	UpdateDailyTaskTemplate(ctx context.Context, arg UpdateDailyTaskTemplateParams) error
 	UpdateDeck(ctx context.Context, arg UpdateDeckParams) (UserDeck, error)
 	UpdateGrammarExercise(ctx context.Context, arg UpdateGrammarExerciseParams) (GrammarExercise, error)
