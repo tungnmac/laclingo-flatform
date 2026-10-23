@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
@@ -10,6 +9,7 @@ import { ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { languageFlag, previewPhrase } from '@/features/course/components/LanguageCard'
+import { AccountList, signOutCurrent } from '@/features/auth/components/AccountList'
 import { PlanSummary } from '@/features/billing/components/PlanSummary'
 import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
 import { userService } from '@/features/user/user.service'
@@ -24,8 +24,6 @@ import { useSession } from '@/store/session'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const logout = useSession((s) => s.logout)
   const setUser = useSession((s) => s.setUser)
   const t = useTranslation()
   const { data: user, error, loading, reload } = useApi(userService.me, [])
@@ -84,13 +82,13 @@ export default function ProfilePage() {
           <Button
             variant="secondary"
             className="mt-2 w-full"
-            onClick={() => {
-              logout()
-              router.replace('/login')
-            }}
+            onClick={signOutCurrent}
           >
             {t.profile.logout}
           </Button>
+          <div className="mt-2 w-full border-t border-slate-100 pt-3 text-left lg:hidden">
+            <AccountList />
+          </div>
         </Card>
 
         <div className="space-y-4 lg:col-span-2">

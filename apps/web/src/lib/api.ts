@@ -47,7 +47,9 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   // thừa; body là FormData (upload file) thì ĐỂ BROWSER tự set (kèm boundary),
   // tự set cứng application/json sẽ làm hỏng multipart request.
   if (requestInit.body && !(requestInit.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  // /auth/* (đăng nhập, đăng ký) không gửi token: 401 ở đó là sai mật khẩu, không phải phiên đang dùng hết hạn
+  const authRoute = path.startsWith('/auth/')
+  if (token && !authRoute) headers.set('Authorization', `Bearer ${token}`)
   const fail = (err: ApiError) => {
     const notice = mutationNotice(requestInit.method, path, false, err.message, notify)
     emitMutationNotice(notice && { ...notice, source: err })
@@ -62,9 +64,16 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   }
 
   if (!res.ok) {
-    if (res.status === 401 && token) useSession.getState().logout()
+    // Token bị từ chối → tài khoản này hết phiên (giữ trong danh sách); còn tài khoản khác thì chuyển sang, không thì
+    // đăng nhập lại — luôn tải lại trang để không lẫn dữ liệu
+    if (res.status === 401 && token && !authRoute) {
+      const username = useSession.getState().user?.username
+      const result = useSession.getState().expireToken(token)
+      if (result === 'switched') window.location.assign('/learn')
+      else if (result === 'expired') window.location.assign(`/login?relogin=${encodeURIComponent(username ?? '')}`)
+    }
     const body = (await res.json().catch(() => null)) as (ErrorResponse & Partial<LimitErrorDetail>) | null
-    const err = new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token, body?.code), res.status)
+    const err = new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token && !authRoute, body?.code), res.status)
     if (res.status === 402 && body?.code === 'pro_required') {
       // Màn nâng cấp Pro đã báo lý do — không hiện thêm toast lỗi chung
       err.shownInline = true

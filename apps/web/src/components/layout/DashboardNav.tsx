@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { signOutCurrent } from '@/features/auth/components/AccountList'
+import { AccountSwitcher } from '@/features/auth/components/AccountSwitcher'
 import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
 import { isTypingTarget } from '@/hooks/useKeypress'
@@ -12,7 +14,6 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { cn, displayName } from '@/lib/utils'
 import { useLayout } from '@/store/layout'
 import { LOCALES, useLocale } from '@/store/locale'
-import { useSession } from '@/store/session'
 import type { User } from '@/types/api'
 
 // key tra vào t.nav (useTranslation) — label dịch theo ngôn ngữ giao diện,
@@ -62,8 +63,6 @@ function useNavPathname() {
  */
 export function Sidebar({ user }: { user: User }) {
   const pathname = useNavPathname()
-  const router = useRouter()
-  const logout = useSession((s) => s.logout)
   const collapsed = useLayout((s) => s.sidebarCollapsed)
   const toggleSidebar = useLayout((s) => s.toggleSidebar)
   const setSidebarCollapsed = useLayout((s) => s.setSidebarCollapsed)
@@ -179,16 +178,14 @@ export function Sidebar({ user }: { user: User }) {
             </div>
           )}
         </Link>
+        <AccountSwitcher collapsed={collapsed} />
         <button
           type="button"
-          onClick={() => {
-            logout()
-            router.replace('/login')
-          }}
+          onClick={signOutCurrent}
           aria-label={collapsed ? t.nav.logout : undefined}
           title={collapsed ? t.nav.logout : undefined}
           className={cn(
-            'mt-3 w-full rounded-lg py-2 text-sm text-slate-500 hover:bg-slate-100',
+            'w-full rounded-lg py-2 text-sm text-slate-500 hover:bg-slate-100',
             collapsed ? 'px-0 text-center text-lg' : 'px-3 text-left',
           )}
         >

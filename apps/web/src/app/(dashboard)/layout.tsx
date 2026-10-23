@@ -8,6 +8,7 @@ import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
 import { MutationToaster } from '@/components/ui/MutationToaster'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+import { reloadAsActiveAccount } from '@/features/auth/components/AccountList'
 import { PaywallDialog } from '@/features/billing/components/PaywallDialog'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
 import { browserTimezone } from '@/features/reminder/push'
@@ -22,17 +23,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const user = useSession((s) => s.user)
   const token = useSession((s) => s.token)
   const expiresAt = useSession((s) => s.expiresAt)
-  const logout = useSession((s) => s.logout)
   const setUser = useSession((s) => s.setUser)
 
   const valid = isSessionValid({ token, expiresAt }) && !!user
 
   useEffect(() => {
     if (!hydrated || valid) return
-    // Token hết hạn hoặc chưa đăng nhập → dọn phiên rồi về trang đăng nhập
-    logout()
-    router.replace('/login')
-  }, [hydrated, valid, logout, router])
+    // Phiên đang dùng hết hạn / chưa đăng nhập: còn tài khoản khác còn phiên → chuyển sang (tải lại trang như mọi lần
+    // chuyển tài khoản); không thì về đăng nhập — tài khoản hết hạn vẫn giữ trong danh sách để đăng nhập lại (điền sẵn tên).
+    // Đọc store trực tiếp + chỉ chạy theo hydrated/valid: deactivate() xoá user thì effect không chạy lại làm mất ?relogin
+    const { accounts, user: current, activate, deactivate } = useSession.getState()
+    const other = accounts.find((a) => a.user.id !== current?.id && isSessionValid(a))
+    if (other && activate(other.user.id)) return reloadAsActiveAccount()
+    deactivate()
+    router.replace(current ? `/login?relogin=${encodeURIComponent(current.username)}` : '/login')
+  }, [hydrated, valid, router])
 
   useEffect(() => {
     if (!valid) return
