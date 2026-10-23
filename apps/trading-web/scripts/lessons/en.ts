@@ -1,6 +1,8 @@
 import type { SeedChapter } from './types'
 import { EN_ADVANCED } from './en-advanced'
 import { EN_FUNDAMENTALS } from './en-fundamentals'
+import { EN_PRACTICE } from './en-practice'
+import { EN_SECTORS } from './en-sectors'
 
 // English starter curriculum — numbers match TradeLab: 0.1% fee, 10,000 USDT wallet, no leverage, shorts at 100% margin.
 export const EN: SeedChapter[] = [
@@ -734,4 +736,6 @@ Open your [Journal](/journal), pick a recent trade and write down your **reason,
   },
   ...EN_FUNDAMENTALS,
   ...EN_ADVANCED,
+  ...EN_SECTORS,
+  ...EN_PRACTICE,
 ]
