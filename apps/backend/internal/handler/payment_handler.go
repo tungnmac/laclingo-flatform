@@ -34,6 +34,9 @@ func (h *PaymentHandler) RegisterRoutes(router fiber.Router) {
 	api.Post("/portal", h.Portal)
 	api.Get("/wallet", h.Wallet)
 	api.Post("/wallet/streak-freeze", h.BuyStreakFreeze)
+	api.Get("/rewards", h.PendingRewards)
+	api.Post("/rewards/claim-all", h.ClaimAllRewards)
+	api.Post("/rewards/:id/claim", h.ClaimReward)
 }
 
 func paymentError(err error) error {
@@ -202,4 +205,55 @@ func (h *PaymentHandler) StripeWebhook(c *fiber.Ctx) error {
 func queryValues(c *fiber.Ctx) url.Values {
 	v, _ := url.ParseQuery(string(c.Request().URI().QueryString()))
 	return v
+}
+
+// PendingRewards godoc
+// @Summary      Quà gems chờ nhận (nhiệm vụ, thắng thử thách, lên level) + mức thưởng hiện tại
+// @Tags         billing
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  service.PendingRewardsResponse
+// @Router       /billing/rewards [get]
+func (h *PaymentHandler) PendingRewards(c *fiber.Ctx) error {
+	out, err := h.svc.PendingRewards(c.UserContext(), currentUserID(c))
+	if err != nil {
+		return err
+	}
+	return c.JSON(out)
+}
+
+// ClaimReward godoc
+// @Summary      Nhận 1 quà gems vào ví
+// @Tags         billing
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Reward ID"  format(uuid)
+// @Success      200  {object}  service.WalletResponse
+// @Failure      404  {object}  ErrorResponse  "Đã nhận / không có"
+// @Router       /billing/rewards/{id}/claim [post]
+func (h *PaymentHandler) ClaimReward(c *fiber.Ctx) error {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		return err
+	}
+	out, err := h.svc.ClaimReward(c.UserContext(), currentUserID(c), id)
+	if err != nil {
+		return err
+	}
+	return c.JSON(out)
+}
+
+// ClaimAllRewards godoc
+// @Summary      Nhận tất cả quà gems đang chờ
+// @Tags         billing
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  service.WalletResponse
+// @Router       /billing/rewards/claim-all [post]
+func (h *PaymentHandler) ClaimAllRewards(c *fiber.Ctx) error {
+	out, err := h.svc.ClaimAllRewards(c.UserContext(), currentUserID(c))
+	if err != nil {
+		return err
+	}
+	return c.JSON(out)
 }

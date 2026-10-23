@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/States'
 import { MutationToaster } from '@/components/ui/MutationToaster'
 import { ToastProvider } from '@/components/ui/ToastProvider'
 import { reloadAsActiveAccount } from '@/features/auth/components/AccountList'
+import { useRewardsCount } from '@/features/billing/rewardsStore'
 import { PaywallDialog } from '@/features/billing/components/PaywallDialog'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
 import { browserTimezone } from '@/features/reminder/push'
@@ -73,10 +74,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
 /** Chỉ mount khi đã đăng nhập: làm mới số thông báo chưa đọc cho chuông, và lưu
  * múi giờ trình duyệt 1 lần mỗi lần vào app (nhắc học theo giờ địa phương) */
+const REWARDS_POLL_MS = 60_000
+
 function BackgroundSync() {
   useUnreadPolling()
   useEffect(() => {
     reminderService.updateTimezone(browserTimezone()).catch(() => {})
+    // Badge quà gems chờ nhận: tải khi vào app, định kỳ và khi quay lại tab (quà mới từ nhiệm vụ / thắng thử thách)
+    const refresh = () => void useRewardsCount.getState().refresh()
+    refresh()
+    const timer = setInterval(refresh, REWARDS_POLL_MS)
+    const onVisible = () => document.visibilityState === 'visible' && refresh()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
   return null
 }

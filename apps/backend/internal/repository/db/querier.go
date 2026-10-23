@@ -36,6 +36,7 @@ type Querier interface {
 	// phải chặn từ lúc lưu, vì ClaimDueReminders dùng AT TIME ZONE cho MỌI user
 	// trong 1 câu: 1 múi giờ lạ làm hỏng cả lượt nhắc.
 	CheckTimezone(ctx context.Context, tz string) (pgtype.Timestamp, error)
+	ClaimAllGemRewards(ctx context.Context, userID pgtype.UUID) ([]GemReward, error)
 	// Chọn VÀ đánh dấu (1 câu INSERT ... ON CONFLICT nguyên tử — chạy nhiều
 	// instance cũng không gửi trùng) những user cần nhắc ngay lúc này. Quét MỌI
 	// user active (kể cả chưa bật web push — vẫn nhận thông báo trong chuông);
@@ -49,6 +50,8 @@ type Querier interface {
 	//   - inactive: không học >= inactive_days ngày (lặp lại mỗi inactive_days ngày)
 	//   - daily:    remind_day là ngày nhắc trong days_of_week
 	ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow, error)
+	// Nhận 1 món (đúng 1 lần — 2 lần bấm cùng lúc chỉ 1 lần thành công)
+	ClaimGemReward(ctx context.Context, arg ClaimGemRewardParams) (GemReward, error)
 	// Xoá bản đã chuyển sang hôm nay → việc gốc trở lại "chưa chuyển" (chuyển lại được)
 	ClearDailyTaskCarried(ctx context.Context, id pgtype.UUID) error
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
@@ -63,6 +66,9 @@ type Querier interface {
 	CountDailyNoteTasks(ctx context.Context, noteID pgtype.UUID) (int32, error)
 	CountDailyTaskItems(ctx context.Context, taskID pgtype.UUID) (int32, error)
 	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
+	// Số quà 1 nguồn từ mốc thời gian (giới hạn quà thắng thử thách mỗi ngày)
+	CountGemRewardsSince(ctx context.Context, arg CountGemRewardsSinceParams) (int32, error)
+	CountPendingGemRewards(ctx context.Context, userID pgtype.UUID) (CountPendingGemRewardsRow, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
 	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
@@ -88,6 +94,7 @@ type Querier interface {
 	CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTaskTemplateParams) (DailyTaskTemplate, error)
 	CreateDeck(ctx context.Context, arg CreateDeckParams) (UserDeck, error)
 	CreateGameRoom(ctx context.Context, arg CreateGameRoomParams) (GameRoom, error)
+	CreateGemReward(ctx context.Context, arg CreateGemRewardParams) (GemReward, error)
 	CreateGrammarExercise(ctx context.Context, arg CreateGrammarExerciseParams) (GrammarExercise, error)
 	CreateGrammarLesson(ctx context.Context, arg CreateGrammarLessonParams) (GrammarLesson, error)
 	// ===== Admin CRUD (quản lý nội dung ngữ pháp) =====
@@ -196,6 +203,8 @@ type Querier interface {
 	GetPaymentOrder(ctx context.Context, id pgtype.UUID) (PaymentOrder, error)
 	GetPaymentOrderForUser(ctx context.Context, arg GetPaymentOrderForUserParams) (PaymentOrder, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
+	// Quà gems chờ nhận + mức thưởng (admin)
+	GetRewardSettings(ctx context.Context) (RewardSetting, error)
 	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
 	GetSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) (Subscription, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
@@ -338,6 +347,7 @@ type Querier interface {
 	// định kể cả khi có thông báo mới chen vào đầu danh sách giữa 2 lần tải.
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListPaymentOrdersForUser(ctx context.Context, arg ListPaymentOrdersForUserParams) ([]PaymentOrder, error)
+	ListPendingGemRewards(ctx context.Context, userID pgtype.UUID) ([]GemReward, error)
 	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error)
 	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
@@ -383,6 +393,8 @@ type Querier interface {
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
 	LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+	// Khoá dòng user khi cộng thưởng nhiệm vụ: 2 nhiệm vụ xong cùng lúc không cùng đọc level cũ (không tạo quà lên level 2 lần)
+	LockUserForRewards(ctx context.Context, id pgtype.UUID) (User, error)
 	LockUserInventory(ctx context.Context, userID pgtype.UUID) (UserInventory, error)
 	LockUserStreak(ctx context.Context, id pgtype.UUID) (LockUserStreakRow, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
@@ -476,6 +488,7 @@ type Querier interface {
 	UpdateListeningQuestion(ctx context.Context, arg UpdateListeningQuestionParams) (ListeningQuestion, error)
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateReminderDefaults(ctx context.Context, arg UpdateReminderDefaultsParams) (ReminderDefault, error)
+	UpdateRewardSettings(ctx context.Context, arg UpdateRewardSettingsParams) (RewardSetting, error)
 	UpdateSpeakingItem(ctx context.Context, arg UpdateSpeakingItemParams) (SpeakingItem, error)
 	// Stripe gia hạn kỳ mới / đổi trạng thái tự gia hạn — chỉ gói đang ACTIVE (sự kiện tới trễ không làm sống lại gói đã
 	// kết thúc/bị thay); hạn chỉ tiến lên (giữ phần trả trước còn lại nếu dài hơn kỳ Stripe)

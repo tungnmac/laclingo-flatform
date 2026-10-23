@@ -909,6 +909,7 @@ export type NotificationType =
   | 'blog_comment_like'
   | 'announcement'
   | 'payment'
+  | 'gem_reward'
 
 export interface AppNotification {
   id: string
@@ -1223,7 +1224,7 @@ export interface PaymentOrder {
 export interface GemTransaction {
   delta: number
   balance_after: number
-  reason: 'PURCHASE' | 'MISSION_REWARD' | 'BUY_STREAK_FREEZE' | 'ADMIN'
+  reason: 'PURCHASE' | 'MISSION_REWARD' | 'CHALLENGE_WIN' | 'LEVEL_UP' | 'BUY_STREAK_FREEZE' | 'ADMIN'
   note: string
   created_at: string
 }
@@ -1234,4 +1235,26 @@ export interface WalletResponse {
   streak_freeze_gem_cost: number
   max_streak_freezes: number
   transactions: GemTransaction[]
+  claimed?: number // gems vừa nhận (nhận quà)
+}
+
+// ===== Quà gems chờ nhận (nhiệm vụ, thắng thử thách, lên level) =====
+export interface RewardSettings {
+  challenge_win_gems: number
+  level_up_gems_per_level: number // lên level N nhận N × số này
+}
+
+export interface GemReward {
+  id: string
+  source: 'MISSION' | 'CHALLENGE_WIN' | 'LEVEL_UP'
+  amount: number
+  note: string
+  created_at: string
+}
+
+export interface PendingRewardsResponse {
+  items: GemReward[]
+  count: number
+  total: number
+  settings: RewardSettings
 }

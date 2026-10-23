@@ -808,7 +808,7 @@ CREATE TABLE IF NOT EXISTS gem_transactions (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     delta INT NOT NULL CHECK (delta <> 0),
     balance_after INT NOT NULL CHECK (balance_after >= 0),
-    reason VARCHAR(30) NOT NULL CHECK (reason IN ('PURCHASE', 'MISSION_REWARD', 'BUY_STREAK_FREEZE', 'ADMIN')),
+    reason VARCHAR(30) NOT NULL CHECK (reason IN ('PURCHASE', 'MISSION_REWARD', 'CHALLENGE_WIN', 'LEVEL_UP', 'BUY_STREAK_FREEZE', 'ADMIN')),
     note TEXT NOT NULL DEFAULT '',
     order_id UUID REFERENCES payment_orders(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -818,3 +818,22 @@ CREATE INDEX IF NOT EXISTS idx_gem_transactions_order ON gem_transactions (order
 
 -- Thưởng gems khi hoàn thành nhiệm vụ (admin đặt)
 ALTER TABLE missions ADD COLUMN IF NOT EXISTS reward_gems INT NOT NULL DEFAULT 0 CHECK (reward_gems >= 0);
+
+-- ===== Quà gems chờ nhận + mức thưởng (migration 000040) =====
+CREATE TABLE IF NOT EXISTS gem_rewards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source VARCHAR(20) NOT NULL CHECK (source IN ('MISSION', 'CHALLENGE_WIN', 'LEVEL_UP')),
+    amount INT NOT NULL CHECK (amount > 0),
+    note TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    claimed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_gem_rewards_pending ON gem_rewards (user_id, created_at) WHERE claimed_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS reward_settings (
+    id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    challenge_win_gems INT NOT NULL DEFAULT 10 CHECK (challenge_win_gems BETWEEN 0 AND 1000),
+    level_up_gems_per_level INT NOT NULL DEFAULT 20 CHECK (level_up_gems_per_level BETWEEN 0 AND 1000),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

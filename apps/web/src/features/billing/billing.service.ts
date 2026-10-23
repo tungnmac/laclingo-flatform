@@ -8,6 +8,7 @@ import type {
   PlanStatus,
   SubscriptionInfo,
   SubscriptionPlan,
+  PendingRewardsResponse,
   WalletResponse,
 } from '@/types/api'
 
@@ -29,5 +30,9 @@ export const billingService = {
   orders: () => apiFetch<PaymentOrder[]>('/billing/orders'),
   portal: () => apiFetch<{ url: string }>('/billing/portal', { method: 'POST', notify: false }),
   wallet: () => apiFetch<WalletResponse>('/billing/wallet'),
+  // Quà gems chờ nhận
+  rewards: () => apiFetch<PendingRewardsResponse>('/billing/rewards'),
+  claimReward: (id: string) => apiFetch<WalletResponse>(`/billing/rewards/${encodeURIComponent(id)}/claim`, { method: 'POST', notify: 'error' }),
+  claimAllRewards: () => apiFetch<WalletResponse>('/billing/rewards/claim-all', { method: 'POST', notify: 'error' }),
   buyStreakFreeze: () => apiFetch<WalletResponse>('/billing/wallet/streak-freeze', { method: 'POST', notify: 'error' }),
 }

@@ -44,6 +44,9 @@ type PaymentRepository interface {
 	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
 	GetUserInventory(ctx context.Context, userID pgtype.UUID) (db.UserInventory, error)
 	ListGemTransactions(ctx context.Context, arg db.ListGemTransactionsParams) ([]db.GemTransaction, error)
+	ListPendingGemRewards(ctx context.Context, userID pgtype.UUID) ([]db.GemReward, error)
+	CountPendingGemRewards(ctx context.Context, userID pgtype.UUID) (db.CountPendingGemRewardsRow, error)
+	GetRewardSettings(ctx context.Context) (db.RewardSetting, error)
 }
 
 type PaymentService struct {
@@ -599,6 +602,7 @@ type WalletResponse struct {
 	StreakFreezeGemCost int                  `json:"streak_freeze_gem_cost"`
 	MaxStreakFreezes    int                  `json:"max_streak_freezes"`
 	Transactions        []GemTransactionInfo `json:"transactions"`
+	Claimed             int32                `json:"claimed,omitempty"` // gems vừa nhận (nhận quà)
 }
 
 func (s *PaymentService) Wallet(ctx context.Context, userID uuid.UUID) (WalletResponse, error) {

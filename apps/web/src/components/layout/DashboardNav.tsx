@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { signOutCurrent } from '@/features/auth/components/AccountList'
 import { AccountSwitcher } from '@/features/auth/components/AccountSwitcher'
+import { useRewardsCount } from '@/features/billing/rewardsStore'
 import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
 import { isTypingTarget } from '@/hooks/useKeypress'
@@ -68,6 +69,7 @@ export function Sidebar({ user }: { user: User }) {
   const setSidebarCollapsed = useLayout((s) => s.setSidebarCollapsed)
   const locale = useLocale((s) => s.locale)
   const t = useTranslation()
+  const rewardCount = useRewardsCount((s) => s.count) // quà gems chờ nhận
   const isAdmin = user.role === 'admin' || user.role === 'owner'
   const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
   const toggleLabel = collapsed ? t.nav.expandMenu : t.nav.collapseMenu
@@ -133,10 +135,17 @@ export function Sidebar({ user }: { user: User }) {
               isActive(pathname, item.href) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100',
             )}
           >
-            <span className="text-lg" aria-hidden>
+            <span className="relative text-lg" aria-hidden>
               {item.icon}
+              {/* Thu gọn: chấm vàng trên icon Ví khi có quà gems chờ nhận */}
+              {collapsed && item.key === 'wallet' && rewardCount > 0 && (
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />
+              )}
             </span>
             {!collapsed && t.nav[item.key]}
+            {!collapsed && item.key === 'wallet' && rewardCount > 0 && (
+              <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
+            )}
           </Link>
         ))}
       </nav>
