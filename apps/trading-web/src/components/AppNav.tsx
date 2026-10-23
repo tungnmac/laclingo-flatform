@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useT } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
+import type { Plan } from '@/server/billing/plans'
 
 const NAV_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/markets', labelKey: 'nav.markets', also: ['/vn-stocks'] }, // chi tiết cổ phiếu VN thuộc tab CK Việt Nam
@@ -13,6 +14,8 @@ const NAV_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/companies', labelKey: 'nav.companies' },
   { href: '/learn', labelKey: 'nav.learn' },
   { href: '/practice', labelKey: 'nav.practice' },
+  { href: '/contests', labelKey: 'nav.contests' },
+  { href: '/orgs', labelKey: 'nav.orgs', also: ['/join'] },
 ]
 const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/admin/learn', labelKey: 'nav.admin' },
@@ -20,9 +23,12 @@ const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/admin/library', labelKey: 'nav.adminLibrary' },
   { href: '/admin/references', labelKey: 'nav.adminReferences' },
   { href: '/admin/vn-data', labelKey: 'nav.adminVnData' },
+  { href: '/admin/subscriptions', labelKey: 'nav.adminSubscriptions' },
+  { href: '/admin/contests', labelKey: 'nav.adminContests' },
+  { href: '/admin/orgs', labelKey: 'nav.adminOrgs' },
 ]
 
-export function AppNav({ user }: { user: SessionUser }) {
+export function AppNav({ user, plan }: { user: SessionUser; plan: Plan }) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useT()
@@ -54,6 +60,12 @@ export function AppNav({ user }: { user: SessionUser }) {
             )
           })}
         </nav>
+        <Link
+          href="/pro"
+          className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ${plan === 'pro' ? 'bg-emerald-600 text-white' : 'text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-50'}`}
+        >
+          {t(plan === 'pro' ? 'pro.badge' : 'pro.upgradeShort')}
+        </Link>
         <LanguageSwitcher className="hidden sm:block" />
         <span className="hidden text-sm text-slate-600 md:inline">{user.display_name}</span>
         <button onClick={logout} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">

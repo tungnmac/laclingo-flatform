@@ -236,8 +236,11 @@ export function getAccountSnapshot(userId: string): Promise<AccountSnapshot> {
   return withSettledAccount(userId, (tx, settled, pre) => snapshot(tx, settled.account, settled.delayed, pre.marks))
 }
 
-/** Reset: huỷ lệnh chờ của ví cũ, đóng ví cũ (giữ lịch sử), tạo ví mới 10.000 USDT. */
-export function resetAccount(userId: string): Promise<AccountSnapshot> {
+/**
+ * Reset: huỷ lệnh chờ của ví cũ, đóng ví cũ (giữ lịch sử), tạo ví mới 10.000 USDT.
+ * `onFresh` chạy trong CÙNG transaction (VD ghi danh giải đấu gắn với ví mới) — lỗi ở đó thì không reset gì cả.
+ */
+export function resetAccount(userId: string, onFresh?: (tx: Tx, fresh: AccountRow, old: AccountRow) => Promise<void>): Promise<AccountSnapshot> {
   // Quyết toán trước khi đóng ví: lệnh khớp / thanh lý lúc offline phải nằm trong lịch sử ví cũ
   return withSettledAccount(userId, async (tx, { account }) => {
     const pending = await tx
@@ -255,6 +258,7 @@ export function resetAccount(userId: string): Promise<AccountSnapshot> {
       .insert(tradingAccounts)
       .values({ userId, startingBalance: toDb(STARTING_BALANCE), cash: toDb(STARTING_BALANCE) })
       .returning()
+    if (onFresh) await onFresh(tx, fresh, account)
     return snapshot(tx, fresh, false)
   })
 }

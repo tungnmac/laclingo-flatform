@@ -8,6 +8,7 @@ import { firstOversell, orderOf, replay, type ManualMarket } from './manual-ledg
 import { type OrderStatus } from './manual-markets'
 import { canChangeStatus, executedQty, feesFor, ledgerOf, toLedgerTrade } from './manual-rows'
 import { MANUAL_LIMITS, type LedgerInput, type ManualFilter, type ManualTradeInput, type StatusInput } from './manual-validation'
+import { analyze, type Analytics } from './analytics'
 import { computeStats, drawdownBase, type Stats, type StatTrade } from './stats'
 import type { NoteDto } from './journal-service'
 
@@ -114,6 +115,32 @@ export async function getManualOverview(userId: string, market: ManualMarket, fi
       .map((p) => ({ symbol: p.symbol, side: p.qty.gt(0) ? 'long' : 'short', qty: toApi(p.qty.abs()), avg_price: toApi(p.avgPrice), cost: toApi(p.cost) })),
     symbols: [...new Set(rows.map((r) => r.symbol))].sort(),
   }
+}
+
+/** Phân tích nâng cao (Pro) cho sổ ghi tay — chỉ phần đã khớp; lãi/lỗ ròng = realized − phí − thuế */
+export async function getManualAnalytics(userId: string, market: ManualMarket, filter: ManualFilter): Promise<Analytics> {
+  const rows = await rowsOf(db, userId, market)
+  const { results } = replay(ledgerOf(rows), { buysFirstOnTie: market === 'vn' })
+  const start = rangeStart(filter.range)?.getTime() ?? null
+  return analyze(
+    rows
+      .filter((r) => results.has(r.id) && (!filter.symbol || r.symbol === filter.symbol) && (start === null || r.executedAt.getTime() >= start))
+      .map((r) => {
+        const res = results.get(r.id)!
+        return {
+          id: r.id,
+          symbol: r.symbol,
+          executedAt: r.executedAt.getTime(),
+          net: res.realizedPnl.minus(D(r.fee)).minus(D(r.tax)),
+          closing: res.closedQty.gt(0),
+          liquidation: false,
+          emotion: r.emotion,
+          rating: r.rating,
+          tags: r.tags,
+          noted: Boolean(r.reason?.trim() || r.lesson?.trim()),
+        }
+      }),
+  )
 }
 
 export interface ManualTradeDto {

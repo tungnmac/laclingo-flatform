@@ -11,6 +11,34 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/** Thuê bao gói trả phí. Hiện cấp thủ công bởi admin (source='admin'); thanh toán / B2B dùng chung bảng này về sau */
+export const subscriptions = pgTable(
+  'subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    plan: varchar('plan', { length: 10 }).notNull(), // 'pro'
+    status: varchar('status', { length: 12 }).notNull().default('active'), // 'active' | 'canceled'
+    source: varchar('source', { length: 12 }).notNull(), // 'admin' | 'payment' | 'org'
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }), // null = không thời hạn
+    note: text('note'),
+    grantedBy: uuid('granted_by').references(() => users.id, { onDelete: 'set null' }),
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+    canceledBy: uuid('canceled_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('subscriptions_user_status_idx').on(t.userId, t.status),
+    check('subscriptions_plan_check', sql`${t.plan} in ('pro')`),
+    check('subscriptions_status_check', sql`${t.status} in ('active', 'canceled')`),
+    check('subscriptions_source_check', sql`${t.source} in ('admin', 'payment', 'org')`),
+    check('subscriptions_period_check', sql`${t.endsAt} is null or ${t.endsAt} > ${t.startsAt}`),
+  ],
+)
+
 export const instruments = pgTable(
   'instruments',
   {
@@ -583,6 +611,107 @@ export const vnIndexPrices = pgTable(
   (t) => [primaryKey({ columns: [t.indexCode, t.date] })],
 )
 
+/** Giải đấu mô phỏng (miễn phí, chưa có giải thưởng). Điểm tính từ lệnh trong [starts_at, ends_at) của ví thi đấu; chốt kết quả bằng job contests:finalize */
+export const contests = pgTable(
+  'contests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 80 }).notNull().unique(),
+    titleVi: varchar('title_vi', { length: 200 }).notNull(),
+    titleEn: varchar('title_en', { length: 200 }).notNull(),
+    descriptionVi: text('description_vi').notNull().default(''),
+    descriptionEn: text('description_en').notNull().default(''),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    published: boolean('published').notNull().default(false),
+    finalizedAt: timestamp('finalized_at', { withTimezone: true }), // đã chốt kết quả (bảng xếp hạng đọc từ snapshot)
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('contests_starts_idx').on(t.startsAt), check('contests_period_check', sql`${t.endsAt} > ${t.startsAt}`)],
+)
+
+/** Người tham gia: mỗi lượt tham gia gắn với 1 ví TradeLab mới mở lúc tham gia */
+export const contestEntries = pgTable(
+  'contest_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contestId: uuid('contest_id')
+      .notNull()
+      .references(() => contests.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .unique()
+      .references(() => tradingAccounts.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    finalRank: integer('final_rank'), // null = không xếp hạng (chưa đủ lệnh / bỏ giải) hoặc chưa chốt
+    finalScore: jsonb('final_score'), // EntryScore lúc chốt
+  },
+  (t) => [uniqueIndex('contest_entries_contest_user_key').on(t.contestId, t.userId), index('contest_entries_user_idx').on(t.userId)],
+)
+
+/** Tổ chức B2B (CTCK, trường học, CLB): thành viên dùng Pro miễn phí tới pro_until, theo dõi tiến độ theo chương trình học */
+export const organizations = pgTable('organizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 80 }).notNull().unique(),
+  inviteCode: varchar('invite_code', { length: 32 }).notNull().unique(),
+  seatLimit: integer('seat_limit').notNull(), // tối đa số thành viên trừ owner (học viên + giảng viên) — đổi vai trò không giải phóng ghế
+  proUntil: timestamp('pro_until', { withTimezone: true }), // null = không kèm Pro
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const orgMembers = pgTable(
+  'org_members',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 12 }).notNull(), // owner | instructor | student
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.orgId, t.userId] }),
+    index('org_members_user_idx').on(t.userId),
+    check('org_members_role_check', sql`${t.role} in ('owner', 'instructor', 'student')`),
+  ],
+)
+
+/** Chương trình học của tổ chức = tập bài học theo translation_key (không phụ thuộc ngôn ngữ) */
+export const orgCurriculum = pgTable(
+  'org_curriculum',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    lessonKey: varchar('lesson_key', { length: 80 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.lessonKey] })],
+)
+
+/** Lần đầu thành viên hoàn thành 100% chương trình — chứng nhận đọc từ đây (không mất khi chương trình / bài học đổi sau đó) */
+export const orgCompletions = pgTable(
+  'org_completions',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    completedAt: timestamp('completed_at', { withTimezone: true }).notNull(),
+    lessons: integer('lessons').notNull(),
+    avgScore: integer('avg_score'),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.userId] })],
+)
+
 /** Lịch sử chạy job đồng bộ (admin theo dõi) */
 export const vnSyncRuns = pgTable(
   'vn_sync_runs',
@@ -621,3 +750,5 @@ export type GlossaryTermRow = typeof glossaryTerms.$inferSelect
 export type InvestmentPlanRow = typeof investmentPlans.$inferSelect
 export type ManualTradeRow = typeof manualTrades.$inferSelect
 export type ManualLedgerRow = typeof manualLedgers.$inferSelect
+export type ContestRow = typeof contests.$inferSelect
+export type OrganizationRow = typeof organizations.$inferSelect

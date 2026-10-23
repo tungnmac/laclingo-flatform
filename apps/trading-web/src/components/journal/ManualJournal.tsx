@@ -14,6 +14,7 @@ import { moneyFormat, parseQty } from '@/lib/money-format'
 import { ORDER_STATUSES, isExecuted, type ManualMarket, type OrderStatus } from '@/server/journal/manual-markets'
 import type { LedgerDto, ManualOverviewDto, ManualTradeDto } from '@/server/journal/manual-service'
 import { RANGES } from '@/server/journal/validation'
+import { JournalAnalytics } from './JournalAnalytics'
 import { ManualTradeDetail } from './ManualTradeDetail'
 import { ManualTradeForm } from './ManualTradeForm'
 import { MetricCards } from './MetricCards'
@@ -265,6 +266,7 @@ export function ManualJournal({ market }: { market: ManualMarket }) {
               </div>
             </Section>
           )}
+          <JournalAnalytics url={`/api/journal/manual/${market}/analytics?${query}`} pnl={money.pnl} reloadKey={reload} />
         </>
       )}
 

@@ -120,6 +120,27 @@
       "when": 1792667509614,
       "tag": "0016_vn_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792733043619,
+      "tag": "0017_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792734761366,
+      "tag": "0018_contests",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792736211196,
+      "tag": "0019_organizations",
+      "breakpoints": true
     }
   ]
 }

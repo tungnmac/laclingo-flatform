@@ -16,6 +16,7 @@
     "seed:companies": "tsx scripts/seed-companies.ts",
     "seed:library": "tsx scripts/seed-library.ts",
     "vn:sync": "tsx scripts/vn-sync.ts",
+    "contests:finalize": "tsx scripts/contests-finalize.ts",
     "seed:references": "tsx scripts/seed-references.ts",
     "seed:all": "npm run db:seed && npm run seed:lessons && npm run seed:companies && npm run seed:library && npm run seed:references"
   },
