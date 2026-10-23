@@ -4,6 +4,7 @@ import type { SessionUser } from '../auth/types'
 import { db } from '../db/client'
 import { subscriptions, users } from '../db/schema'
 import { HttpError } from '../http'
+import { orgProUntil } from '../orgs/org-service'
 import { activeSubscription, coverageEnd, type Feature, featuresOf, grantPeriod, hasFeature, type Plan } from './plans'
 import type { grantSchema, subscriptionListSchema } from './validation'
 
@@ -21,8 +22,11 @@ export async function getPlan(userId: string): Promise<PlanDto> {
     .from(subscriptions)
     .where(and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')))
   const sub = activeSubscription(rows, new Date())
-  const plan: Plan = sub ? 'pro' : 'free'
-  return { plan, ends_at: sub ? (coverageEnd(rows, sub)?.toISOString() ?? null) : null, features: featuresOf(plan) }
+  const subEnd = sub ? coverageEnd(rows, sub) : undefined // null = không thời hạn
+  const orgEnd = await orgProUntil(userId) // Pro do tổ chức (B2B) cấp
+  if (!sub && !orgEnd) return { plan: 'free', ends_at: null, features: featuresOf('free') }
+  const end = subEnd === null ? null : [subEnd, orgEnd].filter((d): d is Date => d instanceof Date).reduce((a, b) => (b > a ? b : a))
+  return { plan: 'pro', ends_at: end?.toISOString() ?? null, features: featuresOf('pro') }
 }
 
 /** Chặn API của tính năng trả phí: thiếu quyền → 403 PRO_REQUIRED (client hiện lời mời nâng cấp) */

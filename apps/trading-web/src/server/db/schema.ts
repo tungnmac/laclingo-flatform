@@ -653,6 +653,65 @@ export const contestEntries = pgTable(
   (t) => [uniqueIndex('contest_entries_contest_user_key').on(t.contestId, t.userId), index('contest_entries_user_idx').on(t.userId)],
 )
 
+/** Tổ chức B2B (CTCK, trường học, CLB): thành viên dùng Pro miễn phí tới pro_until, theo dõi tiến độ theo chương trình học */
+export const organizations = pgTable('organizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 200 }).notNull(),
+  slug: varchar('slug', { length: 80 }).notNull().unique(),
+  inviteCode: varchar('invite_code', { length: 32 }).notNull().unique(),
+  seatLimit: integer('seat_limit').notNull(), // tối đa số thành viên trừ owner (học viên + giảng viên) — đổi vai trò không giải phóng ghế
+  proUntil: timestamp('pro_until', { withTimezone: true }), // null = không kèm Pro
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const orgMembers = pgTable(
+  'org_members',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: varchar('role', { length: 12 }).notNull(), // owner | instructor | student
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.orgId, t.userId] }),
+    index('org_members_user_idx').on(t.userId),
+    check('org_members_role_check', sql`${t.role} in ('owner', 'instructor', 'student')`),
+  ],
+)
+
+/** Chương trình học của tổ chức = tập bài học theo translation_key (không phụ thuộc ngôn ngữ) */
+export const orgCurriculum = pgTable(
+  'org_curriculum',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    lessonKey: varchar('lesson_key', { length: 80 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.lessonKey] })],
+)
+
+/** Lần đầu thành viên hoàn thành 100% chương trình — chứng nhận đọc từ đây (không mất khi chương trình / bài học đổi sau đó) */
+export const orgCompletions = pgTable(
+  'org_completions',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    completedAt: timestamp('completed_at', { withTimezone: true }).notNull(),
+    lessons: integer('lessons').notNull(),
+    avgScore: integer('avg_score'),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.userId] })],
+)
+
 /** Lịch sử chạy job đồng bộ (admin theo dõi) */
 export const vnSyncRuns = pgTable(
   'vn_sync_runs',
@@ -692,3 +751,4 @@ export type InvestmentPlanRow = typeof investmentPlans.$inferSelect
 export type ManualTradeRow = typeof manualTrades.$inferSelect
 export type ManualLedgerRow = typeof manualLedgers.$inferSelect
 export type ContestRow = typeof contests.$inferSelect
+export type OrganizationRow = typeof organizations.$inferSelect
