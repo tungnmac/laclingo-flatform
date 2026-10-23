@@ -15,8 +15,9 @@ import (
 )
 
 // LacLingo Pro (xem docs chiến lược kinh doanh): gói Free giới hạn lượt dùng mỗi ngày, Pro dùng không giới hạn
-// (riêng phân tích câu bằng AI vẫn có trần vì tốn phí AI) và được tặng Streak Freeze mỗi tháng.
-// Đợt này chưa có thanh toán online — admin cấp/thu Pro thủ công (payment_provider = ADMIN).
+// (riêng phân tích câu bằng AI vẫn có trần vì tốn phí AI) và được tặng Streak Freeze mỗi tháng. Mọi học viên dùng được
+// Streak Freeze (mua bằng gems ở ví); Pro được nạp thêm đầu mỗi tháng. Gói mua qua VNPay/Stripe (payment_service.go)
+// hoặc admin cấp tay (payment_provider = ADMIN).
 // Ngày tính lượt + chuỗi ngày học theo giờ Việt Nam cố định (học viên không đổi múi giờ để "sang ngày mới").
 
 const (
@@ -103,11 +104,13 @@ type SubscriptionInfo struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"` // nil = trọn đời
 	Provider  string     `json:"payment_provider" example:"ADMIN"`
 	Note      string     `json:"note,omitempty"`
+	AutoRenew bool       `json:"auto_renew"` // Stripe tự gia hạn mỗi kỳ (huỷ → hết kỳ mới về Free)
 }
 
 func toSubscriptionInfo(sub db.Subscription) *SubscriptionInfo {
 	out := &SubscriptionInfo{
 		ID: uuid.UUID(sub.ID.Bytes), Plan: sub.Plan, StartsAt: sub.StartsAt.Time, Provider: sub.PaymentProvider, Note: sub.Note,
+		AutoRenew: sub.AutoRenew,
 	}
 	if sub.ExpiresAt.Valid {
 		t := sub.ExpiresAt.Time
@@ -317,6 +320,12 @@ func (s *PlanService) Grant(ctx context.Context, adminID, userID uuid.UUID, req 
 	} else if err != nil {
 		return nil, err
 	}
+	// Gói Stripe tự gia hạn: thay ở đây thì Stripe vẫn trừ tiền — học viên tự huỷ ở Quản lý gói trước
+	if active, err := s.repo.GetActiveSubscription(ctx, toPgUUID(userID)); err == nil && active.AutoRenew {
+		return nil, fmt.Errorf("học viên đang có gói tự gia hạn qua Stripe — cần huỷ trên Stripe (Quản lý gói) trước khi cấp gói khác: %w", ErrInvalidInput)
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
 	tx, err := s.repo.BeginTx(ctx)
 	if err != nil {
 		return nil, err
@@ -363,8 +372,8 @@ func daysBetween(a, b pgtype.Date) int {
 }
 
 // nextStreak — chuỗi mới khi học vào hôm nay: học tiếp từ hôm qua → +1; nghỉ `missed` ngày mà có đủ Streak Freeze
-// (chỉ Pro) → dùng freeze bù, vẫn +1; còn lại → bắt đầu lại từ 1. useFreezes = số freeze cần dùng.
-func nextStreak(count int32, last pgtype.Date, today pgtype.Date, freezes int32, pro bool) (next int32, useFreezes int32) {
+// → dùng freeze bù, vẫn +1; còn lại → bắt đầu lại từ 1. useFreezes = số freeze cần dùng.
+func nextStreak(count int32, last pgtype.Date, today pgtype.Date, freezes int32) (next int32, useFreezes int32) {
 	if !last.Valid {
 		return 1, 0
 	}
@@ -376,19 +385,19 @@ func nextStreak(count int32, last pgtype.Date, today pgtype.Date, freezes int32,
 		return count + 1, 0
 	}
 	missed := int32(gap - 1)
-	if pro && freezes >= missed {
+	if freezes >= missed {
 		return count + 1, missed
 	}
 	return 1, 0
 }
 
 // effectiveStreak — chuỗi đang hiển thị: chưa học hôm nay/hôm qua mà không đủ Streak Freeze bù → đã đứt (0)
-func effectiveStreak(count int32, last pgtype.Date, today pgtype.Date, freezes int32, pro bool) int32 {
+func effectiveStreak(count int32, last pgtype.Date, today pgtype.Date, freezes int32) int32 {
 	if !last.Valid {
 		return 0
 	}
 	gap := daysBetween(last, today)
-	if gap <= 1 || (pro && int32(gap-1) <= freezes) {
+	if gap <= 1 || int32(gap-1) <= freezes {
 		return count
 	}
 	return 0
@@ -434,7 +443,7 @@ func (s *PlanService) TouchStreak(ctx context.Context, userID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	next, use := nextStreak(locked.StreakCount.Int32, locked.StreakDate, today, inv.StreakFreezes, pro)
+	next, use := nextStreak(locked.StreakCount.Int32, locked.StreakDate, today, inv.StreakFreezes)
 	if use > 0 {
 		if n, err := qtx.UseStreakFreezes(ctx, db.UseStreakFreezesParams{UserID: toPgUUID(userID), N: use}); err != nil {
 			return err
@@ -462,10 +471,10 @@ func (s *PlanService) EffectiveStreak(ctx context.Context, userID uuid.UUID) (in
 	}
 	today := s.today()
 	if !cur.StreakDate.Valid || daysBetween(cur.StreakDate, today) <= 1 {
-		return effectiveStreak(cur.StreakCount.Int32, cur.StreakDate, today, 0, false), nil
+		return effectiveStreak(cur.StreakCount.Int32, cur.StreakDate, today, 0), nil
 	}
 	pro, err := s.IsPro(ctx, userID)
-	if err != nil || !pro { // Free không có freeze → nghỉ quá 1 ngày là đứt
+	if err != nil {
 		return 0, err
 	}
 	inv, err := s.storedInventory(ctx, userID) // chỉ đọc — GET /users/me không ghi DB
@@ -477,5 +486,5 @@ func (s *PlanService) EffectiveStreak(ctx context.Context, userID uuid.UUID) (in
 	if month := s.monthStart(); daysBetween(cur.StreakDate, month) <= 1 {
 		freezes = availableFreezes(inv, pro, month)
 	}
-	return effectiveStreak(cur.StreakCount.Int32, cur.StreakDate, today, freezes, pro), nil
+	return effectiveStreak(cur.StreakCount.Int32, cur.StreakDate, today, freezes), nil
 }

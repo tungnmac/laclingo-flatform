@@ -90,7 +90,7 @@ function MissionCard({ mission }: { mission: MyMission }) {
         </div>
       </div>
 
-      <p className="text-sm font-medium text-slate-600">{t.missions.rewardLine(mission.reward_exp, mission.reward_points)}</p>
+      <p className="text-sm font-medium text-slate-600">{t.missions.rewardLine(mission.reward_exp, mission.reward_points, mission.reward_gems)}</p>
     </Card>
   )
 }

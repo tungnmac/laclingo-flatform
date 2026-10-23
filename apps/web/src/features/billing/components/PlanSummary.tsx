@@ -61,10 +61,15 @@ export function PlanSummary() {
           ))}
         </ul>
       </div>
-      <p className="text-sm text-slate-600" title={t.billing.streakFreezeHint}>
-        {t.billing.streakFreezes(status.streak_freezes)}
-        <span className="mt-0.5 block text-xs text-slate-400">{t.billing.streakFreezeHint}</span>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-600" title={t.billing.streakFreezeHint}>
+          {t.billing.streakFreezes(status.streak_freezes)} · 💎 {status.gems}
+          <span className="mt-0.5 block text-xs text-slate-400">{t.billing.streakFreezeHint}</span>
+        </p>
+        <Link href="/wallet" className="text-sm font-semibold text-sky-600 hover:underline">
+          {t.billing.walletTitle} →
+        </Link>
+      </div>
     </Card>
   )
 }

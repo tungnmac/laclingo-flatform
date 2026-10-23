@@ -351,6 +351,7 @@ export interface MissionRequest {
   target_count: number
   reward_exp: number
   reward_points: number
+  reward_gems: number
   starts_at?: string
   ends_at?: string
   is_active?: boolean
@@ -366,6 +367,7 @@ export interface Mission {
   target_count: number
   reward_exp: number
   reward_points: number
+  reward_gems: number
   starts_at?: string
   ends_at?: string
   is_active: boolean
@@ -382,6 +384,7 @@ export interface MyMission {
   target_count: number
   reward_exp: number
   reward_points: number
+  reward_gems: number
   progress_count: number
   completed: boolean
 }
@@ -905,6 +908,7 @@ export type NotificationType =
   | 'blog_mention'
   | 'blog_comment_like'
   | 'announcement'
+  | 'payment'
 
 export interface AppNotification {
   id: string
@@ -1150,6 +1154,7 @@ export interface SubscriptionInfo {
   expires_at?: string // không có = trọn đời
   payment_provider: string
   note?: string
+  auto_renew: boolean // Stripe tự gia hạn mỗi kỳ
 }
 
 export interface FeatureUsage {
@@ -1174,4 +1179,59 @@ export interface LimitErrorDetail {
   code: 'pro_required' | 'daily_limit'
   feature: BillingFeature
   limit: number
+}
+
+// ===== Thanh toán (VNPay, Stripe) + ví gems =====
+export type PaymentProvider = 'VNPAY' | 'STRIPE'
+export type CatalogItemId = 'MONTHLY' | 'YEARLY' | 'LIFETIME' | 'GEMS_100' | 'GEMS_550' | 'GEMS_1200'
+
+export interface CatalogItem {
+  id: CatalogItemId
+  kind: 'plan' | 'gems'
+  plan?: SubscriptionPlan
+  gems?: number
+  price_vnd: number
+  price_usd_cents: number
+  recurring: boolean // tháng/năm qua Stripe tự gia hạn; qua VNPay trả trước 1 kỳ
+}
+
+export interface CatalogResponse {
+  items: CatalogItem[]
+  providers: { vnpay: boolean; stripe: boolean }
+  streak_freeze_gem_cost: number
+  max_streak_freezes: number
+}
+
+export interface CheckoutResponse {
+  order_id: string
+  url: string
+}
+
+export interface PaymentOrder {
+  id: string
+  item: CatalogItemId
+  provider: PaymentProvider
+  amount: number // đơn vị nhỏ nhất (VND: đồng, USD: cent)
+  currency: 'VND' | 'USD'
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED'
+  auto_renew: boolean
+  failure_reason?: string
+  created_at: string
+  paid_at?: string
+}
+
+export interface GemTransaction {
+  delta: number
+  balance_after: number
+  reason: 'PURCHASE' | 'MISSION_REWARD' | 'BUY_STREAK_FREEZE' | 'ADMIN'
+  note: string
+  created_at: string
+}
+
+export interface WalletResponse {
+  gems: number
+  streak_freezes: number
+  streak_freeze_gem_cost: number
+  max_streak_freezes: number
+  transactions: GemTransaction[]
 }

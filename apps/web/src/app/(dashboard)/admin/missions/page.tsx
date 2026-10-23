@@ -74,6 +74,7 @@ export default function AdminMissionsPage() {
       target_count: Number(form.get('target_count')),
       reward_exp: Number(form.get('reward_exp')),
       reward_points: Number(form.get('reward_points')),
+      reward_gems: Number(form.get('reward_gems') ?? 0),
       is_active: editing ? form.get('is_active') === 'on' : true,
     }
     if (period === 'event') {
@@ -166,6 +167,10 @@ export default function AdminMissionsPage() {
               </label>
             </div>
             <label className="block text-sm font-medium text-slate-700">
+              {t.adminMissions.rewardGemsLabel}
+              <input name="reward_gems" type="number" min={0} max={1000} defaultValue={editing?.reward_gems ?? 0} className={inputClass} />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
               {t.adminMissions.startsAtLabel}
               <input name="starts_at" type="date" defaultValue={toDateInputValue(editing?.starts_at)} className={inputClass} />
             </label>
@@ -212,7 +217,7 @@ export default function AdminMissionsPage() {
                     {m.title} {!m.is_active && <span className="text-xs font-normal text-slate-400">{t.adminMissions.deactivatedSuffix}</span>}
                   </p>
                   <p className="truncate text-sm text-slate-500">
-                    {t.adminMissions.summaryLine(m.period, m.action_type, m.target_count, m.reward_exp, m.reward_points)}
+                    {t.adminMissions.summaryLine(m.period, m.action_type, m.target_count, m.reward_exp, m.reward_points, m.reward_gems)}
                   </p>
                 </div>
                 <div className="flex gap-2">

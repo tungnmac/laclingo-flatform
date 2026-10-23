@@ -12,9 +12,9 @@ import (
 )
 
 const createMission = `-- name: CreateMission :one
-INSERT INTO missions (title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at
+INSERT INTO missions (title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, created_by, reward_gems)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at, reward_gems
 `
 
 type CreateMissionParams struct {
@@ -28,6 +28,7 @@ type CreateMissionParams struct {
 	StartsAt     pgtype.Timestamptz `json:"starts_at"`
 	EndsAt       pgtype.Timestamptz `json:"ends_at"`
 	CreatedBy    pgtype.UUID        `json:"created_by"`
+	RewardGems   int32              `json:"reward_gems"`
 }
 
 func (q *Queries) CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error) {
@@ -42,6 +43,7 @@ func (q *Queries) CreateMission(ctx context.Context, arg CreateMissionParams) (M
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.CreatedBy,
+		arg.RewardGems,
 	)
 	var i Mission
 	err := row.Scan(
@@ -59,6 +61,7 @@ func (q *Queries) CreateMission(ctx context.Context, arg CreateMissionParams) (M
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RewardGems,
 	)
 	return i, err
 }
@@ -74,7 +77,7 @@ func (q *Queries) DeactivateMission(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getMissionByID = `-- name: GetMissionByID :one
-SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at FROM missions WHERE id = $1
+SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at, reward_gems FROM missions WHERE id = $1
 `
 
 func (q *Queries) GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error) {
@@ -95,12 +98,13 @@ func (q *Queries) GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RewardGems,
 	)
 	return i, err
 }
 
 const listActiveMissionsByAction = `-- name: ListActiveMissionsByAction :many
-SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at FROM missions
+SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at, reward_gems FROM missions
 WHERE action_type = $1
   AND is_active = TRUE
   AND (period != 'event' OR (starts_at IS NOT NULL AND ends_at IS NOT NULL AND NOW() BETWEEN starts_at AND ends_at))
@@ -132,6 +136,7 @@ func (q *Queries) ListActiveMissionsByAction(ctx context.Context, actionType str
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RewardGems,
 		); err != nil {
 			return nil, err
 		}
@@ -144,7 +149,7 @@ func (q *Queries) ListActiveMissionsByAction(ctx context.Context, actionType str
 }
 
 const listAllMissions = `-- name: ListAllMissions :many
-SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at FROM missions
+SELECT id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at, reward_gems FROM missions
 ORDER BY is_active DESC, created_at DESC
 `
 
@@ -173,6 +178,7 @@ func (q *Queries) ListAllMissions(ctx context.Context) ([]Mission, error) {
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RewardGems,
 		); err != nil {
 			return nil, err
 		}
@@ -187,7 +193,7 @@ func (q *Queries) ListAllMissions(ctx context.Context) ([]Mission, error) {
 const listMissionsWithProgress = `-- name: ListMissionsWithProgress :many
 SELECT
     m.id, m.title, m.description, m.period, m.action_type, m.target_count,
-    m.reward_exp, m.reward_points, m.starts_at, m.ends_at,
+    m.reward_exp, m.reward_points, m.reward_gems, m.starts_at, m.ends_at,
     COALESCE(ump.progress_count, 0) AS progress_count,
     ump.completed_at
 FROM missions m
@@ -214,6 +220,7 @@ type ListMissionsWithProgressRow struct {
 	TargetCount   int32              `json:"target_count"`
 	RewardExp     int32              `json:"reward_exp"`
 	RewardPoints  int32              `json:"reward_points"`
+	RewardGems    int32              `json:"reward_gems"`
 	StartsAt      pgtype.Timestamptz `json:"starts_at"`
 	EndsAt        pgtype.Timestamptz `json:"ends_at"`
 	ProgressCount int32              `json:"progress_count"`
@@ -240,6 +247,7 @@ func (q *Queries) ListMissionsWithProgress(ctx context.Context, userID pgtype.UU
 			&i.TargetCount,
 			&i.RewardExp,
 			&i.RewardPoints,
+			&i.RewardGems,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.ProgressCount,
@@ -292,9 +300,10 @@ SET title = $2,
     starts_at = $9,
     ends_at = $10,
     is_active = $11,
+    reward_gems = $12,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at
+RETURNING id, title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, is_active, created_by, created_at, updated_at, reward_gems
 `
 
 type UpdateMissionParams struct {
@@ -309,6 +318,7 @@ type UpdateMissionParams struct {
 	StartsAt     pgtype.Timestamptz `json:"starts_at"`
 	EndsAt       pgtype.Timestamptz `json:"ends_at"`
 	IsActive     bool               `json:"is_active"`
+	RewardGems   int32              `json:"reward_gems"`
 }
 
 func (q *Queries) UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error) {
@@ -324,6 +334,7 @@ func (q *Queries) UpdateMission(ctx context.Context, arg UpdateMissionParams) (M
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.IsActive,
+		arg.RewardGems,
 	)
 	var i Mission
 	err := row.Scan(
@@ -341,6 +352,7 @@ func (q *Queries) UpdateMission(ctx context.Context, arg UpdateMissionParams) (M
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RewardGems,
 	)
 	return i, err
 }

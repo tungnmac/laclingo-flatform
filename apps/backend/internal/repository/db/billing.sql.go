@@ -24,7 +24,7 @@ func (q *Queries) CancelActiveSubscriptions(ctx context.Context, userID pgtype.U
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (user_id, plan, status, starts_at, expires_at, payment_provider, granted_by, note)
 VALUES ($1, $2, 'ACTIVE', $3, $4, $5, $6, $7)
-RETURNING id, user_id, plan, status, starts_at, expires_at, payment_provider, granted_by, note, cancelled_at, created_at
+RETURNING id, user_id, plan, status, starts_at, expires_at, payment_provider, granted_by, note, cancelled_at, created_at, provider_subscription_id, provider_customer_id, auto_renew, order_id
 `
 
 type CreateSubscriptionParams struct {
@@ -60,6 +60,10 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.Note,
 		&i.CancelledAt,
 		&i.CreatedAt,
+		&i.ProviderSubscriptionID,
+		&i.ProviderCustomerID,
+		&i.AutoRenew,
+		&i.OrderID,
 	)
 	return i, err
 }
@@ -75,7 +79,7 @@ func (q *Queries) EnsureUserInventory(ctx context.Context, userID pgtype.UUID) e
 
 const getActiveSubscription = `-- name: GetActiveSubscription :one
 
-SELECT id, user_id, plan, status, starts_at, expires_at, payment_provider, granted_by, note, cancelled_at, created_at FROM subscriptions
+SELECT id, user_id, plan, status, starts_at, expires_at, payment_provider, granted_by, note, cancelled_at, created_at, provider_subscription_id, provider_customer_id, auto_renew, order_id FROM subscriptions
 WHERE user_id = $1 AND status = 'ACTIVE' AND (expires_at IS NULL OR expires_at > NOW())
 ORDER BY expires_at DESC NULLS FIRST
 LIMIT 1
@@ -98,6 +102,10 @@ func (q *Queries) GetActiveSubscription(ctx context.Context, userID pgtype.UUID)
 		&i.Note,
 		&i.CancelledAt,
 		&i.CreatedAt,
+		&i.ProviderSubscriptionID,
+		&i.ProviderCustomerID,
+		&i.AutoRenew,
+		&i.OrderID,
 	)
 	return i, err
 }

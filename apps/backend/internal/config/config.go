@@ -43,6 +43,19 @@ type Config struct {
 	SuggestModel    string
 	GeminiAPIKey    string
 	GeminiModel     string
+
+	// Thanh toán (gói Pro, gems). Cổng nào thiếu key thì tắt (trang bảng giá báo chưa hỗ trợ).
+	// VNPay: mã website + chuỗi bí mật từ VNPay (sandbox: sandbox.vnpayment.vn); VNPayPayURL trống = URL sandbox.
+	// Stripe: secret key (sk_test_… / sk_live_…) + signing secret của webhook (whsec_…).
+	// AppWebURL: địa chỉ trang web (trang kết quả thanh toán); AppAPIURL: địa chỉ public của API (VNPay gọi Return/IPN).
+	VNPayTmnCode        string
+	VNPayHashSecret     string
+	VNPayPayURL         string
+	StripeSecretKey     string
+	StripeWebhookSecret string
+	StripeAPIBase       string // trống = api.stripe.com (đặt khi chạy với stripe-mock / server giả lập để test)
+	AppWebURL           string
+	AppAPIURL           string
 }
 
 func Load() (*Config, error) {
@@ -104,6 +117,15 @@ func Load() (*Config, error) {
 		SuggestModel:    os.Getenv("VOCAB_SUGGEST_MODEL"),
 		GeminiAPIKey:    os.Getenv("GEMINI_API_KEY"),
 		GeminiModel:     os.Getenv("GEMINI_MODEL"),
+
+		VNPayTmnCode:        strings.TrimSpace(os.Getenv("VNPAY_TMN_CODE")),
+		VNPayHashSecret:     strings.TrimSpace(os.Getenv("VNPAY_HASH_SECRET")),
+		VNPayPayURL:         strings.TrimSpace(os.Getenv("VNPAY_PAY_URL")),
+		StripeSecretKey:     strings.TrimSpace(os.Getenv("STRIPE_SECRET_KEY")),
+		StripeWebhookSecret: strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
+		StripeAPIBase:       strings.TrimSpace(os.Getenv("STRIPE_API_BASE")),
+		AppWebURL:           envOr("APP_WEB_URL", "http://localhost:3000"),
+		AppAPIURL:           envOr("APP_API_URL", "http://localhost:"+port+"/api/v1"),
 	}, nil
 }
 
@@ -116,4 +138,11 @@ func (c *Config) PushConfigured() bool {
 // storage.R2Client hay không (audio upload là tính năng optional).
 func (c *Config) R2Configured() bool {
 	return c.R2AccountID != "" && c.R2Bucket != "" && c.R2AccessKeyID != "" && c.R2SecretAccessKey != ""
+}
+
+func envOr(key, def string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return def
 }

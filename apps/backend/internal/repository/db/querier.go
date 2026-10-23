@@ -15,6 +15,10 @@ type Querier interface {
 	// Hoạt động học (RecordAction) → cộng tiến độ cho mọi việc cùng loại trong note của ngày; đạt mục tiêu lần đầu thì
 	// ghi completed_at. Chưa có note → không làm gì.
 	AddDailyTaskProgress(ctx context.Context, arg AddDailyTaskProgressParams) error
+	// Cộng/trừ gems; số dư không được âm (không đủ → không trả dòng)
+	AddGems(ctx context.Context, arg AddGemsParams) (int32, error)
+	// Mua Streak Freeze — giữ tối đa max_hold cái (vượt → 0 dòng)
+	AddStreakFreezes(ctx context.Context, arg AddStreakFreezesParams) (int64, error)
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
@@ -94,6 +98,10 @@ type Querier interface {
 	CreateListeningTopic(ctx context.Context, arg CreateListeningTopicParams) (ListeningTopic, error)
 	CreateMission(ctx context.Context, arg CreateMissionParams) (Mission, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) error
+	// Gói mua qua cổng thanh toán (khác CreateSubscription: admin cấp tay)
+	CreatePaidSubscription(ctx context.Context, arg CreatePaidSubscriptionParams) (Subscription, error)
+	// Thanh toán (VNPay, Stripe) + ví gems
+	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
 	CreateSpeakingAttempt(ctx context.Context, arg CreateSpeakingAttemptParams) error
 	CreateSpeakingItem(ctx context.Context, arg CreateSpeakingItemParams) (SpeakingItem, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
@@ -137,6 +145,8 @@ type Querier interface {
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
 	DislikeBlogPost(ctx context.Context, arg DislikeBlogPostParams) error
+	// Stripe subscription đã kết thúc (huỷ hết kỳ / thanh toán thất bại hẳn)
+	EndSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
 	// Gửi tới mọi tài khoản đang active (1 dòng thông báo / user).
@@ -183,8 +193,11 @@ type Querier interface {
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (ListeningPassage, error)
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
+	GetPaymentOrder(ctx context.Context, id pgtype.UUID) (PaymentOrder, error)
+	GetPaymentOrderForUser(ctx context.Context, arg GetPaymentOrderForUserParams) (PaymentOrder, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
 	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
+	GetSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) (Subscription, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
@@ -194,6 +207,8 @@ type Querier interface {
 	GetUserPlanFlags(ctx context.Context, id pgtype.UUID) (GetUserPlanFlagsRow, error)
 	GetUserReminderSettings(ctx context.Context, userID pgtype.UUID) (UserReminderSetting, error)
 	GetUserStreak(ctx context.Context, id pgtype.UUID) (GetUserStreakRow, error)
+	// Khách Stripe của học viên (lần mua trước) — mua lại dùng chung để Billing Portal thấy đủ hoá đơn/thẻ
+	GetUserStripeCustomer(ctx context.Context, userID pgtype.UUID) (string, error)
 	// Daily note (Nhật ký học) — RIÊNG TƯ: mọi query đều lọc theo user_id của chính học viên (không có query admin).
 	// Múi giờ để tính "hôm nay": cài đặt nhắc học của user → mặc định admin → giờ Việt Nam
 	GetUserTimezone(ctx context.Context, userID pgtype.UUID) (string, error)
@@ -214,6 +229,7 @@ type Querier interface {
 	// Tạo note của ngày; đã có (vd 2 request cùng lúc) → không trả dòng nào (pgx.ErrNoRows)
 	InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams) (DailyNote, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
+	InsertGemTransaction(ctx context.Context, arg InsertGemTransactionParams) error
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error)
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
@@ -282,6 +298,7 @@ type Querier interface {
 	ListFavoriteVocabularies(ctx context.Context, arg ListFavoriteVocabulariesParams) ([]ListFavoriteVocabulariesRow, error)
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
+	ListGemTransactions(ctx context.Context, arg ListGemTransactionsParams) ([]GemTransaction, error)
 	// Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
 	ListGrammarExercisesAdminPaged(ctx context.Context, arg ListGrammarExercisesAdminPagedParams) ([]ListGrammarExercisesAdminPagedRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
@@ -320,6 +337,7 @@ type Querier interface {
 	// Phân trang theo con trỏ (created_at, id) của phần tử cuối trang trước — ổn
 	// định kể cả khi có thông báo mới chen vào đầu danh sách giữa 2 lần tải.
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
+	ListPaymentOrdersForUser(ctx context.Context, arg ListPaymentOrdersForUserParams) ([]PaymentOrder, error)
 	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error)
 	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
@@ -365,6 +383,7 @@ type Querier interface {
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
 	LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+	LockUserInventory(ctx context.Context, userID pgtype.UUID) (UserInventory, error)
 	LockUserStreak(ctx context.Context, id pgtype.UUID) (LockUserStreakRow, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
@@ -379,6 +398,10 @@ type Querier interface {
 	// (ví dụ race giữa 2 request) — gọi lần 2 trả 0 dòng (pgx.ErrNoRows).
 	MarkMissionProgressCompleted(ctx context.Context, id pgtype.UUID) (UserMissionProgress, error)
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) (int64, error)
+	// PENDING → FAILED / CANCELLED (thanh toán lỗi, người dùng huỷ)
+	MarkPaymentOrderClosed(ctx context.Context, arg MarkPaymentOrderClosedParams) (int64, error)
+	// PENDING → PAID đúng 1 lần (IPN + Return URL / webhook gửi lại) — đã xử lý → không trả dòng (pgx.ErrNoRows)
+	MarkPaymentOrderPaid(ctx context.Context, arg MarkPaymentOrderPaidParams) (PaymentOrder, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
 	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
 	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
@@ -403,6 +426,10 @@ type Querier interface {
 	SetDailyTaskItemsOrder(ctx context.Context, arg SetDailyTaskItemsOrderParams) (int64, error)
 	// Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
 	SetDailyTaskTemplateChecklist(ctx context.Context, arg SetDailyTaskTemplateChecklistParams) error
+	// Stripe: lưu checkout session id ngay khi tạo (trang kết quả tra lại được trạng thái khi chưa có webhook)
+	SetPaymentOrderProviderRef(ctx context.Context, arg SetPaymentOrderProviderRefParams) error
+	// Chỉ đổi cờ tự gia hạn, giữ nguyên hạn (vd past_due: kỳ mới chưa trả tiền thì không cộng hạn)
+	SetSubscriptionAutoRenew(ctx context.Context, arg SetSubscriptionAutoRenewParams) error
 	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,
 	// và cập nhật múi giờ trình duyệt — không đụng tới phần cấu hình khác.
 	SetUserReminderTimezone(ctx context.Context, arg SetUserReminderTimezoneParams) error
@@ -450,6 +477,9 @@ type Querier interface {
 	UpdateMission(ctx context.Context, arg UpdateMissionParams) (Mission, error)
 	UpdateReminderDefaults(ctx context.Context, arg UpdateReminderDefaultsParams) (ReminderDefault, error)
 	UpdateSpeakingItem(ctx context.Context, arg UpdateSpeakingItemParams) (SpeakingItem, error)
+	// Stripe gia hạn kỳ mới / đổi trạng thái tự gia hạn — chỉ gói đang ACTIVE (sự kiện tới trễ không làm sống lại gói đã
+	// kết thúc/bị thay); hạn chỉ tiến lên (giữ phần trả trước còn lại nếu dài hơn kỳ Stripe)
+	UpdateSubscriptionPeriod(ctx context.Context, arg UpdateSubscriptionPeriodParams) error
 	// Vô hiệu hoá/khôi phục tài khoản (owner-only, xem user_service.go) — không
 	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
 	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)

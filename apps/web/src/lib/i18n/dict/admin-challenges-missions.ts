@@ -44,12 +44,13 @@ export interface AdminChallengesMissionsDict {
     targetCountLabel: string
     rewardExpLabel: string
     rewardPointsLabel: string
+    rewardGemsLabel: string
     startsAtLabel: string
     endsAtLabel: string
     isActiveLabel: string
     emptyMissions: string
     deactivatedSuffix: string
-    summaryLine: (period: string, action: string, target: number, exp: number, points: number) => string
+    summaryLine: (period: string, action: string, target: number, exp: number, points: number, gems: number) => string
     deactivateConfirm: (title: string) => string
     deactivateBtn: string
     eventDatesRequired: string
@@ -100,12 +101,14 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       targetCountLabel: 'Số lần cần đạt',
       rewardExpLabel: 'Thưởng EXP',
       rewardPointsLabel: 'Thưởng điểm',
+      rewardGemsLabel: 'Thưởng gems (0–1000)',
       startsAtLabel: 'Ngày bắt đầu (chỉ sự kiện)',
       endsAtLabel: 'Ngày kết thúc (chỉ sự kiện)',
       isActiveLabel: 'Đang hoạt động',
       emptyMissions: 'Chưa có nhiệm vụ nào',
       deactivatedSuffix: '(đã tắt)',
-      summaryLine: (period, action, target, exp, points) => `${period} · ${action} · mục tiêu ${target} · ⭐${exp} EXP · 🏆${points} điểm`,
+      summaryLine: (period, action, target, exp, points, gems) =>
+        `${period} · ${action} · mục tiêu ${target} · ⭐${exp} EXP · 🏆${points} điểm` + (gems > 0 ? ` · 💎${gems} gems` : ''),
       deactivateConfirm: (title) => `Tắt nhiệm vụ "${title}"? Lịch sử tiến độ sẽ được giữ lại.`,
       deactivateBtn: 'Tắt',
       eventDatesRequired: 'Nhiệm vụ sự kiện cần đủ ngày bắt đầu và kết thúc.',
@@ -154,12 +157,14 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       targetCountLabel: 'Target count',
       rewardExpLabel: 'EXP reward',
       rewardPointsLabel: 'Points reward',
+      rewardGemsLabel: 'Gems reward (0–1000)',
       startsAtLabel: 'Start date (event only)',
       endsAtLabel: 'End date (event only)',
       isActiveLabel: 'Active',
       emptyMissions: 'No missions yet',
       deactivatedSuffix: '(deactivated)',
-      summaryLine: (period, action, target, exp, points) => `${period} · ${action} · target ${target} · ⭐${exp} EXP · 🏆${points} pts`,
+      summaryLine: (period, action, target, exp, points, gems) =>
+        `${period} · ${action} · target ${target} · ⭐${exp} EXP · 🏆${points} pts` + (gems > 0 ? ` · 💎${gems} gems` : ''),
       deactivateConfirm: (title) => `Deactivate mission "${title}"? Progress history will be kept.`,
       deactivateBtn: 'Deactivate',
       eventDatesRequired: 'Event missions need both a start and end date.',

@@ -1,24 +1,32 @@
 import type { Locale } from '@/store/locale'
-import type { SubscriptionPlan } from '@/types/api'
+import type { CatalogItem, PaymentProvider, SubscriptionPlan } from '@/types/api'
 
-// Giá LacLingo Pro (chỉ hiển thị — đợt này chưa có thanh toán online). Đổi giá: sửa bảng dưới.
-// Giao diện tiếng Việt hiện VND, ngôn ngữ khác hiện USD.
-export const PLAN_PRICES: Record<SubscriptionPlan, { vnd: number; usd: number }> = {
-  MONTHLY: { vnd: 79_000, usd: 4.99 },
-  YEARLY: { vnd: 599_000, usd: 39.99 },
-  LIFETIME: { vnd: 1_490_000, usd: 99.99 },
-}
-
+// Giá lấy từ server (GET /billing/catalog). Giao diện tiếng Việt hiện VND, ngôn ngữ khác hiện USD;
+// nút thanh toán hiện đúng số tiền cổng đó thu (VNPay: VND, Stripe: USD).
 export const PLAN_ORDER: SubscriptionPlan[] = ['MONTHLY', 'YEARLY', 'LIFETIME']
 
-export function formatPlanPrice(plan: SubscriptionPlan, locale: Locale): string {
-  const p = PLAN_PRICES[plan]
-  if (locale === 'vi') return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(p.vnd)
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(p.usd)
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 })
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+
+export function formatPrice(item: CatalogItem, locale: Locale): string {
+  return locale === 'vi' ? vnd.format(item.price_vnd) : usd.format(item.price_usd_cents / 100)
+}
+
+/** Số tiền cổng thu: VNPay VND, Stripe USD */
+export function formatProviderPrice(item: CatalogItem, provider: PaymentProvider): string {
+  return provider === 'VNPAY' ? vnd.format(item.price_vnd) : usd.format(item.price_usd_cents / 100)
+}
+
+/** Số tiền 1 đơn (amount là đơn vị nhỏ nhất: đồng / cent) */
+export function formatAmount(amount: number, currency: 'VND' | 'USD'): string {
+  return currency === 'VND' ? vnd.format(amount) : usd.format(amount / 100)
 }
 
 /** Tiết kiệm của gói năm so với trả theo tháng 12 lần (%), theo đúng loại tiền đang hiển thị */
-export function yearlySavingPercent(locale: Locale): number {
-  const cur = locale === 'vi' ? 'vnd' : 'usd'
-  return Math.round((1 - PLAN_PRICES.YEARLY[cur] / (PLAN_PRICES.MONTHLY[cur] * 12)) * 100)
+export function yearlySavingPercent(items: CatalogItem[], locale: Locale): number {
+  const m = items.find((i) => i.id === 'MONTHLY')
+  const y = items.find((i) => i.id === 'YEARLY')
+  if (!m || !y) return 0
+  const price = (i: CatalogItem) => (locale === 'vi' ? i.price_vnd : i.price_usd_cents)
+  return Math.round((1 - price(y) / (price(m) * 12)) * 100)
 }

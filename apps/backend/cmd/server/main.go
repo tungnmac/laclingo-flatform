@@ -110,7 +110,7 @@ func main() {
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans, newPaymentService(cfg, repo, notificationService))
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
@@ -161,4 +161,26 @@ func newAIClient(cfg *config.Config) service.AIClient {
 		log.Printf("⚠️  AI_PROVIDER=%q không hợp lệ (claude|gemini) — gợi ý từ mới chỉ có phiên âm/audio từ điển", provider)
 	}
 	return nil
+}
+
+// newPaymentService — cổng thiếu key thì tắt (nil): trang bảng giá báo chưa hỗ trợ cổng đó
+func newPaymentService(cfg *config.Config, repo *repository.PostgresRepository, notifier service.Notifier) *service.PaymentService {
+	var vnpay *service.VNPayClient
+	if cfg.VNPayTmnCode != "" && cfg.VNPayHashSecret != "" {
+		vnpay = service.NewVNPayClient(cfg.VNPayTmnCode, cfg.VNPayHashSecret, cfg.VNPayPayURL)
+		log.Println("✅ Thanh toán VNPay đã bật")
+	} else {
+		log.Println("⚠️  VNPAY_TMN_CODE / VNPAY_HASH_SECRET chưa cấu hình — tắt thanh toán VNPay")
+	}
+	var stripe *service.StripeClient
+	if cfg.StripeSecretKey != "" {
+		stripe = service.NewStripeClient(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripeAPIBase)
+		log.Println("✅ Thanh toán Stripe đã bật")
+		if cfg.StripeWebhookSecret == "" {
+			log.Println("⚠️  STRIPE_WEBHOOK_SECRET trống — webhook Stripe sẽ bị từ chối (trang kết quả vẫn tra được đơn)")
+		}
+	} else {
+		log.Println("⚠️  STRIPE_SECRET_KEY chưa cấu hình — tắt thanh toán Stripe")
+	}
+	return service.NewPaymentService(repo, vnpay, stripe, cfg.AppWebURL, cfg.AppAPIURL, notifier)
 }
