@@ -12,8 +12,11 @@ import type { AuthResponse } from '@/types/api'
 export const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600'
 
-/** Form đăng nhập / đăng ký dùng chung: submit → lưu phiên → vào /learn */
-export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
+/**
+ * Form đăng nhập / đăng ký dùng chung: submit → lưu phiên (thêm vào danh sách tài khoản) → vào /learn.
+ * defaultIdentifier: điền sẵn (đăng nhập lại tài khoản hết phiên).
+ */
+export function AuthForm({ mode, defaultIdentifier }: { mode: 'login' | 'register'; defaultIdentifier?: string }) {
   const router = useRouter()
   const setSession = useSession((s) => s.setSession)
   const t = useTranslation()
@@ -40,8 +43,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       } else {
         auth = await authService.login({ identifier: String(form.get('identifier') ?? ''), password })
       }
+      const hadAccount = !!useSession.getState().token
       setSession(auth)
-      router.push('/learn')
+      // Đang dùng tài khoản khác (Thêm tài khoản) → tải lại trang để không lẫn dữ liệu của tài khoản trước
+      if (hadAccount) window.location.assign('/learn')
+      else router.push('/learn')
     } catch (err) {
       setError(inlineError(err))
       setSubmitting(false)
@@ -81,7 +87,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
       ) : (
         <label className="block text-sm font-medium text-slate-700">
           {t.auth.identifierLabel}
-          <input name="identifier" type="text" required autoComplete="username" className={inputClass} placeholder={t.auth.identifierPlaceholder} />
+          <input
+            name="identifier"
+            type="text"
+            required
+            autoComplete="username"
+            defaultValue={defaultIdentifier}
+            className={inputClass}
+            placeholder={t.auth.identifierPlaceholder}
+          />
         </label>
       )}
       <div>

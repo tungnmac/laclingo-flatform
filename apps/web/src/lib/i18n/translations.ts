@@ -1,6 +1,7 @@
 import type { Locale } from '@/store/locale'
 import { adminCommonTranslations, type AdminCommonDict } from './dict/admin-common'
 import { adminUsersTranslations, type AdminUsersDict } from './dict/admin-users'
+import { accountsTranslations, type AccountsDict } from './dict/accounts'
 import { analyzeTranslations, type AnalyzeDict } from './dict/analyze'
 import { billingTranslations, type BillingDict } from './dict/billing'
 import { dailyTranslations, type DailyDict } from './dict/daily'
@@ -453,7 +454,8 @@ type AllDicts = Dictionary &
   BlogDict &
   DailyDict &
   AnalyzeDict &
-  BillingDict
+  BillingDict &
+  AccountsDict
 
 export const translations: Record<Locale, AllDicts> = Object.fromEntries(
   LOCALE_LIST.map((locale) => [
@@ -481,6 +483,7 @@ export const translations: Record<Locale, AllDicts> = Object.fromEntries(
       ...pick(blogTranslations, locale),
       ...pick(dailyTranslations, locale),
       ...pick(analyzeTranslations, locale),
+      ...pick(accountsTranslations, locale),
       ...pick(billingTranslations, locale),
     },
   ]),

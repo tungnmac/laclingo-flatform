@@ -3,15 +3,23 @@
 import Link from 'next/link'
 import { AuthForm } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isSessionValid, useSession } from '@/store/session'
 
-export default function LoginPage() {
+/**
+ * Đăng nhập. ?add=1: thêm 1 tài khoản (tài khoản đang có vẫn giữ để chuyển qua lại);
+ * ?relogin=<tên đăng nhập>: tài khoản hết phiên — điền sẵn tên.
+ */
+export default function LoginPage({ searchParams }: { searchParams: { add?: string; relogin?: string } }) {
   const t = useTranslation()
+  // "Quay lại" chỉ khi đang có phiên dùng được (thêm tài khoản) — hết phiên thì quay lại cũng về đây
+  const canGoBack = useSession((s) => isSessionValid(s))
+  const adding = !!searchParams.add || !!searchParams.relogin
   return (
     <>
-      <h1 className="text-2xl font-bold text-slate-900">{t.auth.loginTitle}</h1>
-      <p className="mt-1 text-sm text-slate-500">{t.auth.loginSubtitle}</p>
+      <h1 className="text-2xl font-bold text-slate-900">{adding ? t.accounts.addTitle : t.auth.loginTitle}</h1>
+      <p className="mt-1 text-sm text-slate-500">{adding ? t.accounts.addSubtitle : t.auth.loginSubtitle}</p>
 
-      <AuthForm mode="login" />
+      <AuthForm mode="login" defaultIdentifier={searchParams.relogin} />
 
       <p className="mt-6 text-center text-sm text-slate-500">
         {t.auth.noAccount}{' '}
@@ -19,6 +27,13 @@ export default function LoginPage() {
           {t.auth.registerLink}
         </Link>
       </p>
+      {adding && canGoBack && (
+        <p className="mt-3 text-center text-sm">
+          <Link href="/learn" className="text-slate-500 hover:underline">
+            {t.accounts.backToApp}
+          </Link>
+        </p>
+      )}
     </>
   )
 }
