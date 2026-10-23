@@ -14,6 +14,7 @@ const NAV_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/companies', labelKey: 'nav.companies' },
   { href: '/learn', labelKey: 'nav.learn' },
   { href: '/practice', labelKey: 'nav.practice' },
+  { href: '/contests', labelKey: 'nav.contests' },
 ]
 const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/admin/learn', labelKey: 'nav.admin' },
@@ -22,6 +23,7 @@ const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
   { href: '/admin/references', labelKey: 'nav.adminReferences' },
   { href: '/admin/vn-data', labelKey: 'nav.adminVnData' },
   { href: '/admin/subscriptions', labelKey: 'nav.adminSubscriptions' },
+  { href: '/admin/contests', labelKey: 'nav.adminContests' },
 ]
 
 export function AppNav({ user, plan }: { user: SessionUser; plan: Plan }) {

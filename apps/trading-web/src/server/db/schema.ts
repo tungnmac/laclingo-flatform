@@ -611,6 +611,48 @@ export const vnIndexPrices = pgTable(
   (t) => [primaryKey({ columns: [t.indexCode, t.date] })],
 )
 
+/** Giải đấu mô phỏng (miễn phí, chưa có giải thưởng). Điểm tính từ lệnh trong [starts_at, ends_at) của ví thi đấu; chốt kết quả bằng job contests:finalize */
+export const contests = pgTable(
+  'contests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 80 }).notNull().unique(),
+    titleVi: varchar('title_vi', { length: 200 }).notNull(),
+    titleEn: varchar('title_en', { length: 200 }).notNull(),
+    descriptionVi: text('description_vi').notNull().default(''),
+    descriptionEn: text('description_en').notNull().default(''),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
+    published: boolean('published').notNull().default(false),
+    finalizedAt: timestamp('finalized_at', { withTimezone: true }), // đã chốt kết quả (bảng xếp hạng đọc từ snapshot)
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('contests_starts_idx').on(t.startsAt), check('contests_period_check', sql`${t.endsAt} > ${t.startsAt}`)],
+)
+
+/** Người tham gia: mỗi lượt tham gia gắn với 1 ví TradeLab mới mở lúc tham gia */
+export const contestEntries = pgTable(
+  'contest_entries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contestId: uuid('contest_id')
+      .notNull()
+      .references(() => contests.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .unique()
+      .references(() => tradingAccounts.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    finalRank: integer('final_rank'), // null = không xếp hạng (chưa đủ lệnh / bỏ giải) hoặc chưa chốt
+    finalScore: jsonb('final_score'), // EntryScore lúc chốt
+  },
+  (t) => [uniqueIndex('contest_entries_contest_user_key').on(t.contestId, t.userId), index('contest_entries_user_idx').on(t.userId)],
+)
+
 /** Lịch sử chạy job đồng bộ (admin theo dõi) */
 export const vnSyncRuns = pgTable(
   'vn_sync_runs',
@@ -649,3 +691,4 @@ export type GlossaryTermRow = typeof glossaryTerms.$inferSelect
 export type InvestmentPlanRow = typeof investmentPlans.$inferSelect
 export type ManualTradeRow = typeof manualTrades.$inferSelect
 export type ManualLedgerRow = typeof manualLedgers.$inferSelect
+export type ContestRow = typeof contests.$inferSelect
