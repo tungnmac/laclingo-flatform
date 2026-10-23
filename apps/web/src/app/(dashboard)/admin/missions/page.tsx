@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { GemRewardSettingsCard } from '@/features/mission/components/GemRewardSettingsCard'
 import { missionService } from '@/features/mission/mission.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -110,6 +111,7 @@ export default function AdminMissionsPage() {
         description={t.adminMissions.pageDesc}
         action={!showForm && <Button onClick={onCreateNew}>{t.adminMissions.addMissionBtn}</Button>}
       />
+      <GemRewardSettingsCard />
 
       {showForm && (
         <Card className="mb-6">

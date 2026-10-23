@@ -24,6 +24,8 @@ func (h *MissionHandler) RegisterRoutes(router fiber.Router) {
 // trong chain (đăng ký ở router.go, không tự chặn ở đây).
 func (h *MissionHandler) RegisterAdminRoutes(router fiber.Router) {
 	api := router.Group("/admin/missions")
+	api.Get("/settings/gems", h.GetRewardSettings)
+	api.Put("/settings/gems", h.UpdateRewardSettings)
 	api.Post("", h.Create)
 	api.Get("", h.ListAll)
 	api.Put("/:id", h.Update)
@@ -136,4 +138,42 @@ func (h *MissionHandler) Deactivate(c *fiber.Ctx) error {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GetRewardSettings godoc
+// @Summary      Mức gems thưởng: thắng thử thách, lên level (admin)
+// @Tags         admin-missions
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  service.RewardSettings
+// @Router       /admin/missions/settings/gems [get]
+func (h *MissionHandler) GetRewardSettings(c *fiber.Ctx) error {
+	out, err := h.svc.GetRewardSettings(c.UserContext())
+	if err != nil {
+		return err
+	}
+	return c.JSON(out)
+}
+
+// UpdateRewardSettings godoc
+// @Summary      Đổi mức gems thưởng (0 = tắt; tối đa 1000)
+// @Description  Lên level N nhận N × level_up_gems_per_level. Quà vào mục "Quà chờ nhận" ở Ví của học viên.
+// @Tags         admin-missions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      service.UpdateRewardSettingsRequest  true  "Mức thưởng (đủ 2 trường)"
+// @Success      200   {object}  service.RewardSettings
+// @Failure      400   {object}  ErrorResponse
+// @Router       /admin/missions/settings/gems [put]
+func (h *MissionHandler) UpdateRewardSettings(c *fiber.Ctx) error {
+	var req service.UpdateRewardSettingsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	out, err := h.svc.UpdateRewardSettings(c.UserContext(), req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(out)
 }

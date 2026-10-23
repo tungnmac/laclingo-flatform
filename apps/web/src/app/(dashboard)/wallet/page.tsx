@@ -8,6 +8,7 @@ import { ErrorState, Spinner } from '@/components/ui/States'
 import { useToast } from '@/components/ui/ToastProvider'
 import { billingService } from '@/features/billing/billing.service'
 import { CheckoutButtons } from '@/features/billing/components/CheckoutButtons'
+import { PendingRewards } from '@/features/billing/components/PendingRewards'
 import { formatAmount } from '@/features/billing/pricing'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -48,6 +49,7 @@ export default function WalletPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
       <PageHeader title={b.walletTitle} description={b.walletSubtitle} />
+      <PendingRewards onClaimed={setWallet} />
 
       <Card className="flex flex-wrap items-center justify-between gap-4">
         <div>

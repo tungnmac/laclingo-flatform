@@ -45,6 +45,11 @@ export interface AdminChallengesMissionsDict {
     rewardExpLabel: string
     rewardPointsLabel: string
     rewardGemsLabel: string
+    gemSettingsTitle: string
+    gemSettingsDesc: string
+    challengeWinGemsLabel: string
+    levelUpGemsLabel: string
+    gemSettingsSave: string
     startsAtLabel: string
     endsAtLabel: string
     isActiveLabel: string
@@ -102,6 +107,11 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       rewardExpLabel: 'Thưởng EXP',
       rewardPointsLabel: 'Thưởng điểm',
       rewardGemsLabel: 'Thưởng gems (0–1000)',
+      gemSettingsTitle: '💎 Thưởng gems tự động',
+      gemSettingsDesc: 'Quà vào mục "Quà chờ nhận" ở Ví của học viên. 0 = tắt.',
+      challengeWinGemsLabel: 'Thắng 1 trận thử thách (gems)',
+      levelUpGemsLabel: 'Lên level N nhận N × (gems)',
+      gemSettingsSave: 'Lưu mức thưởng',
       startsAtLabel: 'Ngày bắt đầu (chỉ sự kiện)',
       endsAtLabel: 'Ngày kết thúc (chỉ sự kiện)',
       isActiveLabel: 'Đang hoạt động',
@@ -158,6 +168,11 @@ export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminCh
       rewardExpLabel: 'EXP reward',
       rewardPointsLabel: 'Points reward',
       rewardGemsLabel: 'Gems reward (0–1000)',
+      gemSettingsTitle: '💎 Automatic gem rewards',
+      gemSettingsDesc: 'Rewards go to "Rewards to collect" in the learner\'s Wallet. 0 = off.',
+      challengeWinGemsLabel: 'Win a challenge match (gems)',
+      levelUpGemsLabel: 'Reaching level N gives N × (gems)',
+      gemSettingsSave: 'Save rewards',
       startsAtLabel: 'Start date (event only)',
       endsAtLabel: 'End date (event only)',
       isActiveLabel: 'Active',

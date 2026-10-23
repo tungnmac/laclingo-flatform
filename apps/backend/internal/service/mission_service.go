@@ -29,6 +29,10 @@ type MissionRepository interface {
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]db.Mission, error)
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]db.ListMissionsWithProgressRow, error)
 	TouchUserStudiedAt(ctx context.Context, id pgtype.UUID) error
+	GetRewardSettings(ctx context.Context) (db.RewardSetting, error)
+	UpdateRewardSettings(ctx context.Context, arg db.UpdateRewardSettingsParams) (db.RewardSetting, error)
+	CreateGemReward(ctx context.Context, arg db.CreateGemRewardParams) (db.GemReward, error)
+	CountGemRewardsSince(ctx context.Context, arg db.CountGemRewardsSinceParams) (int32, error)
 }
 
 var validMissionPeriods = map[string]bool{"daily": true, "weekly": true, "monthly": true, "event": true}
@@ -312,6 +316,11 @@ func (s *MissionService) RecordAction(ctx context.Context, userID uuid.UUID, act
 	}
 
 	s.MarkStudied(ctx, userID)
+	if actionType == "challenge_win" { // quà gems thắng thử thách — lỗi chỉ log, không chặn nhiệm vụ
+		if err := s.rewardChallengeWin(ctx, userID, amount); err != nil {
+			log.Printf("❌ gem reward: challenge_win user=%s: %v", userID, err)
+		}
+	}
 	if s.daily != nil { // Nhật ký học lỗi chỉ log — không làm hỏng hoạt động học / nhiệm vụ
 		if err := s.daily.RecordAction(ctx, userID, actionType, amount); err != nil {
 			log.Printf("❌ daily note: RecordAction user=%s action=%s: %v", userID, actionType, err)
@@ -364,7 +373,7 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 		return err
 	}
 
-	user, err := qtx.GetUserByID(ctx, toPgUUID(userID))
+	user, err := qtx.LockUserForRewards(ctx, toPgUUID(userID)) // 2 nhiệm vụ xong cùng lúc không cùng đọc level cũ
 	if err != nil {
 		return err
 	}
@@ -378,8 +387,18 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 	}); err != nil {
 		return err
 	}
-	if mission.RewardGems > 0 { // gems vào ví + ghi sổ, cùng transaction với phần thưởng khác
-		if _, err := addGemsTx(ctx, qtx, toPgUUID(userID), mission.RewardGems, "MISSION_REWARD", mission.Title, pgtype.UUID{}); err != nil {
+	// Gems thành quà chờ nhận ở Ví (cùng transaction với phần thưởng khác)
+	if err := createGemReward(ctx, qtx, toPgUUID(userID), GemRewardMission, mission.RewardGems, mission.Title); err != nil {
+		return err
+	}
+	var levelGems int32
+	if newLevel > user.Level {
+		settings, err := loadRewardSettings(ctx, qtx)
+		if err != nil {
+			return err
+		}
+		levelGems = levelUpGems(user.Level, newLevel, settings.LevelUpGemsPerLevel)
+		if err := createGemReward(ctx, qtx, toPgUUID(userID), GemRewardLevelUp, levelGems, fmt.Sprintf("Lên level %d", newLevel)); err != nil {
 			return err
 		}
 	}
@@ -394,10 +413,14 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 		Body:  missionRewardText(mission),
 	})
 	if newLevel > user.Level {
+		body, url := "Chúc mừng bạn! Tiếp tục học đều mỗi ngày để lên cấp nhanh hơn nhé.", "/profile"
+		if levelGems > 0 {
+			body, url = fmt.Sprintf("Chúc mừng bạn! Quà +%d gems đang chờ nhận ở Ví.", levelGems), "/wallet"
+		}
 		s.notifier.Notify(ctx, userID, NotificationInput{
-			Type: NotificationLevelUp, Icon: "⭐", URL: "/profile",
+			Type: NotificationLevelUp, Icon: "⭐", URL: url,
 			Title: fmt.Sprintf("Lên cấp %d!", newLevel),
-			Body:  "Chúc mừng bạn! Tiếp tục học đều mỗi ngày để lên cấp nhanh hơn nhé.",
+			Body:  body,
 		})
 	}
 	return nil
@@ -406,7 +429,7 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 // missionRewardText — "Bạn nhận được +50 EXP, +10 điểm và +5 gems."
 func missionRewardText(m db.Mission) string {
 	if m.RewardGems > 0 {
-		return fmt.Sprintf("Bạn nhận được +%d EXP, +%d điểm và +%d gems.", m.RewardExp, m.RewardPoints, m.RewardGems)
+		return fmt.Sprintf("Bạn nhận được +%d EXP, +%d điểm và +%d gems (nhận ở Ví).", m.RewardExp, m.RewardPoints, m.RewardGems)
 	}
 	return fmt.Sprintf("Bạn nhận được +%d EXP và +%d điểm.", m.RewardExp, m.RewardPoints)
 }

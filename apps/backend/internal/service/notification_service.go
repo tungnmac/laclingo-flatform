@@ -25,7 +25,8 @@ const (
 	NotificationBlogMention      = "blog_mention"      // được @nhắc tên trong bình luận
 	NotificationBlogCommentLike  = "blog_comment_like" // bình luận của mình được ♥
 	NotificationAnnouncement     = "announcement"
-	NotificationPayment          = "payment" // thanh toán xong: kích hoạt Pro / nạp gems
+	NotificationPayment          = "payment"    // thanh toán xong: kích hoạt Pro / nạp gems
+	NotificationGemReward        = "gem_reward" // có quà gems chờ nhận ở Ví
 )
 
 const (

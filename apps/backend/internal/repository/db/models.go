@@ -243,6 +243,16 @@ type GameRoomQuestion struct {
 	OrderIndex int32       `json:"order_index"`
 }
 
+type GemReward struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Source    string             `json:"source"`
+	Amount    int32              `json:"amount"`
+	Note      string             `json:"note"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
+}
+
 type GemTransaction struct {
 	ID           pgtype.UUID        `json:"id"`
 	UserID       pgtype.UUID        `json:"user_id"`
@@ -393,6 +403,13 @@ type ReminderDefault struct {
 	InactiveDays    int32              `json:"inactive_days"`
 	Timezone        string             `json:"timezone"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RewardSetting struct {
+	ID                  int32              `json:"id"`
+	ChallengeWinGems    int32              `json:"challenge_win_gems"`
+	LevelUpGemsPerLevel int32              `json:"level_up_gems_per_level"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SpeakingItem struct {

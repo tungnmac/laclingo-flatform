@@ -535,8 +535,9 @@ func (r *Room) finishGame() {
 
 // recordMissionActions báo hệ thống nhiệm vụ: mọi participant được +1
 // challenge_participate, riêng người xếp hạng 1 (Rank từ GetLeaderboard, đã
-// ORDER BY score DESC) được thêm +1 challenge_win. Lỗi chỉ log — không được
-// làm hỏng việc broadcast kết quả trận đấu cho người chơi.
+// ORDER BY score DESC) được thêm +1 challenge_win — chỉ khi trận có từ 2 người
+// (chơi 1 mình không tính thắng: không cày nhiệm vụ / quà gems thắng thử thách).
+// Lỗi chỉ log — không được làm hỏng việc broadcast kết quả trận đấu cho người chơi.
 func (r *Room) recordMissionActions(leaderboard []db.GetLeaderboardRow) {
 	if r.hub.missions == nil {
 		return
@@ -546,7 +547,7 @@ func (r *Room) recordMissionActions(leaderboard []db.GetLeaderboardRow) {
 		if err := r.hub.missions.RecordAction(context.Background(), userID, "challenge_participate", 1); err != nil {
 			log.Printf("❌ mission: RecordAction user=%s action=challenge_participate: %v", userID, err)
 		}
-		if entry.Rank == 1 {
+		if entry.Rank == 1 && len(leaderboard) >= 2 {
 			if err := r.hub.missions.RecordAction(context.Background(), userID, "challenge_win", 1); err != nil {
 				log.Printf("❌ mission: RecordAction user=%s action=challenge_win: %v", userID, err)
 			}

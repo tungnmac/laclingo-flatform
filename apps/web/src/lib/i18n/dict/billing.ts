@@ -1,5 +1,5 @@
 import type { Locale } from '@/store/locale'
-import type { BillingFeature, CatalogItemId, GemTransaction, PaymentOrder, SubscriptionPlan } from '@/types/api'
+import type { BillingFeature, CatalogItemId, GemReward, GemTransaction, PaymentOrder, RewardSettings, SubscriptionPlan } from '@/types/api'
 
 // Namespace "billing" — LacLingo Pro: bảng giá, màn nâng cấp, gói trong hồ sơ, admin cấp Pro. Chỉ vi+en.
 export interface BillingDict {
@@ -36,6 +36,14 @@ export interface BillingDict {
     paymentsTitle: string
     noHistory: string
     reasons: Record<GemTransaction['reason'], string>
+    rewardsTitle: string
+    rewardsEmpty: string
+    claim: string
+    claimAll: (total: number) => string
+    claimedToast: (gems: number) => string
+    rewardSources: Record<GemReward['source'], string>
+    howToEarnTitle: string
+    howToEarn: (s: RewardSettings) => string[]
     orderStatus: Record<PaymentOrder['status'], string>
     resultTitle: string
     resultChecking: string
@@ -127,7 +135,27 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       historyTitle: 'Lịch sử gems',
       paymentsTitle: 'Lịch sử thanh toán',
       noHistory: 'Chưa có giao dịch nào.',
-      reasons: { PURCHASE: 'Nạp gems', MISSION_REWARD: 'Thưởng nhiệm vụ', BUY_STREAK_FREEZE: 'Mua Streak Freeze', ADMIN: 'Quản trị viên' },
+      reasons: {
+        PURCHASE: 'Nạp gems',
+        MISSION_REWARD: 'Thưởng nhiệm vụ',
+        CHALLENGE_WIN: 'Thắng thử thách',
+        LEVEL_UP: 'Thưởng lên level',
+        BUY_STREAK_FREEZE: 'Mua Streak Freeze',
+        ADMIN: 'Quản trị viên',
+      },
+      rewardsTitle: '🎁 Quà chờ nhận',
+      rewardsEmpty: 'Chưa có quà nào — làm nhiệm vụ, thắng thử thách, lên level để nhận gems.',
+      claim: 'Nhận',
+      claimAll: (n) => `Nhận tất cả · +${n} gems`,
+      claimedToast: (n) => `Đã nhận +${n} gems 💎`,
+      rewardSources: { MISSION: '🎯 Nhiệm vụ', CHALLENGE_WIN: '🏆 Thắng thử thách', LEVEL_UP: '⭐ Lên level' },
+      howToEarnTitle: 'Cách kiếm gems',
+      howToEarn: (s) =>
+        [
+          '🎯 Hoàn thành nhiệm vụ có thưởng gems',
+          s.challenge_win_gems > 0 ? `🏆 Thắng thử thách: +${s.challenge_win_gems} gems mỗi trận` : '',
+          s.level_up_gems_per_level > 0 ? `⭐ Lên level N: +N × ${s.level_up_gems_per_level} gems (vd lên level 5 = ${5 * s.level_up_gems_per_level} gems)` : '',
+        ].filter(Boolean),
       orderStatus: { PENDING: 'Đang xử lý', PAID: 'Thành công', FAILED: 'Thất bại', CANCELLED: 'Đã huỷ' },
       resultTitle: 'Kết quả thanh toán',
       resultChecking: 'Đang xác nhận thanh toán…',
@@ -213,7 +241,27 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       historyTitle: 'Gem history',
       paymentsTitle: 'Payment history',
       noHistory: 'No transactions yet.',
-      reasons: { PURCHASE: 'Top-up', MISSION_REWARD: 'Mission reward', BUY_STREAK_FREEZE: 'Streak Freeze', ADMIN: 'Administrator' },
+      reasons: {
+        PURCHASE: 'Top-up',
+        MISSION_REWARD: 'Mission reward',
+        CHALLENGE_WIN: 'Challenge win',
+        LEVEL_UP: 'Level-up reward',
+        BUY_STREAK_FREEZE: 'Streak Freeze',
+        ADMIN: 'Administrator',
+      },
+      rewardsTitle: '🎁 Rewards to collect',
+      rewardsEmpty: 'No rewards yet — complete missions, win challenges and level up to earn gems.',
+      claim: 'Collect',
+      claimAll: (n) => `Collect all · +${n} gems`,
+      claimedToast: (n) => `Collected +${n} gems 💎`,
+      rewardSources: { MISSION: '🎯 Mission', CHALLENGE_WIN: '🏆 Challenge win', LEVEL_UP: '⭐ Level up' },
+      howToEarnTitle: 'How to earn gems',
+      howToEarn: (s) =>
+        [
+          '🎯 Complete missions that reward gems',
+          s.challenge_win_gems > 0 ? `🏆 Win a challenge: +${s.challenge_win_gems} gems per match` : '',
+          s.level_up_gems_per_level > 0 ? `⭐ Reach level N: +N × ${s.level_up_gems_per_level} gems (e.g. level 5 = ${5 * s.level_up_gems_per_level} gems)` : '',
+        ].filter(Boolean),
       orderStatus: { PENDING: 'Processing', PAID: 'Paid', FAILED: 'Failed', CANCELLED: 'Cancelled' },
       resultTitle: 'Payment result',
       resultChecking: 'Confirming your payment…',
