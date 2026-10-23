@@ -151,23 +151,28 @@ export async function getVnStock(locale: Locale, symbol: string): Promise<VnStoc
 export interface VnStatementDto {
   periods: string[] // cũ → mới (Y2021 … / Q2025-3 …)
   rows: { field: string; title: string; level: number; values: (number | null)[] }[]
+  truncated: boolean // còn kỳ cũ hơn không hiển thị (gói Free)
 }
 
-const PERIODS_SHOWN = 8
+/** Số kỳ hiển thị: Free 4 kỳ gần nhất, Pro toàn bộ lịch sử */
+export const FREE_PERIODS = 4
+export const ALL_PERIODS = 200
 
-export async function getVnStatement(locale: Locale, symbol: string, q: z.infer<typeof vnStatementQuerySchema>): Promise<VnStatementDto> {
+export async function getVnStatement(locale: Locale, symbol: string, q: z.infer<typeof vnStatementQuerySchema>, limit = FREE_PERIODS): Promise<VnStatementDto> {
   const f = vnFinancials
   const rows = await db
     .select({ period: f.period, values: f.values })
     .from(f)
     .where(and(eq(f.symbol, symbol), eq(f.statement, q.statement), q.period === 'year' ? isNull(f.quarter) : sql`${f.quarter} is not null`))
     .orderBy(desc(f.year), desc(f.quarter))
-    .limit(PERIODS_SHOWN)
+    .limit(limit + 1) // lấy dư 1 để biết còn kỳ cũ hơn
+  const truncated = rows.length > limit
+  rows.length = Math.min(rows.length, limit)
   rows.reverse()
   const values = rows.map((r) => r.values as Record<string, number>)
   // Nguồn trả cả bộ chỉ tiêu của loại hình khác (ngân hàng / DN thường…) với giá trị 0 → chỉ giữ chỉ tiêu có số khác 0
   const used = [...new Set(values.flatMap((v) => Object.keys(v).filter((k) => v[k] !== 0)))]
-  if (used.length === 0) return { periods: rows.map((r) => r.period), rows: [] }
+  if (used.length === 0) return { periods: rows.map((r) => r.period), rows: [], truncated }
   const labels = await db
     .select()
     .from(vnFinFields)
@@ -186,6 +191,7 @@ export async function getVnStatement(locale: Locale, symbol: string, q: z.infer<
         values: values.map((v) => (field in v ? v[field] : null)),
       }
     }),
+    truncated,
   }
 }
 

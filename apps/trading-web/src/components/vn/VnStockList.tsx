@@ -72,7 +72,17 @@ export function VnStockList() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">{t('vnStocks.subtitle')}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-500">{t('vnStocks.subtitle')}</p>
+        <div className="flex gap-2 text-sm">
+          <Link href="/vn-stocks/screener" className="rounded-lg px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50">
+            {t('vnPro.screenerTitle')} <span className="text-xs">PRO</span>
+          </Link>
+          <Link href="/vn-stocks/compare" className="rounded-lg px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50">
+            {t('vnPro.compareTitle')} <span className="text-xs">PRO</span>
+          </Link>
+        </div>
+      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2" role="tablist">
           {GROUPS.map((g) => (

@@ -1,8 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useT } from '@/i18n/I18nProvider'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { downloadFile } from '@/lib/download'
 import { formatMoney } from '@/lib/company-format'
 import { errorMessage } from '@/lib/error-message'
 import type { VnStatementDto } from '@/server/vn/repo'
@@ -19,6 +21,7 @@ export function VnStatementTable({ symbol }: { symbol: string }) {
   const [data, setData] = useState<VnStatementDto | null>(null)
   const [error, setError] = useState<unknown>(null)
   const [retry, setRetry] = useState(0)
+  const [csvError, setCsvError] = useState<unknown>(null)
 
   useEffect(() => {
     let alive = true
@@ -45,14 +48,39 @@ export function VnStatementTable({ symbol }: { symbol: string }) {
             </button>
           ))}
         </div>
-        <div className="flex gap-1" role="tablist">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              setCsvError(null)
+              downloadFile(`/api/vn/stocks/${encodeURIComponent(symbol)}/statements/csv?statement=${statement}&period=${period}`, `${symbol}.csv`).catch(setCsvError)
+            }}
+            className="mr-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+          >
+            CSV <span className="text-emerald-700">Pro</span>
+          </button>
+          <div className="flex gap-1" role="tablist">
           {(['year', 'quarter'] as const).map((p) => (
             <button key={p} role="tab" aria-selected={p === period} onClick={() => setPeriod(p)} className={tab(p === period)}>
               {t(`vnStocks.period_${p}`)}
             </button>
           ))}
         </div>
+        </div>
       </div>
+      {csvError !== null && (
+        <p className="border-b border-slate-100 px-4 py-2 text-sm text-amber-800">
+          {csvError instanceof ApiError && csvError.code === 'PRO_REQUIRED' ? (
+            <>
+              {t('vnPro.csvPro')}{' '}
+              <Link href="/pro" className="font-semibold underline">
+                {t('vnPro.upgrade')}
+              </Link>
+            </>
+          ) : (
+            errorMessage(csvError, t)
+          )}
+        </p>
+      )}
       {error !== null ? (
         <div className="flex items-center justify-between px-4 py-3 text-sm text-rose-700">
           <span>{errorMessage(error, t)}</span>
@@ -93,6 +121,14 @@ export function VnStatementTable({ symbol }: { symbol: string }) {
             </tbody>
           </table>
         </div>
+      )}
+      {data?.truncated && (
+        <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+          {t('vnPro.moreHistory')}{' '}
+          <Link href="/pro" className="font-semibold text-emerald-700 hover:underline">
+            {t('vnPro.upgrade')}
+          </Link>
+        </p>
       )}
     </div>
   )
