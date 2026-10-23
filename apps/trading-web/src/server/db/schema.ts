@@ -11,6 +11,34 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/** Thuê bao gói trả phí. Hiện cấp thủ công bởi admin (source='admin'); thanh toán / B2B dùng chung bảng này về sau */
+export const subscriptions = pgTable(
+  'subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    plan: varchar('plan', { length: 10 }).notNull(), // 'pro'
+    status: varchar('status', { length: 12 }).notNull().default('active'), // 'active' | 'canceled'
+    source: varchar('source', { length: 12 }).notNull(), // 'admin' | 'payment' | 'org'
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }), // null = không thời hạn
+    note: text('note'),
+    grantedBy: uuid('granted_by').references(() => users.id, { onDelete: 'set null' }),
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+    canceledBy: uuid('canceled_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('subscriptions_user_status_idx').on(t.userId, t.status),
+    check('subscriptions_plan_check', sql`${t.plan} in ('pro')`),
+    check('subscriptions_status_check', sql`${t.status} in ('active', 'canceled')`),
+    check('subscriptions_source_check', sql`${t.source} in ('admin', 'payment', 'org')`),
+    check('subscriptions_period_check', sql`${t.endsAt} is null or ${t.endsAt} > ${t.startsAt}`),
+  ],
+)
+
 export const instruments = pgTable(
   'instruments',
   {

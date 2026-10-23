@@ -120,6 +120,13 @@
       "when": 1792667509614,
       "tag": "0016_vn_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792733043619,
+      "tag": "0017_subscriptions",
+      "breakpoints": true
     }
   ]
 }
