@@ -7,6 +7,8 @@ export interface PracticeDict {
     stepOf: (step: number, total: number) => string
     practiceCount: (n: number) => string
     chooseMeaningTitle: string
+    chooseMeaningExampleHint: string
+    chooseMeaningExampleMeaningHint: string
     buildSentenceTitle: string
     buildSentenceHint: string
     buildMeaningTitle: string
@@ -37,6 +39,8 @@ export const practiceTranslations: Partial<Record<Locale, PracticeDict>> = {
       stepOf: (step, total) => `Bài ${step}/${total}`,
       practiceCount: (n) => `Đã luyện ${n} lần`,
       chooseMeaningTitle: 'Chọn nghĩa đúng của từ',
+      chooseMeaningExampleHint: 'Ví dụ:',
+      chooseMeaningExampleMeaningHint: 'Nghĩa câu:',
       buildSentenceTitle: 'Chọn từng từ để ghép thành câu ví dụ',
       buildSentenceHint: 'Nghĩa của câu:',
       buildMeaningTitle: 'Ghép thành nghĩa tiếng Việt của câu',
@@ -65,6 +69,8 @@ export const practiceTranslations: Partial<Record<Locale, PracticeDict>> = {
       stepOf: (step, total) => `Exercise ${step}/${total}`,
       practiceCount: (n) => `Practiced ${n} time${n === 1 ? '' : 's'}`,
       chooseMeaningTitle: 'Choose the correct meaning',
+      chooseMeaningExampleHint: 'Example:',
+      chooseMeaningExampleMeaningHint: 'Meaning:',
       buildSentenceTitle: 'Tap the words to build the example sentence',
       buildSentenceHint: 'Sentence meaning:',
       buildMeaningTitle: 'Build the Vietnamese meaning of the sentence',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { ExerciseFeedback, type ExerciseStatus } from './ExerciseFeedback'
 
@@ -8,11 +8,14 @@ import { ExerciseFeedback, type ExerciseStatus } from './ExerciseFeedback'
 export function ChoiceExercise({
   choices,
   answer,
+  solvedNote,
   onMistake,
   onDone,
 }: {
   choices: string[]
   answer: string
+  /** Nội dung chỉ hiện sau khi chọn đúng (vd nghĩa câu ví dụ — hiện sớm sẽ lộ đáp án) */
+  solvedNote?: ReactNode
   onMistake: () => void
   onDone: () => void
 }) {
@@ -55,6 +58,7 @@ export function ChoiceExercise({
           )
         })}
       </div>
+      {solved && solvedNote}
       <ExerciseFeedback status={status} answer={answer} onContinue={onDone} />
     </div>
   )
