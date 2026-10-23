@@ -1,6 +1,6 @@
 -- name: CreateMission :one
-INSERT INTO missions (title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO missions (title, description, period, action_type, target_count, reward_exp, reward_points, starts_at, ends_at, created_by, reward_gems)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, sqlc.arg('reward_gems'))
 RETURNING *;
 
 -- name: ListAllMissions :many
@@ -23,6 +23,7 @@ SET title = $2,
     starts_at = $9,
     ends_at = $10,
     is_active = $11,
+    reward_gems = sqlc.arg('reward_gems'),
     updated_at = NOW()
 WHERE id = $1
 RETURNING *;
@@ -44,7 +45,7 @@ ORDER BY created_at;
 -- daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 SELECT
     m.id, m.title, m.description, m.period, m.action_type, m.target_count,
-    m.reward_exp, m.reward_points, m.starts_at, m.ends_at,
+    m.reward_exp, m.reward_points, m.reward_gems, m.starts_at, m.ends_at,
     COALESCE(ump.progress_count, 0) AS progress_count,
     ump.completed_at
 FROM missions m

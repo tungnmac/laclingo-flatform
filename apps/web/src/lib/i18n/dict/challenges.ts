@@ -84,7 +84,7 @@ export interface ChallengesDict {
     periodMonthly: string
     periodEvent: string
     progressLabel: string
-    rewardLine: (exp: number, points: number) => string
+    rewardLine: (exp: number, points: number, gems: number) => string
   }
 }
 
@@ -171,7 +171,7 @@ export const challengesTranslations: Partial<Record<Locale, ChallengesDict>> = {
       periodMonthly: '📆 Hàng tháng',
       periodEvent: '🎉 Sự kiện',
       progressLabel: 'Tiến độ',
-      rewardLine: (exp, points) => `Phần thưởng: ⭐ ${exp} EXP · 🏆 ${points} điểm`,
+      rewardLine: (exp, points, gems) => `Phần thưởng: ⭐ ${exp} EXP · 🏆 ${points} điểm` + (gems > 0 ? ` · 💎 ${gems} gems` : ''),
     },
   },
   en: {
@@ -256,7 +256,7 @@ export const challengesTranslations: Partial<Record<Locale, ChallengesDict>> = {
       periodMonthly: '📆 Monthly',
       periodEvent: '🎉 Event',
       progressLabel: 'Progress',
-      rewardLine: (exp, points) => `Reward: ⭐ ${exp} EXP · 🏆 ${points} pts`,
+      rewardLine: (exp, points, gems) => `Reward: ⭐ ${exp} EXP · 🏆 ${points} pts` + (gems > 0 ? ` · 💎 ${gems} gems` : ''),
     },
   },
 }

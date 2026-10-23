@@ -48,6 +48,7 @@ type MissionRequest struct {
 	TargetCount  int32      `json:"target_count" minimum:"1" example:"10"`
 	RewardExp    int32      `json:"reward_exp" minimum:"0" example:"50"`
 	RewardPoints int32      `json:"reward_points" minimum:"0" example:"10"`
+	RewardGems   int32      `json:"reward_gems" minimum:"0" example:"5"` // gems cộng vào ví khi hoàn thành
 	StartsAt     *time.Time `json:"starts_at,omitempty"`
 	EndsAt       *time.Time `json:"ends_at,omitempty"`
 	IsActive     *bool      `json:"is_active,omitempty"`
@@ -63,6 +64,7 @@ type MissionResponse struct {
 	TargetCount  int32      `json:"target_count"`
 	RewardExp    int32      `json:"reward_exp"`
 	RewardPoints int32      `json:"reward_points"`
+	RewardGems   int32      `json:"reward_gems"`
 	StartsAt     *time.Time `json:"starts_at,omitempty"`
 	EndsAt       *time.Time `json:"ends_at,omitempty"`
 	IsActive     bool       `json:"is_active"`
@@ -80,6 +82,7 @@ type MyMissionResponse struct {
 	TargetCount   int32     `json:"target_count"`
 	RewardExp     int32     `json:"reward_exp"`
 	RewardPoints  int32     `json:"reward_points"`
+	RewardGems    int32     `json:"reward_gems"`
 	ProgressCount int32     `json:"progress_count"`
 	Completed     bool      `json:"completed"`
 }
@@ -137,8 +140,14 @@ func validateMissionRequest(req MissionRequest) error {
 	if req.Period == "event" && (req.StartsAt == nil || req.EndsAt == nil || !req.EndsAt.After(*req.StartsAt)) {
 		return ErrInvalidInput
 	}
+	if req.RewardGems < 0 || req.RewardGems > maxMissionRewardGems {
+		return fmt.Errorf("thưởng gems phải từ 0 đến %d: %w", maxMissionRewardGems, ErrInvalidInput)
+	}
 	return nil
 }
+
+// Trần thưởng gems 1 nhiệm vụ — gems mua được bằng tiền thật, tránh gõ nhầm số lớn
+const maxMissionRewardGems = 1000
 
 func toTimestamptz(t *time.Time) pgtype.Timestamptz {
 	if t == nil {
@@ -164,6 +173,7 @@ func toMissionResponse(m db.Mission) MissionResponse {
 		TargetCount:  m.TargetCount,
 		RewardExp:    m.RewardExp,
 		RewardPoints: m.RewardPoints,
+		RewardGems:   m.RewardGems,
 		StartsAt:     fromTimestamptz(m.StartsAt),
 		EndsAt:       fromTimestamptz(m.EndsAt),
 		IsActive:     m.IsActive,
@@ -185,6 +195,7 @@ func (s *MissionService) CreateMission(ctx context.Context, createdBy uuid.UUID,
 		TargetCount:  req.TargetCount,
 		RewardExp:    req.RewardExp,
 		RewardPoints: req.RewardPoints,
+		RewardGems:   req.RewardGems,
 		StartsAt:     toTimestamptz(req.StartsAt),
 		EndsAt:       toTimestamptz(req.EndsAt),
 		CreatedBy:    toPgUUID(createdBy),
@@ -228,6 +239,7 @@ func (s *MissionService) UpdateMission(ctx context.Context, id uuid.UUID, req Mi
 		TargetCount:  req.TargetCount,
 		RewardExp:    req.RewardExp,
 		RewardPoints: req.RewardPoints,
+		RewardGems:   req.RewardGems,
 		StartsAt:     toTimestamptz(req.StartsAt),
 		EndsAt:       toTimestamptz(req.EndsAt),
 		IsActive:     isActive,
@@ -265,6 +277,7 @@ func (s *MissionService) ListMyMissions(ctx context.Context, userID uuid.UUID) (
 			TargetCount:   r.TargetCount,
 			RewardExp:     r.RewardExp,
 			RewardPoints:  r.RewardPoints,
+			RewardGems:    r.RewardGems,
 			ProgressCount: r.ProgressCount,
 			Completed:     r.CompletedAt.Valid,
 		})
@@ -365,6 +378,11 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 	}); err != nil {
 		return err
 	}
+	if mission.RewardGems > 0 { // gems vào ví + ghi sổ, cùng transaction với phần thưởng khác
+		if _, err := addGemsTx(ctx, qtx, toPgUUID(userID), mission.RewardGems, "MISSION_REWARD", mission.Title, pgtype.UUID{}); err != nil {
+			return err
+		}
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return err
@@ -373,7 +391,7 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 	s.notifier.Notify(ctx, userID, NotificationInput{
 		Type: NotificationMissionCompleted, Icon: "🎯", URL: "/missions",
 		Title: "Hoàn thành nhiệm vụ: " + mission.Title,
-		Body:  fmt.Sprintf("Bạn nhận được +%d EXP và +%d điểm.", mission.RewardExp, mission.RewardPoints),
+		Body:  missionRewardText(mission),
 	})
 	if newLevel > user.Level {
 		s.notifier.Notify(ctx, userID, NotificationInput{
@@ -383,4 +401,12 @@ func (s *MissionService) applyMissionProgress(ctx context.Context, userID uuid.U
 		})
 	}
 	return nil
+}
+
+// missionRewardText — "Bạn nhận được +50 EXP, +10 điểm và +5 gems."
+func missionRewardText(m db.Mission) string {
+	if m.RewardGems > 0 {
+		return fmt.Sprintf("Bạn nhận được +%d EXP, +%d điểm và +%d gems.", m.RewardExp, m.RewardPoints, m.RewardGems)
+	}
+	return fmt.Sprintf("Bạn nhận được +%d EXP và +%d điểm.", m.RewardExp, m.RewardPoints)
 }

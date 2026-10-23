@@ -243,6 +243,17 @@ type GameRoomQuestion struct {
 	OrderIndex int32       `json:"order_index"`
 }
 
+type GemTransaction struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Delta        int32              `json:"delta"`
+	BalanceAfter int32              `json:"balance_after"`
+	Reason       string             `json:"reason"`
+	Note         string             `json:"note"`
+	OrderID      pgtype.UUID        `json:"order_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type GrammarExercise struct {
 	ID            pgtype.UUID `json:"id"`
 	LessonID      pgtype.UUID `json:"lesson_id"`
@@ -331,6 +342,7 @@ type Mission struct {
 	CreatedBy    pgtype.UUID        `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	RewardGems   int32              `json:"reward_gems"`
 }
 
 type Notification struct {
@@ -344,6 +356,23 @@ type Notification struct {
 	AnnouncementID pgtype.UUID        `json:"announcement_id"`
 	ReadAt         pgtype.Timestamptz `json:"read_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type PaymentOrder struct {
+	ID                     pgtype.UUID        `json:"id"`
+	UserID                 pgtype.UUID        `json:"user_id"`
+	Item                   string             `json:"item"`
+	Provider               string             `json:"provider"`
+	Amount                 int64              `json:"amount"`
+	Currency               string             `json:"currency"`
+	Status                 string             `json:"status"`
+	AutoRenew              bool               `json:"auto_renew"`
+	ProviderRef            pgtype.Text        `json:"provider_ref"`
+	ProviderSubscriptionID pgtype.Text        `json:"provider_subscription_id"`
+	ProviderCustomerID     pgtype.Text        `json:"provider_customer_id"`
+	FailureReason          string             `json:"failure_reason"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	PaidAt                 pgtype.Timestamptz `json:"paid_at"`
 }
 
 type PushSubscription struct {
@@ -390,17 +419,21 @@ type SpeakingTopic struct {
 }
 
 type Subscription struct {
-	ID              pgtype.UUID        `json:"id"`
-	UserID          pgtype.UUID        `json:"user_id"`
-	Plan            string             `json:"plan"`
-	Status          string             `json:"status"`
-	StartsAt        pgtype.Timestamptz `json:"starts_at"`
-	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
-	PaymentProvider string             `json:"payment_provider"`
-	GrantedBy       pgtype.UUID        `json:"granted_by"`
-	Note            string             `json:"note"`
-	CancelledAt     pgtype.Timestamptz `json:"cancelled_at"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ID                     pgtype.UUID        `json:"id"`
+	UserID                 pgtype.UUID        `json:"user_id"`
+	Plan                   string             `json:"plan"`
+	Status                 string             `json:"status"`
+	StartsAt               pgtype.Timestamptz `json:"starts_at"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	PaymentProvider        string             `json:"payment_provider"`
+	GrantedBy              pgtype.UUID        `json:"granted_by"`
+	Note                   string             `json:"note"`
+	CancelledAt            pgtype.Timestamptz `json:"cancelled_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	ProviderSubscriptionID pgtype.Text        `json:"provider_subscription_id"`
+	ProviderCustomerID     pgtype.Text        `json:"provider_customer_id"`
+	AutoRenew              bool               `json:"auto_renew"`
+	OrderID                pgtype.UUID        `json:"order_id"`
 }
 
 type User struct {

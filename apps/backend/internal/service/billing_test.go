@@ -28,7 +28,8 @@ func TestNextStreak(t *testing.T) {
 		{"first study", 0, pgtype.Date{}, 0, false, 1, 0},
 		{"already today", 5, today, 0, false, 5, 0},
 		{"yesterday +1", 5, day("2026-10-22"), 0, false, 6, 0},
-		{"missed 1 day, free → reset", 5, day("2026-10-21"), 2, false, 1, 0},
+		{"missed 1 day, no freeze → reset", 5, day("2026-10-21"), 0, false, 1, 0},
+		{"missed 1 day, free user bought a freeze", 5, day("2026-10-21"), 1, false, 6, 1},
 		{"missed 1 day, pro with freeze", 5, day("2026-10-21"), 2, true, 6, 1},
 		{"missed 2 days, pro 2 freezes", 5, day("2026-10-20"), 2, true, 6, 2},
 		{"missed 3 days, pro only 2 freezes → reset", 5, day("2026-10-19"), 2, true, 1, 0},
@@ -39,7 +40,7 @@ func TestNextStreak(t *testing.T) {
 		if c.name == "month boundary yesterday" {
 			today = day("2026-10-01")
 		}
-		got, use := nextStreak(c.count, c.last, today, c.freezes, c.pro)
+		got, use := nextStreak(c.count, c.last, today, c.freezes)
 		if got != c.want || use != c.wantUse {
 			t.Errorf("%s: got (%d, use %d), want (%d, use %d)", c.name, got, use, c.want, c.wantUse)
 		}
@@ -48,19 +49,16 @@ func TestNextStreak(t *testing.T) {
 
 func TestEffectiveStreak(t *testing.T) {
 	today := day("2026-10-23")
-	if got := effectiveStreak(7, day("2026-10-22"), today, 0, false); got != 7 {
+	if got := effectiveStreak(7, day("2026-10-22"), today, 0); got != 7 {
 		t.Errorf("studied yesterday → still 7, got %d", got)
 	}
-	if got := effectiveStreak(7, day("2026-10-21"), today, 0, false); got != 0 {
-		t.Errorf("free, missed a day → broken (0), got %d", got)
+	if got := effectiveStreak(7, day("2026-10-21"), today, 0); got != 0 {
+		t.Errorf("no freeze, missed a day → broken (0), got %d", got)
 	}
-	if got := effectiveStreak(7, day("2026-10-21"), today, 1, true); got != 7 {
-		t.Errorf("pro with a freeze for the missed day → 7, got %d", got)
+	if got := effectiveStreak(7, day("2026-10-21"), today, 1); got != 7 {
+		t.Errorf("with a freeze for the missed day → 7, got %d", got)
 	}
-	if got := effectiveStreak(7, day("2026-10-21"), today, 1, false); got != 0 {
-		t.Errorf("freezes only count for pro, got %d", got)
-	}
-	if got := effectiveStreak(3, pgtype.Date{}, today, 0, false); got != 0 {
+	if got := effectiveStreak(3, pgtype.Date{}, today, 0); got != 0 {
 		t.Errorf("never studied → 0, got %d", got)
 	}
 }

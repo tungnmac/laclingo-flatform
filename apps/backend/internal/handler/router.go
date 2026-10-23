@@ -22,7 +22,7 @@ type ErrorResponse struct {
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
 // MissionService) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, analyzer *service.SentenceAnalyzer, plans *service.PlanService) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -47,6 +47,9 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// ?token= vì browser không set được header trên WS handshake) khớp và xử lý
 	// xong request trước khi tới lượt RequireAuth.
 	challengeHandler.RegisterWSRoute(api, tokens)
+	// Cổng thanh toán gọi về (IPN, Return URL, webhook) — công khai, xác thực bằng chữ ký; đăng ký trước RequireAuth
+	paymentHandler := NewPaymentHandler(payments)
+	paymentHandler.RegisterPublicRoutes(api)
 
 	// Cần đăng nhập
 	userService := service.NewUserService(repo)
@@ -66,6 +69,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	NewSentenceAnalysisHandler(analyzer).RegisterRoutes(protected)
 	billingHandler := NewBillingHandler(plans)
 	billingHandler.RegisterRoutes(protected)
+	paymentHandler.RegisterRoutes(protected)
 	classHandler.RegisterRoutes(protected)
 	blogHandler.RegisterRoutes(protected)
 	reminderHandler := NewReminderHandler(reminders)

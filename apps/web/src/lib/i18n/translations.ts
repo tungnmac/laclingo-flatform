@@ -46,6 +46,7 @@ interface Dictionary {
     daily: string
     analyze: string
     pro: string
+    wallet: string
     blog: string
     admin: string
     logout: string
@@ -112,6 +113,7 @@ const base: Record<Locale, Dictionary> = {
       daily: 'Nhật ký',
       analyze: 'Phân tích câu',
       pro: 'LacLingo Pro',
+      wallet: 'Ví gems',
       blog: 'Blog',
       admin: 'Quản trị',
       logout: 'Đăng xuất',
@@ -176,6 +178,7 @@ const base: Record<Locale, Dictionary> = {
       daily: 'Daily note',
       analyze: 'Sentence check',
       pro: 'LacLingo Pro',
+      wallet: 'Wallet',
       blog: 'Blog',
       admin: 'Admin',
       logout: 'Log out',
@@ -240,6 +243,7 @@ const base: Record<Locale, Dictionary> = {
       daily: '学习日记',
       analyze: '句子分析',
       pro: 'LacLingo Pro',
+      wallet: '钱包',
       blog: '博客',
       admin: '管理',
       logout: '退出登录',
@@ -304,6 +308,7 @@ const base: Record<Locale, Dictionary> = {
       daily: '学習日記',
       analyze: '文の分析',
       pro: 'LacLingo Pro',
+      wallet: 'ウォレット',
       blog: 'ブログ',
       admin: '管理',
       logout: 'ログアウト',
@@ -368,6 +373,7 @@ const base: Record<Locale, Dictionary> = {
       daily: '학습 일지',
       analyze: '문장 분석',
       pro: 'LacLingo Pro',
+      wallet: '지갑',
       blog: '블로그',
       admin: '관리',
       logout: '로그아웃',

@@ -1,5 +1,5 @@
 import type { Locale } from '@/store/locale'
-import type { BillingFeature, SubscriptionPlan } from '@/types/api'
+import type { BillingFeature, CatalogItemId, GemTransaction, PaymentOrder, SubscriptionPlan } from '@/types/api'
 
 // Namespace "billing" — LacLingo Pro: bảng giá, màn nâng cấp, gói trong hồ sơ, admin cấp Pro. Chỉ vi+en.
 export interface BillingDict {
@@ -14,8 +14,39 @@ export interface BillingDict {
     perPlan: Record<SubscriptionPlan, string>
     yearlySave: (percent: number) => string
     popular: string
-    checkoutSoon: string
-    contactAdmin: string
+    payVNPay: string
+    payStripe: string
+    redirecting: string
+    noProvider: string
+    recurringNote: string
+    manageSubscription: string
+    autoRenewOn: (date: string) => string
+    autoRenewOff: (date: string) => string
+    haveLifetime: string
+    items: Record<CatalogItemId, string>
+    walletTitle: string
+    walletSubtitle: string
+    gemsBalance: string
+    freezesHave: (n: number, max: number) => string
+    buyFreeze: (cost: number) => string
+    freezeBought: string
+    gemPacksTitle: string
+    gemsHint: string
+    historyTitle: string
+    paymentsTitle: string
+    noHistory: string
+    reasons: Record<GemTransaction['reason'], string>
+    orderStatus: Record<PaymentOrder['status'], string>
+    resultTitle: string
+    resultChecking: string
+    resultPaidPlan: string
+    resultPaidGems: (n: number) => string
+    resultFailed: string
+    resultCancelled: string
+    resultPending: string
+    resultInvalid: string
+    toWallet: string
+    toPricing: string
     yourPlan: string
     freePlan: string
     proUntil: (date: string) => string
@@ -69,14 +100,45 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
         { label: 'Ôn từ vựng (SRS) mỗi ngày', free: '15 lượt', pro: 'Không giới hạn' },
         { label: 'Luyện nói (chấm phát âm) mỗi ngày', free: '10 lượt', pro: 'Không giới hạn' },
         { label: 'Phân tích câu bằng AI mỗi ngày', free: '5 lượt', pro: '30 lượt' },
-        { label: 'Streak Freeze (giữ chuỗi khi nghỉ 1 ngày)', free: '—', pro: '2 mỗi tháng' },
+        { label: 'Streak Freeze (giữ chuỗi khi nghỉ 1 ngày)', free: 'Mua bằng gems', pro: 'Tặng 2/tháng + mua bằng gems' },
       ],
       plans: { MONTHLY: 'Theo tháng', YEARLY: 'Theo năm', LIFETIME: 'Trọn đời' },
       perPlan: { MONTHLY: '/tháng', YEARLY: '/năm', LIFETIME: 'trả 1 lần' },
       yearlySave: (p) => `Tiết kiệm ${p}%`,
       popular: 'Phổ biến nhất',
-      checkoutSoon: 'Thanh toán online sắp ra mắt',
-      contactAdmin: 'Hiện tại vui lòng liên hệ quản trị viên để được nâng cấp Pro.',
+      payVNPay: 'VNPay (ATM / QR ngân hàng)',
+      payStripe: 'Thẻ quốc tế (Visa / Master)',
+      redirecting: 'Đang chuyển sang trang thanh toán…',
+      noProvider: 'Thanh toán online chưa được bật — vui lòng liên hệ quản trị viên để nâng cấp.',
+      recurringNote: 'Thẻ quốc tế: gói tháng/năm tự gia hạn mỗi kỳ, huỷ bất cứ lúc nào. VNPay: trả trước 1 kỳ, cộng nối vào hạn Pro còn lại.',
+      manageSubscription: 'Quản lý gói tự gia hạn',
+      autoRenewOn: (d) => `Tự gia hạn ngày ${d}`,
+      autoRenewOff: (d) => `Đã tắt tự gia hạn — Pro đến ${d}`,
+      haveLifetime: 'Bạn đã có LacLingo Pro trọn đời 🎉',
+      items: { MONTHLY: 'Pro 1 tháng', YEARLY: 'Pro 1 năm', LIFETIME: 'Pro trọn đời', GEMS_100: '100 gems', GEMS_550: '550 gems', GEMS_1200: '1.200 gems' },
+      walletTitle: '💎 Ví',
+      walletSubtitle: 'Gems dùng để mua Streak Freeze giữ chuỗi ngày học. Nhận gems khi hoàn thành nhiệm vụ hoặc nạp thêm.',
+      gemsBalance: 'Số dư',
+      freezesHave: (n, max) => `🧊 ${n}/${max} Streak Freeze`,
+      buyFreeze: (cost) => `Mua 1 Streak Freeze · ${cost} gems`,
+      freezeBought: 'Đã mua 1 Streak Freeze 🧊',
+      gemPacksTitle: 'Nạp gems',
+      gemsHint: 'Gói lớn được thêm gems thưởng.',
+      historyTitle: 'Lịch sử gems',
+      paymentsTitle: 'Lịch sử thanh toán',
+      noHistory: 'Chưa có giao dịch nào.',
+      reasons: { PURCHASE: 'Nạp gems', MISSION_REWARD: 'Thưởng nhiệm vụ', BUY_STREAK_FREEZE: 'Mua Streak Freeze', ADMIN: 'Quản trị viên' },
+      orderStatus: { PENDING: 'Đang xử lý', PAID: 'Thành công', FAILED: 'Thất bại', CANCELLED: 'Đã huỷ' },
+      resultTitle: 'Kết quả thanh toán',
+      resultChecking: 'Đang xác nhận thanh toán…',
+      resultPaidPlan: '⭐ LacLingo Pro đã được kích hoạt! Cảm ơn bạn.',
+      resultPaidGems: (n) => `💎 Đã nạp ${n} gems vào ví.`,
+      resultFailed: 'Thanh toán không thành công — bạn chưa bị trừ tiền hoặc tiền sẽ được ngân hàng hoàn lại.',
+      resultCancelled: 'Bạn đã huỷ thanh toán.',
+      resultPending: 'Thanh toán đang được xử lý — kết quả sẽ cập nhật trong ít phút, bạn có thể xem lại ở Ví.',
+      resultInvalid: 'Không xác định được đơn thanh toán.',
+      toWallet: 'Về Ví',
+      toPricing: 'Xem gói Pro',
       yourPlan: 'Gói của bạn',
       freePlan: 'Free',
       proUntil: (d) => `Pro đến ${d}`,
@@ -124,14 +186,45 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
         { label: 'Vocabulary reviews (SRS) per day', free: '15', pro: 'Unlimited' },
         { label: 'Speaking practice per day', free: '10', pro: 'Unlimited' },
         { label: 'AI sentence checks per day', free: '5', pro: '30' },
-        { label: 'Streak Freeze (keep your streak after a missed day)', free: '—', pro: '2 per month' },
+        { label: 'Streak Freeze (keep your streak after a missed day)', free: 'Buy with gems', pro: '2 free/month + buy with gems' },
       ],
       plans: { MONTHLY: 'Monthly', YEARLY: 'Yearly', LIFETIME: 'Lifetime' },
       perPlan: { MONTHLY: '/month', YEARLY: '/year', LIFETIME: 'one-time' },
       yearlySave: (p) => `Save ${p}%`,
       popular: 'Most popular',
-      checkoutSoon: 'Online payment coming soon',
-      contactAdmin: 'For now, please contact an administrator to upgrade to Pro.',
+      payVNPay: 'VNPay (Vietnamese bank / QR)',
+      payStripe: 'International card (Visa / Master)',
+      redirecting: 'Redirecting to the payment page…',
+      noProvider: 'Online payment is not enabled yet — please contact an administrator to upgrade.',
+      recurringNote: 'Card: monthly/yearly plans renew automatically, cancel anytime. VNPay: prepay one period, added on top of your remaining Pro time.',
+      manageSubscription: 'Manage auto-renewal',
+      autoRenewOn: (d) => `Renews on ${d}`,
+      autoRenewOff: (d) => `Auto-renewal off — Pro until ${d}`,
+      haveLifetime: 'You already have Lifetime LacLingo Pro 🎉',
+      items: { MONTHLY: 'Pro 1 month', YEARLY: 'Pro 1 year', LIFETIME: 'Lifetime Pro', GEMS_100: '100 gems', GEMS_550: '550 gems', GEMS_1200: '1,200 gems' },
+      walletTitle: '💎 Wallet',
+      walletSubtitle: 'Use gems to buy Streak Freezes that keep your streak. Earn gems from missions or top up.',
+      gemsBalance: 'Balance',
+      freezesHave: (n, max) => `🧊 ${n}/${max} Streak Freezes`,
+      buyFreeze: (cost) => `Buy 1 Streak Freeze · ${cost} gems`,
+      freezeBought: 'Bought 1 Streak Freeze 🧊',
+      gemPacksTitle: 'Top up gems',
+      gemsHint: 'Bigger packs include bonus gems.',
+      historyTitle: 'Gem history',
+      paymentsTitle: 'Payment history',
+      noHistory: 'No transactions yet.',
+      reasons: { PURCHASE: 'Top-up', MISSION_REWARD: 'Mission reward', BUY_STREAK_FREEZE: 'Streak Freeze', ADMIN: 'Administrator' },
+      orderStatus: { PENDING: 'Processing', PAID: 'Paid', FAILED: 'Failed', CANCELLED: 'Cancelled' },
+      resultTitle: 'Payment result',
+      resultChecking: 'Confirming your payment…',
+      resultPaidPlan: '⭐ LacLingo Pro is now active! Thank you.',
+      resultPaidGems: (n) => `💎 ${n} gems were added to your wallet.`,
+      resultFailed: 'The payment did not go through — you were not charged, or your bank will refund it.',
+      resultCancelled: 'You cancelled the payment.',
+      resultPending: 'Your payment is still processing — the result will update in a few minutes; check your Wallet later.',
+      resultInvalid: 'The payment order could not be identified.',
+      toWallet: 'Go to Wallet',
+      toPricing: 'See Pro plans',
       yourPlan: 'Your plan',
       freePlan: 'Free',
       proUntil: (d) => `Pro until ${d}`,
