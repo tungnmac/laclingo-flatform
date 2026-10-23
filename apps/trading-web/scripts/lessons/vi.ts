@@ -1,8 +1,11 @@
 import type { SeedChapter } from './types'
 import { VI_ADVANCED } from './vi-advanced'
+import { VI_ASSETS } from './vi-assets'
 import { VI_FUNDAMENTALS } from './vi-fundamentals'
 import { VI_HISTORY } from './vi-history'
+import { VI_MACRO } from './vi-macro'
 import { VI_PRACTICE } from './vi-practice'
+import { VI_PSYCHOLOGY } from './vi-psychology'
 import { VI_SECTORS } from './vi-sectors'
 
 // Bộ bài khởi đầu tiếng Việt — số liệu khớp TradeLab: phí 0,1%, ví 10.000 USDT, không đòn bẩy, Short ký quỹ 100%.
@@ -740,4 +743,7 @@ Mở [Nhật ký](/journal), chọn một giao dịch gần đây và ghi **lý 
   ...VI_SECTORS,
   ...VI_PRACTICE,
   ...VI_HISTORY,
+  ...VI_PSYCHOLOGY,
+  ...VI_MACRO,
+  ...VI_ASSETS,
 ]

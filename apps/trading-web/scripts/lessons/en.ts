@@ -1,8 +1,11 @@
 import type { SeedChapter } from './types'
 import { EN_ADVANCED } from './en-advanced'
+import { EN_ASSETS } from './en-assets'
 import { EN_FUNDAMENTALS } from './en-fundamentals'
 import { EN_HISTORY } from './en-history'
+import { EN_MACRO } from './en-macro'
 import { EN_PRACTICE } from './en-practice'
+import { EN_PSYCHOLOGY } from './en-psychology'
 import { EN_SECTORS } from './en-sectors'
 
 // English starter curriculum — numbers match TradeLab: 0.1% fee, 10,000 USDT wallet, no leverage, shorts at 100% margin.
@@ -740,4 +743,7 @@ Open your [Journal](/journal), pick a recent trade and write down your **reason,
   ...EN_SECTORS,
   ...EN_PRACTICE,
   ...EN_HISTORY,
+  ...EN_PSYCHOLOGY,
+  ...EN_MACRO,
+  ...EN_ASSETS,
 ]
