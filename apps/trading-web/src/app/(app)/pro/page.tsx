@@ -12,8 +12,8 @@ const ROWS: { key: string; free: boolean; soon?: boolean }[] = [
   { key: 'paper', free: true },
   { key: 'journal', free: true },
   { key: 'vnData', free: true },
-  { key: 'journalAnalytics', free: false, soon: true },
-  { key: 'vnDataPro', free: false, soon: true },
+  { key: 'journalAnalytics', free: false },
+  { key: 'vnDataPro', free: false },
   { key: 'backtest', free: false, soon: true },
 ]
 
