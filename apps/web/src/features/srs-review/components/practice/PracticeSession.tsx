@@ -134,6 +134,12 @@ export function PracticeSession({
 
       <h3 className="text-center text-lg font-semibold text-slate-800">{titles[step]}</h3>
 
+      {/* Chọn nghĩa → hiện câu ví dụ gốc làm ngữ cảnh (nghĩa câu chỉ hiện sau khi chọn đúng để khỏi lộ đáp án) */}
+      {step === 'choice' && vocab.example && (
+        <p className="text-center text-slate-600">
+          {t.practice.chooseMeaningExampleHint} <span className="font-semibold text-slate-900">{vocab.example}</span>
+        </p>
+      )}
       {/* Gợi ý câu đối ứng: ghép câu → hiện nghĩa tiếng Việt; ghép nghĩa → hiện câu gốc */}
       {step === 'sentence' && vocab.example_meaning && (
         <p className="text-center text-slate-600">
@@ -148,7 +154,22 @@ export function PracticeSession({
 
       {/* key theo bài + từ để state (mảnh đã chọn, đáp án sai...) reset khi chuyển bài */}
       <div key={`${vocab.vocabulary_id}-${step}`}>
-        {step === 'choice' && <ChoiceExercise choices={vocab.choices} answer={vocab.meaning} {...exerciseProps} />}
+        {step === 'choice' && (
+          <ChoiceExercise
+            choices={vocab.choices}
+            answer={vocab.meaning}
+            solvedNote={
+              vocab.example &&
+              vocab.example_meaning && (
+                <p className="text-center text-slate-600">
+                  {t.practice.chooseMeaningExampleMeaningHint}{' '}
+                  <span className="font-semibold text-slate-900">{vocab.example_meaning}</span>
+                </p>
+              )
+            }
+            {...exerciseProps}
+          />
+        )}
         {step === 'sentence' && <WordOrderExercise target={vocab.example} tokenLanguage={vocab.language_id} {...exerciseProps} />}
         {step === 'meaning' && <WordOrderExercise target={vocab.example_meaning} tokenLanguage="vi" {...exerciseProps} />}
         {step === 'dictation' && (
