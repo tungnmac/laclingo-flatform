@@ -81,6 +81,8 @@ func main() {
 	notificationService := service.NewNotificationService(repo)
 	missionService := service.NewMissionService(repo, notificationService)
 	missionService.SetDailyRecorder(service.NewDailyNoteService(repo)) // hoạt động học → tiến độ Nhật ký học
+	plans := service.NewPlanService(repo)                              // LacLingo Pro: giới hạn Free/Pro, chuỗi ngày học, Streak Freeze
+	missionService.SetStreakRecorder(plans)
 	hub := game.NewHub(repo, missionService)
 
 	var r2 *storage.R2Client
@@ -106,9 +108,9 @@ func main() {
 
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
-	analyzer := service.NewSentenceAnalyzer(repo, aiClient)
+	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer)
+	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

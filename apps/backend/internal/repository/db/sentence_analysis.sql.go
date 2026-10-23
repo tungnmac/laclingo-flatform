@@ -12,6 +12,7 @@ import (
 )
 
 const findVocabulariesByTerms = `-- name: FindVocabulariesByTerms :many
+
 SELECT v.id, v.term FROM vocabularies v
 WHERE v.language_id = $1 AND dedupe_key(v.term) = ANY (SELECT dedupe_key(x) FROM unnest($2::text[]) AS x)
 `
@@ -26,6 +27,7 @@ type FindVocabulariesByTermsRow struct {
 	Term string      `json:"term"`
 }
 
+// Phân tích câu bằng AI — đối chiếu từ vựng có sẵn trong app (lượt dùng: feature_usage trong billing.sql)
 // Từ trong câu (AI tách ra) đã có trong kho từ vựng của app → học viên thêm vào ôn tập được
 func (q *Queries) FindVocabulariesByTerms(ctx context.Context, arg FindVocabulariesByTermsParams) ([]FindVocabulariesByTermsRow, error) {
 	rows, err := q.db.Query(ctx, findVocabulariesByTerms, arg.LanguageID, arg.Terms)
@@ -45,58 +47,4 @@ func (q *Queries) FindVocabulariesByTerms(ctx context.Context, arg FindVocabular
 		return nil, err
 	}
 	return items, nil
-}
-
-const getSentenceAnalysisUsage = `-- name: GetSentenceAnalysisUsage :one
-SELECT COALESCE((SELECT u.count FROM sentence_analysis_usage u WHERE u.user_id = $1 AND u.usage_date = $2), 0)::int AS count
-`
-
-type GetSentenceAnalysisUsageParams struct {
-	UserID    pgtype.UUID `json:"user_id"`
-	UsageDate pgtype.Date `json:"usage_date"`
-}
-
-func (q *Queries) GetSentenceAnalysisUsage(ctx context.Context, arg GetSentenceAnalysisUsageParams) (int32, error) {
-	row := q.db.QueryRow(ctx, getSentenceAnalysisUsage, arg.UserID, arg.UsageDate)
-	var count int32
-	err := row.Scan(&count)
-	return count, err
-}
-
-const refundSentenceAnalysisQuota = `-- name: RefundSentenceAnalysisQuota :exec
-UPDATE sentence_analysis_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = $2 AND count > 0
-`
-
-type RefundSentenceAnalysisQuotaParams struct {
-	UserID    pgtype.UUID `json:"user_id"`
-	UsageDate pgtype.Date `json:"usage_date"`
-}
-
-// AI lỗi → trả lại lượt vừa trừ
-func (q *Queries) RefundSentenceAnalysisQuota(ctx context.Context, arg RefundSentenceAnalysisQuotaParams) error {
-	_, err := q.db.Exec(ctx, refundSentenceAnalysisQuota, arg.UserID, arg.UsageDate)
-	return err
-}
-
-const useSentenceAnalysisQuota = `-- name: UseSentenceAnalysisQuota :one
-
-INSERT INTO sentence_analysis_usage (user_id, usage_date, count) VALUES ($1, $2, 1)
-ON CONFLICT (user_id, usage_date) DO UPDATE SET count = sentence_analysis_usage.count + 1
-WHERE sentence_analysis_usage.count < $3::int
-RETURNING count
-`
-
-type UseSentenceAnalysisQuotaParams struct {
-	UserID     pgtype.UUID `json:"user_id"`
-	UsageDate  pgtype.Date `json:"usage_date"`
-	DailyLimit int32       `json:"daily_limit"`
-}
-
-// Phân tích câu bằng AI — lượt dùng mỗi ngày + đối chiếu từ vựng có sẵn trong app
-// +1 lượt của ngày; đã đủ daily_limit lượt → không trả dòng nào (pgx.ErrNoRows) = hết lượt
-func (q *Queries) UseSentenceAnalysisQuota(ctx context.Context, arg UseSentenceAnalysisQuotaParams) (int32, error) {
-	row := q.db.QueryRow(ctx, useSentenceAnalysisQuota, arg.UserID, arg.UsageDate, arg.DailyLimit)
-	var count int32
-	err := row.Scan(&count)
-	return count, err
 }

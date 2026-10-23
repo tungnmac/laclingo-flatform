@@ -182,10 +182,11 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by, search string, pag
 	limit, offset := NormalizePage(page, pageSize)
 	searchArg := pgtype.Text{String: search, Valid: search != ""}
 
-	toEntry := func(rank int32, id pgtype.UUID, username string, fullName, avatarURL pgtype.Text, level int32, exp, points int64, streak pgtype.Int4) LeaderboardEntry {
+	// streak = effective_streak (chuỗi đã đứt hiển thị 0, cùng giá trị dùng để xếp hạng)
+	toEntry := func(rank int32, id pgtype.UUID, username string, fullName, avatarURL pgtype.Text, level int32, exp, points int64, streak int32) LeaderboardEntry {
 		return LeaderboardEntry{
 			Rank: rank, UserID: uuid.UUID(id.Bytes), Username: username, FullName: fullName.String,
-			AvatarURL: avatarURL.String, Level: level, Exp: exp, Points: points, StreakCount: streak.Int32,
+			AvatarURL: avatarURL.String, Level: level, Exp: exp, Points: points, StreakCount: streak,
 		}
 	}
 
@@ -200,7 +201,7 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by, search string, pag
 		}
 		for i, r := range rows {
 			total = r.TotalCount
-			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.EffectiveStreak))
 		}
 	case "points":
 		rows, err := s.repo.ListUsersByPoints(ctx, db.ListUsersByPointsParams{Search: searchArg, Limit: limit, Offset: offset})
@@ -209,7 +210,7 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by, search string, pag
 		}
 		for i, r := range rows {
 			total = r.TotalCount
-			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.EffectiveStreak))
 		}
 	case "", "streak":
 		rows, err := s.repo.ListUsersByStreak(ctx, db.ListUsersByStreakParams{Search: searchArg, Limit: limit, Offset: offset})
@@ -218,7 +219,7 @@ func (s *UserService) GetLeaderboard(ctx context.Context, by, search string, pag
 		}
 		for i, r := range rows {
 			total = r.TotalCount
-			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.StreakCount))
+			results = append(results, toEntry(offset+int32(i)+1, r.ID, r.Username, r.FullName, r.AvatarUrl, r.Level, r.Exp, r.Points, r.EffectiveStreak))
 		}
 	default:
 		return PageResult[LeaderboardEntry]{}, ErrInvalidInput

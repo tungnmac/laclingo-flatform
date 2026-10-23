@@ -1115,6 +1115,7 @@ export type SentenceErrorType =
 export interface SentenceAnalysisQuota {
   limit: number
   remaining: number // lượt phân tích còn lại hôm nay
+  pro: boolean // false = gói Free (nâng cấp Pro để có thêm lượt)
   ai_available: boolean
 }
 
@@ -1136,4 +1137,41 @@ export interface SentenceAnalysis extends SentenceAnalysisQuota {
     vocabulary_id?: string // có trong kho từ của app → thêm vào ôn tập được
   }[]
   cached: boolean // câu đã có người phân tích — không tính lượt
+}
+
+// ===== LacLingo Pro (GET /billing/me, admin cấp/thu Pro) =====
+export type BillingFeature = 'srs_review' | 'speaking' | 'sentence_analysis'
+export type SubscriptionPlan = 'MONTHLY' | 'YEARLY' | 'LIFETIME'
+
+export interface SubscriptionInfo {
+  id: string
+  plan: SubscriptionPlan
+  starts_at: string
+  expires_at?: string // không có = trọn đời
+  payment_provider: string
+  note?: string
+}
+
+export interface FeatureUsage {
+  feature: BillingFeature
+  used: number
+  limit: number // 0 = không giới hạn
+  pro: boolean
+}
+
+export interface PlanStatus {
+  is_pro: boolean
+  staff: boolean // admin/owner dùng như Pro
+  subscription?: SubscriptionInfo
+  usage: FeatureUsage[]
+  streak_freezes: number
+  gems: number
+}
+
+/** Body lỗi khi hết lượt: 402 + pro_required (gói Free) | 429 + daily_limit (Pro) */
+export interface LimitErrorDetail {
+  error: string
+  code: 'pro_required' | 'daily_limit'
+  feature: BillingFeature
+  limit: number
 }

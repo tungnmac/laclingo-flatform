@@ -22,7 +22,7 @@ type ErrorResponse struct {
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
 // MissionService) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, analyzer *service.SentenceAnalyzer) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, analyzer *service.SentenceAnalyzer, plans *service.PlanService) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -50,10 +50,10 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 
 	// Cần đăng nhập
 	userService := service.NewUserService(repo)
-	userHandler := NewUserHandler(userService)
+	userHandler := NewUserHandler(userService, plans)
 	protected := api.Group("", RequireAuth(tokens))
 	userHandler.RegisterRoutes(protected)
-	srsService := service.NewSRSService(repo, missions)
+	srsService := service.NewSRSService(repo, missions, plans)
 	NewSRSHandler(srsService).RegisterRoutes(protected)
 	NewDeckHandler(service.NewDeckService(repo, srsService)).RegisterRoutes(protected)
 	vocabularyHandler.RegisterRoutes(protected)
@@ -64,6 +64,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// Nhật ký học — riêng tư của từng học viên, KHÔNG đăng ký route admin nào
 	NewDailyNoteHandler(service.NewDailyNoteService(repo)).RegisterRoutes(protected)
 	NewSentenceAnalysisHandler(analyzer).RegisterRoutes(protected)
+	billingHandler := NewBillingHandler(plans)
+	billingHandler.RegisterRoutes(protected)
 	classHandler.RegisterRoutes(protected)
 	blogHandler.RegisterRoutes(protected)
 	reminderHandler := NewReminderHandler(reminders)
@@ -71,7 +73,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// SAU reminderHandler: /notifications/push/* phải khớp trước /notifications/:id
 	notificationHandler := NewNotificationHandler(notifications)
 	notificationHandler.RegisterRoutes(protected)
-	speakingHandler := NewSpeakingHandler(service.NewSpeakingService(repo, missions))
+	speakingHandler := NewSpeakingHandler(service.NewSpeakingService(repo, missions, plans))
 	speakingHandler.RegisterRoutes(protected)
 
 	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,
@@ -80,6 +82,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// rỗng sẽ cộng dồn hết các điều kiện module lên nhau).
 	admin := api.Group("", RequireAuth(tokens), RequireModule(userService))
 	userHandler.RegisterAdminRoutes(admin)
+	billingHandler.RegisterAdminRoutes(admin)
 	NewMissionHandler(missions).RegisterAdminRoutes(admin)
 	vocabularyHandler.RegisterAdminRoutes(admin)
 	NewVocabularySuggestHandler(suggester).RegisterAdminRoutes(admin)
@@ -96,7 +99,15 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client
 func ErrorHandler(c *fiber.Ctx, err error) error {
 	var fiberErr *fiber.Error
+	var limitErr *service.LimitError
 	switch {
+	case errors.As(err, &limitErr):
+		// Gói Free hết lượt → 402 + code để FE hiện màn nâng cấp Pro; Pro hết lượt (vd phân tích câu) → 429
+		status, code := fiber.StatusPaymentRequired, "pro_required"
+		if limitErr.Pro {
+			status, code = fiber.StatusTooManyRequests, "daily_limit"
+		}
+		return c.Status(status).JSON(LimitErrorResponse{Error: limitErr.Error(), Code: code, Feature: limitErr.Feature, Limit: limitErr.Limit})
 	case errors.As(err, &fiberErr):
 		return c.Status(fiberErr.Code).JSON(ErrorResponse{Error: fiberErr.Message})
 	case errors.Is(err, service.ErrNotFound):

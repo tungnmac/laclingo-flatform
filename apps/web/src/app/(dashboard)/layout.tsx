@@ -8,6 +8,7 @@ import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
 import { MutationToaster } from '@/components/ui/MutationToaster'
 import { ToastProvider } from '@/components/ui/ToastProvider'
+import { PaywallDialog } from '@/features/billing/components/PaywallDialog'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
 import { browserTimezone } from '@/features/reminder/push'
 import { reminderService } from '@/features/reminder/reminder.service'
@@ -50,6 +51,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <ConfirmDialogProvider>
         <BackgroundSync />
         <SpeechErrorToaster />
+        <PaywallDialog />
         <MutationToaster />
         <div className="flex min-h-screen">
           <Sidebar user={user} />

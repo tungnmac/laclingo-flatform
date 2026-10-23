@@ -189,6 +189,13 @@ type ExerciseType struct {
 	OrderIndex  pgtype.Int4 `json:"order_index"`
 }
 
+type FeatureUsage struct {
+	UserID    pgtype.UUID `json:"user_id"`
+	Feature   string      `json:"feature"`
+	UsageDate pgtype.Date `json:"usage_date"`
+	Count     int32       `json:"count"`
+}
+
 type GameAnswer struct {
 	ID            pgtype.UUID        `json:"id"`
 	RoomID        pgtype.UUID        `json:"room_id"`
@@ -359,12 +366,6 @@ type ReminderDefault struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
-type SentenceAnalysisUsage struct {
-	UserID    pgtype.UUID `json:"user_id"`
-	UsageDate pgtype.Date `json:"usage_date"`
-	Count     int32       `json:"count"`
-}
-
 type SpeakingItem struct {
 	ID            pgtype.UUID        `json:"id"`
 	LanguageID    string             `json:"language_id"`
@@ -388,6 +389,20 @@ type SpeakingTopic struct {
 	OrderIndex  int32  `json:"order_index"`
 }
 
+type Subscription struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Plan            string             `json:"plan"`
+	Status          string             `json:"status"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	PaymentProvider string             `json:"payment_provider"`
+	GrantedBy       pgtype.UUID        `json:"granted_by"`
+	Note            string             `json:"note"`
+	CancelledAt     pgtype.Timestamptz `json:"cancelled_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type User struct {
 	ID            pgtype.UUID        `json:"id"`
 	Email         string             `json:"email"`
@@ -405,6 +420,7 @@ type User struct {
 	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	StreakDate    pgtype.Date        `json:"streak_date"`
 }
 
 type UserClassEnrollment struct {
@@ -450,6 +466,14 @@ type UserGrammarProgress struct {
 	NextReviewAt     pgtype.Timestamptz `json:"next_review_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserInventory struct {
+	UserID              pgtype.UUID        `json:"user_id"`
+	Gems                int32              `json:"gems"`
+	StreakFreezes       int32              `json:"streak_freezes"`
+	FreezesGrantedMonth pgtype.Date        `json:"freezes_granted_month"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserMissionProgress struct {

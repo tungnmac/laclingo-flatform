@@ -33,6 +33,7 @@ const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter((item) => item.href !== '/profile')
 const MISSIONS_ITEM = { href: '/missions', key: 'missions' as const, icon: '🎯' }
 const DAILY_ITEM = { href: '/daily', key: 'daily' as const, icon: '📓' }
 const ANALYZE_ITEM = { href: '/analyze', key: 'analyze' as const, icon: '🔍' }
+const PRO_ITEM = { href: '/pricing', key: 'pro' as const, icon: '⭐' }
 const LISTENING_ITEM = { href: '/listening', key: 'listening' as const, icon: '🎧' }
 const SPEAKING_ITEM = { href: '/speaking', key: 'speaking' as const, icon: '🎤' }
 const BLOG_ITEM = { href: '/blog', key: 'blog' as const, icon: '📝' }
@@ -68,7 +69,7 @@ export function Sidebar({ user }: { user: User }) {
   const locale = useLocale((s) => s.locale)
   const t = useTranslation()
   const isAdmin = user.role === 'admin' || user.role === 'owner'
-  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
   const toggleLabel = collapsed ? t.nav.expandMenu : t.nav.collapseMenu
 
   // Ctrl/⌘+B: chỉ khi sidebar đang hiện (md+), không đang gõ chữ (Ctrl+B = in đậm),

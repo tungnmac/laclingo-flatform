@@ -27,6 +27,7 @@ type Querier interface {
 	// cơ chế dọn tự động ở bản này).
 	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	CancelActiveSubscriptions(ctx context.Context, userID pgtype.UUID) error
 	// Lỗi 22023 (invalid_parameter_value) = PostgreSQL không biết múi giờ này —
 	// phải chặn từ lúc lưu, vì ClaimDueReminders dùng AT TIME ZONE cho MỌI user
 	// trong 1 câu: 1 múi giờ lạ làm hỏng cả lượt nhắc.
@@ -95,6 +96,7 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) error
 	CreateSpeakingAttempt(ctx context.Context, arg CreateSpeakingAttemptParams) error
 	CreateSpeakingItem(ctx context.Context, arg CreateSpeakingItemParams) (SpeakingItem, error)
+	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// ===== Admin CRUD (quản lý nội dung từ vựng) =====
 	CreateVocabulary(ctx context.Context, arg CreateVocabularyParams) (Vocabulary, error)
@@ -136,12 +138,17 @@ type Querier interface {
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
 	DislikeBlogPost(ctx context.Context, arg DislikeBlogPostParams) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
+	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
 	// Gửi tới mọi tài khoản đang active (1 dòng thông báo / user).
 	FanOutAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
+	// Phân tích câu bằng AI — đối chiếu từ vựng có sẵn trong app (lượt dùng: feature_usage trong billing.sql)
 	// Từ trong câu (AI tách ra) đã có trong kho từ vựng của app → học viên thêm vào ôn tập được
 	FindVocabulariesByTerms(ctx context.Context, arg FindVocabulariesByTermsParams) ([]FindVocabulariesByTermsRow, error)
 	FinishGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
+	// LacLingo Pro: gói, lượt dùng tính năng theo ngày, vật phẩm, chuỗi ngày học
+	// Gói đang hiệu lực (ACTIVE, chưa hết hạn); nhiều dòng thì lấy gói lâu nhất (LIFETIME trước)
+	GetActiveSubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetBestSpeakingScore(ctx context.Context, arg GetBestSpeakingScoreParams) (int32, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
 	// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
@@ -163,6 +170,7 @@ type Querier interface {
 	// language_id để NULL thì lấy đến hạn ở MỌI ngôn ngữ user đang học (hành vi cũ) —
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
+	GetFeatureUsage(ctx context.Context, arg GetFeatureUsageParams) (int32, error)
 	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
 	GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error)
 	GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -176,13 +184,16 @@ type Querier interface {
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (ListeningQuestion, error)
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
-	GetSentenceAnalysisUsage(ctx context.Context, arg GetSentenceAnalysisUsageParams) (int32, error)
 	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserInventory(ctx context.Context, userID pgtype.UUID) (UserInventory, error)
+	// 1 câu cho mỗi lần kiểm tra gói (mỗi lượt ôn / luyện nói): role + có gói đang hiệu lực
+	GetUserPlanFlags(ctx context.Context, id pgtype.UUID) (GetUserPlanFlagsRow, error)
 	GetUserReminderSettings(ctx context.Context, userID pgtype.UUID) (UserReminderSetting, error)
+	GetUserStreak(ctx context.Context, id pgtype.UUID) (GetUserStreakRow, error)
 	// Daily note (Nhật ký học) — RIÊNG TƯ: mọi query đều lọc theo user_id của chính học viên (không có query admin).
 	// Múi giờ để tính "hôm nay": cài đặt nhắc học của user → mặc định admin → giờ Việt Nam
 	GetUserTimezone(ctx context.Context, userID pgtype.UUID) (string, error)
@@ -324,10 +335,16 @@ type Querier interface {
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
 	// Thứ tự ưu tiên: owner → admin → user, mỗi nhóm sort theo created_at DESC.
 	ListUsersAdminPaged(ctx context.Context, arg ListUsersAdminPagedParams) ([]ListUsersAdminPagedRow, error)
+	// effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+	// lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
 	ListUsersByLevel(ctx context.Context, arg ListUsersByLevelParams) ([]ListUsersByLevelRow, error)
+	// effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+	// lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
 	ListUsersByPoints(ctx context.Context, arg ListUsersByPointsParams) ([]ListUsersByPointsRow, error)
 	// Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
 	// theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
+	// effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+	// lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
 	ListUsersByStreak(ctx context.Context, arg ListUsersByStreakParams) ([]ListUsersByStreakRow, error)
 	// total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
 	// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
@@ -348,6 +365,7 @@ type Querier interface {
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
 	LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+	LockUserStreak(ctx context.Context, id pgtype.UUID) (LockUserStreakRow, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
 	MarkBlogPost(ctx context.Context, arg MarkBlogPostParams) error
 	// 1 = lần đầu người này ♥ bình luận → gửi thông báo; 0 = đã báo trước đó (♥ lại sau khi bỏ ♥)
@@ -368,12 +386,14 @@ type Querier interface {
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
 	PruneOldNotifications(ctx context.Context) (int64, error)
+	// Pro được tặng Streak Freeze đầu mỗi tháng: nạp lên tối thiểu `amount` (không cộng dồn), mỗi tháng 1 lần
+	RefillStreakFreezes(ctx context.Context, arg RefillStreakFreezesParams) error
 	// Tính lại trạng thái xong của việc cha sau khi đổi việc con / tiến độ:
 	//   còn việc con chưa tích → chưa xong; có mục tiêu → xong khi đủ mục tiêu; có checklist (đã tích hết) → xong;
 	//   việc tích không có checklist → giữ nguyên (người học tự tích)
 	RefreshDailyTaskCompletion(ctx context.Context, id pgtype.UUID) (DailyNoteTask, error)
-	// AI lỗi → trả lại lượt vừa trừ
-	RefundSentenceAnalysisQuota(ctx context.Context, arg RefundSentenceAnalysisQuotaParams) error
+	// Thao tác lỗi sau khi đã trừ lượt → trả lại
+	RefundFeatureQuota(ctx context.Context, arg RefundFeatureQuotaParams) error
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
@@ -386,6 +406,7 @@ type Querier interface {
 	// Lúc đăng ký push: tạo dòng cài đặt (nếu chưa có) để bộ lập lịch quét tới,
 	// và cập nhật múi giờ trình duyệt — không đụng tới phần cấu hình khác.
 	SetUserReminderTimezone(ctx context.Context, arg SetUserReminderTimezoneParams) error
+	SetUserStreak(ctx context.Context, arg SetUserStreakParams) error
 	// ===== 4 counter độc lập (bài viết) =====
 	StarBlogPost(ctx context.Context, arg StarBlogPostParams) error
 	StartGameRoom(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -452,9 +473,10 @@ type Querier interface {
 	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
 	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
-	// Phân tích câu bằng AI — lượt dùng mỗi ngày + đối chiếu từ vựng có sẵn trong app
-	// +1 lượt của ngày; đã đủ daily_limit lượt → không trả dòng nào (pgx.ErrNoRows) = hết lượt
-	UseSentenceAnalysisQuota(ctx context.Context, arg UseSentenceAnalysisQuotaParams) (int32, error)
+	// +1 lượt dùng của ngày; đã đủ daily_limit → không trả dòng nào (pgx.ErrNoRows) = hết lượt
+	UseFeatureQuota(ctx context.Context, arg UseFeatureQuotaParams) (int32, error)
+	// Dùng n Streak Freeze bù các ngày nghỉ; không đủ → 0 dòng
+	UseStreakFreezes(ctx context.Context, arg UseStreakFreezesParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

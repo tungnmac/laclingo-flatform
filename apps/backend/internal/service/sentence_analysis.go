@@ -15,29 +15,25 @@ import (
 	"laclingo-backend/internal/repository/db"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Phân tích câu bằng AI cho học viên: câu đúng/sai, lỗi (ngữ pháp, thiếu/sai giới từ, mạo từ, trợ từ, lượng từ...)
 // kèm câu đã sửa + giải thích tiếng Việt, cấu trúc câu, điểm ngữ pháp, từ vựng (đối chiếu kho từ của app để thêm
-// vào ôn tập). Mỗi học viên tối đa SentenceAnalysisDailyLimit lượt/ngày; câu đã phân tích (cache) không tính lượt.
+// vào ôn tập). Lượt/ngày theo gói (PlanService: Free 5, Pro 30); câu đã phân tích (cache) không tính lượt.
 
 const (
-	SentenceAnalysisDailyLimit = 30
-	maxAnalyzeSentenceLen      = 300
-	analysisCacheTTL           = 24 * time.Hour
-	analysisCacheSize          = 2000
-	maxAnalysisErrors          = 10
-	maxAnalysisParts           = 20
-	maxAnalysisGrammarPoints   = 5
-	maxAnalysisWords           = 12
+	maxAnalyzeSentenceLen    = 300
+	analysisCacheTTL         = 24 * time.Hour
+	analysisCacheSize        = 2000
+	maxAnalysisErrors        = 10
+	maxAnalysisParts         = 20
+	maxAnalysisGrammarPoints = 5
+	maxAnalysisWords         = 12
 )
 
 var (
-	ErrAINotConfigured       = errors.New("server chưa cấu hình AI (GEMINI_API_KEY hoặc ANTHROPIC_API_KEY)")
-	ErrAnalysisQuotaExceeded = fmt.Errorf("bạn đã dùng hết %d lượt phân tích câu hôm nay, quay lại vào ngày mai nhé", SentenceAnalysisDailyLimit)
-	ErrAnalysisAIFailed      = errors.New("phân tích câu đang lỗi")
+	ErrAINotConfigured  = errors.New("server chưa cấu hình AI (GEMINI_API_KEY hoặc ANTHROPIC_API_KEY)")
+	ErrAnalysisAIFailed = errors.New("phân tích câu đang lỗi")
 )
 
 // Loại lỗi trong câu — FE hiển thị nhãn tiếng Việt theo mã
@@ -99,20 +95,25 @@ type SentenceAnalysis struct {
 type SentenceAnalysisQuota struct {
 	Limit       int  `json:"limit"`
 	Remaining   int  `json:"remaining"`
+	Pro         bool `json:"pro"` // false = gói Free (nâng cấp Pro để có thêm lượt)
 	AIAvailable bool `json:"ai_available"`
 }
 
 type SentenceAnalysisRepository interface {
-	UseSentenceAnalysisQuota(ctx context.Context, arg db.UseSentenceAnalysisQuotaParams) (int32, error)
-	RefundSentenceAnalysisQuota(ctx context.Context, arg db.RefundSentenceAnalysisQuotaParams) error
-	GetSentenceAnalysisUsage(ctx context.Context, arg db.GetSentenceAnalysisUsageParams) (int32, error)
 	FindVocabulariesByTerms(ctx context.Context, arg db.FindVocabulariesByTermsParams) ([]db.FindVocabulariesByTermsRow, error)
 }
 
+// QuotaProvider — lượt dùng tính năng theo gói (PlanService)
+type QuotaProvider interface {
+	Reserve(ctx context.Context, userID uuid.UUID, feature string) (refund func(), err error)
+	Usage(ctx context.Context, userID uuid.UUID, feature string) (FeatureUsage, error)
+}
+
 type SentenceAnalyzer struct {
-	repo SentenceAnalysisRepository
-	ai   AIClient // nil = chưa cấu hình AI
-	now  func() time.Time
+	repo  SentenceAnalysisRepository
+	ai    AIClient // nil = chưa cấu hình AI
+	plans QuotaProvider
+	now   func() time.Time
 
 	mu    sync.Mutex
 	cache map[string]cachedAnalysis
@@ -123,31 +124,17 @@ type cachedAnalysis struct {
 	expires time.Time
 }
 
-func NewSentenceAnalyzer(repo SentenceAnalysisRepository, ai AIClient) *SentenceAnalyzer {
-	return &SentenceAnalyzer{repo: repo, ai: ai, now: time.Now, cache: map[string]cachedAnalysis{}}
+func NewSentenceAnalyzer(repo SentenceAnalysisRepository, ai AIClient, plans QuotaProvider) *SentenceAnalyzer {
+	return &SentenceAnalyzer{repo: repo, ai: ai, plans: plans, now: time.Now, cache: map[string]cachedAnalysis{}}
 }
 
-// today — ngày tính lượt theo giờ Việt Nam cố định (không theo múi giờ học viên tự đổi được — đổi múi giờ
-// không được "sang ngày mới" để có thêm lượt)
-func (s *SentenceAnalyzer) today() (pgtype.Date, error) {
-	return pgDate(localDate(s.now(), defaultDailyTimezone))
-}
-
-func (s *SentenceAnalyzer) quota(used int32) SentenceAnalysisQuota {
-	return SentenceAnalysisQuota{Limit: SentenceAnalysisDailyLimit, Remaining: max(0, SentenceAnalysisDailyLimit-int(used)), AIAvailable: s.ai != nil}
-}
-
-// Quota — lượt còn lại hôm nay của học viên
+// Quota — lượt còn lại hôm nay của học viên (theo gói)
 func (s *SentenceAnalyzer) Quota(ctx context.Context, userID uuid.UUID) (SentenceAnalysisQuota, error) {
-	date, err := s.today()
+	u, err := s.plans.Usage(ctx, userID, FeatureSentenceAnalysis)
 	if err != nil {
 		return SentenceAnalysisQuota{}, err
 	}
-	used, err := s.repo.GetSentenceAnalysisUsage(ctx, db.GetSentenceAnalysisUsageParams{UserID: toPgUUID(userID), UsageDate: date})
-	if err != nil {
-		return SentenceAnalysisQuota{}, err
-	}
-	return s.quota(used), nil
+	return SentenceAnalysisQuota{Limit: u.Limit, Remaining: max(0, u.Limit-u.Used), Pro: u.Pro, AIAvailable: s.ai != nil}, nil
 }
 
 // normalizeSentence — gộp khoảng trắng (giữ chữ hoa/thường: viết hoa đầu câu cũng là lỗi cần chỉ ra)
@@ -161,44 +148,38 @@ func (s *SentenceAnalyzer) Analyze(ctx context.Context, userID uuid.UUID, req Se
 	if sentence == "" || utf8.RuneCountInString(sentence) > maxAnalyzeSentenceLen {
 		return SentenceAnalysis{}, fmt.Errorf("câu cần 1–%d ký tự: %w", maxAnalyzeSentenceLen, ErrInvalidInput)
 	}
-	date, err := s.today()
-	if err != nil {
-		return SentenceAnalysis{}, err
-	}
 	key := req.LanguageID + "\x00" + sentence
 	if cached, ok := s.cached(key); ok {
-		used, err := s.repo.GetSentenceAnalysisUsage(ctx, db.GetSentenceAnalysisUsageParams{UserID: toPgUUID(userID), UsageDate: date})
+		q, err := s.Quota(ctx, userID)
 		if err != nil {
 			return SentenceAnalysis{}, err
 		}
-		cached.Cached, cached.SentenceAnalysisQuota = true, s.quota(used)
+		cached.Cached, cached.SentenceAnalysisQuota = true, q
 		cached.Vocabulary = s.withVocabularyIDs(ctx, req.LanguageID, cached.Vocabulary)
 		return cached, nil
 	}
 	if s.ai == nil {
 		return SentenceAnalysis{}, ErrAINotConfigured
 	}
-	used, err := s.repo.UseSentenceAnalysisQuota(ctx, db.UseSentenceAnalysisQuotaParams{UserID: toPgUUID(userID), UsageDate: date, DailyLimit: SentenceAnalysisDailyLimit})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return SentenceAnalysis{}, ErrAnalysisQuotaExceeded
-	}
+	refund, err := s.plans.Reserve(ctx, userID, FeatureSentenceAnalysis) // hết lượt → *LimitError
 	if err != nil {
 		return SentenceAnalysis{}, err
 	}
 	out, err := s.askAI(ctx, req.LanguageID, sentence)
 	if err != nil {
 		log.Printf("❌ sentence analysis: AI user=%s (%d ký tự): %v", userID, utf8.RuneCountInString(sentence), err) // không ghi nội dung câu của học viên vào log
-		// Lỗi phía AI không phải lỗi của học viên → trả lại lượt (context gốc có thể đã huỷ, dùng context riêng)
-		refundCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		if rerr := s.repo.RefundSentenceAnalysisQuota(refundCtx, db.RefundSentenceAnalysisQuotaParams{UserID: toPgUUID(userID), UsageDate: date}); rerr != nil {
-			log.Printf("❌ sentence analysis: hoàn lượt user=%s: %v", userID, rerr)
-		}
+		refund()                                                                                                    // lỗi phía AI không phải lỗi của học viên → trả lại lượt
 		return SentenceAnalysis{}, fmt.Errorf("%w: %s", ErrAnalysisAIFailed, aiErrorReason(err))
 	}
 	out.LanguageID, out.Sentence = req.LanguageID, sentence
 	s.store(key, out) // cache KHÔNG kèm vocabulary_id — mỗi lần trả về đối chiếu lại kho từ (từ có thể vừa thêm/xoá)
-	out.SentenceAnalysisQuota = s.quota(used)
+	// Đã tốn lượt + có kết quả: đọc lại lượt còn lại lỗi thì vẫn trả kết quả (chỉ thiếu số lượt)
+	q, err := s.Quota(ctx, userID)
+	if err != nil {
+		log.Printf("⚠️  sentence analysis: đọc lượt còn lại user=%s: %v", userID, err)
+		q = SentenceAnalysisQuota{AIAvailable: true}
+	}
+	out.SentenceAnalysisQuota = q
 	out.Vocabulary = s.withVocabularyIDs(ctx, req.LanguageID, out.Vocabulary)
 	return out, nil
 }

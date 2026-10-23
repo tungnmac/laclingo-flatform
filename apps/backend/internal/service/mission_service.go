@@ -89,7 +89,16 @@ type MissionService struct {
 	notifier Notifier
 	now      func() time.Time
 	daily    DailyRecorder
+	streak   StreakRecorder
 }
+
+// StreakRecorder — cập nhật chuỗi ngày học mỗi lần học viên học (PlanService)
+type StreakRecorder interface {
+	TouchStreak(ctx context.Context, userID uuid.UUID) error
+}
+
+// SetStreakRecorder nối chuỗi ngày học vào MarkStudied (gọi 1 lần lúc khởi động)
+func (s *MissionService) SetStreakRecorder(r StreakRecorder) { s.streak = r }
 
 // DailyRecorder — nhận hoạt động học để cộng tiến độ Nhật ký học (DailyNoteService)
 type DailyRecorder interface {
@@ -264,12 +273,17 @@ func (s *MissionService) ListMyMissions(ctx context.Context, userID uuid.UUID) (
 }
 
 // MarkStudied ghi lại lần học gần nhất của user cho nhắc học (xem
-// ClaimDueReminders). RecordAction tự gọi; hoạt động học KHÔNG tính nhiệm vụ
+// ClaimDueReminders) và cập nhật chuỗi ngày học. RecordAction tự gọi; hoạt động học KHÔNG tính nhiệm vụ
 // (vd luyện sớm từ chưa đến hạn) thì gọi trực tiếp. Lỗi chỉ log, không chặn
 // hành động học chính.
 func (s *MissionService) MarkStudied(ctx context.Context, userID uuid.UUID) {
 	if err := s.repo.TouchUserStudiedAt(ctx, toPgUUID(userID)); err != nil {
 		log.Printf("❌ reminder: TouchUserStudiedAt user=%s: %v", userID, err)
+	}
+	if s.streak != nil {
+		if err := s.streak.TouchStreak(ctx, userID); err != nil {
+			log.Printf("❌ streak: TouchStreak user=%s: %v", userID, err)
+		}
 	}
 }
 

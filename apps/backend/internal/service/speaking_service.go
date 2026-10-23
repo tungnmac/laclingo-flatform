@@ -123,10 +123,11 @@ type SpeakingItemAdmin struct {
 type SpeakingService struct {
 	repo     SpeakingRepository
 	missions *MissionService
+	quota    QuotaProvider // lượt luyện nói/ngày theo gói
 }
 
-func NewSpeakingService(repo SpeakingRepository, missions *MissionService) *SpeakingService {
-	return &SpeakingService{repo: repo, missions: missions}
+func NewSpeakingService(repo SpeakingRepository, missions *MissionService, quota QuotaProvider) *SpeakingService {
+	return &SpeakingService{repo: repo, missions: missions, quota: quota}
 }
 
 func (s *SpeakingService) ListTopics(ctx context.Context, userID uuid.UUID, languageID string) ([]SpeakingTopic, error) {
@@ -200,9 +201,15 @@ func (s *SpeakingService) SubmitAttempt(ctx context.Context, userID, itemID uuid
 	if req.Transcript == "" {
 		return result, nil
 	}
+	// Mỗi lần nói có nội dung = 1 lượt luyện nói của gói (hết lượt → *LimitError, chưa lưu gì)
+	refund, err := s.quota.Reserve(ctx, userID, FeatureSpeaking)
+	if err != nil {
+		return SpeakingAttemptResult{}, err
+	}
 	if err := s.repo.CreateSpeakingAttempt(ctx, db.CreateSpeakingAttemptParams{
 		UserID: toPgUUID(userID), ItemID: item.ID, Transcript: req.Transcript, Score: int32(fb.Score),
 	}); err != nil {
+		refund()
 		return SpeakingAttemptResult{}, err
 	}
 	if int32(fb.Score) > prevBest {
