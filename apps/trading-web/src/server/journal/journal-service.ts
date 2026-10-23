@@ -5,6 +5,7 @@ import { HttpError } from '../http'
 import { withAccount, withSettledAccount } from '../trading/account-service'
 import { D, toApi } from '../trading/decimal'
 import { toTradeDto, type TradeDto } from '../trading/order-service'
+import { analyze, type Analytics } from './analytics'
 import { computeStats, drawdownBase, type Stats } from './stats'
 import type { JournalFilter, NoteInput } from './validation'
 
@@ -125,6 +126,31 @@ export async function getStats(userId: string, filter: JournalFilter): Promise<S
       closedQty: D(t.closedQty),
     })),
     base,
+  )
+}
+
+/** Phân tích nâng cao (Pro) cho ví TradeLab — cùng bộ lọc với thống kê; ghi chú lấy từ trade_notes */
+export async function getAnalytics(userId: string, filter: JournalFilter): Promise<Analytics> {
+  const { accounts } = await resolveAccounts(userId, filter.account)
+  const rows = await db
+    .select({ t: trades, note: tradeNotes })
+    .from(trades)
+    .leftJoin(tradeNotes, eq(tradeNotes.tradeId, trades.id))
+    .where(tradeConditions(accounts.map((a) => a.id), filter, rangeStart(filter.range)))
+    .orderBy(asc(trades.executedAt))
+  return analyze(
+    rows.map(({ t, note }) => ({
+      id: t.id,
+      symbol: t.symbol,
+      executedAt: t.executedAt.getTime(),
+      net: D(t.realizedPnl).minus(D(t.fee)),
+      closing: D(t.closedQty).gt(0),
+      liquidation: t.kind === 'liquidation',
+      emotion: note?.emotion ?? null,
+      rating: note?.rating ?? null,
+      tags: note?.tags ?? [],
+      noted: Boolean(note?.reason?.trim() || note?.lesson?.trim()),
+    })),
   )
 }
 

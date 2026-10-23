@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import { JournalAnalytics } from '@/components/journal/JournalAnalytics'
 import { JournalFilters, type Filters } from '@/components/journal/JournalFilters'
 import { ManualJournal } from '@/components/journal/ManualJournal'
 import { JournalTrades } from '@/components/journal/JournalTrades'
@@ -54,6 +55,7 @@ function JournalView() {
   const [page, setPage] = useState(1)
   const [error, setError] = useState<unknown>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [analyticsKey, setAnalyticsKey] = useState(0)
 
   useEffect(() => {
     api<AccountSummaryDto[]>('/api/journal/accounts').then(setAccounts, () => {})
@@ -105,6 +107,7 @@ function JournalView() {
   }
 
   const onNoteSaved = useCallback((tradeId: string, note: NoteDto) => {
+    setAnalyticsKey((k) => k + 1)
     setTrades((prev) => prev && { ...prev, items: prev.items.map((tr) => (tr.id === tradeId ? { ...tr, note } : tr)) })
   }, [])
 
@@ -148,6 +151,9 @@ function JournalView() {
           )}
         </>
       )}
+
+      {/* ngoài khối stats: tải song song với thống kê; analyticsKey tăng khi lưu ghi chú (cảm xúc/tag đổi nhóm) */}
+      <JournalAnalytics url={`/api/journal/analytics?${query}`} reloadKey={reloadKey + analyticsKey} />
 
       <Section title={t('journal.tradesTitle')}>
         {trades === null ? (
