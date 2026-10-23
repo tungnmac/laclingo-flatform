@@ -1,6 +1,7 @@
 import type { SeedChapter } from './types'
 import { EN_ADVANCED } from './en-advanced'
 import { EN_FUNDAMENTALS } from './en-fundamentals'
+import { EN_HISTORY } from './en-history'
 import { EN_PRACTICE } from './en-practice'
 import { EN_SECTORS } from './en-sectors'
 
@@ -738,4 +739,5 @@ Open your [Journal](/journal), pick a recent trade and write down your **reason,
   ...EN_ADVANCED,
   ...EN_SECTORS,
   ...EN_PRACTICE,
+  ...EN_HISTORY,
 ]

@@ -1,6 +1,7 @@
 import type { SeedChapter } from './types'
 import { VI_ADVANCED } from './vi-advanced'
 import { VI_FUNDAMENTALS } from './vi-fundamentals'
+import { VI_HISTORY } from './vi-history'
 import { VI_PRACTICE } from './vi-practice'
 import { VI_SECTORS } from './vi-sectors'
 
@@ -738,4 +739,5 @@ Mở [Nhật ký](/journal), chọn một giao dịch gần đây và ghi **lý 
   ...VI_ADVANCED,
   ...VI_SECTORS,
   ...VI_PRACTICE,
+  ...VI_HISTORY,
 ]
