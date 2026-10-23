@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
@@ -11,8 +10,7 @@ import { safeNextPath } from '@/lib/safe-next'
 const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2.5 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600'
 
-export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: string }) {
-  const router = useRouter()
+export function AuthForm({ mode, next, adding = false }: { mode: 'login' | 'register'; next?: string; adding?: boolean }) {
   const { t } = useT()
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
@@ -29,9 +27,9 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: st
     setLoading(true)
     setError(null)
     try {
-      await api(`/api/auth/${mode}`, { method: 'POST', body: JSON.stringify(body) })
-      router.replace(safeNextPath(next))
-      router.refresh()
+      await api(`/api/auth/${mode}`, { method: 'POST', body: JSON.stringify({ ...body, add: adding }) })
+      // tải lại toàn trang: không còn state client của tài khoản trước (nếu trình duyệt đang đăng nhập tài khoản khác)
+      window.location.assign(safeNextPath(next))
     } catch (err) {
       setError(err)
       setLoading(false)
@@ -40,7 +38,8 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next?: st
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <h1 className="text-2xl font-bold">{t(isLogin ? 'auth.loginTitle' : 'auth.registerTitle')}</h1>
+      <h1 className="text-2xl font-bold">{t(adding ? 'accounts.addTitle' : isLogin ? 'auth.loginTitle' : 'auth.registerTitle')}</h1>
+      {adding && <p className="text-sm text-slate-500">{t('accounts.addHint')}</p>}
       {!isLogin && (
         <label className="block text-sm font-medium text-slate-700">
           {t('auth.displayName')}

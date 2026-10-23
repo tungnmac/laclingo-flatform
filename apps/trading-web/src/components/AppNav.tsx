@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useT } from '@/i18n/I18nProvider'
+import { AccountMenu } from './AccountMenu'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 import type { Plan } from '@/server/billing/plans'
@@ -30,14 +31,7 @@ const ADMIN_ITEMS: { href: string; labelKey: string; also?: string[] }[] = [
 
 export function AppNav({ user, plan }: { user: SessionUser; plan: Plan }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { t } = useT()
-
-  const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.replace('/login')
-    router.refresh()
-  }
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
@@ -67,10 +61,7 @@ export function AppNav({ user, plan }: { user: SessionUser; plan: Plan }) {
           {t(plan === 'pro' ? 'pro.badge' : 'pro.upgradeShort')}
         </Link>
         <LanguageSwitcher className="hidden sm:block" />
-        <span className="hidden text-sm text-slate-600 md:inline">{user.display_name}</span>
-        <button onClick={logout} className="rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">
-          {t('nav.logout')}
-        </button>
+        <AccountMenu user={user} />
       </div>
     </header>
   )
