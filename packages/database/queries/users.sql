@@ -34,16 +34,20 @@ RETURNING *;
 -- name: ListUsersByStreak :many
 -- Bảng xếp hạng (public) — ẩn tài khoản bị khoá (is_active=false), search
 -- theo username/full_name, phân trang qua COUNT(*) OVER() giống ListUsersAdminPaged.
-SELECT *, COUNT(*) OVER() AS total_count FROM users
+-- effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+-- lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
+SELECT *, (CASE WHEN streak_date >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1 THEN COALESCE(streak_count, 0) ELSE 0 END)::int AS effective_streak, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND (sqlc.narg('search')::text IS NULL
     OR username ILIKE '%' || sqlc.narg('search')::text || '%'
     OR full_name ILIKE '%' || sqlc.narg('search')::text || '%')
-ORDER BY streak_count DESC NULLS LAST, created_at
+ORDER BY effective_streak DESC, created_at
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: ListUsersByLevel :many
-SELECT *, COUNT(*) OVER() AS total_count FROM users
+-- effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+-- lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
+SELECT *, (CASE WHEN streak_date >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1 THEN COALESCE(streak_count, 0) ELSE 0 END)::int AS effective_streak, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND (sqlc.narg('search')::text IS NULL
     OR username ILIKE '%' || sqlc.narg('search')::text || '%'
@@ -52,7 +56,9 @@ ORDER BY level DESC, exp DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: ListUsersByPoints :many
-SELECT *, COUNT(*) OVER() AS total_count FROM users
+-- effective_streak: chuỗi đã đứt (học gần nhất trước hôm qua, giờ VN) tính là 0 — streak_count chỉ được đặt lại ở
+-- lần học sau. Chưa tính Streak Freeze (Pro nghỉ đúng số ngày có freeze bù sẽ hiện lại sau lần học tới).
+SELECT *, (CASE WHEN streak_date >= (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1 THEN COALESCE(streak_count, 0) ELSE 0 END)::int AS effective_streak, COUNT(*) OVER() AS total_count FROM users
 WHERE is_active
   AND (sqlc.narg('search')::text IS NULL
     OR username ILIKE '%' || sqlc.narg('search')::text || '%'

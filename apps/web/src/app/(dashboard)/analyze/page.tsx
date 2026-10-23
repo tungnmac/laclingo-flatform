@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -29,9 +30,9 @@ export default function AnalyzePage({ searchParams }: { searchParams: { text?: s
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data: initialQuota } = useApi(() => sentenceService.quota(), [])
-  const [quota, setQuota] = useState<{ remaining: number; limit: number; ai: boolean } | null>(null)
+  const [quota, setQuota] = useState<{ remaining: number; limit: number; ai: boolean; pro: boolean } | null>(null)
   useEffect(() => {
-    if (initialQuota) setQuota((q) => q ?? { remaining: initialQuota.remaining, limit: initialQuota.limit, ai: initialQuota.ai_available })
+    if (initialQuota) setQuota((q) => q ?? { remaining: initialQuota.remaining, limit: initialQuota.limit, ai: initialQuota.ai_available, pro: initialQuota.pro })
   }, [initialQuota])
 
   // Mỗi lần phân tích có số thứ tự — kết quả về muộn của lần cũ (đổi câu trên URL giữa chừng) bị bỏ qua
@@ -46,7 +47,7 @@ export default function AnalyzePage({ searchParams }: { searchParams: { text?: s
       const res = await sentenceService.analyze(l, sentence)
       if (id !== reqSeq.current) return
       setResult(res)
-      setQuota({ remaining: res.remaining, limit: res.limit, ai: res.ai_available })
+      setQuota({ remaining: res.remaining, limit: res.limit, ai: res.ai_available, pro: res.pro })
     } catch (err) {
       if (id !== reqSeq.current) return
       setError(inlineError(err))
@@ -123,6 +124,11 @@ export default function AnalyzePage({ searchParams }: { searchParams: { text?: s
             <span className="text-xs text-slate-500">
               {a.charCount(text.length, MAX_LEN)}
               {quota && quota.ai && <span className="ml-3 font-medium text-indigo-600">{a.quota(quota.remaining, quota.limit)}</span>}
+              {quota && quota.ai && !quota.pro && (
+                <Link href="/pricing" className="ml-2 font-semibold text-amber-600 hover:underline">
+                  ⭐ {t.billing.analyzeUpgradeHint}
+                </Link>
+              )}
             </span>
             <Button type="submit" disabled={busy || !text.trim() || quota?.ai === false}>
               {busy ? a.analyzing : a.analyzeBtn}

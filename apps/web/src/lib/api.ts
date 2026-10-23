@@ -2,9 +2,12 @@ import { apiErrorText } from '@/lib/apiErrorText'
 import { emitMutationNotice, mutationNotice, type NotifyOption } from '@/lib/mutationNotice'
 import { useLocale } from '@/store/locale'
 import { useSession } from '@/store/session'
-import type { ErrorResponse } from '@/types/api'
+import type { ErrorResponse, LimitErrorDetail } from '@/types/api'
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1'
+
+/** Sự kiện window khi gói Free hết lượt (402 pro_required) — PaywallDialog (dashboard layout) mời nâng cấp Pro */
+export const PAYWALL_EVENT = 'laclingo:paywall'
 
 export class ApiError extends Error {
   /** Màn hình đã hiện lỗi này ngay trong form (xem inlineError) → thông báo chung không hiện toast trùng */
@@ -60,8 +63,14 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
 
   if (!res.ok) {
     if (res.status === 401 && token) useSession.getState().logout()
-    const body = (await res.json().catch(() => null)) as ErrorResponse | null
-    throw fail(new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token), res.status))
+    const body = (await res.json().catch(() => null)) as (ErrorResponse & Partial<LimitErrorDetail>) | null
+    const err = new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token, body?.code), res.status)
+    if (res.status === 402 && body?.code === 'pro_required') {
+      // Màn nâng cấp Pro đã báo lý do — không hiện thêm toast lỗi chung
+      err.shownInline = true
+      window.dispatchEvent(new CustomEvent<LimitErrorDetail>(PAYWALL_EVENT, { detail: body as LimitErrorDetail }))
+    }
+    throw fail(err)
   }
 
   // Đọc xong body rồi mới báo thành công — body lỗi thì nơi gọi nhận lỗi, không có toast "thành công" sai

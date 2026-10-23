@@ -25,7 +25,7 @@ func (h *SentenceAnalysisHandler) RegisterRoutes(router fiber.Router) {
 
 // Analyze godoc
 // @Summary      Phân tích 1 câu: đúng/sai, lỗi + sửa, cấu trúc câu, ngữ pháp, từ vựng
-// @Description  Tiếng Anh / tiếng Trung, tối đa 300 ký tự. Mỗi học viên 30 lượt/ngày; câu đã có người phân tích (cache) không tính lượt.
+// @Description  Tiếng Anh / tiếng Trung, tối đa 300 ký tự. Lượt/ngày theo gói (Free 5, Pro 30); câu đã có người phân tích (cache) không tính lượt.
 // @Tags         sentences
 // @Accept       json
 // @Produce      json
@@ -33,7 +33,8 @@ func (h *SentenceAnalysisHandler) RegisterRoutes(router fiber.Router) {
 // @Param        body  body      service.SentenceAnalyzeRequest  true  "Ngôn ngữ + câu"
 // @Success      200   {object}  service.SentenceAnalysis
 // @Failure      400   {object}  ErrorResponse
-// @Failure      429   {object}  ErrorResponse  "Hết lượt hôm nay"
+// @Failure      402   {object}  LimitErrorResponse  "Gói Free hết lượt hôm nay — nâng cấp Pro"
+// @Failure      429   {object}  LimitErrorResponse  "Pro hết lượt hôm nay"
 // @Failure      502   {object}  ErrorResponse  "AI đang lỗi (lượt được hoàn lại)"
 // @Failure      503   {object}  ErrorResponse  "Server chưa cấu hình AI"
 // @Router       /sentences/analyze [post]
@@ -44,8 +45,6 @@ func (h *SentenceAnalysisHandler) Analyze(c *fiber.Ctx) error {
 	}
 	out, err := h.svc.Analyze(c.UserContext(), currentUserID(c), req)
 	switch {
-	case errors.Is(err, service.ErrAnalysisQuotaExceeded):
-		return fiber.NewError(fiber.StatusTooManyRequests, err.Error())
 	case errors.Is(err, service.ErrAINotConfigured):
 		return fiber.NewError(fiber.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, service.ErrAnalysisAIFailed):

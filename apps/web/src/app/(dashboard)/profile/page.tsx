@@ -10,6 +10,7 @@ import { ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { languageFlag, previewPhrase } from '@/features/course/components/LanguageCard'
+import { PlanSummary } from '@/features/billing/components/PlanSummary'
 import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
@@ -93,6 +94,7 @@ export default function ProfilePage() {
         </Card>
 
         <div className="space-y-4 lg:col-span-2">
+          <PlanSummary />
           <Card>
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">{t.profile.level}</p>

@@ -7,6 +7,7 @@ const EN_BY_STATUS: Record<number, string> = {
   0: 'Cannot reach the server. Please try again.',
   400: 'The submitted data is invalid.',
   401: 'Your session has expired. Please sign in again.',
+  402: "You have used today's free limit — upgrade to LacLingo Pro for unlimited use.",
   403: 'You do not have permission to do this.',
   404: 'The requested data was not found.',
   409: 'This conflicts with existing data (it may already exist).',
@@ -15,12 +16,16 @@ const EN_BY_STATUS: Record<number, string> = {
   429: 'Too many requests. Please wait a moment and try again.',
 }
 
-/** hasToken = request gửi kèm phiên đăng nhập — 401 khi CHƯA đăng nhập là sai tài khoản/mật khẩu, không phải hết phiên */
-export function apiErrorText(status: number, serverMessage: string | undefined, locale: Locale, hasToken = true): string {
+/**
+ * hasToken = request gửi kèm phiên đăng nhập — 401 khi CHƯA đăng nhập là sai tài khoản/mật khẩu, không phải hết phiên.
+ * code = mã lỗi backend (vd "daily_limit": gói Pro hết lượt hôm nay → không phải "thử lại sau giây lát").
+ */
+export function apiErrorText(status: number, serverMessage: string | undefined, locale: Locale, hasToken = true, code?: string): string {
   if (locale === 'vi') {
     if (status === 0) return 'Không kết nối được tới máy chủ. Vui lòng thử lại.'
     return serverMessage || `Lỗi ${status}`
   }
   if (status === 401 && !hasToken) return 'Incorrect username or password.'
+  if (code === 'daily_limit') return "You have used today's limit for this feature. Please come back tomorrow."
   return EN_BY_STATUS[status] ?? (status >= 500 ? 'Something went wrong on the server. Please try again.' : `Request failed (${status}).`)
 }

@@ -9,42 +9,35 @@ import (
 	"laclingo-backend/internal/repository/db"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// fakeAnalysisRepo — lượt dùng theo ngày trong bộ nhớ + kho từ vựng giả
+// fakeAnalysisRepo — kho từ vựng giả + lượt dùng theo gói trong bộ nhớ (vừa là repo vừa là QuotaProvider)
 type fakeAnalysisRepo struct {
-	used    map[string]int32
+	used    map[uuid.UUID]int
+	limit   int
+	pro     bool
 	vocab   map[string]uuid.UUID // term → id
 	refunds int
 }
 
+const testAnalysisLimit = 30
+
 func newFakeAnalysisRepo() *fakeAnalysisRepo {
-	return &fakeAnalysisRepo{used: map[string]int32{}, vocab: map[string]uuid.UUID{}}
+	return &fakeAnalysisRepo{used: map[uuid.UUID]int{}, limit: testAnalysisLimit, pro: true, vocab: map[string]uuid.UUID{}}
 }
 
-func dayKey(u pgtype.UUID, d pgtype.Date) string {
-	return uuid.UUID(u.Bytes).String() + d.Time.Format("2006-01-02")
-}
-
-func (f *fakeAnalysisRepo) UseSentenceAnalysisQuota(_ context.Context, a db.UseSentenceAnalysisQuotaParams) (int32, error) {
-	k := dayKey(a.UserID, a.UsageDate)
-	if f.used[k] >= a.DailyLimit {
-		return 0, pgx.ErrNoRows
+func (f *fakeAnalysisRepo) Reserve(_ context.Context, userID uuid.UUID, feature string) (func(), error) {
+	if f.used[userID] >= f.limit {
+		return func() {}, &LimitError{Feature: feature, Limit: f.limit, Pro: f.pro}
 	}
-	f.used[k]++
-	return f.used[k], nil
+	f.used[userID]++
+	return func() {
+		f.refunds++
+		f.used[userID]--
+	}, nil
 }
-func (f *fakeAnalysisRepo) RefundSentenceAnalysisQuota(_ context.Context, a db.RefundSentenceAnalysisQuotaParams) error {
-	f.refunds++
-	if k := dayKey(a.UserID, a.UsageDate); f.used[k] > 0 {
-		f.used[k]--
-	}
-	return nil
-}
-func (f *fakeAnalysisRepo) GetSentenceAnalysisUsage(_ context.Context, a db.GetSentenceAnalysisUsageParams) (int32, error) {
-	return f.used[dayKey(a.UserID, a.UsageDate)], nil
+func (f *fakeAnalysisRepo) Usage(_ context.Context, userID uuid.UUID, feature string) (FeatureUsage, error) {
+	return FeatureUsage{Feature: feature, Used: f.used[userID], Limit: f.limit, Pro: f.pro}, nil
 }
 func (f *fakeAnalysisRepo) FindVocabulariesByTerms(_ context.Context, a db.FindVocabulariesByTermsParams) ([]db.FindVocabulariesByTermsRow, error) {
 	var out []db.FindVocabulariesByTermsRow
@@ -84,14 +77,14 @@ func TestAnalyzeSentence(t *testing.T) {
 	vid := uuid.New()
 	repo.vocab["interested"] = vid
 	ai := &fakeAI{answer: analysisAnswer}
-	s := NewSentenceAnalyzer(repo, ai)
+	s := NewSentenceAnalyzer(repo, ai, repo)
 	user := uuid.New()
 
 	got, err := s.Analyze(context.Background(), user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "  I am interested   about learning English. "})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Sentence != "I am interested about learning English." || got.Cached || got.Remaining != SentenceAnalysisDailyLimit-1 {
+	if got.Sentence != "I am interested about learning English." || got.Cached || got.Remaining != testAnalysisLimit-1 {
 		t.Fatalf("sentence/cached/remaining: %+v", got)
 	}
 	if got.IsCorrect { // có lỗi thì không thể "đúng" dù AI trả true
@@ -116,7 +109,7 @@ func TestAnalyzeSentence(t *testing.T) {
 	delete(repo.vocab, "interested")
 	other := uuid.New()
 	again, err := s.Analyze(context.Background(), other, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "I am interested about learning English."})
-	if err != nil || !again.Cached || again.Remaining != SentenceAnalysisDailyLimit || ai.calls != 1 {
+	if err != nil || !again.Cached || again.Remaining != testAnalysisLimit || ai.calls != 1 {
 		t.Fatalf("cache: cached=%v remaining=%d calls=%d err=%v", again.Cached, again.Remaining, ai.calls, err)
 	}
 	if again.Vocabulary[0].VocabularyID != nil {
@@ -131,37 +124,37 @@ func TestAnalyzeSentenceQuotaAndErrors(t *testing.T) {
 	ctx := context.Background()
 	user := uuid.New()
 
-	if _, err := NewSentenceAnalyzer(newFakeAnalysisRepo(), &fakeAI{answer: analysisAnswer}).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "ja", Sentence: "x"}); !errors.Is(err, ErrInvalidInput) {
+	if _, err := newTestAnalyzer(&fakeAI{answer: analysisAnswer}).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "ja", Sentence: "x"}); !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("unsupported language → ErrInvalidInput, got %v", err)
 	}
-	if _, err := NewSentenceAnalyzer(newFakeAnalysisRepo(), &fakeAI{answer: analysisAnswer}).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: strings.Repeat("a", maxAnalyzeSentenceLen+1)}); !errors.Is(err, ErrInvalidInput) {
+	if _, err := newTestAnalyzer(&fakeAI{answer: analysisAnswer}).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: strings.Repeat("a", maxAnalyzeSentenceLen+1)}); !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("too long → ErrInvalidInput, got %v", err)
 	}
-	if _, err := NewSentenceAnalyzer(newFakeAnalysisRepo(), nil).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "Hi."}); !errors.Is(err, ErrAINotConfigured) {
+	if _, err := newTestAnalyzer(nil).Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "Hi."}); !errors.Is(err, ErrAINotConfigured) {
 		t.Errorf("no AI → ErrAINotConfigured, got %v", err)
 	}
 
 	// AI lỗi → ErrAnalysisAIFailed kèm lý do, lượt được hoàn
 	repo := newFakeAnalysisRepo()
-	s := NewSentenceAnalyzer(repo, &fakeAI{err: &aiError{reason: "đã dùng hết hạn mức miễn phí của Gemini", cause: errors.New("429")}})
+	s := NewSentenceAnalyzer(repo, AIClient(&fakeAI{err: &aiError{reason: "đã dùng hết hạn mức miễn phí của Gemini", cause: errors.New("429")}}), repo)
 	_, err := s.Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "zh", Sentence: "我学习中文"})
 	if !errors.Is(err, ErrAnalysisAIFailed) || !strings.Contains(err.Error(), "hạn mức") || repo.refunds != 1 {
 		t.Fatalf("AI failure: err=%v refunds=%d", err, repo.refunds)
 	}
-	if q, _ := s.Quota(ctx, user); q.Remaining != SentenceAnalysisDailyLimit {
+	if q, _ := s.Quota(ctx, user); q.Remaining != testAnalysisLimit {
 		t.Errorf("refunded quota, remaining=%d", q.Remaining)
 	}
 
 	// Hết lượt
 	repo = newFakeAnalysisRepo()
-	s = NewSentenceAnalyzer(repo, &fakeAI{answer: analysisAnswer})
-	for i := 0; i < SentenceAnalysisDailyLimit; i++ {
+	s = NewSentenceAnalyzer(repo, &fakeAI{answer: analysisAnswer}, repo)
+	for i := 0; i < testAnalysisLimit; i++ {
 		if _, err := s.Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "Sentence " + strings.Repeat("x", i+1)}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "One more."}); !errors.Is(err, ErrAnalysisQuotaExceeded) {
-		t.Fatalf("over limit → ErrAnalysisQuotaExceeded, got %v", err)
+	if _, err := s.Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "One more."}); !errors.As(err, new(*LimitError)) {
+		t.Fatalf("over limit → *LimitError, got %v", err)
 	}
 	// Câu đã phân tích vẫn xem lại được khi hết lượt (cache)
 	if got, err := s.Analyze(ctx, user, SentenceAnalyzeRequest{LanguageID: "en", Sentence: "Sentence x"}); err != nil || !got.Cached || got.Remaining != 0 {
@@ -185,4 +178,13 @@ func TestToGeminiSchema(t *testing.T) {
 	if sentenceAnalysisSchema["additionalProperties"] != false {
 		t.Error("original schema must not be mutated")
 	}
+}
+
+// newTestAnalyzer — analyzer với lượt dùng giả (ai nil = chưa cấu hình AI)
+func newTestAnalyzer(ai *fakeAI) *SentenceAnalyzer {
+	repo := newFakeAnalysisRepo()
+	if ai == nil {
+		return NewSentenceAnalyzer(repo, nil, repo)
+	}
+	return NewSentenceAnalyzer(repo, ai, repo)
 }

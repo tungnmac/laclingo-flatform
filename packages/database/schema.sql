@@ -734,10 +734,41 @@ CREATE TABLE IF NOT EXISTS daily_task_items (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_task_items_title ON daily_task_items (task_id, dedupe_key(title));
 
--- Lượt phân tích câu bằng AI mỗi ngày của học viên (migration 000037)
-CREATE TABLE IF NOT EXISTS sentence_analysis_usage (
+-- ===== LacLingo Pro (migration 000038) =====
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan VARCHAR(20) NOT NULL CHECK (plan IN ('MONTHLY', 'YEARLY', 'LIFETIME')),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('ACTIVE', 'CANCELLED', 'EXPIRED')),
+    starts_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ,
+    payment_provider VARCHAR(50) NOT NULL CHECK (payment_provider IN ('ADMIN', 'STRIPE', 'VNPAY', 'APPLE_IAP', 'GOOGLE_PLAY')),
+    granted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    note TEXT NOT NULL DEFAULT '',
+    cancelled_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK ((plan = 'LIFETIME') = (expires_at IS NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_status ON subscriptions (user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subscriptions_one_active ON subscriptions (user_id) WHERE status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS idx_subscriptions_granted_by ON subscriptions (granted_by) WHERE granted_by IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS user_inventory (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    gems INT NOT NULL DEFAULT 0 CHECK (gems >= 0),
+    streak_freezes INT NOT NULL DEFAULT 0 CHECK (streak_freezes >= 0),
+    freezes_granted_month DATE,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Lượt dùng tính năng mỗi ngày (giờ Việt Nam) — giới hạn gói Free/Pro
+CREATE TABLE IF NOT EXISTS feature_usage (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    feature VARCHAR(30) NOT NULL CHECK (feature IN ('srs_review', 'speaking', 'sentence_analysis')),
     usage_date DATE NOT NULL,
     count INT NOT NULL DEFAULT 0 CHECK (count >= 0),
-    PRIMARY KEY (user_id, usage_date)
+    PRIMARY KEY (user_id, feature, usage_date)
 );
+
+-- Chuỗi ngày học: ngày (giờ Việt Nam) gần nhất đã tính vào streak_count
+ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_date DATE;

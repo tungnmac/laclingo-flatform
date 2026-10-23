@@ -8,12 +8,14 @@ import (
 )
 
 type UserHandler struct {
-	svc *service.UserService
+	svc   *service.UserService
+	plans *service.PlanService // chuỗi ngày học thực tế (đã đứt thì 0)
 }
 
-func NewUserHandler(svc *service.UserService) *UserHandler {
+func NewUserHandler(svc *service.UserService, plans *service.PlanService) *UserHandler {
 	return &UserHandler{
-		svc: svc,
+		svc:   svc,
+		plans: plans,
 	}
 }
 
@@ -187,7 +189,10 @@ func (h *UserHandler) GetMe(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-
+	// streak_count trong DB chỉ được đặt lại ở lần học sau — nghỉ học (không đủ Streak Freeze) thì hiển thị 0
+	if result.StreakCount, err = h.plans.EffectiveStreak(c.UserContext(), result.ID); err != nil {
+		return err
+	}
 	return c.JSON(result)
 }
 
@@ -211,6 +216,10 @@ func (h *UserHandler) UpdateMe(c *fiber.Ctx) error {
 
 	result, err := h.svc.UpdateProfile(c.UserContext(), currentUserID(c), req)
 	if err != nil {
+		return err
+	}
+	// FE ghi đè user trong phiên bằng response này — trả chuỗi ngày học thực tế như GET /users/me
+	if result.StreakCount, err = h.plans.EffectiveStreak(c.UserContext(), result.ID); err != nil {
 		return err
 	}
 

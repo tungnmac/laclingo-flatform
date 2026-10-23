@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Pagination } from '@/components/admin/Pagination'
 import { ActiveBadge, ActiveToggleButton, ModulesEditor, RoleBadge, RoleToggleButton } from '@/components/admin/UserAdminControls'
+import { ProGrantButton } from '@/features/billing/components/ProGrantButton'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card } from '@/components/ui/Card'
@@ -162,6 +163,7 @@ export default function AdminUsersPage() {
                       )}
                       <RoleToggleButton user={u} onChanged={reload} />
                       <ActiveToggleButton user={u} onChanged={reload} />
+                      <ProGrantButton user={u} />
                     </div>
                   </div>
 

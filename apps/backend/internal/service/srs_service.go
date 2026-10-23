@@ -75,15 +75,31 @@ type DueVocabulary struct {
 type SRSService struct {
 	repo     SRSRepository
 	missions *MissionService
+	quota    QuotaProvider // lượt ôn/ngày theo gói (Free giới hạn, Pro không)
 	now      func() time.Time
 }
 
-func NewSRSService(repo SRSRepository, missions *MissionService) *SRSService {
+func NewSRSService(repo SRSRepository, missions *MissionService, quota QuotaProvider) *SRSService {
 	return &SRSService{
 		repo:     repo,
 		missions: missions,
+		quota:    quota,
 		now:      time.Now,
 	}
+}
+
+// withReviewQuota trừ 1 lượt ôn của gói trước khi chấm (hết lượt → *LimitError), chấm lỗi thì hoàn lại lượt
+func withReviewQuota[T any](ctx context.Context, s *SRSService, userID uuid.UUID, run func() (T, error)) (T, error) {
+	refund, err := s.quota.Reserve(ctx, userID, FeatureSRSReview)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	out, err := run()
+	if err != nil {
+		refund()
+	}
+	return out, err
 }
 
 // recordMissionAction ghi nhận hành động cho hệ thống nhiệm vụ — lỗi ở đây
@@ -225,6 +241,10 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 	if userID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Mistakes < 0 {
 		return domain.VocabularyPracticeResponse{}, ErrInvalidInput
 	}
+	return withReviewQuota(ctx, s, userID, func() (domain.VocabularyPracticeResponse, error) { return s.practiceVocabulary(ctx, userID, req) })
+}
+
+func (s *SRSService) practiceVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyPracticeRequest) (domain.VocabularyPracticeResponse, error) {
 	quality := qualityFromMistakes(req.Mistakes)
 
 	current, err := s.repo.GetVocabularyReview(ctx, db.GetVocabularyReviewParams{
@@ -322,6 +342,10 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, userID uuid.UUID, req
 	if userID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Quality < 0 || req.Quality > 5 {
 		return domain.VocabularyReviewResponse{}, ErrInvalidInput
 	}
+	return withReviewQuota(ctx, s, userID, func() (domain.VocabularyReviewResponse, error) { return s.reviewVocabulary(ctx, userID, req) })
+}
+
+func (s *SRSService) reviewVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyReviewRequest) (domain.VocabularyReviewResponse, error) {
 
 	out, err := s.nextSM2(ctx, userID, req.VocabularyID, req.Quality)
 	if err != nil {
