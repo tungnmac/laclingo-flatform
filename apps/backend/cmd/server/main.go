@@ -101,6 +101,16 @@ func main() {
 		log.Println("⚠️  Web push chưa cấu hình (VAPID_*) — nhắc học chỉ hiện trong chuông thông báo")
 	}
 	reminderService := service.NewReminderService(repo, pushSender, cfg.VAPIDPublicKey, notificationService)
+	if cfg.FCMServiceAccountFile != "" {
+		if native, err := newFCMSender(cfg.FCMServiceAccountFile); err != nil {
+			log.Printf("❌ FCM: %v — app iOS/Android sẽ không nhận được thông báo đẩy", err)
+		} else {
+			reminderService.SetNativeSender(native)
+			log.Println("✅ FCM đã cấu hình — bật thông báo đẩy trên app iOS/Android")
+		}
+	} else {
+		log.Println("⚠️  FCM_SERVICE_ACCOUNT_FILE chưa cấu hình — app iOS/Android không nhận được thông báo đẩy")
+	}
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
 	go reminderService.Start(schedulerCtx)
@@ -161,6 +171,15 @@ func newAIClient(cfg *config.Config) service.AIClient {
 		log.Printf("⚠️  AI_PROVIDER=%q không hợp lệ (claude|gemini) — gợi ý từ mới chỉ có phiên âm/audio từ điển", provider)
 	}
 	return nil
+}
+
+// newFCMSender đọc file service account Firebase rồi tạo sender FCM
+func newFCMSender(path string) (service.PushSender, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return service.NewFCMSender(data)
 }
 
 // newPaymentService — cổng thiếu key thì tắt (nil): trang bảng giá báo chưa hỗ trợ cổng đó

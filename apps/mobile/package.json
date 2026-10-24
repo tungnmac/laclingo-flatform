@@ -1,0 +1,22 @@
+{
+  "name": "laclingo-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LacLingo app iOS/Android (Capacitor) — nạp web production, thêm thông báo đẩy native",
+  "scripts": {
+    "open:ios": "cap open ios",
+    "open:android": "cap open android",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#1e1b4b'"
+  },
+  "dependencies": {
+    "@capacitor-firebase/messaging": "8.5.2",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3",
+    "typescript": "^5.6.0"
+  }
+}

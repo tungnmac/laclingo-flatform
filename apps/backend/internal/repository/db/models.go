@@ -392,6 +392,7 @@ type PushSubscription struct {
 	P256dh    string             `json:"p256dh"`
 	Auth      string             `json:"auth"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Kind      string             `json:"kind"`
 }
 
 type ReminderDefault struct {

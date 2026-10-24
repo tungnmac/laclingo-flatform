@@ -227,3 +227,34 @@ func TestRunDueSkipsPushForUsersWithoutSubscription(t *testing.T) {
 		t.Errorf("nhắc trong chuông phải thay bản chưa đọc cũ và không lặp emoji ở tiêu đề: %+v", notifier.sent)
 	}
 }
+
+func TestSendToUserRoutesByKind(t *testing.T) {
+	repo := &fakeReminderRepo{subs: []db.PushSubscription{
+		{Endpoint: "https://web", Kind: pushKindWeb}, {Endpoint: "fcm-token", Kind: pushKindFCM},
+	}}
+	web := &fakeSender{}
+	svc := NewReminderService(repo, web, "pub", &fakeNotifier{})
+
+	// Chưa cấu hình FCM: chỉ gửi web push, token FCM giữ nguyên (không tính vào số đã thử)
+	sent, total, err := svc.sendToUser(context.Background(), uuid.New(), pushPayload{Title: "x"})
+	if err != nil || sent != 1 || total != 1 || len(web.payloads) != 1 {
+		t.Errorf("chỉ web push: nhận %d/%d (web gửi %d), err=%v", sent, total, len(web.payloads), err)
+	}
+
+	native := &fakeSender{}
+	svc.SetNativeSender(native)
+	sent, total, _ = svc.sendToUser(context.Background(), uuid.New(), pushPayload{Title: "x"})
+	if sent != 2 || total != 2 || len(native.payloads) != 1 || len(web.payloads) != 2 {
+		t.Errorf("web + FCM: nhận %d/%d (web %d, fcm %d)", sent, total, len(web.payloads), len(native.payloads))
+	}
+
+	// Chỉ có FCM (không VAPID) vẫn gửi nhắc học
+	fcmOnly := NewReminderService(repo, nil, "", &fakeNotifier{})
+	fcmOnly.SetNativeSender(&fakeSender{})
+	if _, err := fcmOnly.SendTest(context.Background(), uuid.New()); err != nil {
+		t.Errorf("chỉ FCM: SendTest lỗi %v", err)
+	}
+	if err := fcmOnly.SubscribeNative(context.Background(), uuid.New(), NativePushRequest{Token: "a b"}); !errors.Is(err, ErrInvalidInput) {
+		t.Errorf("token có khoảng trắng phải bị từ chối: %v", err)
+	}
+}

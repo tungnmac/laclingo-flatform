@@ -207,7 +207,7 @@ func (q *Queries) GetUserReminderSettings(ctx context.Context, userID pgtype.UUI
 }
 
 const listPushSubscriptionsForUser = `-- name: ListPushSubscriptionsForUser :many
-SELECT id, user_id, endpoint, p256dh, auth, created_at FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at
+SELECT id, user_id, endpoint, p256dh, auth, created_at, kind FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error) {
@@ -226,6 +226,7 @@ func (q *Queries) ListPushSubscriptionsForUser(ctx context.Context, userID pgtyp
 			&i.P256dh,
 			&i.Auth,
 			&i.CreatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -263,6 +264,24 @@ WHERE id = $1 AND (last_studied_at IS NULL OR last_studied_at < NOW() - INTERVAL
 // lại nếu lần ghi trước đã quá 5 phút — 1 phiên ôn 50 thẻ không ghi 50 lần.
 func (q *Queries) TouchUserStudiedAt(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, touchUserStudiedAt, id)
+	return err
+}
+
+const trimPushSubscriptions = `-- name: TrimPushSubscriptions :exec
+DELETE FROM push_subscriptions p
+WHERE p.user_id = $1 AND p.id NOT IN (
+    SELECT id FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2::int
+)
+`
+
+type TrimPushSubscriptionsParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Keep   int32       `json:"keep"`
+}
+
+// Giữ tối đa `keep` subscription mới nhất mỗi học viên (đổi máy / cài lại app nhiều lần) — bỏ cái cũ nhất
+func (q *Queries) TrimPushSubscriptions(ctx context.Context, arg TrimPushSubscriptionsParams) error {
+	_, err := q.db.Exec(ctx, trimPushSubscriptions, arg.UserID, arg.Keep)
 	return err
 }
 
@@ -307,10 +326,10 @@ func (q *Queries) UpdateReminderDefaults(ctx context.Context, arg UpdateReminder
 }
 
 const upsertPushSubscription = `-- name: UpsertPushSubscription :exec
-INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-VALUES ($1, $2, $3, $4)
+INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, kind)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (endpoint) DO UPDATE
-SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth
+SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, kind = EXCLUDED.kind
 `
 
 type UpsertPushSubscriptionParams struct {
@@ -318,6 +337,7 @@ type UpsertPushSubscriptionParams struct {
 	Endpoint string      `json:"endpoint"`
 	P256dh   string      `json:"p256dh"`
 	Auth     string      `json:"auth"`
+	Kind     string      `json:"kind"`
 }
 
 // endpoint là duy nhất theo trình duyệt — đăng nhập user khác trên cùng trình
@@ -328,6 +348,7 @@ func (q *Queries) UpsertPushSubscription(ctx context.Context, arg UpsertPushSubs
 		arg.Endpoint,
 		arg.P256dh,
 		arg.Auth,
+		arg.Kind,
 	)
 	return err
 }

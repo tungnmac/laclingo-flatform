@@ -889,6 +889,7 @@ export interface MyReminderSettings {
   custom: boolean // true = học viên tự chỉnh, false = theo mặc định admin
   defaults: ReminderSchedule
   push_configured: boolean // server đã cấu hình web push (VAPID)
+  native_push_configured: boolean // server đã cấu hình FCM (thông báo trên app iOS/Android)
   subscription_count: number // số trình duyệt/thiết bị đã bật nhận thông báo
 }
 

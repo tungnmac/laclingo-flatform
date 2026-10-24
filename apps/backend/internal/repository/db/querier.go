@@ -466,6 +466,8 @@ type Querier interface {
 	// Gọi mỗi lần user làm 1 hoạt động học (MissionService.MarkStudied). Chỉ ghi
 	// lại nếu lần ghi trước đã quá 5 phút — 1 phiên ôn 50 thẻ không ghi 50 lần.
 	TouchUserStudiedAt(ctx context.Context, id pgtype.UUID) error
+	// Giữ tối đa `keep` subscription mới nhất mỗi học viên (đổi máy / cài lại app nhiều lần) — bỏ cái cũ nhất
+	TrimPushSubscriptions(ctx context.Context, arg TrimPushSubscriptionsParams) error
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
 	UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error
 	UndislikeBlogPost(ctx context.Context, arg UndislikeBlogPostParams) error

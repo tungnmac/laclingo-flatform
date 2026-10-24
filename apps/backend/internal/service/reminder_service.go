@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ type ReminderRepository interface {
 	DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint string) error
 	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]db.PushSubscription, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
+	TrimPushSubscriptions(ctx context.Context, arg db.TrimPushSubscriptionsParams) error
 	ClaimDueReminders(ctx context.Context) ([]db.ClaimDueRemindersRow, error)
 	CheckTimezone(ctx context.Context, tz string) (pgtype.Timestamp, error)
 }
@@ -84,11 +86,12 @@ type ReminderSchedule struct {
 
 // MyReminderSettings — lịch nhắc của học viên đang đăng nhập
 type MyReminderSettings struct {
-	Settings          ReminderSchedule `json:"settings"`           // lịch đang có hiệu lực
-	Custom            bool             `json:"custom"`             // true = học viên đã tự chỉnh, false = theo mặc định
-	Defaults          ReminderSchedule `json:"defaults"`           // mặc định của admin
-	PushConfigured    bool             `json:"push_configured"`    // server đã cấu hình web push
-	SubscriptionCount int32            `json:"subscription_count"` // số trình duyệt/thiết bị đã bật nhận thông báo
+	Settings             ReminderSchedule `json:"settings"`               // lịch đang có hiệu lực
+	Custom               bool             `json:"custom"`                 // true = học viên đã tự chỉnh, false = theo mặc định
+	Defaults             ReminderSchedule `json:"defaults"`               // mặc định của admin
+	PushConfigured       bool             `json:"push_configured"`        // server đã cấu hình web push
+	NativePushConfigured bool             `json:"native_push_configured"` // server đã cấu hình FCM (thông báo trên app iOS/Android)
+	SubscriptionCount    int32            `json:"subscription_count"`     // số trình duyệt/thiết bị đã bật nhận thông báo
 }
 
 // PushSubscriptionRequest — subscription lấy từ PushManager.subscribe() của trình duyệt
@@ -101,9 +104,25 @@ type PushSubscriptionRequest struct {
 	Timezone string `json:"timezone" example:"Asia/Ho_Chi_Minh"` // Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
+// NativePushRequest — FCM registration token của app iOS/Android (@capacitor-firebase/messaging getToken)
+type NativePushRequest struct {
+	Token    string `json:"token"`
+	Timezone string `json:"timezone" example:"Asia/Ho_Chi_Minh"`
+}
+
+const (
+	pushKindWeb                 = "webpush"
+	pushKindFCM                 = "fcm"
+	maxPushSubscriptionsPerUser = 10 // thiết bị/trình duyệt mỗi học viên — vượt thì bỏ cái cũ nhất
+)
+
+// fcmTokenRegex — FCM registration token (~150-200 ký tự chữ, số, _ - :)
+var fcmTokenRegex = regexp.MustCompile(`^[A-Za-z0-9_:\-]+$`)
+
 type ReminderService struct {
 	repo      ReminderRepository
 	sender    PushSender // nil = server chưa cấu hình web push — vẫn nhắc trong chuông thông báo
+	native    PushSender // nil = chưa cấu hình FCM — app iOS/Android không nhận được thông báo đẩy
 	publicKey string
 	notifier  Notifier
 }
@@ -112,6 +131,24 @@ type ReminderService struct {
 // đọc/sửa được lịch và nhắc trong chuông thông báo, chỉ không đăng ký/gửi được push.
 func NewReminderService(repo ReminderRepository, sender PushSender, publicKey string, notifier Notifier) *ReminderService {
 	return &ReminderService{repo: repo, sender: sender, publicKey: publicKey, notifier: notifier}
+}
+
+// SetNativeSender bật thông báo đẩy cho app iOS/Android (FCM)
+func (s *ReminderService) SetNativeSender(native PushSender) {
+	s.native = native
+}
+
+// pushEnabled — có ít nhất 1 kênh đẩy (web push hoặc FCM)
+func (s *ReminderService) pushEnabled() bool {
+	return s.sender != nil || s.native != nil
+}
+
+// senderFor — kênh gửi theo loại subscription (nil = kênh đó chưa cấu hình)
+func (s *ReminderService) senderFor(sub db.PushSubscription) PushSender {
+	if sub.Kind == pushKindFCM {
+		return s.native
+	}
+	return s.sender
 }
 
 // PushPublicKey — khoá VAPID công khai cho PushManager.subscribe (applicationServerKey)
@@ -133,11 +170,39 @@ func (s *ReminderService) Subscribe(ctx context.Context, userID uuid.UUID, req P
 		return err
 	}
 	if err := s.repo.UpsertPushSubscription(ctx, db.UpsertPushSubscriptionParams{
-		UserID: toPgUUID(userID), Endpoint: req.Endpoint, P256dh: req.Keys.P256dh, Auth: req.Keys.Auth,
+		UserID: toPgUUID(userID), Endpoint: req.Endpoint, P256dh: req.Keys.P256dh, Auth: req.Keys.Auth, Kind: pushKindWeb,
 	}); err != nil {
 		return err
 	}
+	if err := s.repo.TrimPushSubscriptions(ctx, db.TrimPushSubscriptionsParams{UserID: toPgUUID(userID), Keep: maxPushSubscriptionsPerUser}); err != nil {
+		return err
+	}
 	// Tạo dòng cài đặt (để bộ lập lịch quét tới) + múi giờ hiện tại của trình duyệt
+	return s.repo.SetUserReminderTimezone(ctx, db.SetUserReminderTimezoneParams{
+		UserID: toPgUUID(userID), Timezone: pgtype.Text{String: req.Timezone, Valid: true},
+	})
+}
+
+// SubscribeNative — bật thông báo đẩy trên app iOS/Android: lưu FCM token (dùng chung bảng với web push)
+func (s *ReminderService) SubscribeNative(ctx context.Context, userID uuid.UUID, req NativePushRequest) error {
+	if s.native == nil {
+		return ErrPushNotConfigured
+	}
+	req.Token = strings.TrimSpace(req.Token)
+	if len(req.Token) < 20 || len(req.Token) > 2048 || !fcmTokenRegex.MatchString(req.Token) {
+		return fmt.Errorf("token thông báo không hợp lệ: %w", ErrInvalidInput)
+	}
+	if err := s.checkTimezone(ctx, req.Timezone); err != nil {
+		return err
+	}
+	if err := s.repo.UpsertPushSubscription(ctx, db.UpsertPushSubscriptionParams{
+		UserID: toPgUUID(userID), Endpoint: req.Token, Kind: pushKindFCM,
+	}); err != nil {
+		return err
+	}
+	if err := s.repo.TrimPushSubscriptions(ctx, db.TrimPushSubscriptionsParams{UserID: toPgUUID(userID), Keep: maxPushSubscriptionsPerUser}); err != nil {
+		return err
+	}
 	return s.repo.SetUserReminderTimezone(ctx, db.SetUserReminderTimezoneParams{
 		UserID: toPgUUID(userID), Timezone: pgtype.Text{String: req.Timezone, Valid: true},
 	})
@@ -178,11 +243,12 @@ func (s *ReminderService) GetMySettings(ctx context.Context, userID uuid.UUID) (
 	}
 	def := toReminderSchedule(defaults)
 	return MyReminderSettings{
-		Settings:          effectiveSchedule(def, own),
-		Custom:            own.DailyEnabled.Valid, // UpdateMySettings luôn ghi đủ mọi cột cấu hình cùng lúc
-		Defaults:          def,
-		PushConfigured:    s.sender != nil,
-		SubscriptionCount: count,
+		Settings:             effectiveSchedule(def, own),
+		Custom:               own.DailyEnabled.Valid, // UpdateMySettings luôn ghi đủ mọi cột cấu hình cùng lúc
+		Defaults:             def,
+		PushConfigured:       s.sender != nil,
+		NativePushConfigured: s.native != nil,
+		SubscriptionCount:    count,
 	}, nil
 }
 
@@ -259,7 +325,7 @@ type pushPayload struct {
 
 // SendTest gửi 1 thông báo thử tới mọi thiết bị của học viên, trả về số thiết bị đã gửi được
 func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, error) {
-	if s.sender == nil {
+	if !s.pushEnabled() {
 		return 0, ErrPushNotConfigured
 	}
 	sent, total, err := s.sendToUser(ctx, userID, pushPayload{
@@ -290,7 +356,7 @@ func (s *ReminderService) RunDue(ctx context.Context) error {
 			Type: NotificationStudyReminder, Icon: "🦩", Title: strings.TrimPrefix(p.Title, "🦩 "), Body: p.Body, URL: p.URL,
 			ReplaceUnread: true,
 		})
-		if s.sender == nil || !r.HasPush {
+		if !s.pushEnabled() || !r.HasPush {
 			continue
 		}
 		if _, _, err := s.sendToUser(ctx, userID, p); err != nil {
@@ -332,7 +398,7 @@ func reminderPayload(r db.ClaimDueRemindersRow) pushPayload {
 }
 
 // sendToUser gửi tới mọi subscription của user (tự xoá subscription đã hết hiệu
-// lực), trả về số lần gửi thành công / tổng số subscription
+// lực), trả về số lần gửi thành công / số subscription đã thử gửi (bỏ qua kênh chưa cấu hình)
 func (s *ReminderService) sendToUser(ctx context.Context, userID uuid.UUID, p pushPayload) (sent, total int, err error) {
 	subs, err := s.repo.ListPushSubscriptionsForUser(ctx, toPgUUID(userID))
 	if err != nil {
@@ -343,7 +409,12 @@ func (s *ReminderService) sendToUser(ctx context.Context, userID uuid.UUID, p pu
 		return 0, 0, err
 	}
 	for _, sub := range subs {
-		gone, err := s.sender.Send(ctx, sub, payload)
+		sender := s.senderFor(sub)
+		if sender == nil {
+			continue // kênh của subscription này chưa cấu hình trên server — giữ lại, không tính là lỗi
+		}
+		total++
+		gone, err := sender.Send(ctx, sub, payload)
 		switch {
 		case gone:
 			if err := s.repo.DeletePushSubscriptionByEndpoint(ctx, sub.Endpoint); err != nil {
@@ -355,7 +426,7 @@ func (s *ReminderService) sendToUser(ctx context.Context, userID uuid.UUID, p pu
 			sent++
 		}
 	}
-	return sent, len(subs), nil
+	return sent, total, nil
 }
 
 // ===== Chuyển đổi / kiểm tra dữ liệu =====

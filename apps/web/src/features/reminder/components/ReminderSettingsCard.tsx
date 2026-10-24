@@ -8,7 +8,7 @@ import { useToast } from '@/components/ui/ToastProvider'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { MyReminderSettings, ReminderSchedule } from '@/types/api'
-import { browserTimezone, disablePush, enablePush, isPushSupported, syncPush } from '../push'
+import { browserTimezone, disablePush, enablePush, isPushSupported, NativePushUnavailable, pushConfigured, syncPush } from '../push'
 import { reminderService } from '../reminder.service'
 import { ReminderScheduleFields } from './ReminderScheduleFields'
 
@@ -43,7 +43,7 @@ export function ReminderSettingsCard() {
     try {
       await action()
     } catch (err) {
-      toast((err as Error).message, 'error')
+      toast(err instanceof NativePushUnavailable ? t.reminders.nativeUnavailable : (err as Error).message, 'error')
     } finally {
       setBusy(null)
     }
@@ -102,7 +102,7 @@ export function ReminderSettingsCard() {
         <ErrorState error={error} onRetry={reload} />
       ) : data && form ? (
         <div className="mt-4 space-y-4">
-          {!data.push_configured ? (
+          {!pushConfigured(data) ? (
             <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{t.reminders.notConfigured}</p>
           ) : !supported ? (
             <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{t.reminders.notSupported}</p>
