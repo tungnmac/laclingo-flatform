@@ -116,3 +116,12 @@ SET exp = exp + sqlc.arg('exp_delta'),
     updated_at = NOW()
 WHERE id = sqlc.arg('id')
 RETURNING *;
+
+-- name: DeleteUser :execrows
+-- Học viên tự xoá tài khoản — dữ liệu cá nhân xoá theo (ON DELETE CASCADE); phòng thi đấu, nhiệm vụ, đơn thanh toán
+-- giữ lại, bỏ trống người dùng (SET NULL)
+DELETE FROM users WHERE id = $1;
+
+-- name: ListUserBlogImageKeys :many
+-- Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
+SELECT image_key FROM blog_post_images WHERE author_id = $1;

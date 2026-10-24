@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Avatar } from '@/components/ui/Avatar'
@@ -12,6 +13,7 @@ import { languageFlag, previewPhrase } from '@/features/course/components/Langua
 import { AccountList, signOutCurrent } from '@/features/auth/components/AccountList'
 import { PlanSummary } from '@/features/billing/components/PlanSummary'
 import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
+import { DeleteAccountCard } from '@/features/user/components/DeleteAccountCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
@@ -158,6 +160,14 @@ export default function ProfilePage() {
           <ReminderSettingsCard />
 
           <VoiceSettingsCard />
+
+          <DeleteAccountCard user={user} />
+
+          <p className="text-center text-sm">
+            <Link href="/privacy" className="text-slate-500 underline-offset-2 hover:text-indigo-600 hover:underline">
+              {t.accounts.privacy}
+            </Link>
+          </p>
         </div>
       </div>
     </>

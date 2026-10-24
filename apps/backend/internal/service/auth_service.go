@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/mail"
 	"regexp"
 	"strings"
@@ -42,6 +44,19 @@ var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("laclingo-dummy-password")
 type AuthRepository interface {
 	GetUserByIdentifier(ctx context.Context, email string) (db.User, error)
 	CreateUser(ctx context.Context, arg db.CreateUserParams) (db.User, error)
+	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
+	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
+	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
+}
+
+// AccountBilling dọn thanh toán trước khi xoá tài khoản — không thì cổng thanh toán vẫn trừ tiền kỳ sau
+type AccountBilling interface {
+	PrepareAccountDeletion(ctx context.Context, userID uuid.UUID) error
+}
+
+// ObjectDeleter xoá file đã tải lên (R2)
+type ObjectDeleter interface {
+	Delete(ctx context.Context, key string) error
 }
 
 // TokenIssuer phát hành access token cho user
@@ -70,13 +85,20 @@ type AuthResponse struct {
 	User        UserResponse `json:"user"`
 }
 
-type AuthService struct {
-	repo   AuthRepository
-	tokens TokenIssuer
+// DeleteAccountRequest — nhập lại mật khẩu để xác nhận xoá tài khoản
+type DeleteAccountRequest struct {
+	Password string `json:"password" example:"matkhau123"`
 }
 
-func NewAuthService(repo AuthRepository, tokens TokenIssuer) *AuthService {
-	return &AuthService{repo: repo, tokens: tokens}
+type AuthService struct {
+	repo    AuthRepository
+	tokens  TokenIssuer
+	billing AccountBilling
+	files   ObjectDeleter // nil = R2 chưa cấu hình
+}
+
+func NewAuthService(repo AuthRepository, tokens TokenIssuer, billing AccountBilling, files ObjectDeleter) *AuthService {
+	return &AuthService{repo: repo, tokens: tokens, billing: billing, files: files}
 }
 
 func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (AuthResponse, error) {
@@ -143,6 +165,47 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse
 	}
 
 	return s.issue(user)
+}
+
+// DeleteAccount — học viên tự xoá vĩnh viễn tài khoản và dữ liệu của mình. Owner không tự xoá được (hệ thống
+// luôn cần owner). Gói tự gia hạn được huỷ ở cổng thanh toán TRƯỚC khi xoá: huỷ lỗi thì giữ nguyên tài khoản.
+func (s *AuthService) DeleteAccount(ctx context.Context, userID uuid.UUID, req DeleteAccountRequest) error {
+	user, err := s.repo.GetUserByID(ctx, toPgUUID(userID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if user.Role == "owner" {
+		return fmt.Errorf("tài khoản owner không thể tự xoá: %w", ErrForbidden)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
+		return fmt.Errorf("mật khẩu không đúng: %w", ErrInvalidInput)
+	}
+	if err := s.billing.PrepareAccountDeletion(ctx, userID); err != nil {
+		return err
+	}
+	keys, err := s.repo.ListUserBlogImageKeys(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	n, err := s.repo.DeleteUser(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	// Ảnh blog trên R2 — tài khoản đã xoá nên lỗi chỉ ghi log (file mồ côi, không còn link nào trỏ tới)
+	if s.files != nil {
+		for _, key := range keys {
+			if err := s.files.Delete(context.WithoutCancel(ctx), key); err != nil {
+				log.Printf("⚠️  xoá ảnh %s của tài khoản đã xoá %s: %v", key, userID, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (s *AuthService) issue(user db.User) (AuthResponse, error) {

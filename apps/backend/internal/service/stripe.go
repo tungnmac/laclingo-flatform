@@ -193,6 +193,12 @@ func (c *StripeClient) CancelSubscription(ctx context.Context, id string) error 
 	return c.do(ctx, http.MethodDelete, "/subscriptions/"+url.PathEscape(id), nil, &out)
 }
 
+// ExpireCheckoutSession — đóng phiên Checkout chưa thanh toán (không trả tiền được nữa)
+func (c *StripeClient) ExpireCheckoutSession(ctx context.Context, id string) error {
+	var out StripeCheckoutSession
+	return c.do(ctx, http.MethodPost, "/checkout/sessions/"+url.PathEscape(id)+"/expire", nil, &out)
+}
+
 // CreatePortalSession — trang Stripe để học viên xem hoá đơn, đổi thẻ, huỷ tự gia hạn
 func (c *StripeClient) CreatePortalSession(ctx context.Context, customerID, returnURL string) (string, error) {
 	f := url.Values{}

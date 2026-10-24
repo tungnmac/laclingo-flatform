@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <title>LacLingo - Mất kết nối</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
+      box-sizing: border-box; background: #f8fafc; color: #0f172a; text-align: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 360px; }
+    img { width: 88px; height: 88px; }
+    h1 { font-size: 20px; margin: 20px 0 8px; }
+    p { margin: 0 0 24px; color: #64748b; line-height: 1.5; }
+    button { border: 0; border-radius: 12px; padding: 12px 24px; background: #4f46e5; color: #fff; font-size: 16px;
+      font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/logo.svg" alt="LacLingo">
+    <h1>Bạn đang offline</h1>
+    <p>LacLingo cần kết nối mạng để tải bài học. Kiểm tra Wi-Fi hoặc dữ liệu di động rồi thử lại nhé.</p>
+    <button type="button" onclick="location.reload()">Thử lại</button>
+  </main>
+  <script>window.addEventListener('online', () => location.reload())</script>
+</body>
+</html>

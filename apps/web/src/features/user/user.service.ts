@@ -7,6 +7,9 @@ export const userService = {
   me: () => apiFetch<User>('/users/me'),
   updateMe: (body: UpdateProfileRequest) =>
     apiFetch<User>('/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
+  /** Xoá vĩnh viễn tài khoản đang đăng nhập — cần mật khẩu hiện tại */
+  deleteMe: (password: string) =>
+    apiFetch<void>('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) }),
 
   // Admin
   listUsersAdmin: (params: { page?: number; pageSize?: number; q?: string; role?: string; module?: string } = {}) =>
