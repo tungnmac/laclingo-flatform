@@ -43,10 +43,10 @@ SELECT (NOW() AT TIME ZONE sqlc.arg('tz')::text)::timestamp AS local_now;
 -- name: UpsertPushSubscription :exec
 -- endpoint là duy nhất theo trình duyệt — đăng nhập user khác trên cùng trình
 -- duyệt thì chuyển subscription sang user đó.
-INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
-VALUES ($1, $2, $3, $4)
+INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, kind)
+VALUES ($1, $2, $3, $4, sqlc.arg('kind'))
 ON CONFLICT (endpoint) DO UPDATE
-SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth;
+SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, kind = EXCLUDED.kind;
 
 -- name: DeletePushSubscription :exec
 DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2;
@@ -57,6 +57,13 @@ DELETE FROM push_subscriptions WHERE endpoint = $1;
 
 -- name: ListPushSubscriptionsForUser :many
 SELECT * FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at;
+
+-- name: TrimPushSubscriptions :exec
+-- Giữ tối đa `keep` subscription mới nhất mỗi học viên (đổi máy / cài lại app nhiều lần) — bỏ cái cũ nhất
+DELETE FROM push_subscriptions p
+WHERE p.user_id = $1 AND p.id NOT IN (
+    SELECT id FROM push_subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT sqlc.arg('keep')::int
+);
 
 -- name: CountPushSubscriptionsForUser :one
 SELECT COUNT(*)::int FROM push_subscriptions WHERE user_id = $1;

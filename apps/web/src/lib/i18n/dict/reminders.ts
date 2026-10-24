@@ -10,6 +10,7 @@ export interface RemindersDict {
     notSupported: string
     notConfigured: string
     permissionDenied: string
+    nativeUnavailable: string
     enabledOnDevice: string
     disabledOnDevice: string
     enableBtn: string
@@ -52,6 +53,7 @@ export const remindersTranslations: Partial<Record<Locale, RemindersDict>> = {
         'Trình duyệt này không hỗ trợ thông báo đẩy. Trên iPhone/iPad, hãy "Thêm vào Màn hình chính" rồi mở LacLingo từ biểu tượng đó.',
       notConfigured: 'Máy chủ chưa bật tính năng thông báo đẩy. Vui lòng liên hệ quản trị viên.',
       permissionDenied: 'Bạn đã chặn thông báo. Hãy cho phép thông báo cho trang này trong cài đặt trình duyệt rồi thử lại.',
+      nativeUnavailable: 'Chưa bật được thông báo trên thiết bị này. Vui lòng thử lại sau.',
       enabledOnDevice: '✅ Đã bật thông báo trên thiết bị này',
       disabledOnDevice: 'Chưa bật thông báo trên thiết bị này',
       enableBtn: 'Bật thông báo',
@@ -91,6 +93,7 @@ export const remindersTranslations: Partial<Record<Locale, RemindersDict>> = {
         'This browser does not support push notifications. On iPhone/iPad, use "Add to Home Screen" and open LacLingo from that icon.',
       notConfigured: 'Push notifications are not enabled on the server. Please contact an administrator.',
       permissionDenied: 'Notifications are blocked. Allow notifications for this site in your browser settings, then try again.',
+      nativeUnavailable: "Couldn't turn on notifications on this device. Please try again later.",
       enabledOnDevice: '✅ Notifications are on for this device',
       disabledOnDevice: 'Notifications are off for this device',
       enableBtn: 'Turn on notifications',

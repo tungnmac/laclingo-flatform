@@ -8,6 +8,9 @@ export const reminderService = {
       method: 'POST',
       body: JSON.stringify({ ...subscription, timezone }),
     }),
+  /** App iOS/Android: FCM token của thiết bị */
+  subscribeNative: (token: string, timezone: string) =>
+    apiFetch<void>('/notifications/push/native', { method: 'POST', body: JSON.stringify({ token, timezone }) }),
   unsubscribe: (endpoint: string) =>
     apiFetch<void>('/notifications/push/subscriptions', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
   sendTest: () => apiFetch<{ sent: number }>('/notifications/push/test', { method: 'POST' }),

@@ -555,6 +555,9 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+-- migration 000042: thông báo đẩy native (app iOS/Android qua FCM) — endpoint là FCM token, p256dh/auth rỗng
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'webpush'
+    CHECK (kind IN ('webpush', 'fcm'));
 
 -- ===== Thông báo trong app — migration 000029 =====
 -- Thông báo trong app (chuông ở sidebar): nhiệm vụ / lên cấp / nhắc học / blog /

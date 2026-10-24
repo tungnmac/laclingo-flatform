@@ -20,6 +20,7 @@ func (h *ReminderHandler) RegisterRoutes(router fiber.Router) {
 	push.Get("/public-key", h.PublicKey)
 	push.Post("/subscriptions", h.Subscribe)
 	push.Delete("/subscriptions", h.Unsubscribe)
+	push.Post("/native", h.SubscribeNative)
 	push.Post("/test", h.SendTest)
 
 	settings := router.Group("/reminder-settings")
@@ -67,6 +68,27 @@ func (h *ReminderHandler) Subscribe(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
 	if err := h.svc.Subscribe(c.UserContext(), currentUserID(c), req); err != nil {
+		return err
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// SubscribeNative godoc
+// @Summary      Bật thông báo đẩy trên app iOS/Android (FCM)
+// @Description  Tắt: gọi DELETE /notifications/push/subscriptions với endpoint = token.
+// @Tags         reminders
+// @Accept       json
+// @Security     BearerAuth
+// @Param        body  body  service.NativePushRequest  true  "FCM token + múi giờ thiết bị"
+// @Success      204
+// @Failure      400   {object}  ErrorResponse
+// @Router       /notifications/push/native [post]
+func (h *ReminderHandler) SubscribeNative(c *fiber.Ctx) error {
+	var req service.NativePushRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	if err := h.svc.SubscribeNative(c.UserContext(), currentUserID(c), req); err != nil {
 		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)

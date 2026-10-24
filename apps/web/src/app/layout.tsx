@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { NativeAppBridge } from '@/components/pwa/NativeAppBridge'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 import './globals.css'
 
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
         {children}
         <ServiceWorkerRegister />
+        <NativeAppBridge />
       </body>
     </html>
   )
