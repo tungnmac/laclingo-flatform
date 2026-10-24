@@ -50,6 +50,21 @@ func (q *Queries) AddStreakFreezes(ctx context.Context, arg AddStreakFreezesPara
 	return result.RowsAffected(), nil
 }
 
+const cancelPendingPaymentOrders = `-- name: CancelPendingPaymentOrders :exec
+UPDATE payment_orders SET status = 'CANCELLED', failure_reason = $2
+WHERE user_id = $1 AND status = 'PENDING'
+`
+
+type CancelPendingPaymentOrdersParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Reason string      `json:"reason"`
+}
+
+func (q *Queries) CancelPendingPaymentOrders(ctx context.Context, arg CancelPendingPaymentOrdersParams) error {
+	_, err := q.db.Exec(ctx, cancelPendingPaymentOrders, arg.UserID, arg.Reason)
+	return err
+}
+
 const createPaidSubscription = `-- name: CreatePaidSubscription :one
 INSERT INTO subscriptions (user_id, plan, status, starts_at, expires_at, payment_provider, order_id,
                            provider_subscription_id, provider_customer_id, auto_renew)
@@ -284,6 +299,32 @@ func (q *Queries) InsertGemTransaction(ctx context.Context, arg InsertGemTransac
 	return err
 }
 
+const listAutoRenewSubscriptionIDs = `-- name: ListAutoRenewSubscriptionIDs :many
+SELECT provider_subscription_id::text FROM subscriptions
+WHERE user_id = $1 AND status = 'ACTIVE' AND auto_renew AND provider_subscription_id IS NOT NULL
+`
+
+// Xoá tài khoản: mọi subscription Stripe còn tự gia hạn — kể cả đã quá hạn local (past_due: Stripe vẫn thử trừ lại)
+func (q *Queries) ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAutoRenewSubscriptionIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var provider_subscription_id string
+		if err := rows.Scan(&provider_subscription_id); err != nil {
+			return nil, err
+		}
+		items = append(items, provider_subscription_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGemTransactions = `-- name: ListGemTransactions :many
 SELECT id, user_id, delta, balance_after, reason, note, order_id, created_at FROM gem_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2
 `
@@ -360,6 +401,32 @@ func (q *Queries) ListPaymentOrdersForUser(ctx context.Context, arg ListPaymentO
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingStripeSessions = `-- name: ListPendingStripeSessions :many
+SELECT provider_ref::text FROM payment_orders
+WHERE user_id = $1 AND status = 'PENDING' AND provider = 'STRIPE' AND provider_ref IS NOT NULL
+`
+
+// Xoá tài khoản: phiên Stripe Checkout chưa thanh toán — cần expire để không trả tiền được nữa
+func (q *Queries) ListPendingStripeSessions(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listPendingStripeSessions, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var provider_ref string
+		if err := rows.Scan(&provider_ref); err != nil {
+			return nil, err
+		}
+		items = append(items, provider_ref)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

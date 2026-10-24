@@ -103,6 +103,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :execrows
+DELETE FROM users WHERE id = $1
+`
+
+// Học viên tự xoá tài khoản — dữ liệu cá nhân xoá theo (ON DELETE CASCADE); phòng thi đấu, nhiệm vụ, đơn thanh toán
+// giữ lại, bỏ trống người dùng (SET NULL)
+func (q *Queries) DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date FROM users
 WHERE email = $1
@@ -221,6 +235,31 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.StreakDate,
 	)
 	return i, err
+}
+
+const listUserBlogImageKeys = `-- name: ListUserBlogImageKeys :many
+SELECT image_key FROM blog_post_images WHERE author_id = $1
+`
+
+// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
+func (q *Queries) ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUserBlogImageKeys, authorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var image_key string
+		if err := rows.Scan(&image_key); err != nil {
+			return nil, err
+		}
+		items = append(items, image_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many

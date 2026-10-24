@@ -32,6 +32,7 @@ type Querier interface {
 	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
 	CancelActiveSubscriptions(ctx context.Context, userID pgtype.UUID) error
+	CancelPendingPaymentOrders(ctx context.Context, arg CancelPendingPaymentOrdersParams) error
 	// Lỗi 22023 (invalid_parameter_value) = PostgreSQL không biết múi giờ này —
 	// phải chặn từ lúc lưu, vì ClaimDueReminders dùng AT TIME ZONE cho MỌI user
 	// trong 1 câu: 1 múi giờ lạ làm hỏng cả lượt nhắc.
@@ -148,6 +149,9 @@ type Querier interface {
 	// Thông báo lặp lại (nhắc học mỗi ngày): bỏ bản cũ chưa đọc trước khi tạo bản
 	// mới — user bỏ app lâu không bị chất đống hàng trăm nhắc học chưa đọc.
 	DeleteUnreadNotificationsByType(ctx context.Context, arg DeleteUnreadNotificationsByTypeParams) error
+	// Học viên tự xoá tài khoản — dữ liệu cá nhân xoá theo (ON DELETE CASCADE); phòng thi đấu, nhiệm vụ, đơn thanh toán
+	// giữ lại, bỏ trống người dùng (SET NULL)
+	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
@@ -261,6 +265,8 @@ type Querier interface {
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	// read_count: số user đã đọc (thông báo user tự xoá thì không còn tính).
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]ListAnnouncementsRow, error)
+	// Xoá tài khoản: mọi subscription Stripe còn tự gia hạn — kể cả đã quá hạn local (past_due: Stripe vẫn thử trừ lại)
+	ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
 	// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
 	ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error)
@@ -348,6 +354,8 @@ type Querier interface {
 	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
 	ListPaymentOrdersForUser(ctx context.Context, arg ListPaymentOrdersForUserParams) ([]PaymentOrder, error)
 	ListPendingGemRewards(ctx context.Context, userID pgtype.UUID) ([]GemReward, error)
+	// Xoá tài khoản: phiên Stripe Checkout chưa thanh toán — cần expire để không trả tiền được nữa
+	ListPendingStripeSessions(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error)
 	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
@@ -358,6 +366,8 @@ type Querier interface {
 	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
 	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
+	// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
+	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).

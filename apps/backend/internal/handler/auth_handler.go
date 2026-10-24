@@ -22,6 +22,11 @@ func (h *AuthHandler) RegisterRoutes(router fiber.Router) {
 	api.Post("/login", h.Login)
 }
 
+// RegisterProtectedRoutes — route cần đăng nhập (đăng ký trên group đã có RequireAuth)
+func (h *AuthHandler) RegisterProtectedRoutes(router fiber.Router) {
+	router.Delete("/users/me", h.DeleteAccount)
+}
+
 // Register godoc
 // @Summary      Đăng ký tài khoản
 // @Description  Mật khẩu 8-72 ký tự. Trả về access token để đăng nhập luôn.
@@ -71,4 +76,27 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
+}
+
+// DeleteAccount godoc
+// @Summary      Xoá tài khoản của mình
+// @Description  Xoá vĩnh viễn tài khoản và toàn bộ dữ liệu cá nhân, cần nhập lại mật khẩu. Gói Stripe tự gia hạn được huỷ trước. Owner không tự xoá được.
+// @Tags         users
+// @Accept       json
+// @Security     BearerAuth
+// @Param        body  body      service.DeleteAccountRequest  true  "Mật khẩu hiện tại"
+// @Success      204
+// @Failure      400   {object}  ErrorResponse
+// @Failure      403   {object}  ErrorResponse
+// @Failure      503   {object}  ErrorResponse
+// @Router       /users/me [delete]
+func (h *AuthHandler) DeleteAccount(c *fiber.Ctx) error {
+	var req service.DeleteAccountRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	if err := h.svc.DeleteAccount(c.UserContext(), currentUserID(c), req); err != nil {
+		return paymentError(err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }

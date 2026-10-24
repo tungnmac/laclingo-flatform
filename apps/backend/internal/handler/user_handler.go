@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -186,6 +188,10 @@ func (h *UserHandler) SetActive(c *fiber.Ctx) error {
 // @Router       /users/me [get]
 func (h *UserHandler) GetMe(c *fiber.Ctx) error {
 	result, err := h.svc.GetByID(c.UserContext(), currentUserID(c))
+	if errors.Is(err, service.ErrNotFound) {
+		// Token còn hạn nhưng tài khoản đã xoá (từ thiết bị khác) → 401 để app tự đăng xuất tài khoản này
+		return fiber.NewError(fiber.StatusUnauthorized, "tài khoản không còn tồn tại")
+	}
 	if err != nil {
 		return err
 	}

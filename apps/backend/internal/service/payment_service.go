@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -47,6 +48,9 @@ type PaymentRepository interface {
 	ListPendingGemRewards(ctx context.Context, userID pgtype.UUID) ([]db.GemReward, error)
 	CountPendingGemRewards(ctx context.Context, userID pgtype.UUID) (db.CountPendingGemRewardsRow, error)
 	GetRewardSettings(ctx context.Context) (db.RewardSetting, error)
+	ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	ListPendingStripeSessions(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	CancelPendingPaymentOrders(ctx context.Context, arg db.CancelPendingPaymentOrdersParams) error
 }
 
 type PaymentService struct {
@@ -453,6 +457,17 @@ func (s *PaymentService) completeStripeSession(ctx context.Context, sess StripeC
 	if err != nil {
 		return err
 	}
+	if !order.UserID.Valid {
+		// Tài khoản đã xoá mà phiên vẫn được trả (expire lỗi) — huỷ gói để Stripe không trừ tiền các kỳ sau;
+		// khoản đã trả cần hoàn tay trên Stripe Dashboard
+		log.Printf("❌ payment: phiên Stripe %s được thanh toán sau khi tài khoản của đơn %s đã xoá — cần hoàn tiền", sess.ID, id)
+		if sess.Subscription != "" {
+			if err := s.stripe.CancelSubscription(ctx, sess.Subscription); err != nil && !isStripeNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}
 	if order.Provider != ProviderStripe || (order.ProviderRef.Valid && order.ProviderRef.String != sess.ID) ||
 		sess.AmountTotal != order.Amount || !strings.EqualFold(sess.Currency, order.Currency) {
 		log.Printf("❌ payment: phiên Stripe %s không khớp đơn %s (cổng %s, %d %s ≠ %d %s) — bỏ qua",
@@ -584,6 +599,43 @@ func (s *PaymentService) PortalURL(ctx context.Context, userID uuid.UUID) (strin
 		return "", err
 	}
 	return s.stripe.CreatePortalSession(ctx, active.ProviderCustomerID.String, s.webURL+"/wallet")
+}
+
+// PrepareAccountDeletion — dọn thanh toán trước khi xoá tài khoản (không còn ai để giao hàng / trừ tiền):
+//   - huỷ ngay mọi subscription Stripe còn tự gia hạn (kể cả past_due) — lỗi thì báo lại, KHÔNG xoá tài khoản;
+//   - expire phiên Stripe Checkout đang mở + đóng đơn PENDING (best-effort; webhook vẫn chặn đơn mồ côi).
+func (s *PaymentService) PrepareAccountDeletion(ctx context.Context, userID uuid.UUID) error {
+	subIDs, err := s.repo.ListAutoRenewSubscriptionIDs(ctx, toPgUUID(userID))
+	if err != nil {
+		return err
+	}
+	if len(subIDs) > 0 && s.stripe == nil {
+		return fmt.Errorf("chưa huỷ được gói tự gia hạn qua Stripe: %w", ErrPaymentNotConfigured)
+	}
+	for _, id := range subIDs {
+		if err := s.stripe.CancelSubscription(ctx, id); err != nil && !isStripeNotFound(err) {
+			return err
+		}
+	}
+	sessions, err := s.repo.ListPendingStripeSessions(ctx, toPgUUID(userID))
+	if err != nil {
+		return err
+	}
+	for _, id := range sessions {
+		if s.stripe == nil {
+			break
+		}
+		if err := s.stripe.ExpireCheckoutSession(ctx, id); err != nil {
+			log.Printf("⚠️  payment: expire phiên Stripe %s khi xoá tài khoản: %v", id, err)
+		}
+	}
+	return s.repo.CancelPendingPaymentOrders(ctx, db.CancelPendingPaymentOrdersParams{UserID: toPgUUID(userID), Reason: "tài khoản đã xoá"})
+}
+
+// isStripeNotFound — Stripe không còn đối tượng đó (đã huỷ/xoá) → coi như xong
+func isStripeNotFound(err error) bool {
+	var se *stripeError
+	return errors.As(err, &se) && se.Status == http.StatusNotFound
 }
 
 // ===== Ví gems =====

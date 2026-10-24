@@ -26,7 +26,12 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	api := app.Group("/api/v1")
 
 	// Public
-	NewAuthHandler(service.NewAuthService(repo, tokens)).RegisterRoutes(api)
+	var files service.ObjectDeleter // để nil (không phải *R2Client nil) khi R2 chưa cấu hình
+	if r2 != nil {
+		files = r2
+	}
+	authHandler := NewAuthHandler(service.NewAuthService(repo, tokens, payments, files))
+	authHandler.RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
 	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions))
 	grammarHandler.RegisterRoutes(api)
@@ -56,6 +61,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	userHandler := NewUserHandler(userService, plans)
 	protected := api.Group("", RequireAuth(tokens))
 	userHandler.RegisterRoutes(protected)
+	authHandler.RegisterProtectedRoutes(protected)
 	srsService := service.NewSRSService(repo, missions, plans)
 	NewSRSHandler(srsService).RegisterRoutes(protected)
 	NewDeckHandler(service.NewDeckService(repo, srsService)).RegisterRoutes(protected)

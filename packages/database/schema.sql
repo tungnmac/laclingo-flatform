@@ -245,7 +245,7 @@ CREATE INDEX IF NOT EXISTS idx_challenge_questions_filter ON challenge_questions
 CREATE TABLE IF NOT EXISTS game_rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(8) UNIQUE NOT NULL,
-    host_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    host_user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- migration 000041: chủ phòng xoá tài khoản thì bỏ trống
     status VARCHAR(20) NOT NULL DEFAULT 'waiting'
         CHECK (status IN ('waiting', 'in_progress', 'finished', 'cancelled')),
     question_count INT NOT NULL DEFAULT 10 CHECK (question_count BETWEEN 1 AND 50),
@@ -318,7 +318,7 @@ CREATE TABLE IF NOT EXISTS missions (
     starts_at TIMESTAMPTZ,
     ends_at TIMESTAMPTZ,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL, -- migration 000041: người tạo xoá tài khoản thì bỏ trống
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -777,7 +777,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_date DATE;
 -- Đơn thanh toán: gói Pro hoặc gói gems. Giao hàng (cấp Pro / cộng gems) đúng 1 lần khi chuyển PENDING → PAID.
 CREATE TABLE IF NOT EXISTS payment_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL, -- migration 000041: giữ đơn (ẩn danh) khi xoá tài khoản
     item VARCHAR(30) NOT NULL, -- MONTHLY | YEARLY | LIFETIME | GEMS_100 | GEMS_550 | GEMS_1200
     provider VARCHAR(20) NOT NULL CHECK (provider IN ('VNPAY', 'STRIPE')),
     amount BIGINT NOT NULL CHECK (amount > 0), -- đơn vị nhỏ nhất của tiền tệ (VND: đồng, USD: cent)
