@@ -32,6 +32,7 @@ export const vi = {
     collapse: 'Thu gọn menu',
     expand: 'Mở rộng menu',
     adminGroup: 'Quản trị',
+    submenu: 'Mở/đóng mục con của {name}',
     adminLibrary: 'Quản trị thư viện',
     adminReferences: 'Quản trị Tài liệu tham khảo',
     markets: 'Thị trường',

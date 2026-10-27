@@ -32,6 +32,7 @@ export const en: Messages = {
     collapse: 'Collapse menu',
     expand: 'Expand menu',
     adminGroup: 'Admin',
+    submenu: 'Show/hide {name} sub-items',
     adminLibrary: 'Library admin',
     adminReferences: 'References admin',
     markets: 'Markets',

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/i18n/I18nProvider'
-import { activeHref, ADMIN_ITEMS, NAV_ITEMS, navItems, type NavItem } from '@/lib/app-nav'
+import { activeTrail, navItems, type NavItem } from '@/lib/app-nav'
 
 const COLLAPSED_KEY = 'trading_sidebar_collapsed'
 /** Khớp breakpoint `lg` mặc định của Tailwind — từ đây sidebar luôn hiện, không còn ngăn kéo */
@@ -83,8 +83,38 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
 
   useEffect(() => close.current(false), [pathname]) // điều hướng (kể cả back/forward) → đóng ngăn kéo
 
-  const active = activeHref(pathname, navItems(role))
+  const items = navItems(role)
+  const trail = activeTrail(pathname, items)
   const onNavigate = () => drawer && onClose(false) // bấm mục đang mở (không đổi đường dẫn) vẫn đóng ngăn kéo
+
+  // Mục cha đang mở ra (▾). Đi tới trang con của mục nào thì mục đó tự mở.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(trail.top ? [trail.top] : []))
+  useEffect(() => {
+    if (trail.top) setExpanded((s) => (s.has(trail.top!) ? s : new Set(s).add(trail.top!)))
+  }, [trail.top])
+  const toggleGroup = (href: string) =>
+    setExpanded((s) => {
+      const next = new Set(s)
+      if (!next.delete(href)) next.add(href)
+      return next
+    })
+
+  // Sidebar thu gọn: di chuột / focus vào icon mục cha → bảng mục con nổi bên cạnh (fixed: không bị nav cắt khi cuộn)
+  const [fly, setFly] = useState<{ item: NavItem; top: number; left: number } | null>(null)
+  const flyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const showFly = (item: NavItem, el: HTMLElement) => {
+    clearTimeout(flyTimer.current)
+    const r = el.getBoundingClientRect()
+    setFly({ item, top: r.top, left: r.right + 8 })
+  }
+  const hideFly = () => {
+    clearTimeout(flyTimer.current)
+    flyTimer.current = setTimeout(() => setFly(null), 150) // đủ để rê chuột từ icon sang bảng
+  }
+  useEffect(() => {
+    if (!collapsed) setFly(null)
+  }, [collapsed])
+  useEffect(() => setFly(null), [pathname])
 
   return (
     <>
@@ -119,59 +149,135 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
         </button>
 
         <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 pb-3 pt-12 lg:pt-3">
-          <NavGroup items={NAV_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />
-          {role === 'admin' && <NavGroup title={t('nav.adminGroup')} items={ADMIN_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />}
+          <ul className="space-y-0.5">
+            {items.map((item) => (
+              <NavEntry
+                key={item.href}
+                item={item}
+                trail={trail}
+                collapsed={collapsed}
+                open={expanded.has(item.href)}
+                onToggle={() => toggleGroup(item.href)}
+                onNavigate={onNavigate}
+                onHover={(el) => (collapsed && item.children ? showFly(item, el) : undefined)}
+                onLeave={hideFly}
+              />
+            ))}
+          </ul>
         </nav>
+        {fly && collapsed && (
+          <div
+            role="menu"
+            aria-label={t(fly.item.labelKey)}
+            onMouseEnter={() => clearTimeout(flyTimer.current)}
+            onMouseLeave={hideFly}
+            onKeyDown={(e) => e.key === 'Escape' && setFly(null)}
+            style={{ top: fly.top, left: fly.left }}
+            className="fixed z-50 hidden w-56 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200 lg:block"
+          >
+            <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{t(fly.item.labelKey)}</p>
+            {fly.item.children!.map((c) => (
+              <Link
+                key={c.href}
+                href={c.href}
+                role="menuitem"
+                onFocus={() => clearTimeout(flyTimer.current)}
+                onBlur={hideFly}
+                aria-current={c.href === trail.sub ? 'page' : undefined}
+                className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium ${c.href === trail.sub ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                <span aria-hidden className="w-5 text-center">
+                  {c.icon}
+                </span>
+                {t(c.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
       </aside>
     </>
   )
 }
 
-function NavGroup({
-  title,
-  items,
-  active,
+/** 1 mục cấp 1; mục có con: ▸/▾ để mở danh sách con thụt vào (sidebar rộng / ngăn kéo mobile) */
+function NavEntry({
+  item,
+  trail,
   collapsed,
+  open,
+  onToggle,
   onNavigate,
+  onHover,
+  onLeave,
 }: {
-  title?: string
-  items: NavItem[]
-  active: string | null
+  item: NavItem
+  trail: { top: string | null; sub: string | null }
   collapsed: boolean
+  open: boolean
+  onToggle: () => void
   onNavigate: () => void
+  onHover: (el: HTMLElement) => void
+  onLeave: () => void
 }) {
   const { t } = useT()
+  const label = t(item.labelKey)
+  const on = item.href === trail.top
+  const groupId = `nav-sub-${item.href.replace(/\W+/g, '-')}`
   return (
-    <div>
-      {title && (
-        <p className={`mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 ${collapsed ? 'lg:hidden' : ''}`}>{title}</p>
+    <li onMouseEnter={(e) => onHover(e.currentTarget)} onMouseLeave={onLeave}>
+      <div className="flex items-center">
+        <Link
+          href={item.href}
+          onClick={onNavigate}
+          onFocus={(e) => onHover(e.currentTarget)}
+          onBlur={onLeave}
+          // mục cha có con: trang đang mở là của mục con → mục cha chỉ tô nhẹ, không phải "page"
+          aria-current={on && !item.children ? 'page' : undefined}
+          aria-label={collapsed ? label : undefined}
+          title={collapsed && !item.children ? label : undefined}
+          className={`flex min-w-0 flex-1 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold ${collapsed ? 'lg:justify-center lg:px-0' : ''} ${
+            on ? (item.children ? 'text-emerald-700' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200') : 'text-slate-600 hover:bg-slate-100'
+          } ${on && item.children && collapsed ? 'lg:bg-emerald-50 lg:ring-1 lg:ring-emerald-200' : ''}`}
+        >
+          <span aria-hidden className="w-5 shrink-0 text-center">
+            {item.icon}
+          </span>
+          <span className={`truncate ${collapsed ? 'lg:hidden' : ''}`}>{label}</span>
+        </Link>
+        {item.children && (
+          <button
+            onClick={onToggle}
+            aria-expanded={open}
+            aria-controls={groupId}
+            aria-label={t('nav.submenu', { name: label })}
+            className={`shrink-0 rounded-lg px-2 py-2 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 ${collapsed ? 'lg:hidden' : ''}`}
+          >
+            {open ? '▾' : '▸'}
+          </button>
+        )}
+      </div>
+      {item.children && open && (
+        <ul id={groupId} className={`ml-5 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2 ${collapsed ? 'lg:hidden' : ''}`}>
+          {item.children.map((c) => {
+            const cur = c.href === trail.sub
+            return (
+              <li key={c.href}>
+                <Link
+                  href={c.href}
+                  onClick={onNavigate}
+                  aria-current={cur ? 'page' : undefined}
+                  className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium ${cur ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'text-slate-600 hover:bg-slate-100'}`}
+                >
+                  <span aria-hidden className="w-5 shrink-0 text-center">
+                    {c.icon}
+                  </span>
+                  <span className="truncate">{t(c.labelKey)}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       )}
-      {title && collapsed && <hr className="mx-2 mb-2 hidden border-slate-200 lg:block" />}
-      <ul className="space-y-0.5">
-        {items.map((item) => {
-          const on = item.href === active
-          const label = t(item.labelKey)
-          return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                onClick={onNavigate}
-                aria-current={on ? 'page' : undefined}
-                aria-label={collapsed ? label : undefined}
-                title={collapsed ? label : undefined}
-                className={`flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold ${collapsed ? 'lg:justify-center lg:px-0' : ''} ${
-                  on ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <span aria-hidden className="w-5 shrink-0 text-center">
-                  {item.icon}
-                </span>
-                <span className={`truncate ${collapsed ? 'lg:hidden' : ''}`}>{label}</span>
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+    </li>
   )
 }
