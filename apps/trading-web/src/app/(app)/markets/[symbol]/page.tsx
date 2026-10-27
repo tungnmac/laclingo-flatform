@@ -122,7 +122,7 @@ export default function InstrumentPage() {
       </div>
           <SymbolPositionCard symbol={symbol} base={instrument.base} account={account.data} onChanged={account.reload} />
         </div>
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-20 lg:self-start">
           <OrderPanel
             symbol={symbol}
             base={instrument.base}

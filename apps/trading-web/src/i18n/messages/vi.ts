@@ -31,7 +31,6 @@ export const vi = {
     closeMenu: 'Đóng menu',
     collapse: 'Thu gọn menu',
     expand: 'Mở rộng menu',
-    expandForLanguage: 'Mở rộng menu để đổi ngôn ngữ',
     adminGroup: 'Quản trị',
     adminLibrary: 'Quản trị thư viện',
     adminReferences: 'Quản trị Tài liệu tham khảo',

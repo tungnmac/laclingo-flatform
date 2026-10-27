@@ -11,9 +11,8 @@ import type { SessionUser } from '@/server/auth/types'
 /** Tải lại toàn trang sau khi đổi tài khoản — xoá mọi state client của tài khoản cũ */
 const reloadTo = (path: string) => window.location.assign(path)
 
-/** Menu tài khoản: chuyển qua lại các tài khoản đã đăng nhập, thêm tài khoản, đăng xuất.
- *  placement "up": mở lên trên (đáy sidebar); compact: chỉ hiện chữ cái đầu (sidebar thu gọn). */
-export function AccountMenu({ user, placement = 'down', compact = false }: { user: SessionUser; placement?: 'down' | 'up'; compact?: boolean }) {
+/** Menu tài khoản: chuyển qua lại các tài khoản đã đăng nhập, thêm tài khoản, đăng xuất */
+export function AccountMenu({ user }: { user: SessionUser }) {
   const { t } = useT()
   const [open, setOpen] = useState(false)
   const [list, setList] = useState<AccountsDto['accounts'] | null>(null)
@@ -64,30 +63,13 @@ export function AccountMenu({ user, placement = 'down', compact = false }: { use
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="account-menu"
-        aria-label={compact ? user.display_name : undefined}
-        title={compact ? user.display_name : undefined}
-        className={
-          compact
-            ? 'flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 hover:ring-2 hover:ring-emerald-300'
-            : `flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 ${placement === 'up' ? 'w-full' : 'max-w-[12rem]'}`
-        }
+        className="flex max-w-[12rem] items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
       >
-        {compact ? (
-          <span aria-hidden="true">{user.display_name.trim().charAt(0).toUpperCase() || '?'}</span>
-        ) : (
-          <>
-            <span className="truncate">{user.display_name}</span>
-            <span aria-hidden="true">{placement === 'up' ? '▴' : '▾'}</span>
-          </>
-        )}
+        <span className="truncate">{user.display_name}</span>
+        <span aria-hidden="true">▾</span>
       </button>
       {open && (
-        <div
-          id="account-menu"
-          className={`absolute z-50 w-72 rounded-xl bg-white p-2 text-sm shadow-lg ring-1 ring-slate-200 ${
-            placement === 'up' ? (compact ? 'bottom-0 left-full ml-2' : 'bottom-full left-0 mb-1') : 'right-0 mt-1'
-          }`}
-        >
+        <div id="account-menu" className="absolute right-0 z-20 mt-1 w-72 rounded-xl bg-white p-2 text-sm shadow-lg ring-1 ring-slate-200">
           <p className="px-2 pb-2 pt-1">
             <span className="block font-semibold">{user.display_name}</span>
             <span className="block truncate text-xs text-slate-500">{user.email}</span>

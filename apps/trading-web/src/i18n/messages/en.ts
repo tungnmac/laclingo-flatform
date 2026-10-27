@@ -31,7 +31,6 @@ export const en: Messages = {
     closeMenu: 'Close menu',
     collapse: 'Collapse menu',
     expand: 'Expand menu',
-    expandForLanguage: 'Expand the menu to change language',
     adminGroup: 'Admin',
     adminLibrary: 'Library admin',
     adminReferences: 'References admin',

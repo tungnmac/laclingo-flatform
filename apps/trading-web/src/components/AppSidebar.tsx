@@ -4,11 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/i18n/I18nProvider'
-import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import { activeHref, ADMIN_ITEMS, NAV_ITEMS, navItems, type NavItem } from '@/lib/app-nav'
-import type { SessionUser } from '@/server/auth/types'
-import type { Plan } from '@/server/billing/plans'
-import { AccountMenu } from './AccountMenu'
 
 const COLLAPSED_KEY = 'trading_sidebar_collapsed'
 /** Khớp breakpoint `lg` mặc định của Tailwind — từ đây sidebar luôn hiện, không còn ngăn kéo */
@@ -19,17 +15,17 @@ const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
 /**
- * Menu chính: sidebar trái trên desktop (thu gọn còn icon, nhớ trong localStorage, Ctrl/⌘+B),
- * thanh trên + ngăn kéo trượt từ trái trên mobile.
+ * Menu chính bên trái, dưới header. Desktop: luôn hiện, thu gọn còn icon (‹/› hoặc Ctrl/⌘+B, nhớ trong
+ * localStorage). Mobile: ngăn kéo trượt từ trái, mở bằng nút ☰ trên header.
  */
-export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
+export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: boolean; onClose: (returnFocus: boolean) => void }) {
   const { t } = useT()
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const [drawer, setDrawer] = useState(false)
-  const opener = useRef<HTMLButtonElement>(null)
   const closer = useRef<HTMLButtonElement>(null)
   const loaded = useRef(false)
+  const close = useRef(onClose)
+  close.current = onClose
 
   // Đọc sau khi mount để HTML server và client khớp nhau (không lỗi hydration)
   useEffect(() => {
@@ -52,11 +48,6 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
   }, [collapsed])
   const toggle = () => setCollapsed((v) => !v)
 
-  const closeDrawer = () => {
-    setDrawer(false)
-    opener.current?.focus() // trả focus về nút ☰
-  }
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // e.code: vẫn đúng khi bàn phím đang ở bố cục không phải Latin; chỉ desktop (sidebar đang hiện)
@@ -68,7 +59,7 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
     document.addEventListener('keydown', onKey)
     // Màn hình rộng ra tới desktop → không còn ngăn kéo
     const mq = window.matchMedia(DESKTOP_QUERY)
-    const onWide = () => mq.matches && setDrawer(false)
+    const onWide = () => mq.matches && close.current(false)
     mq.addEventListener('change', onWide)
     return () => {
       document.removeEventListener('keydown', onKey)
@@ -80,7 +71,7 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
   useEffect(() => {
     if (!drawer) return
     closer.current?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeDrawer()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current(true)
     document.addEventListener('keydown', onKey)
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -90,36 +81,14 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
     }
   }, [drawer])
 
-  useEffect(() => setDrawer(false), [pathname]) // điều hướng (kể cả back/forward) → đóng ngăn kéo
+  useEffect(() => close.current(false), [pathname]) // điều hướng (kể cả back/forward) → đóng ngăn kéo
 
-  const active = activeHref(pathname, navItems(user.role))
-  const proLabel = t(plan === 'pro' ? 'pro.badge' : 'pro.upgradeShort')
-  const proClass = plan === 'pro' ? 'bg-emerald-600 text-white' : 'text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-50'
+  const active = activeHref(pathname, navItems(role))
+  const onNavigate = () => drawer && onClose(false) // bấm mục đang mở (không đổi đường dẫn) vẫn đóng ngăn kéo
 
   return (
     <>
-      {/* Mobile: thanh trên */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-        <button
-          ref={opener}
-          onClick={() => setDrawer(true)}
-          aria-label={t('nav.openMenu')}
-          aria-expanded={drawer}
-          aria-controls="app-sidebar"
-          className="rounded-lg px-2 py-1 text-xl text-slate-600 hover:bg-slate-100"
-        >
-          ☰
-        </button>
-        <Link href="/markets" className="flex-1 text-lg font-bold text-emerald-600">
-          📈 TradeLab
-        </Link>
-        <Link href="/pro" className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ${proClass}`}>
-          {proLabel}
-        </Link>
-        <AccountMenu user={user} />
-      </header>
-
-      {drawer && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={closeDrawer} aria-hidden="true" />}
+      {drawer && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={() => onClose(true)} aria-hidden="true" />}
 
       {/* Đóng trên mobile: invisible → không còn trong thứ tự Tab / cây trợ năng (desktop luôn visible) */}
       <aside
@@ -127,14 +96,11 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
         role={drawer ? 'dialog' : undefined}
         aria-modal={drawer ? true : undefined}
         aria-label={t('nav.menu')}
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white transition-[transform,width,visibility] duration-200 lg:visible lg:sticky lg:top-0 lg:z-10 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white transition-[transform,width,visibility] duration-200 lg:visible lg:sticky lg:top-14 lg:z-10 lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${
           drawer ? 'visible translate-x-0' : 'invisible -translate-x-full'
-        } ${collapsed ? 'lg:w-[72px]' : 'lg:w-60'}`}
+        } ${collapsed ? 'lg:w-[72px]' : 'lg:w-56'}`}
       >
-        <div className={`flex items-center gap-2 px-4 py-4 ${collapsed ? 'lg:flex-col lg:px-2' : ''}`}>
-          <Link href="/markets" onClick={closeDrawer} className="flex-1 whitespace-nowrap text-lg font-bold text-emerald-600">
-            📈 <span className={collapsed ? 'lg:hidden' : ''}>TradeLab</span>
-          </Link>
+        <div className={`flex items-center px-3 pt-3 ${collapsed ? 'lg:justify-center' : 'justify-end'}`}>
           <button
             onClick={toggle}
             aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
@@ -143,37 +109,15 @@ export function AppSidebar({ user, plan }: { user: SessionUser; plan: Plan }) {
           >
             {collapsed ? '›' : '‹'}
           </button>
-          <button ref={closer} onClick={closeDrawer} aria-label={t('nav.closeMenu')} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 lg:hidden">
+          <button ref={closer} onClick={() => onClose(true)} aria-label={t('nav.closeMenu')} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 lg:hidden">
             ✕
           </button>
         </div>
 
-        <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 pb-4">
-          <NavGroup items={NAV_ITEMS} active={active} collapsed={collapsed} onNavigate={closeDrawer} />
-          {user.role === 'admin' && <NavGroup title={t('nav.adminGroup')} items={ADMIN_ITEMS} active={active} collapsed={collapsed} onNavigate={closeDrawer} />}
+        <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 py-3">
+          <NavGroup items={NAV_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />
+          {role === 'admin' && <NavGroup title={t('nav.adminGroup')} items={ADMIN_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />}
         </nav>
-
-        <div className={`space-y-2 border-t border-slate-200 p-3 ${collapsed ? 'lg:hidden' : ''}`}>
-          <Link href="/pro" onClick={closeDrawer} className={`block whitespace-nowrap rounded-full px-3 py-1 text-center text-xs font-bold ${proClass}`}>
-            {proLabel}
-          </Link>
-          <LanguageSwitcher className="w-full" />
-          <div className="hidden lg:block">
-            <AccountMenu user={user} placement="up" />
-          </div>
-        </div>
-        {/* Thu gọn: chỉ giữ nút Pro dạng icon + tài khoản; đổi ngôn ngữ → mở rộng sidebar */}
-        {collapsed && (
-          <div className="hidden flex-col items-center gap-2 border-t border-slate-200 py-3 lg:flex">
-            <Link href="/pro" title={proLabel} aria-label={proLabel} className="rounded-lg px-2 py-1 hover:bg-slate-100">
-              ⭐
-            </Link>
-            <button onClick={toggle} title={t('nav.expandForLanguage')} aria-label={t('nav.expandForLanguage')} className="rounded-lg px-2 py-1 hover:bg-slate-100">
-              🌐
-            </button>
-            <AccountMenu user={user} placement="up" compact />
-          </div>
-        )}
       </aside>
     </>
   )
@@ -207,7 +151,7 @@ function NavGroup({
             <li key={item.href}>
               <Link
                 href={item.href}
-                onClick={onNavigate} // bấm mục đang mở (không đổi đường dẫn) vẫn đóng ngăn kéo
+                onClick={onNavigate}
                 aria-current={on ? 'page' : undefined}
                 aria-label={collapsed ? label : undefined}
                 title={collapsed ? label : undefined}
