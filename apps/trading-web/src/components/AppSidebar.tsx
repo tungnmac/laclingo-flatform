@@ -7,6 +7,8 @@ import { useT } from '@/i18n/I18nProvider'
 import { activeTrail, navItems, type NavItem } from '@/lib/app-nav'
 
 const COLLAPSED_KEY = 'trading_sidebar_collapsed'
+/** Bảng mục con nổi (sidebar thu gọn) — toạ độ theo viewport */
+type Fly = { href: string; top: number; left: number; maxHeight: number }
 /** Khớp breakpoint `lg` mặc định của Tailwind — từ đây sidebar luôn hiện, không còn ngăn kéo */
 const DESKTOP_QUERY = '(min-width: 1024px)'
 
@@ -99,14 +101,18 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
       return next
     })
 
-  // Sidebar thu gọn: di chuột / focus vào icon mục cha → bảng mục con nổi bên cạnh (fixed: không bị nav cắt khi cuộn)
-  const [fly, setFly] = useState<{ item: NavItem; top: number; left: number } | null>(null)
+  // Sidebar thu gọn: di chuột / focus vào icon mục cha → bảng mục con nổi bên cạnh.
+  // position: fixed theo viewport (aside bỏ transform ở lg) nên không bị nav cắt khi cuộn; bảng nằm ngay sau
+  // mục cha trong DOM để Tab đi từ icon vào các mục con.
+  const [fly, setFly] = useState<Fly | null>(null)
   const flyTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const showFly = (item: NavItem, el: HTMLElement) => {
+  const showFly = (href: string, el: HTMLElement) => {
     clearTimeout(flyTimer.current)
     const r = el.getBoundingClientRect()
-    setFly({ item, top: r.top, left: r.right + 8 })
+    const top = Math.max(64, Math.min(r.top, window.innerHeight - 220)) // màn hình thấp: kéo lên để còn thấy các mục
+    setFly({ href, top, left: r.right + 8, maxHeight: window.innerHeight - top - 12 })
   }
+  const keepFly = () => clearTimeout(flyTimer.current)
   const hideFly = () => {
     clearTimeout(flyTimer.current)
     flyTimer.current = setTimeout(() => setFly(null), 150) // đủ để rê chuột từ icon sang bảng
@@ -115,6 +121,15 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
     if (!collapsed) setFly(null)
   }, [collapsed])
   useEffect(() => setFly(null), [pathname])
+  useEffect(() => {
+    // vị trí lấy 1 lần lúc hover → cuộn menu / đổi cỡ cửa sổ thì đóng thay vì để lệch chỗ
+    const close = () => setFly(null)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('resize', close)
+      clearTimeout(flyTimer.current)
+    }
+  }, [])
 
   return (
     <>
@@ -126,7 +141,7 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
         role={drawer ? 'dialog' : undefined}
         aria-modal={drawer ? true : undefined}
         aria-label={t('nav.menu')}
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white transition-[transform,width,visibility] duration-200 lg:visible lg:sticky lg:top-14 lg:z-10 lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white transition-[transform,width,visibility] duration-200 lg:visible lg:sticky lg:top-14 lg:z-10 lg:h-[calc(100vh-3.5rem)] lg:transform-none ${
           drawer ? 'visible translate-x-0' : 'invisible -translate-x-full'
         } ${collapsed ? 'lg:w-[72px]' : 'lg:w-56'}`}
       >
@@ -148,7 +163,7 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
           ✕
         </button>
 
-        <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 pb-3 pt-12 lg:pt-3">
+        <nav aria-label={t('nav.menu')} onScroll={() => setFly(null)} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 pb-3 pt-12 lg:pt-3">
           <ul className="space-y-0.5">
             {items.map((item) => (
               <NavEntry
@@ -159,41 +174,15 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
                 open={expanded.has(item.href)}
                 onToggle={() => toggleGroup(item.href)}
                 onNavigate={onNavigate}
-                onHover={(el) => (collapsed && item.children ? showFly(item, el) : undefined)}
+                fly={collapsed && fly?.href === item.href ? fly : null}
+                onHover={(el) => (collapsed && item.children ? showFly(item.href, el) : undefined)}
+                onKeep={keepFly}
                 onLeave={hideFly}
+                onEscape={() => setFly(null)}
               />
             ))}
           </ul>
         </nav>
-        {fly && collapsed && (
-          <div
-            role="menu"
-            aria-label={t(fly.item.labelKey)}
-            onMouseEnter={() => clearTimeout(flyTimer.current)}
-            onMouseLeave={hideFly}
-            onKeyDown={(e) => e.key === 'Escape' && setFly(null)}
-            style={{ top: fly.top, left: fly.left }}
-            className="fixed z-50 hidden w-56 rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200 lg:block"
-          >
-            <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{t(fly.item.labelKey)}</p>
-            {fly.item.children!.map((c) => (
-              <Link
-                key={c.href}
-                href={c.href}
-                role="menuitem"
-                onFocus={() => clearTimeout(flyTimer.current)}
-                onBlur={hideFly}
-                aria-current={c.href === trail.sub ? 'page' : undefined}
-                className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium ${c.href === trail.sub ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
-              >
-                <span aria-hidden className="w-5 text-center">
-                  {c.icon}
-                </span>
-                {t(c.labelKey)}
-              </Link>
-            ))}
-          </div>
-        )}
       </aside>
     </>
   )
@@ -207,8 +196,11 @@ function NavEntry({
   open,
   onToggle,
   onNavigate,
+  fly,
   onHover,
+  onKeep,
   onLeave,
+  onEscape,
 }: {
   item: NavItem
   trail: { top: string | null; sub: string | null }
@@ -216,23 +208,32 @@ function NavEntry({
   open: boolean
   onToggle: () => void
   onNavigate: () => void
+  fly: Fly | null
   onHover: (el: HTMLElement) => void
+  onKeep: () => void
   onLeave: () => void
+  onEscape: () => void
 }) {
   const { t } = useT()
   const label = t(item.labelKey)
   const on = item.href === trail.top
   const groupId = `nav-sub-${item.href.replace(/\W+/g, '-')}`
+  const flyId = `nav-fly-${item.href.replace(/\W+/g, '-')}`
+  const trigger = useRef<HTMLAnchorElement>(null)
   return (
     <li onMouseEnter={(e) => onHover(e.currentTarget)} onMouseLeave={onLeave}>
       <div className="flex items-center">
         <Link
+          ref={trigger}
           href={item.href}
           onClick={onNavigate}
           onFocus={(e) => onHover(e.currentTarget)}
           onBlur={onLeave}
-          // mục cha có con: trang đang mở là của mục con → mục cha chỉ tô nhẹ, không phải "page"
-          aria-current={on && !item.children ? 'page' : undefined}
+          onKeyDown={(e) => e.key === 'Escape' && fly && onEscape()}
+          // mục cha có con: trang đang mở là của mục con → mục cha là "vị trí", mục con mới là "page"
+          aria-current={on ? (item.children ? 'true' : 'page') : undefined}
+          aria-expanded={collapsed && item.children ? !!fly : undefined}
+          aria-controls={fly ? flyId : undefined}
           aria-label={collapsed ? label : undefined}
           title={collapsed && !item.children ? label : undefined}
           className={`flex min-w-0 flex-1 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold ${collapsed ? 'lg:justify-center lg:px-0' : ''} ${
@@ -248,7 +249,7 @@ function NavEntry({
           <button
             onClick={onToggle}
             aria-expanded={open}
-            aria-controls={groupId}
+            aria-controls={open ? groupId : undefined}
             aria-label={t('nav.submenu', { name: label })}
             className={`shrink-0 rounded-lg px-2 py-2 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600 ${collapsed ? 'lg:hidden' : ''}`}
           >
@@ -277,6 +278,42 @@ function NavEntry({
             )
           })}
         </ul>
+      )}
+      {fly && item.children && (
+        <div
+          id={flyId}
+          onMouseEnter={onKeep}
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape') return
+            onEscape()
+            trigger.current?.focus() // trả focus về icon mục cha
+          }}
+          style={{ top: fly.top, left: fly.left, maxHeight: fly.maxHeight }}
+          className="fixed z-50 hidden w-56 overflow-y-auto rounded-xl bg-white p-2 shadow-lg ring-1 ring-slate-200 lg:block"
+        >
+          <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+          <ul>
+            {item.children.map((c) => {
+              const cur = c.href === trail.sub
+              return (
+                <li key={c.href}>
+                  <Link
+                    href={c.href}
+                    onFocus={onKeep}
+                    onBlur={onLeave}
+                    aria-current={cur ? 'page' : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium ${cur ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                  >
+                    <span aria-hidden className="w-5 text-center">
+                      {c.icon}
+                    </span>
+                    {t(c.labelKey)}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
     </li>
   )
