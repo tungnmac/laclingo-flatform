@@ -100,21 +100,25 @@ export function AppSidebar({ role, drawer, onClose }: { role: string; drawer: bo
           drawer ? 'visible translate-x-0' : 'invisible -translate-x-full'
         } ${collapsed ? 'lg:w-[72px]' : 'lg:w-56'}`}
       >
-        <div className={`flex items-center px-3 pt-3 ${collapsed ? 'lg:justify-center' : 'justify-end'}`}>
-          <button
-            onClick={toggle}
-            aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
-            title={`${t(collapsed ? 'nav.expand' : 'nav.collapse')} (Ctrl+B)`}
-            className="hidden rounded-lg px-2 py-1 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 lg:block"
-          >
-            {collapsed ? '›' : '‹'}
-          </button>
-          <button ref={closer} onClick={() => onClose(true)} aria-label={t('nav.closeMenu')} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 lg:hidden">
-            ✕
-          </button>
-        </div>
+        {/* Nút thu gọn nổi trên mép phải sidebar (desktop) — không chiếm chỗ của danh sách menu */}
+        <button
+          onClick={toggle}
+          aria-label={t(collapsed ? 'nav.expand' : 'nav.collapse')}
+          title={`${t(collapsed ? 'nav.expand' : 'nav.collapse')} (Ctrl+B)`}
+          className="absolute -right-3 top-4 z-10 hidden h-6 w-6 items-center justify-center rounded-full bg-white text-xs leading-none text-slate-500 shadow-sm ring-1 ring-slate-200 hover:bg-emerald-50 hover:text-emerald-700 lg:flex"
+        >
+          {collapsed ? '›' : '‹'}
+        </button>
+        <button
+          ref={closer}
+          onClick={() => onClose(true)}
+          aria-label={t('nav.closeMenu')}
+          className="absolute right-2 top-2 rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 lg:hidden"
+        >
+          ✕
+        </button>
 
-        <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 py-3">
+        <nav aria-label={t('nav.menu')} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 pb-3 pt-12 lg:pt-3">
           <NavGroup items={NAV_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />
           {role === 'admin' && <NavGroup title={t('nav.adminGroup')} items={ADMIN_ITEMS} active={active} collapsed={collapsed} onNavigate={onNavigate} />}
         </nav>
