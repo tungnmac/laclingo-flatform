@@ -1,5 +1,6 @@
 'use client'
 
+import { filterGrid, FilterSelect } from '@/components/FilterSelect'
 import { useT } from '@/i18n/I18nProvider'
 import type { AccountSummaryDto } from '@/server/journal/journal-service'
 
@@ -15,7 +16,6 @@ const RANGES: { value: Filters['range']; key: string }[] = [
   { value: '90d', key: 'journal.range90d' },
   { value: 'all', key: 'journal.rangeAll' },
 ]
-const selectClass = 'rounded-lg border-0 py-1.5 pl-3 pr-8 text-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600'
 
 export function JournalFilters({
   value,
@@ -33,10 +33,9 @@ export function JournalFilters({
   const oldWallets = accounts.filter((a) => !a.is_active)
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        {t('journal.account')}
-        <select value={value.account} onChange={(e) => onChange({ account: e.target.value })} className={selectClass}>
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className={`${filterGrid(2)} sm:min-w-0 sm:flex-1 lg:max-w-xl`}>
+        <FilterSelect label={t('journal.account')} value={value.account} onChange={(v) => onChange({ account: v })}>
           <option value="current">{t('journal.currentWallet')}</option>
           <option value="all">{t('journal.allWallets')}</option>
           {oldWallets.map((a) => (
@@ -47,20 +46,17 @@ export function JournalFilters({
               })}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        {t('journal.symbol')}
-        <select value={value.symbol} onChange={(e) => onChange({ symbol: e.target.value })} className={selectClass}>
+        </FilterSelect>
+        <FilterSelect label={t('journal.symbol')} value={value.symbol} onChange={(v) => onChange({ symbol: v })}>
           <option value="">{t('journal.allSymbols')}</option>
           {symbols.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-      </label>
-      <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+        </FilterSelect>
+      </div>
+      <div className="flex gap-1 self-start rounded-lg bg-slate-100 p-1 sm:self-auto">
         {RANGES.map((r) => (
           <button
             key={r.value}

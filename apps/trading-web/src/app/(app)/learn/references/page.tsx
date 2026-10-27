@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
+import { filterGrid, FilterSelect } from '@/components/FilterSelect'
 import { InvestorCard } from '@/components/references/InvestorCard'
 import { ResourceCard } from '@/components/references/ResourceCard'
 import { useT } from '@/i18n/I18nProvider'
@@ -92,18 +93,21 @@ function SearchBox({ params, update, placeholder }: TabProps & { placeholder: st
 
 function Select({ label, value, onChange, options, anyLabel }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][]; anyLabel?: string }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-600">
-      {label}
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border-0 py-1 text-sm ring-1 ring-slate-200">
-        {anyLabel !== undefined && <option value="">{anyLabel}</option>}
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FilterSelect label={label} value={value} onChange={onChange}>
+      {anyLabel !== undefined && <option value="">{anyLabel}</option>}
+      {options.map(([v, l]) => (
+        <option key={v} value={v}>
+          {l}
+        </option>
+      ))}
+    </FilterSelect>
   )
+}
+
+/** Số kết quả: dòng riêng dưới bộ lọc (không chen vào lưới làm lệch các ô) */
+function Found({ count }: { count: number }) {
+  const { t } = useT()
+  return <p className="text-right text-xs text-slate-500">{t('references.found', { count })}</p>
 }
 
 /** Tải dữ liệu theo URL; đổi bộ lọc nhanh → bỏ kết quả của request cũ */
@@ -160,7 +164,7 @@ function ResourcesTab({ params, update }: TabProps) {
   return (
     <div className="space-y-4">
       <SearchBox params={params} update={update} placeholder={t('references.search')} />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className={filterGrid(5)}>
         {sel('type', t('references.type'), RESOURCE_TYPES.map((x) => [x, t(`references.type_${x}`)]))}
         {sel('language', t('references.language'), RESOURCE_LANGUAGES.map((x) => [x, t(`references.lang_${x}`)]))}
         {sel('free', t('references.cost'), [
@@ -169,8 +173,8 @@ function ResourcesTab({ params, update }: TabProps) {
         ])}
         {sel('level', t('references.level'), LEVELS.map((x) => [x, t(`levels.${x}`)]))}
         {sel('topic', t('references.topic'), RESOURCE_TOPICS.map((x) => [x, t(`references.topic_${x}`)]))}
-        {data && <span className="ml-auto text-xs text-slate-500">{t('references.found', { count: data.length })}</span>}
       </div>
+      {data && <Found count={data.length} />}
       <Status error={error} loading={!data && error === null} empty={!!data && data.length === 0} reload={reload} />
       <div className="grid gap-3 md:grid-cols-2">
         {data?.map((r) => (
@@ -190,7 +194,7 @@ function InvestorsTab({ params, update }: TabProps) {
   return (
     <div className="space-y-4">
       <SearchBox params={params} update={update} placeholder={t('references.searchInvestors')} />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className={filterGrid(4)}>
         <Select
           label={t('references.country')}
           value={country}
@@ -221,8 +225,8 @@ function InvestorsTab({ params, update }: TabProps) {
           onChange={(v) => update({ sort: v })}
           options={[['', t('references.sort_default')], ...INVESTOR_SORTS.map((x): [string, string] => [x, t(`references.sort_${x}`)])]}
         />
-        {data && <span className="ml-auto text-xs text-slate-500">{t('references.found', { count: data.items.length })}</span>}
       </div>
+      {data && <Found count={data.items.length} />}
       <Status error={error} loading={!data && error === null} empty={!!data && data.items.length === 0} reload={reload} />
       <div className="grid gap-3 md:grid-cols-2">
         {data?.items.map((x) => (

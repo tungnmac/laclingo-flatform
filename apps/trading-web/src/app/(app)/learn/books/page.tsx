@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { filterGrid, FilterSelect } from '@/components/FilterSelect'
 import { LevelBadge } from '@/components/learn/ChapterList'
 import { useT } from '@/i18n/I18nProvider'
 import { api } from '@/lib/api'
@@ -80,17 +81,14 @@ export default function BooksPage() {
   }
 
   const select = (key: keyof Filter, options: readonly string[], label: (o: string) => string) => (
-    <label className="flex items-center gap-2 text-sm text-slate-600">
-      {t(`books.${key === 'status' ? 'myStatus' : key}`)}
-      <select value={filter[key]} onChange={(e) => changeFilter({ [key]: e.target.value })} className="rounded-lg border-0 py-1 text-sm ring-1 ring-slate-200">
-        <option value="">{t('books.any')}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {label(o)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FilterSelect label={t(`books.${key === 'status' ? 'myStatus' : key}`)} value={filter[key]} onChange={(v) => changeFilter({ [key]: v })}>
+      <option value="">{t('books.any')}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {label(o)}
+        </option>
+      ))}
+    </FilterSelect>
   )
 
   return (
@@ -110,12 +108,12 @@ export default function BooksPage() {
         aria-label={t('books.search')}
         className="block w-full rounded-lg border-0 px-3 py-2 text-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-emerald-600"
       />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className={filterGrid(3)}>
         {select('level', LEVELS, (o) => t(`levels.${o}`))}
         {select('topic', BOOK_TOPICS, (o) => t(`books.topic_${o}`))}
         {select('status', BOOK_STATUSES, (o) => t(`books.status_${o}`))}
-        {data && <span className="ml-auto text-xs text-slate-500">{t('books.found', { count: data.total })}</span>}
       </div>
+      {data && <p className="text-right text-xs text-slate-500">{t('books.found', { count: data.total })}</p>}
       {error !== null && (
         <div className="flex items-center justify-between gap-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
           <span>{errorMessage(error, t)}</span>
