@@ -22,9 +22,9 @@ export function LearnSidebar() {
   const { t } = useT()
   const active = activeHref(usePathname())
   return (
-    <nav aria-label={t('learnNav.title')} className="-mx-4 mb-4 overflow-x-auto px-4 lg:mx-0 lg:mb-0 lg:overflow-visible lg:px-0">
-      <p className="mb-2 hidden px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 lg:block">{t('learnNav.title')}</p>
-      <ul className="flex gap-1 lg:sticky lg:top-20 lg:flex-col">
+    <nav aria-label={t('learnNav.title')} className="-mx-4 mb-4 overflow-x-auto px-4 xl:mx-0 xl:mb-0 xl:overflow-visible xl:px-0">
+      <p className="mb-2 hidden px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 xl:block">{t('learnNav.title')}</p>
+      <ul className="flex gap-1 xl:sticky xl:top-6 xl:flex-col">
         {ITEMS.map((i) => {
           const on = i.href === active
           return (

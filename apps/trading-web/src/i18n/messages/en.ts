@@ -26,6 +26,13 @@ export const en: Messages = {
     goLogin: 'Sign in',
   },
   nav: {
+    menu: 'Main menu',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    collapse: 'Collapse menu',
+    expand: 'Expand menu',
+    expandForLanguage: 'Expand the menu to change language',
+    adminGroup: 'Admin',
     adminLibrary: 'Library admin',
     adminReferences: 'References admin',
     markets: 'Markets',
