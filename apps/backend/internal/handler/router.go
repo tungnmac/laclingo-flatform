@@ -55,6 +55,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// Cổng thanh toán gọi về (IPN, Return URL, webhook) — công khai, xác thực bằng chữ ký; đăng ký trước RequireAuth
 	paymentHandler := NewPaymentHandler(payments)
 	paymentHandler.RegisterPublicRoutes(api)
+	appVersionHandler := NewAppVersionHandler(service.NewAppVersionService(repo))
+	appVersionHandler.RegisterPublicRoutes(api)
 
 	// Cần đăng nhập
 	userService := service.NewUserService(repo)
@@ -107,6 +109,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	reminderHandler.RegisterAdminRoutes(admin)
 	notificationHandler.RegisterAdminRoutes(admin)
 	speakingHandler.RegisterAdminRoutes(admin)
+	appVersionHandler.RegisterAdminRoutes(admin)
 }
 
 // ErrorHandler map lỗi service sang HTTP status, không lộ lỗi nội bộ ra client

@@ -22,6 +22,7 @@ export function AdminSubNav() {
     challenge_questions: t.adminCommon.moduleChallengeQuestions,
     listening: t.adminCommon.moduleListening,
     classes: t.adminCommon.moduleClasses,
+    app_versions: t.appVersion.moduleTitle,
   }
 
   return (
@@ -44,7 +45,7 @@ export function AdminSubNav() {
               active ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700',
             )}
           >
-            {item.icon} {moduleLabels[item.key]}
+            {item.icon} {moduleLabels[item.key] ?? item.label}
           </Link>
         )
       })}

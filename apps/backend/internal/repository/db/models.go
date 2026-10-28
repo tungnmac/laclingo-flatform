@@ -18,6 +18,16 @@ type Announcement struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type AppVersion struct {
+	Platform      string             `json:"platform"`
+	MinVersion    string             `json:"min_version"`
+	LatestVersion string             `json:"latest_version"`
+	StoreUrl      string             `json:"store_url"`
+	Message       string             `json:"message"`
+	UpdatedBy     pgtype.UUID        `json:"updated_by"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type BlogComment struct {
 	ID              pgtype.UUID        `json:"id"`
 	PostID          pgtype.UUID        `json:"post_id"`

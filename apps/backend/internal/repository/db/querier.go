@@ -189,6 +189,8 @@ type Querier interface {
 	// LacLingo Pro: gói, lượt dùng tính năng theo ngày, vật phẩm, chuỗi ngày học
 	// Gói đang hiệu lực (ACTIVE, chưa hết hạn); nhiều dòng thì lấy gói lâu nhất (LIFETIME trước)
 	GetActiveSubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
+	// Phiên bản app iOS/Android (bắt buộc / nhắc cập nhật)
+	GetAppVersion(ctx context.Context, platform string) (AppVersion, error)
 	GetBestSpeakingScore(ctx context.Context, arg GetBestSpeakingScoreParams) (int32, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (BlogComment, error)
 	// Dùng để phục vụ ảnh qua /blog/images/:id (resolve sang presigned URL) — public, không cần biết ai hỏi.
@@ -298,6 +300,7 @@ type Querier interface {
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	// read_count: số user đã đọc (thông báo user tự xoá thì không còn tính).
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]ListAnnouncementsRow, error)
+	ListAppVersions(ctx context.Context) ([]AppVersion, error)
 	// Xoá tài khoản: mọi gói còn tự gia hạn (Stripe / App Store / Google Play) — kể cả đã quá hạn local (past_due:
 	// cổng vẫn thử trừ lại)
 	ListAutoRenewSubscriptions(ctx context.Context, userID pgtype.UUID) ([]ListAutoRenewSubscriptionsRow, error)
@@ -539,6 +542,7 @@ type Querier interface {
 	UnlikeVocabulary(ctx context.Context, arg UnlikeVocabularyParams) error
 	UnmarkBlogPost(ctx context.Context, arg UnmarkBlogPostParams) error
 	UnstarBlogPost(ctx context.Context, arg UnstarBlogPostParams) error
+	UpdateAppVersion(ctx context.Context, arg UpdateAppVersionParams) (AppVersion, error)
 	UpdateBlogComment(ctx context.Context, arg UpdateBlogCommentParams) (BlogComment, error)
 	UpdateBlogPost(ctx context.Context, arg UpdateBlogPostParams) (BlogPost, error)
 	UpdateChallengeQuestion(ctx context.Context, arg UpdateChallengeQuestionParams) (ChallengeQuestion, error)

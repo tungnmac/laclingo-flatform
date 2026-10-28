@@ -1309,3 +1309,22 @@ export interface ReportedContent {
   is_hidden: boolean
   deleted: boolean
 }
+
+// ===== Phiên bản app iOS/Android =====
+export type AppPlatform = 'ios' | 'android'
+
+export interface AppVersionInfo {
+  platform: AppPlatform
+  min_version: string // thấp hơn → bắt buộc cập nhật
+  latest_version: string // thấp hơn → nhắc cập nhật
+  store_url: string
+  message: string
+  updated_at: string
+}
+
+export interface AppVersionRequest {
+  min_version: string
+  latest_version: string
+  store_url: string
+  message: string
+}

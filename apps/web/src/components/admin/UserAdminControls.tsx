@@ -140,6 +140,7 @@ export function ModulesEditor({ user, onClose, onSaved }: { user: User; onClose?
     reminders: t.adminCommon.moduleReminders,
     announcements: t.adminCommon.moduleAnnouncements,
     speaking: t.nav.speaking,
+    app_versions: t.appVersion.moduleTitle,
   }
 
   const toggle = (key: string) => {
