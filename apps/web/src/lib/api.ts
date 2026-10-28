@@ -1,5 +1,6 @@
 import { apiErrorText } from '@/lib/apiErrorText'
 import { emitMutationNotice, mutationNotice, type NotifyOption } from '@/lib/mutationNotice'
+import { getCachedResponse, putCachedResponse } from '@/lib/offlineDb'
 import { useLocale } from '@/store/locale'
 import { isAccessValid, useSession } from '@/store/session'
 import type { ErrorResponse, LimitErrorDetail } from '@/types/api'
@@ -32,21 +33,51 @@ export function inlineError(err: unknown): string {
  * RequestInit + `notify`: false = tắt thông báo chung; 'error' = chỉ báo khi lỗi (màn hình tự báo thành công
  * cụ thể hơn, hoặc thao tác gồm nhiều request chỉ báo 1 lần ở cuối).
  * `paywall`: false = hết lượt gói Free (402) không mở màn nâng cấp Pro (request chạy ngầm, người dùng không bấm gì).
+ * `offlineCache`: false = GET không lưu / không trả kết quả đã lưu khi mất mạng (nơi gọi tự xử lý offline — vd phiên
+ * ôn tập cần biết đang offline để dùng bộ thẻ riêng).
  */
-export type ApiInit = RequestInit & { notify?: NotifyOption; paywall?: false }
+export type ApiInit = RequestInit & { notify?: NotifyOption; paywall?: false; offlineCache?: false }
+
+/** Lỗi do mất mạng (fetch không tới được server) */
+export function isNetworkError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 0
+}
+
+/** Lỗi "mất kết nối" như apiFetch báo khi không tới được server (câu chữ theo ngôn ngữ đang chọn) */
+export function networkError(): ApiError {
+  return new ApiError(apiErrorText(0, undefined, useLocale.getState().locale), 0)
+}
+
+/** GET dùng được khi offline: lưu kết quả mới nhất, mất mạng thì trả bản đã lưu. Trừ đăng nhập và trang quản trị */
+function isOfflineCacheable(path: string, init?: ApiInit) {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  return method === 'GET' && init?.offlineCache !== false && !path.startsWith('/auth/') && !path.startsWith('/admin')
+}
 
 /**
  * Gọi backend, tự gắn Bearer token của phiên hiện tại, parse JSON và chuẩn hoá lỗi về ApiError.
  * Token bị từ chối (401) thì đăng xuất để layout đưa người dùng về trang đăng nhập.
  * Request ghi dữ liệu (POST/PUT/PATCH/DELETE) tự hiện thông báo thành công/thất bại (xem mutationNotice).
  */
-export function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
-  return request<T>(path, init, false)
+export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
+  const cacheable = isOfflineCacheable(path, init)
+  try {
+    const data = await request<T>(path, init, false)
+    if (cacheable) void putCachedResponse(path, data)
+    return data
+  } catch (err) {
+    // Mất mạng → dữ liệu lần trước (giao diện vẫn dùng được); chưa từng tải → lỗi mạng như cũ (màn hình hiện ô trống)
+    if (cacheable && isNetworkError(err)) {
+      const cached = await getCachedResponse<T>(path)
+      if (cached !== undefined) return cached
+    }
+    throw err
+  }
 }
 
 /** retried = đã làm mới phiên + gửi lại 1 lần (không lặp nếu vẫn 401) */
 async function request<T>(path: string, init: ApiInit | undefined, retried: boolean): Promise<T> {
-  const { notify, paywall, ...requestInit } = init ?? {}
+  const { notify, paywall, offlineCache, ...requestInit } = init ?? {}
   // /auth/* (đăng nhập, đăng ký) không gửi token: 401 ở đó là sai mật khẩu, không phải phiên đang dùng hết hạn
   const authRoute = path.startsWith('/auth/')
   if (!authRoute) await ensureFreshToken() // access token sắp hết hạn → làm mới trước, khỏi nhận 401

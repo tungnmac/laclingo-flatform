@@ -1,5 +1,4 @@
 import { apiFetch, type ApiInit } from '@/lib/api'
-import { cachedGet } from '@/lib/offlineDb'
 import { buildQuery } from '@/lib/query'
 import type {
   BulkImportResult,
@@ -20,15 +19,14 @@ function languageQuery(language?: string) {
 }
 
 // language không truyền thì backend mặc định 'en' (topics/words) hoặc mọi ngôn ngữ (favorites)
-// Chủ đề / từ theo chủ đề: cachedGet — học từ vựng được khi offline (features/srs-review/offline.ts tải sẵn)
 export const vocabularyService = {
-  listTopics: (language?: string) => cachedGet<VocabularyTopic[]>(`/vocab/topics?${languageQuery(language)}`),
+  listTopics: (language?: string) => apiFetch<VocabularyTopic[]>(`/vocab/topics?${languageQuery(language)}`),
 
   listChildTopics: (parent: string, language?: string) =>
-    cachedGet<VocabularyTopic[]>(`/vocab/topics/children?parent=${encodeURIComponent(parent)}&${languageQuery(language)}`),
+    apiFetch<VocabularyTopic[]>(`/vocab/topics/children?parent=${encodeURIComponent(parent)}&${languageQuery(language)}`),
 
   listWords: (topic: string, language?: string) =>
-    cachedGet<VocabularyCard[]>(`/vocab/words?topic=${encodeURIComponent(topic)}&${languageQuery(language)}`),
+    apiFetch<VocabularyCard[]>(`/vocab/words?topic=${encodeURIComponent(topic)}&${languageQuery(language)}`),
 
   listFavorites: (language?: string) => apiFetch<VocabularyCard[]>(`/vocab/favorites?${languageQuery(language)}`),
 

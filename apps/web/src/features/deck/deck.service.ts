@@ -1,13 +1,12 @@
 import { apiFetch, type ApiInit } from '@/lib/api'
-import { cachedGet } from '@/lib/offlineDb'
 import type { DeckDetail, DeckRequest, DeckSummary } from '@/types/api'
 
 const deckPath = (id: string) => `/decks/${encodeURIComponent(id)}`
 
 export const deckService = {
-  // vocabularyId: đánh dấu list nào đã chứa từ đó (contains_vocabulary). cachedGet: xem được khi offline
+  // vocabularyId: đánh dấu list nào đã chứa từ đó (contains_vocabulary)
   list: (vocabularyId?: string) =>
-    cachedGet<DeckSummary[]>(`/decks${vocabularyId ? `?vocabulary_id=${encodeURIComponent(vocabularyId)}` : ''}`),
+    apiFetch<DeckSummary[]>(`/decks${vocabularyId ? `?vocabulary_id=${encodeURIComponent(vocabularyId)}` : ''}`),
   get: (id: string) => apiFetch<DeckDetail>(deckPath(id)),
   create: (body: DeckRequest, opts?: Pick<ApiInit, 'notify'>) =>
     apiFetch<DeckSummary>('/decks', { method: 'POST', body: JSON.stringify(body), ...opts }),

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { isNetworkError } from '@/lib/api'
 import { Button } from './Button'
 
 export function Spinner({ label = 'Đang tải...' }: { label?: string }) {
@@ -11,6 +12,20 @@ export function Spinner({ label = 'Đang tải...' }: { label?: string }) {
 }
 
 export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
+  // Mất mạng mà chưa có dữ liệu lưu trên máy (apiFetch) → ô trống nhẹ nhàng, giao diện còn lại vẫn dùng bình thường
+  if (isNetworkError(error)) {
+    return (
+      <div role="status" className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-12 text-center">
+        <span className="text-4xl">📴</span>
+        <p className="max-w-md text-sm text-slate-500">{error.message}</p>
+        {onRetry && (
+          <Button variant="secondary" size="sm" onClick={onRetry}>
+            Thử lại
+          </Button>
+        )}
+      </div>
+    )
+  }
   return (
     <div role="alert" className="flex flex-col items-center gap-4 rounded-2xl bg-rose-50 px-4 py-10 text-center ring-1 ring-rose-200">
       <span className="text-4xl">😵</span>

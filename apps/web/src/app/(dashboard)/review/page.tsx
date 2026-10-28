@@ -29,7 +29,7 @@ function ReviewHub() {
   const t = useTranslation()
   // Chỉ để hiện số từ đến hạn (offline: số đã lưu) — lỗi thì ẩn badge, không chặn trang. Có
   // language thì đếm riêng ngôn ngữ đó, khớp với nơi "Ôn ngay" sẽ dẫn tới.
-  const { data: due } = useApi(() => srsService.getDueCached(100, language), [language])
+  const { data: due } = useApi(() => srsService.getDue(100, language), [language])
   const dueCount = due?.length ?? null
   // Chỉ để hiện tên ngôn ngữ đang học trong description — lỗi thì bỏ qua, không chặn trang
   const { data: currentLanguage } = useApi(() => courseService.getById(language!), [language], !!language)

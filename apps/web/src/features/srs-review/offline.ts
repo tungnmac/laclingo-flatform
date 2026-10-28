@@ -4,8 +4,8 @@ import { useEffect } from 'react'
 import { courseService } from '@/features/course/course.service'
 import { deckService } from '@/features/deck/deck.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
-import { ApiError } from '@/lib/api'
-import { CARDS, OUTBOX, REVIEWED, currentUserId, isNetworkError, markLearnedInCache, networkError, openDB, run } from '@/lib/offlineDb'
+import { ApiError, isNetworkError, networkError } from '@/lib/api'
+import { CARDS, OUTBOX, REVIEWED, currentUserId, markLearnedInCache, openDB, run } from '@/lib/offlineDb'
 import type { DueVocabulary, VocabularyCard } from '@/types/api'
 import { srsService } from './srs.service'
 
@@ -199,9 +199,38 @@ async function doSync(): Promise<void> {
   }
 }
 
-/** Trang dùng được khi offline — khớp OFFLINE_PAGES trong public/sw.js */
+/** Trang ôn tập (có thông báo offline riêng — components/layout/OfflineBanner.tsx) */
 export const OFFLINE_REVIEW_PATH = '/review/vocabulary'
-const OFFLINE_PAGES = ['/review', OFFLINE_REVIEW_PATH, '/review/new', '/review/new/subtopics', '/review/new/topic', '/review/lists']
+
+// Trang nhờ service worker lưu sẵn (public/sw.js lưu mọi trang đã mở; đây là các trang người dùng có thể chưa mở lần
+// nào): thanh điều hướng + học / ôn tập. Thêm trang khoá học của từng ngôn ngữ và chi tiết từng list khi tải sẵn
+const OFFLINE_PAGES = [
+  '/learn',
+  '/review',
+  OFFLINE_REVIEW_PATH,
+  '/review/new',
+  '/review/new/subtopics',
+  '/review/new/topic',
+  '/review/lists',
+  '/review/favorites',
+  '/review/srs-words',
+  '/challenges',
+  '/leaderboard',
+  '/profile',
+  '/missions',
+  '/daily',
+  '/listening',
+  '/speaking',
+  '/blog',
+  '/wallet',
+  '/pricing',
+]
+
+function cachePages(urls: string[]) {
+  navigator.serviceWorker?.ready
+    .then((reg) => reg.active?.postMessage({ type: 'cache-offline-pages', urls }))
+    .catch(() => {})
+}
 
 // Lưu trang + tải sẵn toàn bộ dữ liệu học / ôn offline (chủ đề, từ, list) tối đa 1 lần mỗi 12 giờ — bộ thẻ đến hạn
 // mặc định thì mỗi lần vào app (1 request). Trang mở khi có mạng vẫn luôn được service worker lưu bản mới (sw.js)
@@ -222,9 +251,7 @@ function prepareOffline() {
     last = Number(localStorage.getItem(prefetchKey(userId))) || 0
   } catch {}
   if (Date.now() - last < PREFETCH_EVERY_MS) return
-  navigator.serviceWorker?.ready
-    .then((reg) => reg.active?.postMessage({ type: 'cache-offline-pages', urls: OFFLINE_PAGES }))
-    .catch(() => {})
+  cachePages(OFFLINE_PAGES) // giao diện không phụ thuộc API — lưu kể cả khi server API đang lỗi
   prefetchAll().then(
     () => {
       try {
@@ -238,7 +265,7 @@ function prepareOffline() {
 /** Tải + lưu bộ thẻ đến hạn (bỏ từ đang chờ đồng bộ — như useSRSReviewSession) */
 async function saveDueCards(limit: number, language?: string, deck?: string) {
   const pendingIds = pendingVocabularyIds()
-  const data = await srsService.getDue(limit, language, deck).catch(() => null)
+  const data = await srsService.getDue(limit, language, deck, { offlineCache: false }).catch(() => null)
   if (!data) return
   const pending = await pendingIds
   await saveCards(
@@ -263,14 +290,20 @@ async function step<T>(load: () => Promise<T>): Promise<T | null> {
 
 /** Mọi dữ liệu các trang offline cần — chạy lần lượt (không dồn request) */
 async function prefetchAll() {
-  // Ôn tập theo list: danh sách list + bộ thẻ "Học lại list" của từng list
   const decks = (await step(() => deckService.list())) ?? []
-  for (const deck of decks) if (deck.word_count > 0) await saveDueCards(100, undefined, deck.id)
+  const languages = (await step(() => courseService.list())) ?? []
+  // Giao diện: trang khoá học từng ngôn ngữ + chi tiết từng list (service worker tải lần lượt)
+  cachePages([...languages.map((l) => `/learn/${encodeURIComponent(l.id)}`), ...decks.map((d) => `/review/lists/${d.id}`)])
+
+  // Ôn tập theo list: chi tiết + bộ thẻ "Học lại list" của từng list
+  for (const deck of decks) {
+    await step(() => deckService.get(deck.id))
+    if (deck.word_count > 0) await saveDueCards(100, undefined, deck.id)
+  }
 
   // Hub ôn tập (số từ đến hạn + bộ thẻ "Ôn ngay") + học từ vựng: không chọn ngôn ngữ (mặc định) và từng ngôn ngữ
-  const languages = (await step(() => courseService.list())) ?? []
   for (const language of [undefined, ...languages.map((l) => l.id)]) {
-    await step(() => srsService.getDueCached(100, language))
+    await step(() => srsService.getDue(100, language))
     if (language) {
       await saveDueCards(20, language)
       await step(() => courseService.getById(language))

@@ -49,7 +49,7 @@ export function useSRSReviewSession(language?: string, deck?: string) {
     const pendingIds = pendingVocabularyIds()
     void syncOutbox()
     srsService
-      .getDue(deck ? 100 : 20, language, deck)
+      .getDue(deck ? 100 : 20, language, deck, { offlineCache: false })
       .then(async (data) => {
         const pending = await pendingIds
         const due = data.filter((c) => !pending.has(c.vocabulary_id))
