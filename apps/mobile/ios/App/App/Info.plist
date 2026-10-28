@@ -70,5 +70,9 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>laclingo-platform.vercel.app</string>
+	</array>
 </dict>
 </plist>
