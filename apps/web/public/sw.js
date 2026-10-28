@@ -4,9 +4,10 @@
 // Offline (dữ liệu ôn tập nằm ở IndexedDB — xem features/srs-review/offline.ts; ở đây chỉ lo giao diện):
 // - /_next/static/* có hash trong tên file (bản build production — không bao giờ đổi nội dung) → lấy cache trước,
 //   chưa có mới tải. File không hash (next dev) đi mạng như thường, không thì sửa code xong vẫn chạy bản cũ
-// - Mở trang trong OFFLINE_PAGES: luôn tải mạng trước (luôn mới nhất); bản không query string tải được thì lưu lại
-//   kèm JS/CSS trang đó dùng. Mất mạng thì trả bản đã lưu cho MỌI query string (?language=, ?deck=... — trang tự đọc
-//   query trên URL), chưa lưu thì trang offline (có nút mở trang ôn tập đã lưu)
+// - Mở trang (mọi trang trừ quản trị): luôn tải mạng trước (luôn mới nhất); bản không query string tải được thì lưu
+//   lại kèm JS/CSS trang đó dùng. Mất mạng thì trả bản đã lưu cho mọi query string (trang offline đọc query trên URL
+//   — hooks/useQueryParams.ts) → giao diện app giữ nguyên, dữ liệu do apiFetch trả bản đã lưu hoặc ô trống. Trang chưa
+//   từng lưu thì trang offline (có nút mở các trang học / ôn đã lưu)
 // - Request khác (API ở domain khác, RSC của Next...) đi mạng như bình thường
 
 // Đổi hậu tố khi đổi cách lưu / sửa offline.html — activate xoá cache cũ cùng tiền tố
@@ -16,9 +17,8 @@ const PAGES_CACHE = 'laclingo-pages-v1'
 const CACHES = [OFFLINE_CACHE, STATIC_CACHE, PAGES_CACHE]
 // Chỉ dọn cache của các họ trên (bản cũ) — cache laclingo-* khác không phải của SW này
 const OFFLINE_URL = '/offline.html'
-// Trang dùng được khi offline (pathname, khớp đúng — khớp OFFLINE_PAGES ở features/srs-review/offline.ts): hub ôn tập,
-// ôn tập (cả theo list), học từ vựng, danh sách ôn tập. Trang khác cần API nên mất mạng thì hiện trang offline
-const OFFLINE_PAGES = ['/review', '/review/vocabulary', '/review/new', '/review/new/subtopics', '/review/new/topic', '/review/lists']
+// Giới hạn số trang giữ lại — bỏ trang lưu lâu nhất trước
+const MAX_PAGES = 80
 // Giới hạn số file JS/CSS giữ lại — bản deploy cũ để lại file hash cũ, bỏ file lưu lâu nhất trước
 const MAX_STATIC_ENTRIES = 400
 
@@ -63,8 +63,13 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
+// Trang lưu được để dùng offline: mọi trang trừ quản trị (cần mạng, dữ liệu không nên để lại trên máy)
+function isOfflinePage(pathname) {
+  return pathname !== OFFLINE_URL && !pathname.startsWith('/admin') && !pathname.startsWith('/_next/')
+}
+
 async function navigate(event, request, url) {
-  const offlinePage = OFFLINE_PAGES.includes(url.pathname)
+  const offlinePage = isOfflinePage(url.pathname)
   try {
     const response = await fetch(request)
     if (offlinePage && !url.search && isCacheablePage(response)) event.waitUntil(savePage(url.pathname, response.clone()))
@@ -105,7 +110,11 @@ async function savePage(pathname, response) {
       if (res && res.ok) await staticCache.put(path, res)
     }),
   )
-  await (await caches.open(PAGES_CACHE)).put(pathname, response)
+  const pages = await caches.open(PAGES_CACHE)
+  await pages.delete(pathname) // đưa trang vừa lưu về cuối thứ tự (mới nhất) để dọn trang cũ nhất trước
+  await pages.put(pathname, response)
+  const keys = await pages.keys()
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_PAGES)).map((k) => pages.delete(k)))
   await trimStatic()
 }
 
@@ -149,21 +158,20 @@ async function trimStatic() {
 }
 
 // Trang web (dashboard) nhờ lưu trước các trang offline khi đang có mạng — người dùng chưa mở trang ôn tập lần nào
-// vẫn ôn offline được. Chỉ nhận URL trong OFFLINE_PAGES cùng origin.
+// vẫn ôn offline được. Chỉ nhận trang cùng origin, không query string; tải lần lượt (không dồn request lên server).
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'cache-offline-pages') return
   const urls = (event.data.urls || [])
     .map((u) => new URL(u, self.location.origin))
-    .filter((u) => u.origin === self.location.origin && !u.search && OFFLINE_PAGES.includes(u.pathname))
+    .filter((u) => u.origin === self.location.origin && !u.search && isOfflinePage(u.pathname))
   event.waitUntil(
-    Promise.all(
-      urls.map((u) =>
+    (async () => {
+      for (const u of urls) {
         // Accept text/html: app Android chỉ chèn bridge Capacitor vào HTML khi request khai báo nhận HTML
-        fetch(u.href, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
-          .then((res) => (isCacheablePage(res) ? savePage(u.pathname, res) : undefined))
-          .catch(() => {}),
-      ),
-    ),
+        const res = await fetch(u.href, { credentials: 'same-origin', headers: { Accept: 'text/html' } }).catch(() => null)
+        if (res && isCacheablePage(res)) await savePage(u.pathname, res).catch(() => {})
+      }
+    })(),
   )
 })
 

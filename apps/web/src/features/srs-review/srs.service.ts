@@ -1,5 +1,4 @@
 import { apiFetch, type ApiInit } from '@/lib/api'
-import { cachedGet } from '@/lib/offlineDb'
 import type {
   PageResult,
   ReviewWord,
@@ -16,15 +15,12 @@ import type {
 export const srsService = {
   // language không truyền thì lấy đến hạn ở MỌI ngôn ngữ (hành vi mặc định)
   // deck: "học lại" 1 danh sách ôn tập — trả MỌI từ trong list (bỏ qua language)
-  getDue: (limit = 20, language?: string, deck?: string) =>
+  // init.offlineCache = false: phiên ôn tập / tải sẵn bộ thẻ tự xử lý offline (features/srs-review/offline.ts)
+  getDue: (limit = 20, language?: string, deck?: string, init?: ApiInit) =>
     apiFetch<DueVocabulary[]>(
       `/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}${deck ? `&deck=${encodeURIComponent(deck)}` : ''}`,
+      init,
     ),
-
-  // Như getDue nhưng mất mạng thì trả kết quả đã lưu — chỉ để hiện số từ đến hạn (hub ôn tập). Phiên ôn tập dùng
-  // getDue + bộ thẻ offline riêng (useSRSReviewSession) vì cần biết đang offline để báo người dùng
-  getDueCached: (limit = 20, language?: string) =>
-    cachedGet<DueVocabulary[]>(`/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
 
   // Mọi từ đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn lại tới lúc ôn
   listWords: (language?: string, page = 1, pageSize = 20) =>

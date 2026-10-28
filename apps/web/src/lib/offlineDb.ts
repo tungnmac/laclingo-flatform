@@ -1,12 +1,9 @@
-import { ApiError, apiFetch, type ApiInit } from '@/lib/api'
-import { apiErrorText } from '@/lib/apiErrorText'
-import { useLocale } from '@/store/locale'
 import { useSession } from '@/store/session'
 
-// IndexedDB cho chế độ offline (theo từng tài khoản) — dùng chung cho ôn tập (features/srs-review/offline.ts) và các
-// API chỉ đọc cần xem được khi mất mạng (cachedGet):
+// IndexedDB cho chế độ offline (theo từng tài khoản) — dùng chung cho ôn tập (features/srs-review/offline.ts) và
+// apiFetch (lib/api.ts):
 // - cards / reviewed / outbox: xem features/srs-review/offline.ts
-// - responses: kết quả GET gần nhất của các API dùng cachedGet
+// - responses: kết quả GET gần nhất của từng API — mất mạng thì apiFetch trả bản này (giao diện vẫn có dữ liệu cũ)
 
 const DB_NAME = 'laclingo-srs-offline'
 export const CARDS = 'cards'
@@ -54,33 +51,20 @@ export function currentUserId(): string | undefined {
   return useSession.getState().user?.id
 }
 
-/** Lỗi do mất mạng (fetch không tới được server) — chỉ khi đó mới dùng dữ liệu offline */
-export function isNetworkError(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 0
-}
+const responseKey = (userId: string, path: string) => `${userId}|${path}`
 
-/** Lỗi "mất kết nối" như apiFetch báo khi không tới được server (cùng câu chữ theo ngôn ngữ đang chọn) */
-export function networkError(): ApiError {
-  return new ApiError(apiErrorText(0, undefined, useLocale.getState().locale), 0)
-}
-
-/**
- * GET dùng được khi offline: tải được thì lưu lại kết quả (theo tài khoản + path), mất mạng thì trả kết quả đã lưu
- * gần nhất; chưa từng lưu → ném lỗi mạng như apiFetch. Chỉ dùng cho API chỉ đọc mà màn hình offline cần.
- */
-export async function cachedGet<T>(path: string, init?: ApiInit): Promise<T> {
+/** Kết quả GET đã lưu của tài khoản đang dùng (undefined = chưa có / không đọc được) */
+export async function getCachedResponse<T>(path: string): Promise<T | undefined> {
   const userId = currentUserId()
-  const key = `${userId}|${path}`
-  try {
-    const data = await apiFetch<T>(path, init)
-    if (userId) void run(RESPONSES, 'readwrite', (s) => s.put(data, key)).catch(() => {})
-    return data
-  } catch (err) {
-    if (!userId || !isNetworkError(err)) throw err
-    const cached = await run<T | undefined>(RESPONSES, 'readonly', (s) => s.get(key)).catch(() => undefined)
-    if (cached === undefined) throw err
-    return cached
-  }
+  if (!userId) return undefined
+  return run<T | undefined>(RESPONSES, 'readonly', (s) => s.get(responseKey(userId, path))).catch(() => undefined)
+}
+
+/** Lưu kết quả GET mới nhất (lỗi thì bỏ qua — chỉ mất dữ liệu offline) */
+export async function putCachedResponse(path: string, data: unknown): Promise<void> {
+  const userId = currentUserId()
+  if (!userId) return
+  await run(RESPONSES, 'readwrite', (s) => s.put(data, responseKey(userId, path))).catch(() => {})
 }
 
 /**
@@ -93,8 +77,8 @@ export async function markLearnedInCache(vocabularyId: string, deckId?: string):
   if (!userId) return
   const db = await openDB().catch(() => null)
   if (!db) return
-  const wordsPrefix = `${userId}|/vocab/words?`
-  const deckListKey = `${userId}|/decks?vocabulary_id=${encodeURIComponent(vocabularyId)}`
+  const wordsPrefix = responseKey(userId, '/vocab/words?')
+  const deckListKey = responseKey(userId, `/decks?vocabulary_id=${encodeURIComponent(vocabularyId)}`)
   await new Promise<void>((resolve) => {
     const tx = db.transaction(RESPONSES, 'readwrite')
     const store = tx.objectStore(RESPONSES)
