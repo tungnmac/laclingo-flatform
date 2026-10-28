@@ -211,6 +211,7 @@ type Querier interface {
 	// truyền vào khi muốn ôn tập đến hạn chỉ riêng 1 ngôn ngữ.
 	GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocabulariesForUserParams) ([]GetDueVocabulariesForUserRow, error)
 	GetFeatureUsage(ctx context.Context, arg GetFeatureUsageParams) (int32, error)
+	GetGameChatMessage(ctx context.Context, id pgtype.UUID) (GameChatMessage, error)
 	GetGameParticipantByUser(ctx context.Context, arg GetGameParticipantByUserParams) (GameParticipant, error)
 	GetGameRoomByCode(ctx context.Context, code string) (GameRoom, error)
 	GetGameRoomByID(ctx context.Context, id pgtype.UUID) (GameRoom, error)
@@ -266,6 +267,8 @@ type Querier interface {
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)
 	// Tạo note của ngày; đã có (vd 2 request cùng lúc) → không trả dòng nào (pgx.ErrNoRows)
 	InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams) (DailyNote, error)
+	// ID do phòng chơi tạo trước (broadcast ngay, lưu sau — không bắt cả phòng chờ DB)
+	InsertGameChatMessage(ctx context.Context, arg InsertGameChatMessageParams) error
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	InsertGemTransaction(ctx context.Context, arg InsertGemTransactionParams) error
 	// Mua trong app iOS/Android (Apple In-App Purchase, Google Play Billing)
@@ -466,6 +469,8 @@ type Querier interface {
 	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
 	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
+	// Chat chỉ giữ 30 ngày (đủ để xử lý báo cáo) — trừ tin đang bị báo cáo chưa xử lý (bằng chứng cho admin)
+	PruneGameChatMessages(ctx context.Context) (int64, error)
 	// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
 	PruneOldNotifications(ctx context.Context) (int64, error)
 	// Mua lại / khôi phục sau khi gói đã kết thúc: Apple giữ originalTransactionId, Google giữ purchaseToken (unique) —
@@ -501,6 +506,7 @@ type Querier interface {
 	SetDailyTaskItemsOrder(ctx context.Context, arg SetDailyTaskItemsOrderParams) (int64, error)
 	// Việc đang lặp lại đổi checklist → các ngày sau có checklist mới
 	SetDailyTaskTemplateChecklist(ctx context.Context, arg SetDailyTaskTemplateChecklistParams) error
+	SetGameChatMessageHidden(ctx context.Context, arg SetGameChatMessageHiddenParams) error
 	// Stripe: lưu checkout session id ngay khi tạo (trang kết quả tra lại được trạng thái khi chưa có webhook)
 	SetPaymentOrderProviderRef(ctx context.Context, arg SetPaymentOrderProviderRefParams) error
 	// Chỉ đổi cờ tự gia hạn, giữ nguyên hạn (vd past_due: kỳ mới chưa trả tiền thì không cộng hạn)

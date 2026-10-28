@@ -22,6 +22,7 @@ import { buildChallengeWsUrl } from '../challenge.service'
 export type GamePhase = 'lobby' | 'question' | 'reveal' | 'finished'
 
 export interface ChatEntry {
+  id?: string // để báo cáo tin nhắn
   userId: string
   message: string
   sentAt: string
@@ -128,7 +129,7 @@ function applyServerMessage(state: State, envelope: WsEnvelope): State {
     }
     case 'chat_message': {
       const data = envelope.data as WsChatMessagePayload
-      const entry: ChatEntry = { userId: data.user_id, message: data.message, sentAt: data.sent_at }
+      const entry: ChatEntry = { id: data.id, userId: data.user_id, message: data.message, sentAt: data.sent_at }
       return { ...state, chatMessages: [...state.chatMessages, entry].slice(-maxChatMessages) }
     }
     case 'reaction': {
@@ -138,8 +139,12 @@ function applyServerMessage(state: State, envelope: WsEnvelope): State {
     }
     case 'kicked':
       return { ...state, kicked: { reason: (envelope.data as WsKickedPayload).reason } }
-    case 'error':
-      return { ...state, wsError: (envelope.data as WsErrorPayload).message }
+    case 'error': {
+      const err = envelope.data as WsErrorPayload
+      // Gửi chat quá nhanh: lỗi tạm (ChatPanel đã tự giới hạn) — không biến thành banner lỗi phòng
+      if (err.code === 'chat_too_fast') return state
+      return { ...state, wsError: err.message }
+    }
     default:
       // participant_joined/participant_left/participant_kicked không đổi
       // state ở đây — hook gọi onParticipantChange riêng để page tự reload

@@ -22,6 +22,7 @@ type Repository interface {
 	DeleteGameParticipant(ctx context.Context, arg db.DeleteGameParticipantParams) error
 	BanGameParticipant(ctx context.Context, arg db.BanGameParticipantParams) error
 	GetGameParticipantByUser(ctx context.Context, arg db.GetGameParticipantByUserParams) (db.GameParticipant, error)
+	InsertGameChatMessage(ctx context.Context, arg db.InsertGameChatMessageParams) error
 }
 
 func toPgUUID(id uuid.UUID) pgtype.UUID {

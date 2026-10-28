@@ -12,7 +12,7 @@ import { moderationService } from '../moderation.service'
 
 const REASONS: ReportReason[] = ['spam', 'harassment', 'hate', 'sexual', 'violence', 'other']
 
-/** Hộp thoại báo cáo 1 bài viết / bình luận — chọn lý do + mô tả thêm. onReported: nội dung có thể vừa bị tự ẩn. */
+/** Hộp thoại báo cáo 1 bài viết / bình luận / tin nhắn chat — chọn lý do + mô tả thêm. onReported: nội dung có thể vừa bị tự ẩn. */
 export function ReportDialog({
   target,
   onClose,
@@ -72,7 +72,7 @@ export function ReportDialog({
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
       >
         <h3 id="report-title" className="text-lg font-bold text-slate-900">
-          🚩 {target.type === 'post' ? m.reportPost : m.reportComment}
+          🚩 {target.type === 'post' ? m.reportPost : target.type === 'chat' ? m.reportChat : m.reportComment}
         </h3>
         <p className="mt-1 text-sm text-slate-500">{m.reportHint}</p>
         <fieldset className="mt-4 space-y-1.5">

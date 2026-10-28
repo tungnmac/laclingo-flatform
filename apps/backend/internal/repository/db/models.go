@@ -222,6 +222,15 @@ type GameAnswer struct {
 	AnsweredAt    pgtype.Timestamptz `json:"answered_at"`
 }
 
+type GameChatMessage struct {
+	ID        pgtype.UUID        `json:"id"`
+	RoomID    pgtype.UUID        `json:"room_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Message   string             `json:"message"`
+	IsHidden  bool               `json:"is_hidden"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type GameParticipant struct {
 	ID       pgtype.UUID        `json:"id"`
 	RoomID   pgtype.UUID        `json:"room_id"`

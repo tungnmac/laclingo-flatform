@@ -869,7 +869,7 @@ CREATE INDEX IF NOT EXISTS idx_iap_purchases_user ON iap_purchases (user_id) WHE
 CREATE TABLE IF NOT EXISTS content_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     reporter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    target_type VARCHAR(10) NOT NULL CHECK (target_type IN ('post', 'comment')),
+    target_type VARCHAR(10) NOT NULL CHECK (target_type IN ('post', 'comment', 'chat')), -- chat: migration 000046
     target_id UUID NOT NULL,
     reason VARCHAR(20) NOT NULL CHECK (reason IN ('spam', 'harassment', 'hate', 'sexual', 'violence', 'other')),
     note TEXT NOT NULL DEFAULT '',
@@ -911,3 +911,16 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens (expires_at);
+
+-- ===== Chat phòng thử thách (migration 000046) =====
+-- Lưu tin nhắn để báo cáo được (admin cần nội dung làm bằng chứng). Giữ 30 ngày.
+CREATE TABLE IF NOT EXISTS game_chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id UUID NOT NULL REFERENCES game_rooms(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE, -- admin xác nhận vi phạm
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_game_chat_messages_room ON game_chat_messages (room_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_game_chat_messages_created ON game_chat_messages (created_at);

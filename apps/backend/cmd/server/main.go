@@ -115,6 +115,7 @@ func main() {
 	defer stopScheduler()
 	go reminderService.Start(schedulerCtx)
 	go notificationService.StartCleanup(schedulerCtx)
+	go startChatCleanup(schedulerCtx, repo)
 
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
@@ -177,6 +178,24 @@ func newAIClient(cfg *config.Config) service.AIClient {
 		log.Printf("⚠️  AI_PROVIDER=%q không hợp lệ (claude|gemini) — gợi ý từ mới chỉ có phiên âm/audio từ điển", provider)
 	}
 	return nil
+}
+
+// startChatCleanup xoá chat phòng thử thách quá 30 ngày mỗi giờ (giữ tin đang bị báo cáo) tới khi ctx bị huỷ
+func startChatCleanup(ctx context.Context, repo *repository.PostgresRepository) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		if n, err := repo.PruneGameChatMessages(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("❌ game: dọn chat cũ: %v", err)
+		} else if n > 0 {
+			log.Printf("🧹 game: đã xoá %d tin chat cũ", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // newFCMSender đọc file service account Firebase rồi tạo sender FCM

@@ -131,3 +131,15 @@ SELECT ins.id, ins.room_id, ins.participant_id, ins.question_id, ins.selected_in
        ins.is_correct, ins.points_earned, ins.time_taken_ms, ins.answered_at,
        upd.score AS new_total_score
 FROM ins JOIN upd ON true;
+
+-- name: InsertGameChatMessage :exec
+-- ID do phòng chơi tạo trước (broadcast ngay, lưu sau — không bắt cả phòng chờ DB)
+INSERT INTO game_chat_messages (id, room_id, user_id, message) VALUES ($1, $2, $3, $4);
+
+-- name: PruneGameChatMessages :execrows
+-- Chat chỉ giữ 30 ngày (đủ để xử lý báo cáo) — trừ tin đang bị báo cáo chưa xử lý (bằng chứng cho admin)
+DELETE FROM game_chat_messages m
+WHERE m.created_at < NOW() - INTERVAL '30 days'
+  AND NOT EXISTS (
+      SELECT 1 FROM content_reports r WHERE r.target_type = 'chat' AND r.target_id = m.id AND r.status = 'OPEN'
+  );

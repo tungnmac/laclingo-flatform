@@ -17,7 +17,10 @@ import (
 
 const (
 	idleLobbyTimeout  = 10 * time.Minute
-	maxChatMessageLen = 200
+	maxChatMessageLen = 200 // ký tự
+	// Chống spam chat: mỗi người tối đa 1 tin / chatMinInterval (tin gửi dồn bị bỏ, báo lỗi cho người gửi)
+	chatMinInterval = 800 * time.Millisecond
+	chatSaveTimeout = 3 * time.Second
 )
 
 // allowedReactions là whitelist cố định — không broadcast nguyên văn emoji
@@ -63,6 +66,7 @@ type Room struct {
 	// in-memory (chỉ có nghĩa khi đang kết nối), không cần cột DB, giống
 	// participantState.answeredCurrentQ.
 	lobbyReady map[uuid.UUID]bool
+	lastChatAt map[uuid.UUID]time.Time
 
 	registerCh   chan *Client
 	unregisterCh chan *Client
@@ -80,6 +84,7 @@ func newRoom(id, hostUserID uuid.UUID, hub *Hub, repo Repository) *Room {
 		clients:      make(map[uuid.UUID]*Client),
 		participants: make(map[uuid.UUID]*participantState),
 		lobbyReady:   make(map[uuid.UUID]bool),
+		lastChatAt:   make(map[uuid.UUID]time.Time),
 		registerCh:   make(chan *Client),
 		unregisterCh: make(chan *Client),
 		commandCh:    make(chan roomCommand, 32),
@@ -449,16 +454,33 @@ func (r *Room) handleSetReady(cmd roomCommand) {
 	r.broadcast(serverMsgParticipantReady, participantReadyPayload{UserID: cmd.userID, Ready: cmd.msg.Ready})
 }
 
-// handleSendChat broadcast tin nhắn — ephemeral, không lưu DB.
+// handleSendChat broadcast tin nhắn kèm ID rồi lưu DB ở goroutine riêng (để báo cáo được — admin cần nội dung làm
+// bằng chứng, giữ 30 ngày; DB chậm không làm đứng cả phòng). Lưu lỗi thì tin đó không báo cáo được (404).
 func (r *Room) handleSendChat(cmd roomCommand) {
 	msg := strings.TrimSpace(cmd.msg.Message)
 	if msg == "" {
 		return
 	}
-	if len(msg) > maxChatMessageLen {
-		msg = msg[:maxChatMessageLen]
+	if runes := []rune(msg); len(runes) > maxChatMessageLen {
+		msg = string(runes[:maxChatMessageLen]) // cắt theo ký tự — cắt theo byte làm vỡ chữ có dấu
 	}
-	r.broadcast(serverMsgChatMessage, chatMessagePayload{UserID: cmd.userID, Message: msg, SentAt: time.Now()})
+	now := time.Now()
+	if now.Sub(r.lastChatAt[cmd.userID]) < chatMinInterval {
+		cmd.client.sendError("chat_too_fast", "bạn gửi tin nhắn quá nhanh")
+		return
+	}
+	r.lastChatAt[cmd.userID] = now
+
+	id := uuid.New()
+	r.broadcast(serverMsgChatMessage, chatMessagePayload{ID: id.String(), UserID: cmd.userID, Message: msg, SentAt: now})
+	params := db.InsertGameChatMessageParams{ID: toPgUUID(id), RoomID: toPgUUID(r.id), UserID: toPgUUID(cmd.userID), Message: msg}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), chatSaveTimeout)
+		defer cancel()
+		if err := r.repo.InsertGameChatMessage(ctx, params); err != nil {
+			log.Printf("❌ game: lưu chat room=%s user=%s: %v", r.id, cmd.userID, err)
+		}
+	}()
 }
 
 // handleSendReaction chỉ nhận emoji trong whitelist cố định — không broadcast

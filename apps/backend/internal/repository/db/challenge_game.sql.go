@@ -276,6 +276,28 @@ func (q *Queries) GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]Get
 	return items, nil
 }
 
+const insertGameChatMessage = `-- name: InsertGameChatMessage :exec
+INSERT INTO game_chat_messages (id, room_id, user_id, message) VALUES ($1, $2, $3, $4)
+`
+
+type InsertGameChatMessageParams struct {
+	ID      pgtype.UUID `json:"id"`
+	RoomID  pgtype.UUID `json:"room_id"`
+	UserID  pgtype.UUID `json:"user_id"`
+	Message string      `json:"message"`
+}
+
+// ID do phòng chơi tạo trước (broadcast ngay, lưu sau — không bắt cả phòng chờ DB)
+func (q *Queries) InsertGameChatMessage(ctx context.Context, arg InsertGameChatMessageParams) error {
+	_, err := q.db.Exec(ctx, insertGameChatMessage,
+		arg.ID,
+		arg.RoomID,
+		arg.UserID,
+		arg.Message,
+	)
+	return err
+}
+
 const insertGameRoomQuestion = `-- name: InsertGameRoomQuestion :exec
 INSERT INTO game_room_questions (room_id, question_id, order_index)
 VALUES ($1, $2, $3)
@@ -549,6 +571,23 @@ func (q *Queries) PickRandomQuestions(ctx context.Context, arg PickRandomQuestio
 		return nil, err
 	}
 	return items, nil
+}
+
+const pruneGameChatMessages = `-- name: PruneGameChatMessages :execrows
+DELETE FROM game_chat_messages m
+WHERE m.created_at < NOW() - INTERVAL '30 days'
+  AND NOT EXISTS (
+      SELECT 1 FROM content_reports r WHERE r.target_type = 'chat' AND r.target_id = m.id AND r.status = 'OPEN'
+  )
+`
+
+// Chat chỉ giữ 30 ngày (đủ để xử lý báo cáo) — trừ tin đang bị báo cáo chưa xử lý (bằng chứng cho admin)
+func (q *Queries) PruneGameChatMessages(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneGameChatMessages)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const startGameRoom = `-- name: StartGameRoom :one

@@ -22,6 +22,7 @@ import (
 const (
 	ReportTargetPost    = "post"
 	ReportTargetComment = "comment"
+	ReportTargetChat    = "chat" // tin nhắn phòng thử thách (game_chat_messages)
 
 	maxReportNoteLen = 500
 	// Đủ số người khác nhau báo cáo 1 nội dung → tự ẩn chờ admin xem xét (không phải chờ admin mới gỡ nội dung xấu)
@@ -47,6 +48,8 @@ type ModerationRepository interface {
 	UnhideBlogPost(ctx context.Context, id pgtype.UUID) error
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	UnhideBlogComment(ctx context.Context, id pgtype.UUID) error
+	GetGameChatMessage(ctx context.Context, id pgtype.UUID) (db.GameChatMessage, error)
+	SetGameChatMessageHidden(ctx context.Context, arg db.SetGameChatMessageHiddenParams) error
 }
 
 type ModerationService struct {
@@ -57,9 +60,9 @@ func NewModerationService(repo ModerationRepository) *ModerationService {
 	return &ModerationService{repo: repo}
 }
 
-// ReportRequest — học viên báo cáo 1 bài viết / bình luận
+// ReportRequest — học viên báo cáo 1 bài viết / bình luận / tin nhắn chat phòng thử thách
 type ReportRequest struct {
-	TargetType string    `json:"target_type" enums:"post,comment"`
+	TargetType string    `json:"target_type" enums:"post,comment,chat"`
 	TargetID   uuid.UUID `json:"target_id" swaggertype:"string" format:"uuid"`
 	Reason     string    `json:"reason" enums:"spam,harassment,hate,sexual,violence,other"`
 	Note       string    `json:"note" maxLength:"500"`
@@ -82,6 +85,10 @@ func (s *ModerationService) targetAuthor(ctx context.Context, targetType string,
 		var c db.BlogComment
 		c, err = s.repo.GetBlogCommentByID(ctx, toPgUUID(id))
 		author = c.AuthorID
+	case ReportTargetChat:
+		var m db.GameChatMessage
+		m, err = s.repo.GetGameChatMessage(ctx, toPgUUID(id))
+		author = m.UserID
 	default:
 		return uuid.Nil, fmt.Errorf("loại nội dung không hợp lệ: %w", ErrInvalidInput)
 	}
@@ -93,6 +100,9 @@ func (s *ModerationService) targetAuthor(ctx context.Context, targetType string,
 
 func (s *ModerationService) hide(ctx context.Context, targetType string, id uuid.UUID, hidden bool) error {
 	switch {
+	case targetType == ReportTargetChat:
+		// Tin nhắn chat đã phát tức thời — đánh dấu để lưu vết xử lý (không còn hiện ở đâu để ẩn)
+		return s.repo.SetGameChatMessageHidden(ctx, db.SetGameChatMessageHiddenParams{ID: toPgUUID(id), IsHidden: hidden})
 	case targetType == ReportTargetPost && hidden:
 		return s.repo.HideBlogPost(ctx, toPgUUID(id))
 	case targetType == ReportTargetPost:
@@ -184,8 +194,9 @@ func (s *ModerationService) ListBlocked(ctx context.Context, blockerID uuid.UUID
 
 // ReportedContent — 1 nội dung bị báo cáo (gom mọi báo cáo của nó) trong hàng chờ admin
 type ReportedContent struct {
-	TargetType     string    `json:"target_type" enums:"post,comment"`
+	TargetType     string    `json:"target_type" enums:"post,comment,chat"`
 	TargetID       uuid.UUID `json:"target_id" swaggertype:"string" format:"uuid"`
+	RoomCode       string    `json:"room_code,omitempty"` // tin nhắn chat: mã phòng thử thách
 	ReportCount    int32     `json:"report_count"`
 	Reasons        []string  `json:"reasons"`
 	Notes          string    `json:"notes,omitempty"`
@@ -197,6 +208,15 @@ type ReportedContent struct {
 	AuthorUsername string    `json:"author_username,omitempty"`
 	IsHidden       bool      `json:"is_hidden"`
 	Deleted        bool      `json:"deleted"` // nội dung đã bị xoá
+}
+
+// reportExcerpt — xem trước nội dung bị báo cáo: bài viết là HTML (bỏ thẻ); bình luận / chat là chữ thuần — giữ
+// nguyên ký tự người dùng đã gõ (vd "<3"), chỉ gộp khoảng trắng + cắt ngắn
+func reportExcerpt(targetType, content string) string {
+	if targetType == ReportTargetPost {
+		return html.UnescapeString(excerpt(content))
+	}
+	return truncateRunes(strings.Join(strings.Fields(content), " "), excerptLen)
 }
 
 var validReportStatuses = map[string]bool{"OPEN": true, "RESOLVED": true, "DISMISSED": true}
@@ -220,7 +240,7 @@ func (s *ModerationService) ListReports(ctx context.Context, status string, page
 		item := ReportedContent{
 			TargetType: r.TargetType, TargetID: uuid.UUID(r.TargetID.Bytes), ReportCount: r.ReportCount, Reasons: r.Reasons,
 			Notes: r.Notes, LastReportedAt: r.LastReportedAt.Time, PostTitle: r.PostTitle, AuthorUsername: r.AuthorUsername,
-			Excerpt:  html.UnescapeString(excerpt(r.Content)),
+			Excerpt: reportExcerpt(r.TargetType, r.Content), RoomCode: r.RoomCode,
 			IsHidden: r.IsHidden, Deleted: r.Deleted,
 		}
 		if r.PostID.Valid {
@@ -242,7 +262,7 @@ type ResolveRequest struct {
 
 func (s *ModerationService) Resolve(ctx context.Context, adminID uuid.UUID, targetType string, targetID uuid.UUID, req ResolveRequest) error {
 	status := map[string]string{"hide": "RESOLVED", "dismiss": "DISMISSED"}[req.Action]
-	if status == "" || (targetType != ReportTargetPost && targetType != ReportTargetComment) {
+	if status == "" || (targetType != ReportTargetPost && targetType != ReportTargetComment && targetType != ReportTargetChat) {
 		return fmt.Errorf("thao tác không hợp lệ: %w", ErrInvalidInput)
 	}
 	// Ẩn / gỡ ẩn TRƯỚC rồi mới đóng báo cáo — bước ẩn lỗi thì báo cáo vẫn mở để admin xử lý lại
