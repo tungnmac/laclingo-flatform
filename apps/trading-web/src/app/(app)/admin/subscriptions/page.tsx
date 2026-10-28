@@ -7,6 +7,9 @@ import { api } from '@/lib/api'
 import { errorMessage } from '@/lib/error-message'
 import type { AdminSubscriptionDto } from '@/server/billing/subscription-service'
 import { GRANT_MONTHS } from '@/server/billing/plans'
+import { formatVnd } from '@/lib/vnd'
+
+type AdminOrder = { id: string; order_code: number; email: string; period: string; amount_vnd: number; status: string; provider: string; created_at: string; paid_at: string | null; issue: string | null }
 
 /** Cấp / thu hồi Pro thủ công (chưa có thanh toán trực tuyến) */
 export default function AdminSubscriptionsPage() {
@@ -20,6 +23,7 @@ export default function AdminSubscriptionsPage() {
   const [error, setError] = useState<unknown>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
+  const [orders, setOrders] = useState<AdminOrder[]>([])
   const refresh = useCallback(() => setReload((n) => n + 1), [])
 
   useEffect(() => {
@@ -39,6 +43,10 @@ export default function AdminSubscriptionsPage() {
       clearTimeout(id)
     }
   }, [q, reload])
+
+  useEffect(() => {
+    api<AdminOrder[]>('/api/admin/payments').then(setOrders, () => {})
+  }, [reload])
 
   const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US') : '∞')
 
@@ -160,6 +168,34 @@ export default function AdminSubscriptionsPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {orders.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-bold">{t('adminSubs.ordersTitle')}</h2>
+          <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+            <table className="w-full text-sm">
+              <caption className="sr-only">{t('adminSubs.ordersTitle')}</caption>
+              <tbody className="divide-y divide-slate-100">
+                {orders.map((o) => (
+                  <tr key={o.id}>
+                    <td className="px-4 py-2 font-semibold tabular-nums">#{o.order_code}</td>
+                    <td className="px-4 py-2">{o.email}</td>
+                    <td className="px-4 py-2 tabular-nums">
+                      {t(`pro.period_${o.period}`)} · {formatVnd(o.amount_vnd, locale)}
+                    </td>
+                    <td className="px-4 py-2">
+                      {t(`pro.order_${o.status}`)}
+                      {o.issue && <span className="ml-2 rounded bg-rose-50 px-1.5 py-0.5 text-xs font-semibold text-rose-700">{t(`adminSubs.issue_${o.issue}`)}</span>}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-slate-500">
+                      {o.provider} · {date(o.paid_at ?? o.created_at)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
     </div>
   )

@@ -78,24 +78,39 @@ export async function listSubscriptionsAdmin(f: z.infer<typeof subscriptionListS
   }))
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Cấp Pro N tháng trong transaction có sẵn (admin cấp tay / thanh toán). Gọi SAU khi đã khoá dòng users của user này:
+ * 2 lần cấp đồng thời chạy tuần tự, lần sau thấy kỳ lần trước vừa tạo (READ COMMITTED: câu lệnh sau lấy snapshot mới).
+ */
+export async function grantInTx(
+  tx: Tx,
+  userId: string,
+  months: number,
+  extra: { source: 'admin' | 'payment'; note?: string | null; grantedBy?: string | null },
+): Promise<{ id: string; startsAt: Date; endsAt: Date }> {
+  const rows = await tx
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.userId, userId), eq(subscriptions.status, 'active')))
+  const period = grantPeriod(rows, new Date(), months)
+  if (!period) throw new HttpError(409, 'ALREADY_PRO_LIFETIME')
+  const [row] = await tx
+    .insert(subscriptions)
+    .values({ userId, plan: 'pro', status: 'active', source: extra.source, ...period, note: extra.note || null, grantedBy: extra.grantedBy ?? null })
+    .returning({ id: subscriptions.id })
+  return { id: row.id, ...period }
+}
+
 /** Cấp Pro N tháng cho user theo email; đang có Pro → nối tiếp sau ngày hết hạn hiện tại */
 export async function grantPro(admin: SessionUser, input: z.infer<typeof grantSchema>): Promise<{ id: string; starts_at: string; ends_at: string }> {
   return db.transaction(async (tx) => {
-    // Khoá dòng users trước khi đọc thuê bao: 2 lần cấp đồng thời cho cùng user chạy tuần tự, lần sau thấy kỳ lần trước vừa tạo
-    // (READ COMMITTED: câu lệnh sau lấy snapshot mới) — khoá FOR UPDATE trên subscriptions không đủ vì không khoá được dòng chưa tồn tại
+    // khoá dòng users (FOR UPDATE trên subscriptions không đủ vì không khoá được dòng chưa tồn tại)
     const [user] = await tx.select({ id: users.id }).from(users).where(eq(users.email, input.email)).for('update')
     if (!user) throw new HttpError(404, 'USER_NOT_FOUND')
-    const rows = await tx
-      .select()
-      .from(subscriptions)
-      .where(and(eq(subscriptions.userId, user.id), eq(subscriptions.status, 'active')))
-    const period = grantPeriod(rows, new Date(), input.months)
-    if (!period) throw new HttpError(409, 'ALREADY_PRO_LIFETIME')
-    const [row] = await tx
-      .insert(subscriptions)
-      .values({ userId: user.id, plan: 'pro', status: 'active', source: 'admin', ...period, note: input.note || null, grantedBy: admin.id })
-      .returning({ id: subscriptions.id })
-    return { id: row.id, starts_at: period.startsAt.toISOString(), ends_at: period.endsAt.toISOString() }
+    const g = await grantInTx(tx, user.id, input.months, { source: 'admin', note: input.note, grantedBy: admin.id })
+    return { id: g.id, starts_at: g.startsAt.toISOString(), ends_at: g.endsAt.toISOString() }
   })
 }
 
