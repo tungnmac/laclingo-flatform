@@ -13,6 +13,7 @@ import { languageFlag, previewPhrase } from '@/features/course/components/Langua
 import { AccountList, signOutCurrent } from '@/features/auth/components/AccountList'
 import { PlanSummary } from '@/features/billing/components/PlanSummary'
 import { ReminderSettingsCard } from '@/features/reminder/components/ReminderSettingsCard'
+import { BlockedUsersCard } from '@/features/moderation/components/BlockedUsersCard'
 import { DeleteAccountCard } from '@/features/user/components/DeleteAccountCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
@@ -160,6 +161,8 @@ export default function ProfilePage() {
           <ReminderSettingsCard />
 
           <VoiceSettingsCard />
+
+          <BlockedUsersCard />
 
           <DeleteAccountCard user={user} />
 

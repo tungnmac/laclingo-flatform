@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { blogService } from '@/features/blog/blog.service'
+import { useBlockUser } from '@/features/moderation/useBlockUser'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn, formatDate } from '@/lib/utils'
@@ -49,18 +50,29 @@ export function CommentThread({
   comments,
   currentUserId,
   onChanged,
+  onReport,
+  onBlocked,
 }: {
   postId: string
   comments: BlogCommentNode[]
   currentUserId?: string
   onChanged: () => void
+  onReport: (commentId: string) => void
+  onBlocked: () => void // vừa chặn tác giả 1 bình luận — trang tải lại cả bài (có thể cùng tác giả) + bình luận
 }) {
   if (comments.length === 0) return null
   return (
     <ul className="max-h-[32rem] space-y-5 overflow-y-auto pr-1">
       {comments.map((root) => (
         <li key={root.id}>
-          <RootCommentGroup postId={postId} root={root} currentUserId={currentUserId} onChanged={onChanged} />
+          <RootCommentGroup
+            postId={postId}
+            root={root}
+            currentUserId={currentUserId}
+            onChanged={onChanged}
+            onReport={onReport}
+            onBlocked={onBlocked}
+          />
         </li>
       ))}
     </ul>
@@ -72,11 +84,15 @@ function RootCommentGroup({
   root,
   currentUserId,
   onChanged,
+  onReport,
+  onBlocked,
 }: {
   postId: string
   root: BlogCommentNode
   currentUserId?: string
   onChanged: () => void
+  onReport: (commentId: string) => void
+  onBlocked: () => void
 }) {
   const t = useTranslation()
   const [showReplies, setShowReplies] = useState(true)
@@ -87,7 +103,15 @@ function RootCommentGroup({
 
   return (
     <>
-      <CommentItem postId={postId} comment={root} currentUserId={currentUserId} onChanged={onChanged} mentionCandidates={mentionCandidates} />
+      <CommentItem
+        postId={postId}
+        comment={root}
+        currentUserId={currentUserId}
+        onChanged={onChanged}
+        onReport={onReport}
+        onBlocked={onBlocked}
+        mentionCandidates={mentionCandidates}
+      />
       {root.replies.length > 0 && (
         <div className="mt-2 pl-11">
           <button type="button" onClick={() => setShowReplies((v) => !v)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
@@ -102,6 +126,8 @@ function RootCommentGroup({
                     comment={reply}
                     currentUserId={currentUserId}
                     onChanged={onChanged}
+                    onReport={onReport}
+                    onBlocked={onBlocked}
                     mentionCandidates={mentionCandidates}
                   />
                 </li>
@@ -121,16 +147,21 @@ function CommentItem({
   comment,
   currentUserId,
   onChanged,
+  onReport,
+  onBlocked,
   mentionCandidates,
 }: {
   postId: string
   comment: BlogCommentNode
   currentUserId?: string
   onChanged: () => void
+  onReport: (commentId: string) => void
+  onBlocked: () => void
   mentionCandidates: string[]
 }) {
   const t = useTranslation()
   const confirm = useConfirm()
+  const { block } = useBlockUser()
   const isOwn = currentUserId === comment.author_id
 
   const [replying, setReplying] = useState(false)
@@ -250,13 +281,19 @@ function CommentItem({
               </Button>
             </div>
           </div>
+        ) : comment.author_blocked ? (
+          <p className="mt-0.5 text-sm italic text-slate-400">🚫 {t.moderation.blockedComment}</p>
+        ) : comment.is_hidden && !comment.content ? (
+          // Đã ẩn (admin / đủ người báo cáo) — server chỉ trả nội dung cho tác giả + quản trị viên
+          <p className="mt-0.5 text-sm italic text-slate-400">{t.moderation.hiddenComment}</p>
         ) : (
           <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-700">
             <CommentBody content={comment.content} mentionCandidates={mentionCandidates} />
           </p>
         )}
 
-        {!editing && (
+        {/* Bị chặn / bị ẩn (không có nội dung): không cho tương tác */}
+        {!editing && !comment.author_blocked && !(comment.is_hidden && !comment.content) && (
           <div className="mt-1.5 flex items-center gap-3 text-xs font-medium text-slate-500">
             <button
               type="button"
@@ -292,6 +329,20 @@ function CommentItem({
                 </button>
                 <button type="button" onClick={onDelete} className="hover:text-rose-600">
                   {t.blog.deleteCommentBtn}
+                </button>
+              </>
+            )}
+            {!isOwn && (
+              <>
+                <button type="button" onClick={() => onReport(comment.id)} className="hover:text-rose-600">
+                  {t.moderation.report}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void block(comment.author_id, authorName(comment)).then((done) => done && onBlocked())}
+                  className="hover:text-rose-600"
+                >
+                  {t.moderation.block(authorName(comment))}
                 </button>
               </>
             )}

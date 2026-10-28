@@ -9,12 +9,14 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { blogService } from '@/features/blog/blog.service'
 import { CommentThread } from '@/features/blog/components/CommentThread'
+import { ReportDialog } from '@/features/moderation/components/ReportDialog'
+import { useBlockUser } from '@/features/moderation/useBlockUser'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn, formatDate } from '@/lib/utils'
 import { useSession } from '@/store/session'
-import type { BlogCommentNode, BlogPostDetail } from '@/types/api'
+import type { BlogCommentNode, BlogPostDetail, ReportTargetType } from '@/types/api'
 
 type CounterAction = 'star' | 'marker' | 'like' | 'dislike'
 
@@ -42,6 +44,8 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
   const [counterError, setCounterError] = useState<string | null>(null)
   const [newComment, setNewComment] = useState('')
   const [postingComment, setPostingComment] = useState(false)
+  const [reporting, setReporting] = useState<{ type: ReportTargetType; id: string } | null>(null)
+  const { block, unblock } = useBlockUser()
 
   const runCounter = async (action: CounterAction, call: () => Promise<Partial<BlogPostDetail>>) => {
     if (pending || !post) return
@@ -114,6 +118,17 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
   if (!post) return null
 
   const isAuthor = user?.id === post.author_id
+  const authorName = post.author_full_name || post.author_username
+  const onBlockAuthor = async () => {
+    if (!(await block(post.author_id, authorName))) return
+    reload()
+    commentsApi.reload()
+  }
+  const onUnblockAuthor = async () => {
+    if (!(await unblock(post.author_id, authorName))) return
+    reload()
+    commentsApi.reload()
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -146,10 +161,19 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
 
         {/* Content là HTML đã sanitize ở backend (xem blog_service.go sanitizeBlogContent)
             — ảnh/video YouTube nhúng ngay trong content, [&_iframe] canh tỉ lệ 16:9 gọn. */}
-        <div
-          className="prose prose-slate mt-4 max-w-none [&_iframe]:aspect-video [&_iframe]:w-full [&_img]:rounded-lg"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        {post.author_blocked ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <span>🚫 {t.moderation.blockedPost(authorName)}</span>
+            <Button size="sm" variant="secondary" onClick={() => void onUnblockAuthor()}>
+              {t.moderation.unblock}
+            </Button>
+          </div>
+        ) : (
+          <div
+            className="prose prose-slate mt-4 max-w-none [&_iframe]:aspect-video [&_iframe]:w-full [&_img]:rounded-lg"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          />
+        )}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
@@ -206,6 +230,17 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
         </div>
         {counterError && <p className="mt-2 text-sm text-rose-600">{counterError}</p>}
 
+        {!isAuthor && !post.author_blocked && (
+          <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs font-medium text-slate-500">
+            <button type="button" onClick={() => setReporting({ type: 'post', id: post.id })} className="hover:text-rose-600">
+              🚩 {t.moderation.reportPost}
+            </button>
+            <button type="button" onClick={() => void onBlockAuthor()} className="hover:text-rose-600">
+              🚫 {t.moderation.block(authorName)}
+            </button>
+          </div>
+        )}
+
         {isAuthor && (
           <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
             <ButtonLink href={`/blog/${post.id}/edit`} variant="secondary" size="sm">
@@ -247,10 +282,25 @@ export default function BlogPostDetailPage({ params }: { params: { postId: strin
               comments={commentsApi.data}
               currentUserId={user?.id}
               onChanged={commentsApi.reload}
+              onReport={(id) => setReporting({ type: 'comment', id })}
+              onBlocked={() => {
+                reload()
+                commentsApi.reload()
+              }}
             />
           )}
         </div>
       </Card>
+
+      <ReportDialog
+        target={reporting}
+        onClose={() => setReporting(null)}
+        onReported={(autoHidden) => {
+          if (!autoHidden) return
+          if (reporting?.type === 'post') reload()
+          else commentsApi.reload()
+        }}
+      />
     </div>
   )
 }

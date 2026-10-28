@@ -764,6 +764,7 @@ export interface BlogPostDetail {
   liked: boolean
   disliked: boolean
   is_hidden: boolean
+  author_blocked: boolean // người xem đã chặn tác giả — content trống
   created_at: string
 }
 
@@ -793,6 +794,7 @@ export interface BlogCommentNode {
   author_avatar_url?: string
   content: string
   is_hidden: boolean
+  author_blocked: boolean // người xem đã chặn tác giả — content trống
   created_at: string
   like_count: number
   dislike_count: number
@@ -1265,4 +1267,41 @@ export interface PendingRewardsResponse {
   count: number
   total: number
   settings: RewardSettings
+}
+
+// ===== Báo cáo + chặn nội dung (blog, bình luận) =====
+export type ReportReason = 'spam' | 'harassment' | 'hate' | 'sexual' | 'violence' | 'other'
+export type ReportTargetType = 'post' | 'comment'
+export type ReportStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED'
+
+export interface ReportRequest {
+  target_type: ReportTargetType
+  target_id: string
+  reason: ReportReason
+  note?: string
+}
+
+export interface BlockedUser {
+  id: string
+  username: string
+  full_name?: string
+  avatar_url?: string
+  blocked_at: string
+}
+
+/** 1 nội dung bị báo cáo (gom mọi báo cáo của nó) — hàng chờ admin */
+export interface ReportedContent {
+  target_type: ReportTargetType
+  target_id: string
+  report_count: number
+  reasons: ReportReason[]
+  notes?: string
+  last_reported_at: string
+  post_id?: string
+  post_title?: string
+  excerpt: string
+  author_id?: string
+  author_username?: string
+  is_hidden: boolean
+  deleted: boolean
 }
