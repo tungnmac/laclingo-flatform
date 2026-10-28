@@ -1,6 +1,6 @@
 import { speechLang } from '@/features/course/components/LanguageCard'
 import { isNativeApp } from '@/lib/native'
-import { NativeTextToSpeech, TTS_CATEGORY, TTS_QUEUE_FLUSH } from '@/lib/nativeSpeech'
+import { NativeTextToSpeech, TTS_QUEUE_FLUSH } from '@/lib/nativeSpeech'
 
 /** Sự kiện window phát ra khi không đọc được — SpeechErrorToaster (dashboard layout) hiện thông báo kèm mã lỗi */
 export const SPEECH_ERROR_EVENT = 'laclingo:speech-error'
@@ -40,9 +40,17 @@ function reportSpeechError(code: string) {
 /** Dừng mọi lời đang đọc và huỷ các lệnh đọc đang chờ phát */
 export function stopSpeech() {
   generation++
-  if (isNativeApp()) void NativeTextToSpeech.stop().catch(() => {})
-  else if (supported()) window.speechSynthesis.cancel()
+  if (isNativeApp()) {
+    settleNativeSpeech?.()
+    void NativeTextToSpeech.stop().catch(() => {})
+  } else if (supported()) window.speechSynthesis.cancel()
 }
+
+// Android: lời bị thay (Flush) / bị stop() không bao giờ báo xong (plugin bỏ callback) → tự kết thúc lời đang chờ khi có
+// lời mới hoặc dừng, để nút nghe không nhấp nháy mãi
+let settleNativeSpeech: (() => void) | null = null
+// Android: bộ đọc chưa khởi tạo xong ngay sau khi mở app thì từ chối lời đầu → thử lại 1 lần
+const NATIVE_RETRY_MS = 600
 
 /**
  * Trong app iOS/Android: đọc bằng bộ đọc của hệ điều hành (Android WebView không có speechSynthesis). Giọng chọn ở
@@ -51,12 +59,34 @@ export function stopSpeech() {
 async function speakNative(text: string, languageId: string, options: { rate?: number; interrupt?: boolean }) {
   // Ngắt lời: queueStrategy Flush đã thay lời đang đọc — không gọi stop() (lệnh stop tới sau có thể tắt luôn lời mới)
   if (options.interrupt) generation++
+  settleNativeSpeech?.()
   const myGeneration = generation
+  const stale = () => generation !== myGeneration
   const lang = speechLang(languageId)
+  const maxMs = Math.max(MIN_END_TIMEOUT_MS, (text.length * END_TIMEOUT_MS_PER_CHAR) / (options.rate || 1))
+  // Xong khi plugin báo xong, bị thay / dừng (settleNativeSpeech) hoặc quá thời gian; lỗi thì reject
+  const speakOnce = () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(resolve, maxMs)
+      const settle = () => (window.clearTimeout(timer), resolve())
+      settleNativeSpeech = settle
+      NativeTextToSpeech.speak({ text, lang, rate: options.rate ?? 1, queueStrategy: TTS_QUEUE_FLUSH }).then(settle, (e) => {
+        window.clearTimeout(timer)
+        reject(e)
+      })
+    })
   try {
-    await NativeTextToSpeech.speak({ text, lang, rate: options.rate ?? 1, category: TTS_CATEGORY, queueStrategy: TTS_QUEUE_FLUSH })
+    await speakOnce()
+    return
   } catch {
-    if (generation !== myGeneration) return // bị dừng / ngắt lời — không phải lỗi
+    if (stale()) return // bị dừng / ngắt lời — không phải lỗi
+  }
+  await new Promise((r) => window.setTimeout(r, NATIVE_RETRY_MS))
+  if (stale()) return
+  try {
+    await speakOnce()
+  } catch {
+    if (stale()) return
     const { supported: hasLang } = await NativeTextToSpeech.isLanguageSupported({ lang }).catch(() => ({ supported: true }))
     reportSpeechError(hasLang ? 'native-error' : 'language-unavailable')
   }

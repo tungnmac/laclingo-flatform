@@ -9,13 +9,13 @@
     "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#1e1b4b'"
   },
   "dependencies": {
-    "@capacitor-community/speech-recognition": "7.0.1",
     "@capacitor-community/text-to-speech": "8.0.2",
     "@capacitor-firebase/messaging": "8.5.2",
     "@capacitor/android": "8.5.3",
     "@capacitor/app": "8.1.2",
     "@capacitor/core": "8.5.3",
     "@capacitor/ios": "8.5.3",
+    "@capgo/capacitor-speech-recognition": "8.4.6",
     "@capgo/native-purchases": "^8.9.4"
   },
   "devDependencies": {
