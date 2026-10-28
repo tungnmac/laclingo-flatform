@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isNativeApp } from '@/lib/native'
-import { NativeSpeechRecognition, ensureSpeechPermission } from '@/lib/nativeSpeech'
+import { NativeSpeechRecognition, ensureSpeechPermission, nativeSpeechError } from '@/lib/nativeSpeech'
 
 // Web Speech API chưa có trong lib.dom của TypeScript — khai báo phần đang dùng
 interface RecognitionAlternative {
@@ -29,14 +29,14 @@ interface Recognition {
 }
 type RecognitionCtor = new () => Recognition
 
-// App native (plugin speech-recognition): Android báo 'stopped' TRƯỚC khi gửi kết quả cuối → chờ thêm chút rồi mới chốt;
-// iOS không tự dừng khi ngưng nói → nhắc lại câu thì tự dừng sau khoảng lặng; lỗi giữa chừng (vd không nghe thấy gì)
-// Android không báo về → giới hạn thời gian chờ lời nói đầu tiên.
-const NATIVE_FINAL_GRACE_MS = 700
+// App native (plugin @capgo/capacitor-speech-recognition): kết quả cuối tới qua 'partialResults' TRƯỚC 'stopped' → chốt
+// khi nhận 'stopped'. iOS không tự dừng khi ngưng nói → nhắc lại câu thì tự dừng sau khoảng lặng. Android luôn dừng ở
+// khoảng lặng đầu tiên → trả lời dài (continuous) thì chốt đoạn vừa nghe rồi nghe tiếp. Phòng plugin không báo
+// 'stopped' sau stop() → tự chốt sau NATIVE_STOP_FALLBACK_MS; chưa nghe thấy gì sau NATIVE_NO_SPEECH_MS thì dừng.
 const NATIVE_SILENCE_STOP_MS = 2000
+const NATIVE_STOP_FALLBACK_MS = 2500
 const NATIVE_NO_SPEECH_MS = 8000
-// Lỗi = người dùng chưa nói / tự dừng — không coi là lỗi (Android: getErrorText, iOS: "No speech detected"…)
-const NATIVE_IGNORED_ERRORS = /no match|no speech|speech timeout|didn.t understand|cancel/i
+const NATIVE_MAX_RESTARTS = 30
 
 function recognitionCtor(): RecognitionCtor | null {
   if (typeof window === 'undefined') return null
@@ -114,8 +114,11 @@ export function useSpeechRecognition(lang: string) {
     setListening(true)
 
     let finished = false
+    let stopping = false // người dùng bấm dừng / hết khoảng lặng — không nghe tiếp nữa
+    let restarts = 0
+    const done = () => stale() || finished
     const finish = () => {
-      if (finished || stale()) return
+      if (done()) return
       finished = true
       clearNativeTimers()
       nativeFinish.current = null
@@ -124,29 +127,37 @@ export function useSpeechRecognition(lang: string) {
     }
     const later = (ms: number, fn: () => void) => nativeTimers.current.push(window.setTimeout(fn, ms))
     const stopAndFinish = () => {
-      void NativeSpeechRecognition.stop().catch(() => {})
-      later(NATIVE_FINAL_GRACE_MS, finish)
+      if (done() || stopping) return
+      stopping = true
+      void NativeSpeechRecognition.stop().catch(() => {}) // Android có bản stop() không resolve — không await
+      later(NATIVE_STOP_FALLBACK_MS, finish)
     }
     nativeFinish.current = stopAndFinish
+    const fail = (code: string, message: string) => {
+      if (done()) return
+      const mapped = nativeSpeechError(code, message)
+      if (mapped) setError(mapped)
+      finish()
+    }
+    const listen = (restart: boolean) =>
+      NativeSpeechRecognition.start({ language: lang, maxResults: 1, partialResults: true, popup: false, muteRecognizerBeep: restart }).catch(
+        (e: unknown) => fail('', e instanceof Error ? e.message : String(e)),
+      )
 
     try {
-      if (!(await ensureSpeechPermission())) {
-        if (stale()) return
-        nativeFinish.current = null
-        setListening(false)
-        setError('app-not-allowed')
-        return
-      }
-      if (stale()) return
+      const allowed = await ensureSpeechPermission()
+      if (done()) return
+      if (!allowed) return fail('PERMISSION', '')
       await NativeSpeechRecognition.removeAllListeners()
+      if (done()) return
       let silenceTimer: number | undefined
       await NativeSpeechRecognition.addListener('partialResults', ({ matches }) => {
-        if (stale() || finished) return
+        if (done()) return
         const now = Date.now()
         if (!speechTimes.current.first) speechTimes.current.first = now
         speechTimes.current.last = now
-        // matches[0] = toàn bộ câu đang nghe (không cộng dồn như results của Web Speech)
-        textRef.current = { committed: '', pending: (matches[0] ?? '').trim() }
+        // matches[0] = cả câu của đoạn đang nghe (không cộng dồn như results của Web Speech)
+        textRef.current = { ...textRef.current, pending: (matches?.[0] ?? '').trim() }
         setInterimText(textRef.current.pending)
         if (!continuous) {
           window.clearTimeout(silenceTimer)
@@ -154,19 +165,29 @@ export function useSpeechRecognition(lang: string) {
           nativeTimers.current.push(silenceTimer)
         }
       })
-      await NativeSpeechRecognition.addListener('listeningState', ({ status }) => {
-        if (status === 'stopped' && !stale()) later(NATIVE_FINAL_GRACE_MS, finish)
+      await NativeSpeechRecognition.addListener('error', ({ code, message }) => {
+        if (done()) return
+        const mapped = nativeSpeechError(code, message)
+        if (mapped) setError(mapped) // plugin báo 'stopped' (reason error) ngay sau → chốt ở đó
       })
-      if (stale()) return
+      await NativeSpeechRecognition.addListener('listeningState', ({ state, status, reason }) => {
+        if (done() || (status ?? state) !== 'stopped') return
+        if (continuous && !stopping && (reason === 'results' || reason === 'silence') && restarts < NATIVE_MAX_RESTARTS) {
+          restarts++
+          const { committed, pending } = textRef.current
+          textRef.current = { committed: `${committed} ${pending}`.trim(), pending: '' }
+          setFinalText(textRef.current.committed)
+          setInterimText('')
+          void listen(true)
+          return
+        }
+        finish()
+      })
+      if (done()) return
       later(NATIVE_NO_SPEECH_MS, () => !speechTimes.current.first && stopAndFinish())
-      const res = await NativeSpeechRecognition.start({ language: lang, maxResults: 1, partialResults: true, popup: false })
-      // Bản không có partialResults trả kết quả ngay trong start()
-      if (!stale() && !finished && res?.matches?.[0]) textRef.current = { committed: '', pending: res.matches[0].trim() }
+      await listen(false)
     } catch (e) {
-      if (stale()) return
-      const message = e instanceof Error ? e.message : String(e)
-      if (!NATIVE_IGNORED_ERRORS.test(message)) setError(message || 'start-failed')
-      finish()
+      fail('', e instanceof Error ? e.message : String(e))
     }
   }
 
