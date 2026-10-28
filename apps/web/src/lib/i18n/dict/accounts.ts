@@ -3,7 +3,7 @@ import type { Locale } from '@/store/locale'
 // Namespace "accounts" — chuyển giữa các tài khoản đã đăng nhập. Chỉ vi+en — zh/ja/ko fallback về en.
 export interface AccountsDict {
   accounts: {
-    switchBtn: string
+    menu: (name: string) => string
     title: string
     current: string
     expired: string
@@ -32,7 +32,7 @@ export interface AccountsDict {
 export const accountsTranslations: Partial<Record<Locale, AccountsDict>> = {
   vi: {
     accounts: {
-      switchBtn: 'Chuyển tài khoản',
+      menu: (n) => `Tài khoản ${n}: hồ sơ, chuyển tài khoản`,
       title: 'Tài khoản trên máy này',
       current: 'Đang dùng',
       expired: 'Hết phiên — đăng nhập lại',
@@ -61,7 +61,7 @@ export const accountsTranslations: Partial<Record<Locale, AccountsDict>> = {
   },
   en: {
     accounts: {
-      switchBtn: 'Switch account',
+      menu: (n) => `Account ${n}: profile, switch account`,
       title: 'Accounts on this device',
       current: 'Current',
       expired: 'Session expired — sign in again',

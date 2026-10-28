@@ -3,24 +3,22 @@
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { Avatar } from '@/components/ui/Avatar'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { signOutCurrent } from '@/features/auth/components/AccountList'
-import { AccountSwitcher } from '@/features/auth/components/AccountSwitcher'
+import { UserMenu } from '@/features/auth/components/UserMenu'
 import { useRewardsCount } from '@/features/billing/rewardsStore'
 import { NotificationBell } from '@/features/notification/components/NotificationBell'
 import { StreakBadge } from '@/features/user/components/StreakBadge'
 import { isTypingTarget } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
-import { cn, displayName } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useLayout } from '@/store/layout'
 import { LOCALES, useLocale } from '@/store/locale'
 import type { User } from '@/types/api'
 
 // key tra vào t.nav (useTranslation) — label dịch theo ngôn ngữ giao diện,
 // không hardcode chuỗi ở đây nữa.
-// Dùng cho BottomNav (mobile, grid-cols-5 cố định) — Hồ sơ vẫn ở đây vì mobile
-// không có khối "thông tin cá nhân" riêng ở sidebar như desktop.
+// Dùng cho BottomNav (mobile, grid-cols-5 cố định) — Hồ sơ vẫn ở đây cho mobile dễ bấm.
 const NAV_ITEMS = [
   { href: '/learn', key: 'learn' as const, icon: '📚' },
   { href: '/review', key: 'review' as const, icon: '🧠' },
@@ -29,8 +27,7 @@ const NAV_ITEMS = [
   { href: '/profile', key: 'profile' as const, icon: '👤' },
 ]
 
-// Nav chính của Sidebar (desktop) — KHÔNG gồm Hồ sơ, vì trên desktop mục đó
-// đã nằm trong khối thông tin cá nhân ở góc dưới (bấm vào avatar/tên để vào).
+// Nav chính của Sidebar (desktop) — KHÔNG gồm Hồ sơ, vì mục đó đã nằm trong menu tài khoản trên header (TopBar).
 const SIDEBAR_NAV_ITEMS = NAV_ITEMS.filter((item) => item.href !== '/profile')
 const MISSIONS_ITEM = { href: '/missions', key: 'missions' as const, icon: '🎯' }
 const DAILY_ITEM = { href: '/daily', key: 'daily' as const, icon: '📓' }
@@ -118,8 +115,8 @@ export function Sidebar({ user }: { user: User }) {
         </button>
       </div>
 
-      {/* min-h-0 + cuộn dọc: màn hình thấp thì danh sách menu tự cuộn, khối dưới (chuông,
-          hồ sơ, đăng xuất) luôn nằm trong màn hình. nowrap + ẩn tràn ngang: lúc đang giãn
+      {/* min-h-0 + cuộn dọc: màn hình thấp thì danh sách menu tự cuộn, khối dưới (ngôn ngữ,
+          đăng xuất) luôn nằm trong màn hình. nowrap + ẩn tràn ngang: lúc đang giãn
           rộng (200ms) chữ không xuống dòng / hiện thanh cuộn ngang */}
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden whitespace-nowrap">
         {sidebarItems.map((item) => (
@@ -150,10 +147,8 @@ export function Sidebar({ user }: { user: User }) {
         ))}
       </nav>
 
+      {/* Thông báo + thông tin tài khoản nằm trên header (TopBar); góc dưới chỉ còn ngôn ngữ + đăng xuất */}
       <div className="border-t border-slate-200 pt-4">
-        <div className="mb-2">
-          <NotificationBell variant={collapsed ? 'rail' : 'sidebar'} />
-        </div>
         {collapsed ? (
           // Thu gọn: hiện cờ ngôn ngữ hiện tại — bấm để mở rộng rồi đổi ở ô chọn
           <button
@@ -168,26 +163,6 @@ export function Sidebar({ user }: { user: User }) {
         ) : (
           <LanguageSwitcher className="mb-3" />
         )}
-        <Link
-          href="/profile"
-          aria-current={isActive(pathname, '/profile') ? 'page' : undefined}
-          aria-label={collapsed ? t.nav.profile : undefined}
-          title={collapsed ? `${displayName(user)} · ${user.email}` : undefined}
-          className={cn(
-            'flex items-center gap-3 rounded-xl py-2 transition',
-            collapsed ? 'justify-center px-0' : 'px-2',
-            isActive(pathname, '/profile') ? 'bg-indigo-50' : 'hover:bg-slate-100',
-          )}
-        >
-          <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-9 w-9 shrink-0 text-sm" />
-          {!collapsed && (
-            <div className="min-w-0 flex-1 whitespace-nowrap">
-              <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
-              <p className="truncate text-xs text-slate-500">{user.email}</p>
-            </div>
-          )}
-        </Link>
-        <AccountSwitcher collapsed={collapsed} />
         <button
           type="button"
           onClick={signOutCurrent}
@@ -205,26 +180,27 @@ export function Sidebar({ user }: { user: User }) {
   )
 }
 
-/** Header gọn cho mobile */
-export function MobileHeader({ user }: { user: User }) {
+/**
+ * Header trên cùng của vùng nội dung (mọi kích thước màn hình): bên phải là chuông thông báo + menu tài khoản (hồ sơ,
+ * chuyển tài khoản). Mobile thêm logo + lối tắt vì không có sidebar.
+ */
+export function TopBar({ user }: { user: User }) {
   const t = useTranslation()
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:hidden">
-      <Link href="/learn" className="flex items-center gap-1.5 text-lg font-bold text-indigo-600">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200 bg-white/90 px-4 py-2.5 backdrop-blur sm:px-6 lg:px-8">
+      <Link href="/learn" className="flex items-center gap-1.5 text-lg font-bold text-indigo-600 md:hidden">
         <img src="/logo.svg" alt="" className="h-7 w-7 rounded-lg" /> LacLingo
       </Link>
-      <div className="flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-2">
         <StreakBadge count={user.streak_count} />
-        <Link href={ANALYZE_ITEM.href} aria-label={t.nav.analyze} className="text-xl">
+        <Link href={ANALYZE_ITEM.href} aria-label={t.nav.analyze} className="text-xl md:hidden">
           {ANALYZE_ITEM.icon}
         </Link>
-        <Link href={DAILY_ITEM.href} aria-label={t.nav.daily} className="text-xl">
+        <Link href={DAILY_ITEM.href} aria-label={t.nav.daily} className="text-xl md:hidden">
           {DAILY_ITEM.icon}
         </Link>
-        <NotificationBell variant="header" />
-        <Link href="/profile" aria-label={t.nav.profile}>
-          <Avatar name={displayName(user)} src={user.avatar_url || undefined} className="h-8 w-8 text-xs" />
-        </Link>
+        <NotificationBell />
+        <UserMenu user={user} />
       </div>
     </header>
   )

@@ -20,7 +20,7 @@ export function signOutCurrent() {
 
 /**
  * Danh sách tài khoản đã đăng nhập trên máy: bấm để chuyển (phiên hết hạn → đăng nhập lại, điền sẵn tên đăng nhập),
- * gỡ từng tài khoản, thêm tài khoản, đăng xuất tất cả. Dùng trong menu sidebar và trang Hồ sơ (mobile).
+ * gỡ từng tài khoản, thêm tài khoản, đăng xuất tất cả. Dùng trong menu tài khoản trên header (UserMenu) và trang Hồ sơ.
  */
 export function AccountList({ onDone }: { onDone?: () => void }) {
   const t = useTranslation()
