@@ -61,6 +61,12 @@ type UserResponse struct {
 	Exp          int64     `json:"exp"`
 	Points       int64     `json:"points"`
 	CreatedAt    time.Time `json:"created_at"`
+	// Onboarding (000049) — onboarded_at null = chưa qua bước thiết lập lần đầu → web mở /onboarding
+	Country        string     `json:"country,omitempty" example:"VN"`
+	NativeLanguage string     `json:"native_language,omitempty" example:"vi"`
+	BirthYear      *int       `json:"birth_year,omitempty"`
+	Bio            string     `json:"bio,omitempty"`
+	OnboardedAt    *time.Time `json:"onboarded_at"`
 }
 
 // LeaderboardEntry — 1 dòng trong bảng xếp hạng, đã kèm thứ hạng (rank =
@@ -85,21 +91,32 @@ type UpdateProfileRequest struct {
 }
 
 func toUserResponse(u db.User) UserResponse {
-	return UserResponse{
-		ID:           uuid.UUID(u.ID.Bytes),
-		Email:        u.Email,
-		Username:     u.Username,
-		FullName:     u.FullName.String,
-		AvatarURL:    u.AvatarUrl.String,
-		StreakCount:  u.StreakCount.Int32,
-		Role:         u.Role,
-		AdminModules: u.AdminModules,
-		IsActive:     u.IsActive,
-		Level:        u.Level,
-		Exp:          u.Exp,
-		Points:       u.Points,
-		CreatedAt:    u.CreatedAt.Time,
+	res := UserResponse{
+		ID:             uuid.UUID(u.ID.Bytes),
+		Email:          u.Email,
+		Username:       u.Username,
+		FullName:       u.FullName.String,
+		AvatarURL:      u.AvatarUrl.String,
+		StreakCount:    u.StreakCount.Int32,
+		Role:           u.Role,
+		AdminModules:   u.AdminModules,
+		IsActive:       u.IsActive,
+		Level:          u.Level,
+		Exp:            u.Exp,
+		Points:         u.Points,
+		CreatedAt:      u.CreatedAt.Time,
+		Country:        u.Country.String,
+		NativeLanguage: u.NativeLanguage.String,
+		Bio:            u.Bio.String,
 	}
+	if u.BirthYear.Valid {
+		year := int(u.BirthYear.Int16)
+		res.BirthYear = &year
+	}
+	if u.OnboardedAt.Valid {
+		res.OnboardedAt = &u.OnboardedAt.Time
+	}
+	return res
 }
 
 type UserService struct {
@@ -160,7 +177,7 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, req Updat
 	}
 	if req.AvatarURL != nil {
 		avatar := strings.TrimSpace(*req.AvatarURL)
-		if avatar != "" && !isHTTPURL(avatar) {
+		if avatar != "" && !isAvatarURL(avatar) {
 			return UserResponse{}, ErrInvalidInput
 		}
 		params.AvatarUrl = pgtype.Text{String: avatar, Valid: true}

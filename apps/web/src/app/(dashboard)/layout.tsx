@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { SpeechErrorToaster } from '@/components/audio/SpeechErrorToaster'
 import { BottomNav, Sidebar, TopBar } from '@/components/layout/DashboardNav'
 import { OfflineBanner } from '@/components/layout/OfflineBanner'
@@ -26,6 +26,8 @@ import { isSessionValid, useSession } from '@/store/session'
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const hydrated = useHydrated()
   const router = useRouter()
+  const pathname = usePathname()
+  const onboarding = pathname === '/onboarding'
   const user = useSession((s) => s.user)
   const token = useSession((s) => s.token)
   const expiresAt = useSession((s) => s.expiresAt)
@@ -54,11 +56,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // dữ liệu user cached trong localStorage từ lúc login, nếu quyền bị người
     // khác đổi (cấp/thu hồi quyền, owner migration...) sau đó thì sẽ bị cũ cho
     // tới khi đăng nhập lại nếu không refresh chủ động như này.
-    userService.me().then(setUser).catch(() => {})
+    // Chưa qua onboarding (user mới hoặc user cũ trước khi có tính năng) → mở các bước thiết lập. Chỉ khi đang có mạng
+    // (mất mạng thì trang onboarding cũng không tải được) và server trả rõ null: backend bản cũ không có field này
+    // (undefined) thì không chuyển
+    userService
+      .me()
+      .then((fresh) => {
+        setUser(fresh)
+        if (fresh.onboarded_at === null && navigator.onLine && window.location.pathname !== '/onboarding') router.replace('/onboarding')
+      })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valid])
 
   if (!hydrated || !valid || !user) return <Spinner />
+
+  // Onboarding: toàn màn hình, không sidebar / menu
+  if (onboarding)
+    return (
+      <ToastProvider>
+        <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-slate-50 px-4 pb-10 pt-[calc(2rem+var(--safe-top))] sm:px-6">
+          {children}
+        </main>
+      </ToastProvider>
+    )
 
   return (
     <ToastProvider>

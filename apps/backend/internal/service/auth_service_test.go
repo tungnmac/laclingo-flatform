@@ -22,6 +22,9 @@ func (f *fakeAuthRepo) GetUserByID(context.Context, pgtype.UUID) (db.User, error
 func (f *fakeAuthRepo) ListUserBlogImageKeys(context.Context, pgtype.UUID) ([]string, error) {
 	return []string{"blog/a.png"}, nil
 }
+func (f *fakeAuthRepo) ListUserAvatarKeys(context.Context, pgtype.UUID) ([]string, error) {
+	return nil, nil
+}
 func (f *fakeAuthRepo) DeleteUser(context.Context, pgtype.UUID) (int64, error) {
 	f.deleted = true
 	return 1, nil

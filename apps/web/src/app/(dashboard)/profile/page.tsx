@@ -96,6 +96,15 @@ export default function ProfilePage() {
 
         <div className="space-y-4 lg:col-span-2">
           <PlanSummary />
+          <Card className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="font-semibold text-slate-900">{t.onboarding.profileSetup}</h2>
+              <p className="text-sm text-slate-500">{t.onboarding.profileSetupHint}</p>
+            </div>
+            <Link href="/onboarding" className="shrink-0 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">
+              {t.onboarding.next} ›
+            </Link>
+          </Card>
           <Card>
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">{t.profile.level}</p>
