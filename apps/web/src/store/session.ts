@@ -6,6 +6,9 @@ import type { AuthResponse, User } from '@/types/api'
 export interface SavedAccount {
   token: string
   expiresAt: string
+  /** Đổi lấy access token mới khi hết hạn (xem refreshSession ở lib/api) — tài khoản đăng nhập trước khi có thì không có */
+  refreshToken?: string
+  refreshExpiresAt?: string
   user: User
 }
 
@@ -18,11 +21,15 @@ interface SessionState {
   // Phiên đang dùng — giữ các trường cũ để mọi nơi trong app (apiFetch, layout...) không phải đổi
   token: string | null
   expiresAt: string | null
+  refreshToken: string | null
+  refreshExpiresAt: string | null
   user: User | null
   /** Mọi tài khoản đã đăng nhập, mới dùng gần nhất trước */
   accounts: SavedAccount[]
   setSession: (auth: AuthResponse) => void
   setUser: (user: User) => void
+  /** Token mới sau khi làm mới phiên (POST /auth/refresh) của tài khoản userId */
+  updateTokens: (userId: string, auth: AuthResponse) => void
   /** Đăng xuất tài khoản đang dùng; còn tài khoản khác còn phiên → tự chuyển sang (trả true) */
   logout: () => boolean
   logoutAll: () => void
@@ -38,12 +45,26 @@ interface SessionState {
   removeAccount: (userId: string) => void
 }
 
-/** Phiên còn hiệu lực: có token và chưa hết hạn */
-export function isSessionValid(state: { token: string | null; expiresAt: string | null }) {
+type TokenState = { token: string | null; expiresAt: string | null; refreshToken?: string | null; refreshExpiresAt?: string | null }
+
+/** Access token còn dùng được (chưa hết hạn) */
+export function isAccessValid(state: TokenState) {
   return !!state.token && !!state.expiresAt && new Date(state.expiresAt).getTime() > Date.now()
 }
 
-const emptyActive = { token: null, expiresAt: null, user: null }
+/** Phiên còn hiệu lực: access token còn hạn, hoặc refresh token còn hạn (tự làm mới khi gọi API) */
+export function isSessionValid(state: TokenState) {
+  if (isAccessValid(state)) return true
+  return !!state.refreshToken && !!state.refreshExpiresAt && new Date(state.refreshExpiresAt).getTime() > Date.now()
+}
+
+const emptyActive = { token: null, expiresAt: null, refreshToken: null, refreshExpiresAt: null, user: null }
+
+/** Thu hồi refresh token ở server khi đăng xuất / gỡ tài khoản (best-effort). Import động: api.ts → store này. */
+function revokeRefresh(...accounts: (SavedAccount | undefined)[]) {
+  const tokens = accounts.map((a) => a?.refreshToken).filter((t): t is string => !!t)
+  if (tokens.length) void import('@/lib/api').then((m) => tokens.forEach(m.revokeRefreshToken)).catch(() => {})
+}
 
 /**
  * Trình duyệt chỉ có 1 kênh nhắc học (push) — đổi/đăng xuất tài khoản thì tắt ở trình duyệt này để nhắc học của người
@@ -60,7 +81,23 @@ function promote(accounts: SavedAccount[], acc: SavedAccount): SavedAccount[] {
 }
 
 function activeOf(acc: SavedAccount) {
-  return { token: acc.token, expiresAt: acc.expiresAt, user: acc.user }
+  return {
+    token: acc.token,
+    expiresAt: acc.expiresAt,
+    refreshToken: acc.refreshToken ?? null,
+    refreshExpiresAt: acc.refreshExpiresAt ?? null,
+    user: acc.user,
+  }
+}
+
+function accountFrom(auth: AuthResponse): SavedAccount {
+  return {
+    token: auth.access_token,
+    expiresAt: auth.expires_at,
+    refreshToken: auth.refresh_token,
+    refreshExpiresAt: auth.refresh_expires_at,
+    user: auth.user,
+  }
 }
 
 export const useSession = create<SessionState>()(
@@ -69,13 +106,20 @@ export const useSession = create<SessionState>()(
       ...emptyActive,
       accounts: [],
       setSession: (auth) => {
-        const acc: SavedAccount = { token: auth.access_token, expiresAt: auth.expires_at, user: auth.user }
+        const acc = accountFrom(auth)
         if (get().user && get().user!.id !== acc.user.id) forgetPush()
         set({ ...activeOf(acc), accounts: promote(get().accounts, acc) })
       },
       setUser: (user) => set((s) => ({ user, accounts: s.accounts.map((a) => (a.user.id === user.id ? { ...a, user } : a)) })),
+      updateTokens: (userId, auth) =>
+        set((s) => {
+          const acc = { ...accountFrom(auth), user: s.accounts.find((a) => a.user.id === userId)?.user ?? auth.user }
+          const accounts = s.accounts.map((a) => (a.user.id === userId ? acc : a))
+          return s.user?.id === userId ? { ...activeOf(acc), accounts } : { accounts }
+        }),
       logout: () => {
         forgetPush()
+        revokeRefresh(get().accounts.find((a) => a.user.id === get().user?.id))
         const rest = get().accounts.filter((a) => a.user.id !== get().user?.id)
         const next = rest.find((a) => isSessionValid(a))
         set(next ? { ...activeOf(next), accounts: promote(rest, next) } : { ...emptyActive, accounts: rest })
@@ -83,6 +127,7 @@ export const useSession = create<SessionState>()(
       },
       logoutAll: () => {
         forgetPush()
+        revokeRefresh(...get().accounts)
         set({ ...emptyActive, accounts: [] })
       },
       activate: (userId) => {
@@ -96,7 +141,10 @@ export const useSession = create<SessionState>()(
       expireToken: (token) => {
         if (get().token !== token) return 'ignored'
         const expired = new Date(0).toISOString()
-        const accounts = get().accounts.map((a) => (a.token === token ? { ...a, expiresAt: expired } : a))
+        // Hết phiên hẳn (làm mới cũng thất bại): bỏ cả refresh token — tài khoản hiện "đăng nhập lại"
+        const accounts = get().accounts.map((a) =>
+          a.token === token ? { ...a, expiresAt: expired, refreshToken: undefined, refreshExpiresAt: undefined } : a,
+        )
         const next = accounts.find((a) => isSessionValid(a))
         if (next) {
           forgetPush()
@@ -108,6 +156,7 @@ export const useSession = create<SessionState>()(
       },
       removeAccount: (userId) => {
         if (get().user?.id === userId) return void get().logout()
+        revokeRefresh(get().accounts.find((a) => a.user.id === userId))
         set((s) => ({ accounts: s.accounts.filter((a) => a.user.id !== userId) }))
       },
     }),

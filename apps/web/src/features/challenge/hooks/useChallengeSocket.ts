@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useReducer, useRef } from 'react'
+import { ensureFreshToken } from '@/lib/api'
 import { useSession } from '@/store/session'
 import type {
   ChallengeLeaderboardEntry,
@@ -161,30 +162,40 @@ export function useChallengeSocket(roomId: string, onParticipantChange?: () => v
   onParticipantChangeRef.current = onParticipantChange
 
   useEffect(() => {
-    const token = useSession.getState().token
-    if (!token) return
+    let ws: WebSocket | null = null
+    let cancelled = false
+    // WebSocket gửi token qua query (không tự làm mới được) → làm mới access token trước khi kết nối
+    void ensureFreshToken().then(() => {
+      const token = useSession.getState().token
+      if (cancelled || !token) return
+      ws = connect(token)
+    })
 
-    const ws = new WebSocket(buildChallengeWsUrl(roomId, token))
-    wsRef.current = ws
+    function connect(token: string) {
+      const ws = new WebSocket(buildChallengeWsUrl(roomId, token))
+      wsRef.current = ws
 
-    ws.onopen = () => dispatch({ type: 'ws_open' })
-    ws.onclose = () => dispatch({ type: 'ws_close' })
-    ws.onmessage = (ev) => {
-      let envelope: WsEnvelope
-      try {
-        envelope = JSON.parse(ev.data as string) as WsEnvelope
-      } catch {
-        return // frame hỏng — bỏ qua
+      ws.onopen = () => dispatch({ type: 'ws_open' })
+      ws.onclose = () => dispatch({ type: 'ws_close' })
+      ws.onmessage = (ev) => {
+        let envelope: WsEnvelope
+        try {
+          envelope = JSON.parse(ev.data as string) as WsEnvelope
+        } catch {
+          return // frame hỏng — bỏ qua
+        }
+        if (membershipChangeTypes.has(envelope.type)) {
+          onParticipantChangeRef.current?.()
+          return
+        }
+        dispatch({ type: 'server_message', envelope })
       }
-      if (membershipChangeTypes.has(envelope.type)) {
-        onParticipantChangeRef.current?.()
-        return
-      }
-      dispatch({ type: 'server_message', envelope })
+      return ws
     }
 
     return () => {
-      ws.close()
+      cancelled = true
+      ws?.close()
       wsRef.current = null
     }
   }, [roomId])

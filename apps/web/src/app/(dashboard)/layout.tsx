@@ -27,9 +27,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const user = useSession((s) => s.user)
   const token = useSession((s) => s.token)
   const expiresAt = useSession((s) => s.expiresAt)
+  const refreshToken = useSession((s) => s.refreshToken)
+  const refreshExpiresAt = useSession((s) => s.refreshExpiresAt)
   const setUser = useSession((s) => s.setUser)
 
-  const valid = isSessionValid({ token, expiresAt }) && !!user
+  // Access token hết hạn mà refresh token còn hạn vẫn là phiên hợp lệ — request đầu tiên tự làm mới (xem apiFetch)
+  const valid = isSessionValid({ token, expiresAt, refreshToken, refreshExpiresAt }) && !!user
 
   useEffect(() => {
     if (!hydrated || valid) return

@@ -171,6 +171,8 @@ export interface AuthResponse {
   access_token: string
   token_type: 'Bearer'
   expires_at: string
+  refresh_token: string // đổi lấy token mới ở POST /auth/refresh (mỗi lần dùng nhận token mới)
+  refresh_expires_at: string
   user: User
 }
 

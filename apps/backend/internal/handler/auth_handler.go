@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"time"
+
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,15 +18,29 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 	}
 }
 
+const (
+	msgTooManyLogins   = "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau ít phút."
+	msgTooManyRegister = "Bạn đã tạo quá nhiều tài khoản. Vui lòng thử lại sau."
+)
+
 func (h *AuthHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/auth")
-	api.Post("/register", h.Register)
-	api.Post("/login", h.Login)
+	// Ngưỡng theo IP rộng (cả trường / lớp học dùng chung 1 IP); chống dò mật khẩu chủ yếu nhờ ngưỡng theo tài khoản
+	api.Post("/register", requestLimiter(30, time.Hour, keyByIP("register"), msgTooManyRegister), h.Register)
+	// Sai mật khẩu trong 15 phút: 5 lần / (IP + tài khoản), 50 lần / tài khoản (mọi IP), 100 lần / IP
+	login := append(failureLimiter(100, 15*time.Minute, keyByIP("login"), msgTooManyLogins),
+		failureLimiter(5, 15*time.Minute, keyByIPAndIdentifier, msgTooManyLogins)[0],
+		failureLimiter(50, 15*time.Minute, keyByIdentifier, msgTooManyLogins)[0])
+	login = append(login, respondNow, h.Login)
+	api.Post("/login", login...)
+	api.Post("/refresh", append(failureLimiter(100, 15*time.Minute, keyByIP("refresh"), msgTooManyLogins), h.Refresh)...)
+	api.Post("/logout", h.Logout)
 }
 
 // RegisterProtectedRoutes — route cần đăng nhập (đăng ký trên group đã có RequireAuth)
 func (h *AuthHandler) RegisterProtectedRoutes(router fiber.Router) {
-	router.Delete("/users/me", h.DeleteAccount)
+	// Xoá tài khoản cần mật khẩu — token bị lộ cũng không dò được mật khẩu qua đây
+	router.Delete("/users/me", append(failureLimiter(5, 15*time.Minute, keyByUser("delete-account"), msgTooManyLogins), h.DeleteAccount)...)
 }
 
 // Register godoc
@@ -97,6 +113,47 @@ func (h *AuthHandler) DeleteAccount(c *fiber.Ctx) error {
 	}
 	if err := h.svc.DeleteAccount(c.UserContext(), currentUserID(c), req); err != nil {
 		return paymentError(err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// Refresh godoc
+// @Summary      Làm mới phiên đăng nhập
+// @Description  Đổi refresh token lấy access token + refresh token mới (token cũ hết hiệu lực). Không cần access token.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      service.RefreshRequest  true  "Refresh token"
+// @Success      200   {object}  service.AuthResponse
+// @Failure      401   {object}  ErrorResponse
+// @Failure      429   {object}  ErrorResponse
+// @Router       /auth/refresh [post]
+func (h *AuthHandler) Refresh(c *fiber.Ctx) error {
+	var req service.RefreshRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.svc.Refresh(c.UserContext(), req.RefreshToken)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
+}
+
+// Logout godoc
+// @Summary      Đăng xuất (thu hồi refresh token của phiên này)
+// @Tags         auth
+// @Accept       json
+// @Param        body  body  service.RefreshRequest  true  "Refresh token"
+// @Success      204
+// @Router       /auth/logout [post]
+func (h *AuthHandler) Logout(c *fiber.Ctx) error {
+	var req service.RefreshRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	if err := h.svc.Logout(c.UserContext(), req.RefreshToken); err != nil {
+		return err
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

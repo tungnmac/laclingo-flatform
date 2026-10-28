@@ -2,9 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
+	mathrand "math/rand/v2"
 	"net/mail"
 	"regexp"
 	"strings"
@@ -44,6 +49,12 @@ var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("laclingo-dummy-password")
 type AuthRepository interface {
 	GetUserByIdentifier(ctx context.Context, email string) (db.User, error)
 	CreateUser(ctx context.Context, arg db.CreateUserParams) (db.User, error)
+	CreateRefreshToken(ctx context.Context, arg db.CreateRefreshTokenParams) (db.RefreshToken, error)
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (db.RefreshToken, error)
+	RotateRefreshToken(ctx context.Context, arg db.RotateRefreshTokenParams) (db.RefreshToken, error)
+	RevokeRefreshFamily(ctx context.Context, familyID pgtype.UUID) error
+	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
@@ -62,6 +73,37 @@ type ObjectDeleter interface {
 // TokenIssuer phát hành access token cho user
 type TokenIssuer interface {
 	Issue(userID uuid.UUID) (string, time.Time, error)
+	RefreshTTL() time.Duration // refresh token sống bao lâu (mỗi lần làm mới tính lại từ đầu)
+}
+
+// refreshReuseGrace — token vừa đổi xong mà bị dùng lại trong khoảng này (2 tab làm mới cùng lúc) chỉ bị từ chối;
+// quá khoảng này mới coi là bị đánh cắp và thu hồi cả họ token. Trong 1 tab app đã gom các lần làm mới làm 1.
+const refreshReuseGrace = 30 * time.Second
+
+// refreshCleanupEvery — dọn bảng refresh_tokens khoảng 1 / N lần đăng nhập (không quét bảng mỗi lần)
+const refreshCleanupEvery = 50
+
+// ErrSessionExpired — refresh token sai / hết hạn / đã thu hồi: phải đăng nhập lại (401)
+var ErrSessionExpired = errors.New("phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại")
+
+// newRefreshToken — 32 byte ngẫu nhiên (base64url) + hash SHA-256 để lưu DB
+func newRefreshToken() (token, hash string, err error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", err
+	}
+	token = base64.RawURLEncoding.EncodeToString(b)
+	return token, hashRefreshToken(token), nil
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+// RefreshRequest — làm mới phiên / đăng xuất bằng refresh token
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 type RegisterRequest struct {
@@ -79,10 +121,13 @@ type LoginRequest struct {
 
 // AuthResponse trả về sau khi đăng ký / đăng nhập thành công
 type AuthResponse struct {
-	AccessToken string       `json:"access_token"`
-	TokenType   string       `json:"token_type" example:"Bearer"`
-	ExpiresAt   time.Time    `json:"expires_at"`
-	User        UserResponse `json:"user"`
+	AccessToken string    `json:"access_token"`
+	TokenType   string    `json:"token_type" example:"Bearer"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	// Refresh token: đổi lấy access token mới khi hết hạn (POST /auth/refresh) — mỗi lần dùng nhận token mới
+	RefreshToken     string       `json:"refresh_token"`
+	RefreshExpiresAt time.Time    `json:"refresh_expires_at"`
+	User             UserResponse `json:"user"`
 }
 
 // DeleteAccountRequest — nhập lại mật khẩu để xác nhận xoá tài khoản
@@ -139,7 +184,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (AuthRe
 		return AuthResponse{}, err
 	}
 
-	return s.issue(user)
+	return s.issue(ctx, user, uuid.New())
 }
 
 func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse, error) {
@@ -163,8 +208,73 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (AuthResponse
 	if !user.IsActive {
 		return AuthResponse{}, ErrAccountDeactivated
 	}
+	if mathrand.IntN(refreshCleanupEvery) == 0 { // dọn rác — không chặn đăng nhập
+		if _, err := s.repo.DeleteExpiredRefreshTokens(ctx); err != nil {
+			log.Printf("⚠️  auth: dọn refresh token hết hạn: %v", err)
+		}
+	}
+	return s.issue(ctx, user, uuid.New())
+}
 
-	return s.issue(user)
+// Refresh đổi refresh token lấy access token + refresh token mới (cùng họ). Token đã đổi bị dùng lại sau
+// refreshReuseGrace → thu hồi cả họ (phiên đăng nhập đó phải đăng nhập lại).
+func (s *AuthService) Refresh(ctx context.Context, token string) (AuthResponse, error) {
+	if token == "" {
+		return AuthResponse{}, ErrSessionExpired
+	}
+	rt, err := s.repo.GetRefreshTokenByHash(ctx, hashRefreshToken(token))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AuthResponse{}, ErrSessionExpired
+	}
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	now := time.Now()
+	if rt.RevokedAt.Valid {
+		if rt.ReplacedAt.Valid && now.Sub(rt.ReplacedAt.Time) > refreshReuseGrace {
+			log.Printf("⚠️  auth: refresh token đã đổi bị dùng lại — thu hồi phiên user=%s", uuid.UUID(rt.UserID.Bytes))
+			if err := s.repo.RevokeRefreshFamily(ctx, rt.FamilyID); err != nil {
+				return AuthResponse{}, err
+			}
+		}
+		return AuthResponse{}, ErrSessionExpired
+	}
+	if !rt.ExpiresAt.Time.After(now) {
+		return AuthResponse{}, ErrSessionExpired
+	}
+	user, err := s.repo.GetUserByID(ctx, rt.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AuthResponse{}, ErrSessionExpired
+	}
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if !user.IsActive {
+		return AuthResponse{}, ErrAccountDeactivated
+	}
+	refresh, hash, err := newRefreshToken()
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	refreshExpires := time.Now().Add(s.tokens.RefreshTTL())
+	_, err = s.repo.RotateRefreshToken(ctx, db.RotateRefreshTokenParams{
+		OldID: rt.ID, TokenHash: hash, ExpiresAt: pgtype.Timestamptz{Time: refreshExpires, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AuthResponse{}, ErrSessionExpired // request khác vừa đổi token này
+	}
+	if err != nil {
+		return AuthResponse{}, fmt.Errorf("đổi refresh token: %w", err)
+	}
+	return s.respond(user, refresh, refreshExpires)
+}
+
+// Logout thu hồi refresh token (cả họ) của phiên này — access token còn lại tự hết hạn sau ít phút
+func (s *AuthService) Logout(ctx context.Context, token string) error {
+	if token == "" {
+		return nil
+	}
+	return s.repo.RevokeRefreshToken(ctx, hashRefreshToken(token))
 }
 
 // DeleteAccount — học viên tự xoá vĩnh viễn tài khoản và dữ liệu của mình. Owner không tự xoá được (hệ thống
@@ -208,16 +318,34 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID uuid.UUID, req D
 	return nil
 }
 
-func (s *AuthService) issue(user db.User) (AuthResponse, error) {
+// issue phát access token + refresh token mới thuộc họ family (đăng nhập / đăng ký = họ mới)
+func (s *AuthService) issue(ctx context.Context, user db.User, family uuid.UUID) (AuthResponse, error) {
+	refresh, hash, err := newRefreshToken()
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	refreshExpires := time.Now().Add(s.tokens.RefreshTTL())
+	if _, err := s.repo.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{
+		UserID: user.ID, FamilyID: toPgUUID(family), TokenHash: hash, ExpiresAt: pgtype.Timestamptz{Time: refreshExpires, Valid: true},
+	}); err != nil {
+		return AuthResponse{}, fmt.Errorf("tạo refresh token: %w", err)
+	}
+	return s.respond(user, refresh, refreshExpires)
+}
+
+// respond — access token mới + refresh token vừa lưu
+func (s *AuthService) respond(user db.User, refresh string, refreshExpires time.Time) (AuthResponse, error) {
 	token, expiresAt, err := s.tokens.Issue(uuid.UUID(user.ID.Bytes))
 	if err != nil {
 		return AuthResponse{}, err
 	}
 	return AuthResponse{
-		AccessToken: token,
-		TokenType:   "Bearer",
-		ExpiresAt:   expiresAt,
-		User:        toUserResponse(user),
+		AccessToken:      token,
+		TokenType:        "Bearer",
+		ExpiresAt:        expiresAt,
+		RefreshToken:     refresh,
+		RefreshExpiresAt: refreshExpires,
+		User:             toUserResponse(user),
 	}, nil
 }
 

@@ -13,16 +13,25 @@ const issuer = "laclingo-api"
 
 var ErrInvalidToken = errors.New("token không hợp lệ hoặc đã hết hạn")
 
-// TokenManager phát hành và kiểm tra access token (JWT HS256)
+// DefaultRefreshTTL — refresh token sống 60 ngày kể từ lần làm mới gần nhất (dùng app đều thì không phải đăng nhập lại)
+const DefaultRefreshTTL = 60 * 24 * time.Hour
+
+// TokenManager phát hành và kiểm tra access token (JWT HS256); refreshTTL cho refresh token (lưu DB, xem AuthService)
 type TokenManager struct {
-	secret []byte
-	ttl    time.Duration
-	now    func() time.Time
+	secret     []byte
+	ttl        time.Duration
+	refreshTTL time.Duration
+	now        func() time.Time
 }
 
 func NewTokenManager(secret string, ttl time.Duration) *TokenManager {
-	return &TokenManager{secret: []byte(secret), ttl: ttl, now: time.Now}
+	return &TokenManager{secret: []byte(secret), ttl: ttl, refreshTTL: DefaultRefreshTTL, now: time.Now}
 }
+
+// SetRefreshTTL đổi hạn refresh token (REFRESH_TTL)
+func (m *TokenManager) SetRefreshTTL(d time.Duration) { m.refreshTTL = d }
+
+func (m *TokenManager) RefreshTTL() time.Duration { return m.refreshTTL }
 
 // Issue tạo access token cho user, trả về token và thời điểm hết hạn
 func (m *TokenManager) Issue(userID uuid.UUID) (string, time.Time, error) {

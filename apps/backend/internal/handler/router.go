@@ -127,7 +127,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrInvalidInput):
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: err.Error()})
-	case errors.Is(err, service.ErrInvalidCredentials):
+	case errors.Is(err, service.ErrInvalidCredentials), errors.Is(err, service.ErrSessionExpired):
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: err.Error()})
 	case errors.Is(err, service.ErrEmailTaken), errors.Is(err, service.ErrUsernameTaken), errors.Is(err, service.ErrDuplicate):
 		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: err.Error()})
