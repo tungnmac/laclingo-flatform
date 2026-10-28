@@ -3,3 +3,5 @@
 secrets/*
 !secrets/.gitkeep
 backups/
+# SQL gộp cho Neon (sinh từ migrations/seeds) — chỉ dùng local
+neon/
