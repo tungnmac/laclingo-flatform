@@ -125,7 +125,9 @@ export const speakingTranslations: Partial<Record<Locale, SpeakingDict>> = {
       typePlaceholder: 'Gõ câu trả lời của bạn bằng tiếng Anh...',
       notSupported: 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói — hãy dùng Chrome, Edge hoặc Safari. Bạn vẫn có thể gõ câu trả lời để được chấm.',
       micError: (code) =>
-        code === 'not-allowed' || code === 'service-not-allowed'
+        code === 'app-not-allowed'
+          ? 'LacLingo chưa được phép dùng micro / nhận diện giọng nói — mở Cài đặt của điện thoại > LacLingo, bật Micro rồi thử lại.'
+          : code === 'not-allowed' || code === 'service-not-allowed'
           ? 'Trình duyệt chưa được phép dùng micro — bấm biểu tượng ổ khoá cạnh thanh địa chỉ để cho phép rồi thử lại.'
           : code === 'audio-capture'
             ? 'Không tìm thấy micro — kiểm tra micro/tai nghe rồi thử lại.'
@@ -226,7 +228,9 @@ export const speakingTranslations: Partial<Record<Locale, SpeakingDict>> = {
       typePlaceholder: 'Type your answer in English...',
       notSupported: 'This browser does not support speech recognition — use Chrome, Edge or Safari. You can still type your answer to get a score.',
       micError: (code) =>
-        code === 'not-allowed' || code === 'service-not-allowed'
+        code === 'app-not-allowed'
+          ? 'LacLingo is not allowed to use the microphone / speech recognition — open your phone Settings > LacLingo, turn on Microphone, then try again.'
+          : code === 'not-allowed' || code === 'service-not-allowed'
           ? 'Microphone access is blocked — click the lock icon next to the address bar to allow it, then try again.'
           : code === 'audio-capture'
             ? 'No microphone found — check your microphone/headset and try again.'
