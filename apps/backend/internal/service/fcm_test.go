@@ -67,7 +67,7 @@ func TestFCMSender(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	sa, _ := json.Marshal(fcmServiceAccount{ProjectID: "demo", ClientEmail: "bot@demo.iam.gserviceaccount.com", PrivateKey: string(keyPEM), TokenURI: srv.URL + "/token"})
+	sa, _ := json.Marshal(googleServiceAccount{ProjectID: "demo", ClientEmail: "bot@demo.iam.gserviceaccount.com", PrivateKey: string(keyPEM), TokenURI: srv.URL + "/token"})
 	sender, err := NewFCMSender(sa)
 	if err != nil {
 		t.Fatal(err)

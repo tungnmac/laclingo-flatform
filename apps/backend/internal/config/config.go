@@ -60,6 +60,18 @@ type Config struct {
 	StripeAPIBase       string // trống = api.stripe.com (đặt khi chạy với stripe-mock / server giả lập để test)
 	AppWebURL           string
 	AppAPIURL           string
+
+	// Mua trong app (Apple In-App Purchase, Google Play Billing). Trống = tắt store đó.
+	// AppleBundleID: Bundle ID app iOS (giao dịch Apple phải đúng app này). Google Play: applicationId app Android +
+	// file service account có quyền trong Play Console + bí mật gắn vào URL push của Pub/Sub (RTDN).
+	AppleBundleID                string
+	GooglePlayPackageName        string
+	GooglePlayServiceAccountFile string
+	GooglePlayRTDNToken          string
+	GooglePlayAPIBase            string // trống = androidpublisher.googleapis.com (đặt khi chạy với server giả lập để test)
+	// IAPAllowSandbox: nhận giao dịch thử nghiệm (Apple Sandbox / TestFlight, tài khoản test Google). Mặc định bật — Apple
+	// duyệt app bằng sandbox trên server thật; tắt (IAP_ALLOW_SANDBOX=false) nếu không muốn bản thử cấp Pro/gems thật.
+	IAPAllowSandbox bool
 }
 
 func Load() (*Config, error) {
@@ -131,7 +143,14 @@ func Load() (*Config, error) {
 		StripeWebhookSecret: strings.TrimSpace(os.Getenv("STRIPE_WEBHOOK_SECRET")),
 		StripeAPIBase:       strings.TrimSpace(os.Getenv("STRIPE_API_BASE")),
 		AppWebURL:           envOr("APP_WEB_URL", "http://localhost:3000"),
-		AppAPIURL:           envOr("APP_API_URL", "http://localhost:"+port+"/api/v1"),
+
+		AppleBundleID:                strings.TrimSpace(os.Getenv("APPLE_BUNDLE_ID")),
+		GooglePlayPackageName:        strings.TrimSpace(os.Getenv("GOOGLE_PLAY_PACKAGE_NAME")),
+		GooglePlayServiceAccountFile: strings.TrimSpace(os.Getenv("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")),
+		GooglePlayRTDNToken:          strings.TrimSpace(os.Getenv("GOOGLE_PLAY_RTDN_TOKEN")),
+		GooglePlayAPIBase:            strings.TrimSpace(os.Getenv("GOOGLE_PLAY_API_BASE")),
+		IAPAllowSandbox:              strings.TrimSpace(os.Getenv("IAP_ALLOW_SANDBOX")) != "false",
+		AppAPIURL:                    envOr("APP_API_URL", "http://localhost:"+port+"/api/v1"),
 	}, nil
 }
 

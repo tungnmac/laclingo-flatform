@@ -48,7 +48,11 @@ type PaymentRepository interface {
 	ListPendingGemRewards(ctx context.Context, userID pgtype.UUID) ([]db.GemReward, error)
 	CountPendingGemRewards(ctx context.Context, userID pgtype.UUID) (db.CountPendingGemRewardsRow, error)
 	GetRewardSettings(ctx context.Context) (db.RewardSetting, error)
-	ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	GetIAPOwner(ctx context.Context, arg db.GetIAPOwnerParams) (pgtype.UUID, error)
+	GetIAPPurchaseByTransaction(ctx context.Context, arg db.GetIAPPurchaseByTransactionParams) (db.IapPurchase, error)
+	ExtendStoreSubscription(ctx context.Context, arg db.ExtendStoreSubscriptionParams) error
+	EndStoreSubscriptionIfDue(ctx context.Context, arg db.EndStoreSubscriptionIfDueParams) error
+	ListAutoRenewSubscriptions(ctx context.Context, userID pgtype.UUID) ([]db.ListAutoRenewSubscriptionsRow, error)
 	ListPendingStripeSessions(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	CancelPendingPaymentOrders(ctx context.Context, arg db.CancelPendingPaymentOrdersParams) error
 }
@@ -60,7 +64,12 @@ type PaymentService struct {
 	webURL   string        // trang web (trang kết quả thanh toán)
 	apiURL   string        // API public (VNPay Return URL)
 	notifier Notifier
-	now      func() time.Time
+	// Mua trong app (iap.go) — nil = store đó chưa cấu hình
+	apple           *AppleVerifier
+	google          *GooglePlayClient
+	googleRTDNToken string // bí mật trong URL push của Pub/Sub (Google RTDN)
+	iapAllowSandbox bool   // nhận giao dịch thử nghiệm (Apple Sandbox / TestFlight, tài khoản test Google)
+	now             func() time.Time
 
 	syncMu   sync.Mutex
 	lastSync map[uuid.UUID]time.Time // lần gần nhất trang kết quả hỏi lại Stripe cho 1 đơn
@@ -79,8 +88,10 @@ func NewPaymentService(repo PaymentRepository, vnpay *VNPayClient, stripe *Strip
 // ===== Danh mục + tạo đơn =====
 
 type PaymentProviders struct {
-	VNPay  bool `json:"vnpay"`
-	Stripe bool `json:"stripe"`
+	VNPay      bool `json:"vnpay"`
+	Stripe     bool `json:"stripe"`
+	Apple      bool `json:"apple"`       // mua trong app iOS (App Store)
+	GooglePlay bool `json:"google_play"` // mua trong app Android (Google Play)
 }
 
 type CatalogResponse struct {
@@ -92,7 +103,8 @@ type CatalogResponse struct {
 
 func (s *PaymentService) Catalog() CatalogResponse {
 	return CatalogResponse{
-		Items: paymentCatalog, Providers: PaymentProviders{VNPay: s.vnpay != nil, Stripe: s.stripe != nil},
+		Items:               paymentCatalog,
+		Providers:           PaymentProviders{VNPay: s.vnpay != nil, Stripe: s.stripe != nil, Apple: s.apple != nil, GooglePlay: s.google != nil},
 		StreakFreezeGemCost: StreakFreezeGemCost, MaxStreakFreezes: MaxStreakFreezes,
 	}
 }
@@ -602,19 +614,31 @@ func (s *PaymentService) PortalURL(ctx context.Context, userID uuid.UUID) (strin
 }
 
 // PrepareAccountDeletion — dọn thanh toán trước khi xoá tài khoản (không còn ai để giao hàng / trừ tiền):
-//   - huỷ ngay mọi subscription Stripe còn tự gia hạn (kể cả past_due) — lỗi thì báo lại, KHÔNG xoá tài khoản;
+//   - huỷ ngay mọi gói Stripe / Google Play còn tự gia hạn (kể cả past_due) — lỗi thì báo lại, KHÔNG xoá tài khoản.
+//     Gói App Store thì server không huỷ được (Apple không có API) — app nhắc học viên tự huỷ trong cài đặt App Store;
 //   - expire phiên Stripe Checkout đang mở + đóng đơn PENDING (best-effort; webhook vẫn chặn đơn mồ côi).
 func (s *PaymentService) PrepareAccountDeletion(ctx context.Context, userID uuid.UUID) error {
-	subIDs, err := s.repo.ListAutoRenewSubscriptionIDs(ctx, toPgUUID(userID))
+	subs, err := s.repo.ListAutoRenewSubscriptions(ctx, toPgUUID(userID))
 	if err != nil {
 		return err
 	}
-	if len(subIDs) > 0 && s.stripe == nil {
-		return fmt.Errorf("chưa huỷ được gói tự gia hạn qua Stripe: %w", ErrPaymentNotConfigured)
-	}
-	for _, id := range subIDs {
-		if err := s.stripe.CancelSubscription(ctx, id); err != nil && !isStripeNotFound(err) {
-			return err
+	for _, sub := range subs {
+		switch sub.PaymentProvider {
+		case ProviderStripe:
+			if s.stripe == nil {
+				return fmt.Errorf("chưa huỷ được gói tự gia hạn qua Stripe: %w", ErrPaymentNotConfigured)
+			}
+			if err := s.stripe.CancelSubscription(ctx, sub.ID); err != nil && !isStripeNotFound(err) {
+				return err
+			}
+		case providerGooglePlay:
+			if s.google == nil {
+				return fmt.Errorf("chưa huỷ được gói tự gia hạn qua Google Play: %w", ErrIAPNotConfigured)
+			}
+			item, _ := catalogItem(sub.Plan)
+			if err := s.google.CancelSubscription(ctx, item.StoreProductID, sub.ID); err != nil && !errors.Is(err, errGooglePlayNotFound) {
+				return err
+			}
 		}
 	}
 	sessions, err := s.repo.ListPendingStripeSessions(ctx, toPgUUID(userID))

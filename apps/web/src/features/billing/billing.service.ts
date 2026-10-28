@@ -3,6 +3,7 @@ import type {
   CatalogItemId,
   CatalogResponse,
   CheckoutResponse,
+  IAPResult,
   PaymentOrder,
   PaymentProvider,
   PlanStatus,
@@ -34,5 +35,14 @@ export const billingService = {
   rewards: () => apiFetch<PendingRewardsResponse>('/billing/rewards'),
   claimReward: (id: string) => apiFetch<WalletResponse>(`/billing/rewards/${encodeURIComponent(id)}/claim`, { method: 'POST', notify: 'error' }),
   claimAllRewards: () => apiFetch<WalletResponse>('/billing/rewards/claim-all', { method: 'POST', notify: 'error' }),
+  // Mua trong app iOS/Android: gửi bằng chứng giao dịch store để server xác thực + giao hàng (nơi gọi tự báo lỗi)
+  verifyApple: (jws: string) =>
+    apiFetch<IAPResult>('/billing/iap/apple', { method: 'POST', body: JSON.stringify({ jws }), notify: false }),
+  verifyGoogle: (productId: string, purchaseToken: string) =>
+    apiFetch<IAPResult>('/billing/iap/google', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: productId, purchase_token: purchaseToken }),
+      notify: false,
+    }),
   buyStreakFreeze: () => apiFetch<WalletResponse>('/billing/wallet/streak-freeze', { method: 'POST', notify: 'error' }),
 }

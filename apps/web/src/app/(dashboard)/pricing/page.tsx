@@ -3,21 +3,35 @@
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { billingService } from '@/features/billing/billing.service'
-import { CheckoutButtons, ManageSubscriptionButton } from '@/features/billing/components/CheckoutButtons'
+import Link from 'next/link'
+import {
+  CheckoutButtons,
+  ManageSubscriptionButton,
+  RestorePurchasesButton,
+  useStorePrices,
+} from '@/features/billing/components/CheckoutButtons'
+import { storeName } from '@/features/billing/iap'
 import { planLabel } from '@/features/billing/components/PlanSummary'
 import { PLAN_ORDER, formatPrice, yearlySavingPercent } from '@/features/billing/pricing'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isNativeApp, nativePlatform } from '@/lib/native'
 import { cn, formatDate } from '@/lib/utils'
 import { useLocale } from '@/store/locale'
 
-/** Bảng giá LacLingo Pro + thanh toán (VNPay / Stripe) */
+// Điều khoản mặc định của Apple cho app (Standard EULA) — App Store yêu cầu link điều khoản cạnh gói tự gia hạn
+const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+const RECURRING_PROVIDERS = ['STRIPE', 'APPLE_IAP', 'GOOGLE_PLAY']
+
+/** Bảng giá LacLingo Pro + thanh toán (web: VNPay / Stripe; app iOS/Android: App Store / Google Play) */
 export default function PricingPage() {
   const t = useTranslation()
   const b = t.billing
   const locale = useLocale((s) => s.locale)
-  const { data: status } = useApi(() => billingService.me(), [])
+  const { data: status, reload: reloadStatus } = useApi(() => billingService.me(), [])
   const { data: catalog } = useApi(() => billingService.catalog(), [])
+  const storePrices = useStorePrices(catalog, reloadStatus)
+  const native = isNativeApp()
   const sub = status?.subscription
   const lifetime = sub?.plan === 'LIFETIME'
   const autoRenewing = !!sub?.auto_renew
@@ -31,11 +45,11 @@ export default function PricingPage() {
           <span>
             {b.yourPlan}: {status.is_pro && '⭐ '}
             {planLabel(status, t)}
-            {sub?.expires_at && sub.payment_provider === 'STRIPE' && (
+            {sub?.expires_at && RECURRING_PROVIDERS.includes(sub.payment_provider) && (
               <span className="ml-2 font-normal">· {autoRenewing ? b.autoRenewOn(formatDate(sub.expires_at)) : b.autoRenewOff(formatDate(sub.expires_at))}</span>
             )}
           </span>
-          {sub?.payment_provider === 'STRIPE' && <ManageSubscriptionButton />}
+          {sub?.expires_at && RECURRING_PROVIDERS.includes(sub.payment_provider) && <ManageSubscriptionButton sub={sub} />}
         </div>
       )}
 
@@ -57,17 +71,40 @@ export default function PricingPage() {
                       </span>
                     )}
                     <p className="font-semibold text-slate-700">{b.plans[plan]}</p>
-                    <p className="text-3xl font-extrabold text-slate-900">{formatPrice(item, locale)}</p>
+                    {/* trong app chỉ hiện giá store (giá web có thể khác số tiền store thu) */}
+                    <p className="text-3xl font-extrabold text-slate-900">
+                      {native ? (storePrices[item.store_product_id] ?? '…') : formatPrice(item, locale)}
+                    </p>
                     <p className="text-sm text-slate-500">{b.perPlan[plan]}</p>
-                    {plan === 'YEARLY' && <p className="text-sm font-semibold text-emerald-600">{b.yearlySave(yearlySavingPercent(catalog.items, locale))}</p>}
+                    {/* % tiết kiệm tính theo giá web — giá store theo từng quốc gia có thể khác */}
+                    {plan === 'YEARLY' && !native && <p className="text-sm font-semibold text-emerald-600">{b.yearlySave(yearlySavingPercent(catalog.items, locale))}</p>}
                     <div className="mt-auto pt-2">
-                      {autoRenewing ? <p className="text-xs text-slate-500">{b.manageSubscription} ↑</p> : <CheckoutButtons item={item} providers={catalog.providers} />}
+                      {autoRenewing ? <p className="text-xs text-slate-500">{b.manageSubscription} ↑</p> : (
+                        <CheckoutButtons item={item} providers={catalog.providers} storePrice={storePrices[item.store_product_id]} onPurchased={reloadStatus} />
+                      )}
                     </div>
                   </Card>
                 )
               })}
             </div>
-            <p className="text-center text-xs text-slate-500">{b.recurringNote}</p>
+            {native ? (
+              <div className="flex flex-col items-center gap-2 text-center text-xs text-slate-500">
+                <p>{b.storeRecurringNote(storeName())}</p>
+                <p className="flex gap-3">
+                  {nativePlatform() === 'ios' && (
+                    <a href={APPLE_EULA_URL} className="underline">
+                      {b.terms}
+                    </a>
+                  )}
+                  <Link href="/privacy" className="underline">
+                    {b.privacy}
+                  </Link>
+                </p>
+                <RestorePurchasesButton catalog={catalog} onRestored={reloadStatus} />
+              </div>
+            ) : (
+              <p className="text-center text-xs text-slate-500">{b.recurringNote}</p>
+            )}
           </>
         )
       )}

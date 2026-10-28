@@ -41,7 +41,7 @@ const content: Record<'vi' | 'en', { title: string; updated: string; intro: stri
       {
         title: 'Bên thứ ba xử lý dữ liệu',
         items: [
-          'Cổng thanh toán VNPay và Stripe: xử lý giao dịch khi bạn mua gói.',
+          'Cổng thanh toán VNPay và Stripe (trên web), App Store và Google Play (trong ứng dụng iOS/Android): xử lý giao dịch khi bạn mua gói.',
           'Nhà cung cấp AI (Google Gemini hoặc Anthropic Claude): nhận câu bạn gửi đi phân tích để trả kết quả.',
           'Nhận dạng giọng nói khi luyện nói dùng dịch vụ của trình duyệt/hệ điều hành (vd Google, Apple), có thể gửi âm thanh tới nhà cung cấp đó; LacLingo chỉ nhận đoạn văn bản đã nhận dạng, không lưu ghi âm.',
           'Cloudflare R2: lưu ảnh bạn tải lên trong bài viết.',
@@ -95,7 +95,7 @@ const content: Record<'vi' | 'en', { title: string; updated: string; intro: stri
       {
         title: 'Third-party processors',
         items: [
-          'VNPay and Stripe payment gateways: process transactions when you buy a plan.',
+          'VNPay and Stripe (on the web), the App Store and Google Play (in the iOS/Android app): process transactions when you buy a plan.',
           'AI providers (Google Gemini or Anthropic Claude): receive sentences you submit for analysis to return results.',
           'Speech recognition during speaking practice uses your browser/operating system service (e.g. Google, Apple), which may send audio to that provider; LacLingo only receives the recognised text and stores no recordings.',
           'Cloudflare R2: stores images you upload in blog posts.',

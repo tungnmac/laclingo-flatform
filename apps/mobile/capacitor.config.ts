@@ -39,6 +39,10 @@ const config: CapacitorConfig = {
     FirebaseMessaging: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+    // Mua trong app: chỉ hoàn tất / acknowledge giao dịch sau khi backend đã xác thực + giao hàng
+    NativePurchases: {
+      autoFinishTransactions: false,
+    },
   },
 }
 

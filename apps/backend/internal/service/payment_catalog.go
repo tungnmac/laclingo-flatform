@@ -31,20 +31,32 @@ type CatalogItem struct {
 	PriceUSD int64  `json:"price_usd_cents"` // cent
 	// Gói tháng/năm mua qua Stripe tự gia hạn mỗi kỳ; qua VNPay là trả trước 1 kỳ
 	Recurring bool `json:"recurring"`
+	// Mã sản phẩm khai báo trên App Store Connect + Google Play Console (giống nhau ở 2 store). Giá trong app do
+	// store quy định theo từng quốc gia — app hiện giá store trả về, không dùng PriceVND/PriceUSD.
+	StoreProductID string `json:"store_product_id"`
 }
 
 var paymentCatalog = []CatalogItem{
-	{ID: ItemMonthly, Kind: "plan", Plan: PlanMonthly, PriceVND: 79_000, PriceUSD: 499, Recurring: true},
-	{ID: ItemYearly, Kind: "plan", Plan: PlanYearly, PriceVND: 599_000, PriceUSD: 3_999, Recurring: true},
-	{ID: ItemLifetime, Kind: "plan", Plan: PlanLifetime, PriceVND: 1_490_000, PriceUSD: 9_999},
-	{ID: ItemGems100, Kind: "gems", Gems: 100, PriceVND: 25_000, PriceUSD: 99},
-	{ID: ItemGems550, Kind: "gems", Gems: 550, PriceVND: 99_000, PriceUSD: 399},
-	{ID: ItemGems1200, Kind: "gems", Gems: 1_200, PriceVND: 199_000, PriceUSD: 799},
+	{ID: ItemMonthly, Kind: "plan", Plan: PlanMonthly, PriceVND: 79_000, PriceUSD: 499, Recurring: true, StoreProductID: "laclingo.pro.monthly"},
+	{ID: ItemYearly, Kind: "plan", Plan: PlanYearly, PriceVND: 599_000, PriceUSD: 3_999, Recurring: true, StoreProductID: "laclingo.pro.yearly"},
+	{ID: ItemLifetime, Kind: "plan", Plan: PlanLifetime, PriceVND: 1_490_000, PriceUSD: 9_999, StoreProductID: "laclingo.pro.lifetime"},
+	{ID: ItemGems100, Kind: "gems", Gems: 100, PriceVND: 25_000, PriceUSD: 99, StoreProductID: "laclingo.gems.100"},
+	{ID: ItemGems550, Kind: "gems", Gems: 550, PriceVND: 99_000, PriceUSD: 399, StoreProductID: "laclingo.gems.550"},
+	{ID: ItemGems1200, Kind: "gems", Gems: 1_200, PriceVND: 199_000, PriceUSD: 799, StoreProductID: "laclingo.gems.1200"},
 }
 
 func catalogItem(id string) (CatalogItem, bool) {
 	for _, it := range paymentCatalog {
 		if it.ID == id {
+			return it, true
+		}
+	}
+	return CatalogItem{}, false
+}
+
+func catalogItemByStoreProduct(productID string) (CatalogItem, bool) {
+	for _, it := range paymentCatalog {
+		if it.StoreProductID == productID {
 			return it, true
 		}
 	}

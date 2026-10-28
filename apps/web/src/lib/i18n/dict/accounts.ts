@@ -25,6 +25,7 @@ export interface AccountsDict {
     deleteConfirmTitle: string
     deleteConfirm: string
     deleteOwner: string
+    deleteAppleWarning: string
   }
 }
 
@@ -54,6 +55,8 @@ export const accountsTranslations: Partial<Record<Locale, AccountsDict>> = {
       deleteConfirmTitle: 'Xoá tài khoản?',
       deleteConfirm: 'Toàn bộ dữ liệu của bạn sẽ bị xoá vĩnh viễn và không thể khôi phục.',
       deleteOwner: 'Tài khoản owner không thể tự xoá.',
+      deleteAppleWarning:
+        'Gói Pro của bạn mua qua App Store và đang tự gia hạn. Xoá tài khoản không tự huỷ được gói này — hãy tắt tự gia hạn trong Cài đặt → Apple ID → Đăng ký để không bị trừ tiền kỳ sau.',
     },
   },
   en: {
@@ -81,6 +84,8 @@ export const accountsTranslations: Partial<Record<Locale, AccountsDict>> = {
       deleteConfirmTitle: 'Delete account?',
       deleteConfirm: 'All of your data will be permanently deleted and cannot be recovered.',
       deleteOwner: 'The owner account cannot delete itself.',
+      deleteAppleWarning:
+        'Your Pro plan was bought through the App Store and renews automatically. Deleting your account does not cancel it — turn off auto-renew in Settings → Apple ID → Subscriptions to avoid being charged again.',
     },
   },
 }

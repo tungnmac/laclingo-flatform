@@ -84,9 +84,10 @@ WHERE user_id = $1 AND streak_freezes + sqlc.arg('n')::int <= sqlc.arg('max_hold
 -- name: LockUserInventory :one
 SELECT * FROM user_inventory WHERE user_id = $1 FOR UPDATE;
 
--- name: ListAutoRenewSubscriptionIDs :many
--- Xoá tài khoản: mọi subscription Stripe còn tự gia hạn — kể cả đã quá hạn local (past_due: Stripe vẫn thử trừ lại)
-SELECT provider_subscription_id::text FROM subscriptions
+-- name: ListAutoRenewSubscriptions :many
+-- Xoá tài khoản: mọi gói còn tự gia hạn (Stripe / App Store / Google Play) — kể cả đã quá hạn local (past_due:
+-- cổng vẫn thử trừ lại)
+SELECT provider_subscription_id::text AS id, payment_provider, plan FROM subscriptions
 WHERE user_id = $1 AND status = 'ACTIVE' AND auto_renew AND provider_subscription_id IS NOT NULL;
 
 -- name: ListPendingStripeSessions :many

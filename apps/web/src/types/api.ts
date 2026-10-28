@@ -1156,7 +1156,7 @@ export interface SubscriptionInfo {
   expires_at?: string // không có = trọn đời
   payment_provider: string
   note?: string
-  auto_renew: boolean // Stripe tự gia hạn mỗi kỳ
+  auto_renew: boolean // gói tự gia hạn mỗi kỳ (Stripe / App Store / Google Play)
 }
 
 export interface FeatureUsage {
@@ -1195,13 +1195,20 @@ export interface CatalogItem {
   price_vnd: number
   price_usd_cents: number
   recurring: boolean // tháng/năm qua Stripe tự gia hạn; qua VNPay trả trước 1 kỳ
+  store_product_id: string // mã sản phẩm trên App Store / Google Play (mua trong app)
 }
 
 export interface CatalogResponse {
   items: CatalogItem[]
-  providers: { vnpay: boolean; stripe: boolean }
+  providers: { vnpay: boolean; stripe: boolean; apple: boolean; google_play: boolean }
   streak_freeze_gem_cost: number
   max_streak_freezes: number
+}
+
+/** Kết quả xác thực 1 giao dịch mua trong app (App Store / Google Play) */
+export interface IAPResult {
+  item: CatalogItemId
+  granted: boolean // false = giao dịch đã ghi nhận trước đó (khôi phục)
 }
 
 export interface CheckoutResponse {
