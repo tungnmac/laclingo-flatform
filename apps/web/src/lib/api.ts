@@ -85,8 +85,15 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   // Đọc xong body rồi mới báo thành công — body lỗi thì nơi gọi nhận lỗi, không có toast "thành công" sai
   const data = (res.status === 204 ? undefined : await res.json()) as T
   emitMutationNotice(mutationNotice(requestInit.method, path, true, undefined, notify))
+  // Thao tác ghi xong (ôn từ, làm bài...) có thể vừa hoàn thành nhiệm vụ / lên cấp — useAchievementAlerts kiểm tra ngay.
+  // Bỏ qua /notifications (đánh dấu đã đọc...) để không tự kích hoạt lại
+  const method = (requestInit.method ?? 'GET').toUpperCase()
+  if (method !== 'GET' && !authRoute && !path.startsWith('/notifications')) window.dispatchEvent(new Event(API_WRITE_EVENT))
   return data
 }
+
+/** Phát sau mỗi request ghi dữ liệu thành công (xem apiFetch) */
+export const API_WRITE_EVENT = 'laclingo:api-write'
 
 /**
  * Media backend tự phục vụ (vd ảnh minh hoạ từ vựng "/vocab/images/...") được

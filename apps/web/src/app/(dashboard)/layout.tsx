@@ -12,6 +12,8 @@ import { reloadAsActiveAccount } from '@/features/auth/components/AccountList'
 import { useRewardsCount } from '@/features/billing/rewardsStore'
 import { PaywallDialog } from '@/features/billing/components/PaywallDialog'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
+import { AchievementDialog } from '@/features/notification/components/AchievementDialog'
+import { useAchievementAlerts } from '@/features/notification/useAchievementAlerts'
 import { initStoreTransactions } from '@/features/billing/iap'
 import { browserTimezone } from '@/features/reminder/push'
 import { reminderService } from '@/features/reminder/reminder.service'
@@ -59,6 +61,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <BackgroundSync />
         <SpeechErrorToaster />
         <PaywallDialog />
+        <AchievementDialog />
         <MutationToaster />
         <div className="flex min-h-screen">
           <Sidebar user={user} />
@@ -79,6 +82,7 @@ const REWARDS_POLL_MS = 60_000
 
 function BackgroundSync() {
   useUnreadPolling()
+  useAchievementAlerts()
   useEffect(() => {
     reminderService.updateTimezone(browserTimezone()).catch(() => {})
     initStoreTransactions() // app iOS/Android: xử lý giao dịch store đến ngoài luồng mua (gia hạn, mua dở...)

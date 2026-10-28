@@ -128,6 +128,20 @@ type ClassLesson struct {
 	OrderIndex int32       `json:"order_index"`
 }
 
+type ContentReport struct {
+	ID         pgtype.UUID        `json:"id"`
+	ReporterID pgtype.UUID        `json:"reporter_id"`
+	TargetType string             `json:"target_type"`
+	TargetID   pgtype.UUID        `json:"target_id"`
+	Reason     string             `json:"reason"`
+	Note       string             `json:"note"`
+	Status     string             `json:"status"`
+	ResolvedBy pgtype.UUID        `json:"resolved_by"`
+	ResolvedAt pgtype.Timestamptz `json:"resolved_at"`
+	AutoHidden bool               `json:"auto_hidden"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type DailyNote struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
@@ -486,6 +500,12 @@ type User struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 	StreakDate    pgtype.Date        `json:"streak_date"`
+}
+
+type UserBlock struct {
+	BlockerID pgtype.UUID        `json:"blocker_id"`
+	BlockedID pgtype.UUID        `json:"blocked_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserClassEnrollment struct {

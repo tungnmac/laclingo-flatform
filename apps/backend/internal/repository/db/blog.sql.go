@@ -339,7 +339,8 @@ SELECT
     EXISTS (SELECT 1 FROM blog_post_stars s WHERE s.post_id = p.id AND s.user_id = $1) AS starred,
     EXISTS (SELECT 1 FROM blog_post_markers m WHERE m.post_id = p.id AND m.user_id = $1) AS marked,
     EXISTS (SELECT 1 FROM blog_post_likes l WHERE l.post_id = p.id AND l.user_id = $1) AS liked,
-    EXISTS (SELECT 1 FROM blog_post_dislikes d WHERE d.post_id = p.id AND d.user_id = $1) AS disliked
+    EXISTS (SELECT 1 FROM blog_post_dislikes d WHERE d.post_id = p.id AND d.user_id = $1) AS disliked,
+    EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = $1 AND b.blocked_id = p.author_id) AS author_blocked
 FROM blog_posts p
 JOIN users u ON u.id = p.author_id
 WHERE p.id = $2
@@ -351,28 +352,29 @@ type GetBlogPostDetailByIDParams struct {
 }
 
 type GetBlogPostDetailByIDRow struct {
-	ID           pgtype.UUID        `json:"id"`
-	AuthorID     pgtype.UUID        `json:"author_id"`
-	LanguageID   pgtype.Text        `json:"language_id"`
-	Title        string             `json:"title"`
-	Content      string             `json:"content"`
-	Tags         []string           `json:"tags"`
-	ViewCount    int32              `json:"view_count"`
-	IsHidden     bool               `json:"is_hidden"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-	Username     string             `json:"username"`
-	FullName     pgtype.Text        `json:"full_name"`
-	AvatarUrl    pgtype.Text        `json:"avatar_url"`
-	CommentCount int32              `json:"comment_count"`
-	StarCount    int32              `json:"star_count"`
-	MarkerCount  int32              `json:"marker_count"`
-	LikeCount    int32              `json:"like_count"`
-	DislikeCount int32              `json:"dislike_count"`
-	Starred      bool               `json:"starred"`
-	Marked       bool               `json:"marked"`
-	Liked        bool               `json:"liked"`
-	Disliked     bool               `json:"disliked"`
+	ID            pgtype.UUID        `json:"id"`
+	AuthorID      pgtype.UUID        `json:"author_id"`
+	LanguageID    pgtype.Text        `json:"language_id"`
+	Title         string             `json:"title"`
+	Content       string             `json:"content"`
+	Tags          []string           `json:"tags"`
+	ViewCount     int32              `json:"view_count"`
+	IsHidden      bool               `json:"is_hidden"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Username      string             `json:"username"`
+	FullName      pgtype.Text        `json:"full_name"`
+	AvatarUrl     pgtype.Text        `json:"avatar_url"`
+	CommentCount  int32              `json:"comment_count"`
+	StarCount     int32              `json:"star_count"`
+	MarkerCount   int32              `json:"marker_count"`
+	LikeCount     int32              `json:"like_count"`
+	DislikeCount  int32              `json:"dislike_count"`
+	Starred       bool               `json:"starred"`
+	Marked        bool               `json:"marked"`
+	Liked         bool               `json:"liked"`
+	Disliked      bool               `json:"disliked"`
+	AuthorBlocked bool               `json:"author_blocked"`
 }
 
 // Bản đầy đủ cho trang chi tiết: thông tin tác giả + count/flag theo user hiện tại.
@@ -402,6 +404,7 @@ func (q *Queries) GetBlogPostDetailByID(ctx context.Context, arg GetBlogPostDeta
 		&i.Marked,
 		&i.Liked,
 		&i.Disliked,
+		&i.AuthorBlocked,
 	)
 	return i, err
 }
@@ -497,7 +500,8 @@ SELECT
     (SELECT COUNT(*) FROM blog_comment_likes l WHERE l.comment_id = c.id)::int AS like_count,
     (SELECT COUNT(*) FROM blog_comment_dislikes d WHERE d.comment_id = c.id)::int AS dislike_count,
     EXISTS (SELECT 1 FROM blog_comment_likes l WHERE l.comment_id = c.id AND l.user_id = $1) AS liked,
-    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = $1) AS disliked
+    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = $1) AS disliked,
+    EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = $1 AND b.blocked_id = c.author_id) AS author_blocked
 FROM blog_comments c
 JOIN users u ON u.id = c.author_id
 WHERE c.post_id = $2
@@ -525,6 +529,7 @@ type ListBlogCommentsByPostRow struct {
 	DislikeCount    int32              `json:"dislike_count"`
 	Liked           bool               `json:"liked"`
 	Disliked        bool               `json:"disliked"`
+	AuthorBlocked   bool               `json:"author_blocked"`
 }
 
 // Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
@@ -554,6 +559,7 @@ func (q *Queries) ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommen
 			&i.DislikeCount,
 			&i.Liked,
 			&i.Disliked,
+			&i.AuthorBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -690,6 +696,8 @@ SELECT
 FROM blog_posts p
 JOIN users u ON u.id = p.author_id
 WHERE (p.is_hidden = false OR p.author_id = $1)
+  -- bài của người mình đã chặn không hiện trong danh sách
+  AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = $1 AND b.blocked_id = p.author_id)
   AND ($2::varchar IS NULL OR p.language_id = $2)
   AND ($3::text IS NULL OR $3::text = ANY(p.tags))
   AND ($4::uuid IS NULL OR p.author_id = $4)

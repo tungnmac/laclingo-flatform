@@ -32,7 +32,12 @@ type fakeBlogUsers struct {
 	inactive map[string]bool
 	noticed  map[[2]uuid.UUID]bool  // (liker, comment) đã báo ♥
 	mentions []db.BlogMentionNotice // các lần đã báo tag (comment, người được tag, người tag)
+	blocks   map[[2]uuid.UUID]bool  // (người chặn, người bị chặn)
 	now      time.Time
+}
+
+func (f *fakeBlogUsers) IsUserBlocked(_ context.Context, arg db.IsUserBlockedParams) (bool, error) {
+	return f.blocks[[2]uuid.UUID{uuid.UUID(arg.BlockerID.Bytes), uuid.UUID(arg.BlockedID.Bytes)}], nil
 }
 
 func (f *fakeBlogUsers) MarkMentionNoticed(_ context.Context, arg db.MarkMentionNoticedParams) (int64, error) {
@@ -103,6 +108,24 @@ func TestNotifyMentionsSkipsUnknownSelfAndAlreadyNotified(t *testing.T) {
 
 	if len(notifier.sent) != 1 || notifier.sent[0].to != lan || notifier.sent[0].n.Type != NotificationBlogMention {
 		t.Fatalf("sent = %+v, want exactly one mention to lan", notifier.sent)
+	}
+}
+
+func TestNotifySkipsRecipientsWhoBlockedActor(t *testing.T) {
+	lan, hoa, me := uuid.New(), uuid.New(), uuid.New()
+	notifier := &blogFakeNotifier{}
+	repo := &fakeBlogUsers{users: map[string]uuid.UUID{"lan": lan, "hoa": hoa, "me": me}, now: time.Now(),
+		blocks: map[[2]uuid.UUID]bool{{lan, me}: true}} // lan đã chặn me
+	svc := NewBlogService(repo, nil, notifier)
+
+	svc.notifyMentions(context.Background(), uuid.New(), me, extractMentions("@lan @hoa"), map[uuid.UUID]bool{me: true}, NotificationInput{Type: NotificationBlogMention})
+	if len(notifier.sent) != 1 || notifier.sent[0].to != hoa {
+		t.Fatalf("sent = %+v, want only hoa (lan blocked me)", notifier.sent)
+	}
+	comment := db.BlogComment{ID: toPgUUID(uuid.New()), PostID: toPgUUID(uuid.New()), AuthorID: toPgUUID(lan), Content: "x"}
+	svc.notifyCommentLiked(context.Background(), comment, me)
+	if len(notifier.sent) != 1 {
+		t.Fatalf("lan đã chặn me — không được báo ♥: %+v", notifier.sent)
 	}
 }
 

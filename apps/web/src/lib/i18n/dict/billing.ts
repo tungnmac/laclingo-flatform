@@ -56,6 +56,11 @@ export interface BillingDict {
     claim: string
     claimAll: (total: number) => string
     claimedToast: (gems: number) => string
+    achievementTitle: (count: number) => string
+    claimNow: (gems: number) => string
+    claiming: string
+    claimLater: string
+    achievementOk: string
     rewardSources: Record<GemReward['source'], string>
     howToEarnTitle: string
     howToEarn: (s: RewardSettings) => string[]
@@ -178,6 +183,11 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       claim: 'Nhận',
       claimAll: (n) => `Nhận tất cả · +${n} gems`,
       claimedToast: (n) => `Đã nhận +${n} gems 💎`,
+      achievementTitle: (n) => `Bạn vừa đạt ${n} thành tích!`,
+      claimNow: (n) => `Nhận ngay +${n} gems`,
+      claiming: 'Đang nhận…',
+      claimLater: 'Để sau — nhận trong Ví',
+      achievementOk: 'Tuyệt vời!',
       rewardSources: { MISSION: '🎯 Nhiệm vụ', CHALLENGE_WIN: '🏆 Thắng thử thách', LEVEL_UP: '⭐ Lên level' },
       howToEarnTitle: 'Cách kiếm gems',
       howToEarn: (s) =>
@@ -299,6 +309,11 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       claim: 'Collect',
       claimAll: (n) => `Collect all · +${n} gems`,
       claimedToast: (n) => `Collected +${n} gems 💎`,
+      achievementTitle: (n) => `You just earned ${n} achievements!`,
+      claimNow: (n) => `Collect +${n} gems now`,
+      claiming: 'Collecting…',
+      claimLater: 'Later — collect in Wallet',
+      achievementOk: 'Awesome!',
       rewardSources: { MISSION: '🎯 Mission', CHALLENGE_WIN: '🏆 Challenge win', LEVEL_UP: '⭐ Level up' },
       howToEarnTitle: 'How to earn gems',
       howToEarn: (s) =>

@@ -78,6 +78,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	paymentHandler.RegisterRoutes(protected)
 	classHandler.RegisterRoutes(protected)
 	blogHandler.RegisterRoutes(protected)
+	moderationHandler := NewModerationHandler(service.NewModerationService(repo))
+	moderationHandler.RegisterRoutes(protected)
 	reminderHandler := NewReminderHandler(reminders)
 	reminderHandler.RegisterRoutes(protected)
 	// SAU reminderHandler: /notifications/push/* phải khớp trước /notifications/:id
@@ -101,6 +103,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	listeningHandler.RegisterAdminRoutes(admin)
 	classHandler.RegisterAdminRoutes(admin)
 	blogHandler.RegisterAdminRoutes(admin)
+	moderationHandler.RegisterAdminRoutes(admin)
 	reminderHandler.RegisterAdminRoutes(admin)
 	notificationHandler.RegisterAdminRoutes(admin)
 	speakingHandler.RegisterAdminRoutes(admin)

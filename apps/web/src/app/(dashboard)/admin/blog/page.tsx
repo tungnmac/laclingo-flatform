@@ -39,7 +39,15 @@ export default function AdminBlogPage() {
 
   return (
     <>
-      <PageHeader title={t.adminBlog.pageTitle} description={t.adminBlog.pageDesc} />
+      <PageHeader
+        title={t.adminBlog.pageTitle}
+        description={t.adminBlog.pageDesc}
+        action={
+          <ButtonLink href="/admin/blog/reports" variant="secondary" size="sm">
+            {t.moderation.adminTab}
+          </ButtonLink>
+        }
+      />
 
       <label className="mb-4 flex items-center gap-2 text-sm font-medium text-slate-700">
         <input

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ type BlogRepository interface {
 	CreateBlogComment(ctx context.Context, arg db.CreateBlogCommentParams) (db.BlogComment, error)
 	GetBlogCommentByID(ctx context.Context, id pgtype.UUID) (db.BlogComment, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
+	IsUserBlocked(ctx context.Context, arg db.IsUserBlockedParams) (bool, error)
 	GetUserByUsername(ctx context.Context, username string) (db.User, error)
 	MarkCommentLikeNoticed(ctx context.Context, arg db.MarkCommentLikeNoticedParams) (int64, error)
 	MarkMentionNoticed(ctx context.Context, arg db.MarkMentionNoticedParams) (int64, error)
@@ -155,6 +157,7 @@ type BlogPostDetail struct {
 	Liked           bool      `json:"liked"`
 	Disliked        bool      `json:"disliked"`
 	IsHidden        bool      `json:"is_hidden"`
+	AuthorBlocked   bool      `json:"author_blocked"` // người xem đã chặn tác giả — content để trống
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -187,6 +190,7 @@ type BlogCommentNode struct {
 	AuthorAvatarURL string            `json:"author_avatar_url,omitempty"`
 	Content         string            `json:"content"`
 	IsHidden        bool              `json:"is_hidden"`
+	AuthorBlocked   bool              `json:"author_blocked"` // người xem đã chặn tác giả — content để trống
 	CreatedAt       time.Time         `json:"created_at"`
 	LikeCount       int               `json:"like_count"`
 	DislikeCount    int               `json:"dislike_count"`
@@ -322,10 +326,19 @@ func (s *BlogService) List(ctx context.Context, userID uuid.UUID, languageID, ta
 
 // GetDetail trả về 1 bài đầy đủ, tăng view_count 1 lần mỗi lượt gọi (không dedupe per-user).
 func (s *BlogService) GetDetail(ctx context.Context, userID, postID uuid.UUID) (BlogPostDetail, error) {
+	d, err := s.fetchDetail(ctx, userID, postID)
+	if err != nil {
+		return BlogPostDetail{}, err
+	}
+	// Bài bị ẩn (admin / đủ người báo cáo): người khác mở bằng link cũng không đọc được — trừ tác giả + quản trị viên
+	if d.IsHidden && d.AuthorID != userID && !s.isStaff(ctx, userID) {
+		return BlogPostDetail{}, ErrNotFound
+	}
 	if err := s.repo.IncrementBlogPostViewCount(ctx, toPgUUID(postID)); err != nil {
 		return BlogPostDetail{}, err
 	}
-	return s.fetchDetail(ctx, userID, postID)
+	d.ViewCount++
+	return d, nil
 }
 
 // fetchDetail trả về 1 bài đầy đủ KHÔNG tăng view_count — dùng cho response
@@ -341,15 +354,19 @@ func (s *BlogService) fetchDetail(ctx context.Context, userID, postID uuid.UUID)
 		return BlogPostDetail{}, err
 	}
 
-	return BlogPostDetail{
+	d := BlogPostDetail{
 		ID: postID, AuthorID: uuid.UUID(r.AuthorID.Bytes),
 		AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
 		LanguageID: optionalText(r.LanguageID), Title: r.Title, Content: r.Content, Tags: r.Tags,
 		ViewCount: r.ViewCount, CommentCount: int(r.CommentCount),
 		StarCount: int(r.StarCount), MarkerCount: int(r.MarkerCount), LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount),
 		Starred: r.Starred, Marked: r.Marked, Liked: r.Liked, Disliked: r.Disliked,
-		IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time,
-	}, nil
+		IsHidden: r.IsHidden, AuthorBlocked: r.AuthorBlocked, CreatedAt: r.CreatedAt.Time,
+	}
+	if r.AuthorBlocked {
+		d.Content = "" // người xem đã chặn tác giả — trang chi tiết chỉ hiện thông báo + nút bỏ chặn
+	}
+	return d, nil
 }
 
 // requireAuthor trả về bài viết nếu tồn tại VÀ authorID đúng là tác giả, nếu
@@ -562,7 +579,11 @@ func buildCommentTree(rows []db.ListBlogCommentsByPostRow) []BlogCommentNode {
 			AuthorUsername: r.Username, AuthorFullName: optionalText(r.FullName), AuthorAvatarURL: optionalText(r.AvatarUrl),
 			Content: r.Content, IsHidden: r.IsHidden, CreatedAt: r.CreatedAt.Time,
 			LikeCount: int(r.LikeCount), DislikeCount: int(r.DislikeCount), Liked: r.Liked, Disliked: r.Disliked,
+			AuthorBlocked: r.AuthorBlocked,
 		}}
+		if r.AuthorBlocked {
+			nodes[id].data.Content = "" // giữ chỗ trong cây (reply của người khác vẫn hiện), không lộ nội dung
+		}
 	}
 	var roots []*commentTreeNode
 	for _, r := range rows {
@@ -585,11 +606,49 @@ func buildCommentTree(rows []db.ListBlogCommentsByPostRow) []BlogCommentNode {
 // ListComments trả về danh sách comment đầy đủ (root + reply trải phẳng dưới
 // mỗi root) của 1 bài viết, kèm like/dislike flag theo userID hiện tại.
 func (s *BlogService) ListComments(ctx context.Context, userID, postID uuid.UUID) ([]BlogCommentNode, error) {
+	post, err := s.repo.GetBlogPostByID(ctx, toPgUUID(postID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	} else if err != nil {
+		return nil, err
+	}
+	if err := s.ensurePostVisible(ctx, userID, post); err != nil {
+		return nil, err
+	}
 	rows, err := s.repo.ListBlogCommentsByPost(ctx, db.ListBlogCommentsByPostParams{UserID: toPgUUID(userID), PostID: toPgUUID(postID)})
 	if err != nil {
 		return nil, err
 	}
+	// Bình luận bị ẩn (admin / đủ người báo cáo): chỉ tác giả + quản trị viên đọc được nội dung, người khác thấy chỗ trống
+	var staff *bool // chỉ tra quyền khi gặp bình luận ẩn đầu tiên
+	for i := range rows {
+		if !rows[i].IsHidden || uuid.UUID(rows[i].AuthorID.Bytes) == userID {
+			continue
+		}
+		if staff == nil {
+			v := s.isStaff(ctx, userID)
+			staff = &v
+		}
+		if !*staff {
+			rows[i].Content = ""
+		}
+	}
 	return buildCommentTree(rows), nil
+}
+
+// isStaff — người quản trị blog (owner, hoặc admin được cấp module "blog" — cùng điều kiện với RequireModule):
+// được xem nội dung đã ẩn để xử lý báo cáo
+func (s *BlogService) isStaff(ctx context.Context, userID uuid.UUID) bool {
+	u, err := s.repo.GetUserByID(ctx, toPgUUID(userID))
+	return err == nil && (u.Role == "owner" || (u.Role == "admin" && slices.Contains(u.AdminModules, "blog")))
+}
+
+// ensurePostVisible — bài bị ẩn (admin / đủ người báo cáo): chỉ tác giả + người quản trị blog đọc / bình luận được
+func (s *BlogService) ensurePostVisible(ctx context.Context, userID uuid.UUID, post db.BlogPost) error {
+	if post.IsHidden && uuid.UUID(post.AuthorID.Bytes) != userID && !s.isStaff(ctx, userID) {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // CreateComment thêm 1 comment (hoặc reply nếu có ParentCommentID) vào 1 bài
@@ -605,6 +664,9 @@ func (s *BlogService) CreateComment(ctx context.Context, authorID, postID uuid.U
 	if errors.Is(err, pgx.ErrNoRows) {
 		return BlogCommentNode{}, ErrNotFound
 	} else if err != nil {
+		return BlogCommentNode{}, err
+	}
+	if err := s.ensurePostVisible(ctx, authorID, post); err != nil {
 		return BlogCommentNode{}, err
 	}
 
@@ -664,13 +726,13 @@ func (s *BlogService) notifyNewComment(ctx context.Context, post db.BlogPost, co
 	url := "/blog/" + uuid.UUID(post.ID.Bytes).String()
 	preview := truncateRunes(strings.TrimSpace(content), 120)
 	if parentAuthorID != uuid.Nil && parentAuthorID != commenterID {
-		s.notifier.Notify(ctx, parentAuthorID, NotificationInput{
+		s.notifyFrom(ctx, commenterID, parentAuthorID, NotificationInput{
 			Type: NotificationBlogReply, Icon: "↩️", URL: url,
 			Title: commenterName + " đã trả lời bình luận của bạn", Body: preview,
 		})
 	}
 	if postAuthorID != commenterID && postAuthorID != parentAuthorID {
-		s.notifier.Notify(ctx, postAuthorID, NotificationInput{
+		s.notifyFrom(ctx, commenterID, postAuthorID, NotificationInput{
 			Type: NotificationBlogComment, Icon: "💬", URL: url,
 			Title: commenterName + " đã bình luận bài viết \"" + post.Title + "\"", Body: preview,
 		})
@@ -735,7 +797,7 @@ func (s *BlogService) notifyMentions(ctx context.Context, commentID, mentionerID
 			continue
 		}
 		if added == 1 && notify {
-			s.notifier.Notify(ctx, id, n)
+			s.notifyFrom(ctx, mentionerID, id, n)
 			sent++
 		}
 	}
@@ -776,11 +838,23 @@ func (s *BlogService) notifyCommentLiked(ctx context.Context, comment db.BlogCom
 		log.Printf("❌ blog: đọc user %s để báo ♥ bình luận: %v", likerID, err)
 		return
 	}
-	s.notifier.Notify(ctx, authorID, NotificationInput{
+	s.notifyFrom(ctx, likerID, authorID, NotificationInput{
 		Type: NotificationBlogCommentLike, Icon: "❤️", URL: "/blog/" + uuid.UUID(comment.PostID.Bytes).String(),
 		Title: displayNameOf(liker.FullName, liker.Username) + " đã thích bình luận của bạn",
 		Body:  truncateRunes(strings.TrimSpace(comment.Content), 120),
 	})
+}
+
+// notifyFrom — thông báo do actorID gây ra (bình luận, nhắc tên, thích); người nhận đã chặn actorID thì bỏ qua
+func (s *BlogService) notifyFrom(ctx context.Context, actorID, recipientID uuid.UUID, n NotificationInput) {
+	blocked, err := s.repo.IsUserBlocked(ctx, db.IsUserBlockedParams{BlockerID: toPgUUID(recipientID), BlockedID: toPgUUID(actorID)})
+	if err != nil {
+		log.Printf("❌ blog: kiểm tra chặn %s→%s: %v", recipientID, actorID, err)
+	}
+	if blocked {
+		return
+	}
+	s.notifier.Notify(ctx, recipientID, n)
 }
 
 // displayNameOf — họ tên nếu có, không thì username

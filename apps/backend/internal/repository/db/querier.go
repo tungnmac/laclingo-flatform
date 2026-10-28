@@ -31,6 +31,7 @@ type Querier interface {
 	// cơ chế dọn tự động ở bản này).
 	AdoptBlogImages(ctx context.Context, arg AdoptBlogImagesParams) error
 	BanGameParticipant(ctx context.Context, arg BanGameParticipantParams) error
+	BlockUser(ctx context.Context, arg BlockUserParams) error
 	CancelActiveSubscriptions(ctx context.Context, userID pgtype.UUID) error
 	CancelPendingPaymentOrders(ctx context.Context, arg CancelPendingPaymentOrdersParams) error
 	// Lỗi 22023 (invalid_parameter_value) = PostgreSQL không biết múi giờ này —
@@ -69,6 +70,9 @@ type Querier interface {
 	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số quà 1 nguồn từ mốc thời gian (giới hạn quà thắng thử thách mỗi ngày)
 	CountGemRewardsSince(ctx context.Context, arg CountGemRewardsSinceParams) (int32, error)
+	// Số người khác nhau đang báo cáo 1 nội dung — đủ ngưỡng thì tự ẩn chờ admin xem xét. Chống phối hợp ẩn bừa:
+	// chỉ tính tài khoản tạo hơn 1 ngày, và nội dung admin đã từng kết luận "không vi phạm" thì không tự ẩn nữa.
+	CountOpenReporters(ctx context.Context, arg CountOpenReportersParams) (int32, error)
 	CountPendingGemRewards(ctx context.Context, userID pgtype.UUID) (CountPendingGemRewardsRow, error)
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
@@ -90,6 +94,9 @@ type Querier interface {
 	CreateChallengeQuestion(ctx context.Context, arg CreateChallengeQuestionParams) (ChallengeQuestion, error)
 	// ===== Admin CRUD =====
 	CreateClass(ctx context.Context, arg CreateClassParams) (Class, error)
+	// Báo cáo + chặn nội dung do học viên tạo (blog, bình luận)
+	// Đã có báo cáo đang mở của người này cho nội dung này → lỗi unique (uq_content_reports_open)
+	CreateContentReport(ctx context.Context, arg CreateContentReportParams) (ContentReport, error)
 	CreateDailyNoteTask(ctx context.Context, arg CreateDailyNoteTaskParams) (DailyNoteTask, error)
 	CreateDailyTaskItem(ctx context.Context, arg CreateDailyTaskItemParams) (DailyTaskItem, error)
 	CreateDailyTaskTemplate(ctx context.Context, arg CreateDailyTaskTemplateParams) (DailyTaskTemplate, error)
@@ -240,6 +247,8 @@ type Querier interface {
 	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
 	// chung" khi learner drill-down vào chủ đề cha, xem VocabularyService.ListChildTopics.
 	GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabularyTopicOwnStatsParams) (GetVocabularyTopicOwnStatsRow, error)
+	// Nội dung đang ẩn vì đủ người báo cáo (chưa xử lý) — admin "bỏ qua" thì gỡ ẩn
+	HasAutoHiddenOpenReport(ctx context.Context, arg HasAutoHiddenOpenReportParams) (bool, error)
 	HasRecentMentionNotice(ctx context.Context, arg HasRecentMentionNoticeParams) (bool, error)
 	HideBlogComment(ctx context.Context, id pgtype.UUID) error
 	HideBlogPost(ctx context.Context, id pgtype.UUID) error
@@ -263,6 +272,8 @@ type Querier interface {
 	// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error)
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
+	// blocker đã chặn blocked chưa (bỏ thông báo do người bị chặn gây ra)
+	IsUserBlocked(ctx context.Context, arg IsUserBlockedParams) (bool, error)
 	// Atomic: kiểm tra phòng còn "waiting" + chưa đủ người + chưa bị ban trong
 	// CÙNG 1 statement với insert, để tránh race khi 2 người join đúng slot cuối
 	// cùng lúc.
@@ -281,6 +292,7 @@ type Querier interface {
 	// Xoá tài khoản: mọi gói còn tự gia hạn (Stripe / App Store / Google Play) — kể cả đã quá hạn local (past_due:
 	// cổng vẫn thử trừ lại)
 	ListAutoRenewSubscriptions(ctx context.Context, userID pgtype.UUID) ([]ListAutoRenewSubscriptionsRow, error)
+	ListBlockedUsers(ctx context.Context, blockerID pgtype.UUID) ([]ListBlockedUsersRow, error)
 	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
 	// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
 	ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error)
@@ -371,6 +383,8 @@ type Querier interface {
 	// Xoá tài khoản: phiên Stripe Checkout chưa thanh toán — cần expire để không trả tiền được nữa
 	ListPendingStripeSessions(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	ListPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) ([]PushSubscription, error)
+	// Hàng chờ của admin: gom báo cáo theo nội dung, kèm bản xem trước + tác giả + trạng thái ẩn / đã xoá
+	ListReportedContent(ctx context.Context, arg ListReportedContentParams) ([]ListReportedContentRow, error)
 	// Mọi từ user đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
 	// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
@@ -440,6 +454,7 @@ type Querier interface {
 	MarkPaymentOrderClosed(ctx context.Context, arg MarkPaymentOrderClosedParams) (int64, error)
 	// PENDING → PAID đúng 1 lần (IPN + Return URL / webhook gửi lại) — đã xử lý → không trả dòng (pgx.ErrNoRows)
 	MarkPaymentOrderPaid(ctx context.Context, arg MarkPaymentOrderPaidParams) (PaymentOrder, error)
+	MarkReportAutoHidden(ctx context.Context, id pgtype.UUID) error
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
 	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
 	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
@@ -461,6 +476,8 @@ type Querier interface {
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
+	// Admin xử lý 1 nội dung: đóng mọi báo cáo đang mở của nó (RESOLVED = đã xử lý, DISMISSED = không vi phạm)
+	ResolveContentReports(ctx context.Context, arg ResolveContentReportsParams) (int64, error)
 	// Store hoàn tiền / thu hồi — đánh dấu 1 lần (đã thu hồi → không trả dòng)
 	RevokeIAPPurchase(ctx context.Context, arg RevokeIAPPurchaseParams) (IapPurchase, error)
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
@@ -490,6 +507,7 @@ type Querier interface {
 	// Giữ tối đa `keep` subscription mới nhất mỗi học viên (đổi máy / cài lại app nhiều lần) — bỏ cái cũ nhất
 	TrimPushSubscriptions(ctx context.Context, arg TrimPushSubscriptionsParams) error
 	UnbanGameParticipant(ctx context.Context, arg UnbanGameParticipantParams) error
+	UnblockUser(ctx context.Context, arg UnblockUserParams) error
 	UndislikeBlogComment(ctx context.Context, arg UndislikeBlogCommentParams) error
 	UndislikeBlogPost(ctx context.Context, arg UndislikeBlogPostParams) error
 	UnfavoriteVocabulary(ctx context.Context, arg UnfavoriteVocabularyParams) error

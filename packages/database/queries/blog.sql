@@ -42,7 +42,8 @@ SELECT
     EXISTS (SELECT 1 FROM blog_post_stars s WHERE s.post_id = p.id AND s.user_id = sqlc.arg('user_id')) AS starred,
     EXISTS (SELECT 1 FROM blog_post_markers m WHERE m.post_id = p.id AND m.user_id = sqlc.arg('user_id')) AS marked,
     EXISTS (SELECT 1 FROM blog_post_likes l WHERE l.post_id = p.id AND l.user_id = sqlc.arg('user_id')) AS liked,
-    EXISTS (SELECT 1 FROM blog_post_dislikes d WHERE d.post_id = p.id AND d.user_id = sqlc.arg('user_id')) AS disliked
+    EXISTS (SELECT 1 FROM blog_post_dislikes d WHERE d.post_id = p.id AND d.user_id = sqlc.arg('user_id')) AS disliked,
+    EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = sqlc.arg('user_id') AND b.blocked_id = p.author_id) AS author_blocked
 FROM blog_posts p
 JOIN users u ON u.id = p.author_id
 WHERE p.id = sqlc.arg('id');
@@ -68,6 +69,8 @@ SELECT
 FROM blog_posts p
 JOIN users u ON u.id = p.author_id
 WHERE (p.is_hidden = false OR p.author_id = sqlc.arg('user_id'))
+  -- bài của người mình đã chặn không hiện trong danh sách
+  AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = sqlc.arg('user_id') AND b.blocked_id = p.author_id)
   AND (sqlc.narg('language_id')::varchar IS NULL OR p.language_id = sqlc.narg('language_id'))
   AND (sqlc.narg('tag')::text IS NULL OR sqlc.narg('tag')::text = ANY(p.tags))
   AND (sqlc.narg('author_id')::uuid IS NULL OR p.author_id = sqlc.narg('author_id'))
@@ -149,7 +152,8 @@ SELECT
     (SELECT COUNT(*) FROM blog_comment_likes l WHERE l.comment_id = c.id)::int AS like_count,
     (SELECT COUNT(*) FROM blog_comment_dislikes d WHERE d.comment_id = c.id)::int AS dislike_count,
     EXISTS (SELECT 1 FROM blog_comment_likes l WHERE l.comment_id = c.id AND l.user_id = sqlc.arg('user_id')) AS liked,
-    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = sqlc.arg('user_id')) AS disliked
+    EXISTS (SELECT 1 FROM blog_comment_dislikes d WHERE d.comment_id = c.id AND d.user_id = sqlc.arg('user_id')) AS disliked,
+    EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = sqlc.arg('user_id') AND b.blocked_id = c.author_id) AS author_blocked
 FROM blog_comments c
 JOIN users u ON u.id = c.author_id
 WHERE c.post_id = sqlc.arg('post_id')
