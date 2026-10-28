@@ -11,6 +11,7 @@
   "dependencies": {
     "@capacitor-firebase/messaging": "8.5.2",
     "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
     "@capacitor/core": "8.5.3",
     "@capacitor/ios": "8.5.3",
     "@capgo/native-purchases": "^8.9.4"

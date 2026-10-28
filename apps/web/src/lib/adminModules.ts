@@ -20,6 +20,7 @@ export const ADMIN_MODULES: AdminModule[] = [
   { key: 'reminders', label: 'Nhắc học', icon: '🔔', href: '/admin/reminders' },
   { key: 'announcements', label: 'Thông báo chung', icon: '📢', href: '/admin/announcements' },
   { key: 'speaking', label: 'Luyện nói', icon: '🎤', href: '/admin/speaking' },
+  { key: 'app_versions', label: 'Phiên bản app', icon: '📱', href: '/admin/app-versions' },
 ]
 
 /** Suy module cần thiết từ pathname hiện tại (so khớp dài nhất trước) — trả null nếu không thuộc module nào (vd trang hub /admin) */

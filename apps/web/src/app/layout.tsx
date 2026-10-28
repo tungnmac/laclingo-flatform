@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { NativeAppBridge } from '@/components/pwa/NativeAppBridge'
+import { AppUpdateGate } from '@/features/app-version/AppUpdateGate'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 import './globals.css'
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         {children}
         <ServiceWorkerRegister />
         <NativeAppBridge />
+        <AppUpdateGate />
       </body>
     </html>
   )

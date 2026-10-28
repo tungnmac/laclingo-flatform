@@ -93,6 +93,24 @@ trong ứng dụng".
 Gói mua qua store được quản lý / huỷ trong cài đặt tài khoản store (nút "Quản lý trong App Store / Google Play" ở
 trang Bảng giá). Trang Bảng giá trong app có nút **Khôi phục giao dịch** (App Store bắt buộc).
 
+## Phiên bản app (bắt buộc / nhắc cập nhật)
+
+Web nạp từ server nên luôn mới — chỉ vỏ native (plugin, quyền, icon...) mới cần cập nhật qua store. Mỗi lần mở app,
+app so phiên bản đang cài (`@capacitor/app` → `getInfo().version`) với cấu hình ở trang admin **Phiên bản app**
+(`/admin/app-versions`, module `app_versions`):
+
+- thấp hơn **phiên bản tối thiểu** → màn hình chặn, chỉ có nút cập nhật (mở link store)
+- thấp hơn **phiên bản mới nhất** → hộp thoại nhắc cập nhật, "Để sau" nhắc lại sau 1 ngày
+
+Bản app build trước khi có plugin `@capacitor/app` không đọc được phiên bản nên không bao giờ bị chặn — bản phát hành
+đầu tiên lên store đã có plugin này. Phiên bản không phải số (vd bản debug `dev`) cũng không bị chặn.
+
+Khi phát hành bản native mới:
+1. Tăng phiên bản: iOS — Xcode → target App → General → **Version** (MARKETING_VERSION); Android —
+   `android/app/build.gradle` → `versionName` (và tăng `versionCode`). Dùng dạng `1.2.3`, giống nhau ở 2 nền tảng.
+2. Sau khi store duyệt xong, vào `/admin/app-versions` đặt **phiên bản mới nhất** = bản vừa phát hành (+ link store,
+   lời nhắn). Chỉ nâng **phiên bản tối thiểu** khi bản cũ không còn chạy được (vd đổi plugin native mà web mới cần).
+
 ## Lưu ý trước khi nộp store
 
 - Apple có thể từ chối app "chỉ bọc trang web" (Guideline 4.2) — thông báo đẩy native là 1 tính năng giúp vượt qua.
