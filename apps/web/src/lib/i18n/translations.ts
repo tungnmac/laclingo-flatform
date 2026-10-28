@@ -55,6 +55,8 @@ interface Dictionary {
     logout: string
     collapseMenu: string
     expandMenu: string
+    menu: string
+    closeMenu: string
   }
   auth: {
     loginTitle: string
@@ -74,6 +76,7 @@ interface Dictionary {
     emailPlaceholder: string
     identifierLabel: string
     identifierPlaceholder: string
+    rememberMe: string
     passwordLabel: string
     showPassword: string
     hidePassword: string
@@ -122,6 +125,8 @@ const base: Record<Locale, Dictionary> = {
       logout: 'Đăng xuất',
       collapseMenu: 'Thu gọn menu',
       expandMenu: 'Mở rộng menu',
+      menu: 'Menu',
+      closeMenu: 'Đóng menu',
     },
     auth: {
       loginTitle: 'Đăng nhập',
@@ -141,6 +146,7 @@ const base: Record<Locale, Dictionary> = {
       emailPlaceholder: 'ban@laclingo.vn',
       identifierLabel: 'Email hoặc tên đăng nhập',
       identifierPlaceholder: 'ban@laclingo.vn hoặc nguyenvana',
+      rememberMe: 'Ghi nhớ tài khoản',
       passwordLabel: 'Mật khẩu',
       showPassword: 'Hiện mật khẩu',
       hidePassword: 'Ẩn mật khẩu',
@@ -187,6 +193,8 @@ const base: Record<Locale, Dictionary> = {
       logout: 'Log out',
       collapseMenu: 'Collapse menu',
       expandMenu: 'Expand menu',
+      menu: 'Menu',
+      closeMenu: 'Close menu',
     },
     auth: {
       loginTitle: 'Log in',
@@ -206,6 +214,7 @@ const base: Record<Locale, Dictionary> = {
       emailPlaceholder: 'you@laclingo.vn',
       identifierLabel: 'Email or username',
       identifierPlaceholder: 'you@laclingo.vn or johnsmith',
+      rememberMe: 'Remember me',
       passwordLabel: 'Password',
       showPassword: 'Show password',
       hidePassword: 'Hide password',
@@ -252,6 +261,8 @@ const base: Record<Locale, Dictionary> = {
       logout: '退出登录',
       collapseMenu: '收起菜单',
       expandMenu: '展开菜单',
+      menu: '菜单',
+      closeMenu: '关闭菜单',
     },
     auth: {
       loginTitle: '登录',
@@ -271,6 +282,7 @@ const base: Record<Locale, Dictionary> = {
       emailPlaceholder: 'you@laclingo.vn',
       identifierLabel: '邮箱或用户名',
       identifierPlaceholder: 'you@laclingo.vn 或 wangxiaoming',
+      rememberMe: '记住账号',
       passwordLabel: '密码',
       showPassword: '显示密码',
       hidePassword: '隐藏密码',
@@ -317,6 +329,8 @@ const base: Record<Locale, Dictionary> = {
       logout: 'ログアウト',
       collapseMenu: 'メニューを折りたたむ',
       expandMenu: 'メニューを展開',
+      menu: 'メニュー',
+      closeMenu: 'メニューを閉じる',
     },
     auth: {
       loginTitle: 'ログイン',
@@ -336,6 +350,7 @@ const base: Record<Locale, Dictionary> = {
       emailPlaceholder: 'you@laclingo.vn',
       identifierLabel: 'メールアドレスまたはユーザー名',
       identifierPlaceholder: 'you@laclingo.vn または yamadataro',
+      rememberMe: 'アカウントを記憶する',
       passwordLabel: 'パスワード',
       showPassword: 'パスワードを表示',
       hidePassword: 'パスワードを隠す',
@@ -382,6 +397,8 @@ const base: Record<Locale, Dictionary> = {
       logout: '로그아웃',
       collapseMenu: '메뉴 접기',
       expandMenu: '메뉴 펼치기',
+      menu: '메뉴',
+      closeMenu: '메뉴 닫기',
     },
     auth: {
       loginTitle: '로그인',
@@ -401,6 +418,7 @@ const base: Record<Locale, Dictionary> = {
       emailPlaceholder: 'you@laclingo.vn',
       identifierLabel: '이메일 또는 사용자 이름',
       identifierPlaceholder: 'you@laclingo.vn 또는 honggildong',
+      rememberMe: '계정 기억하기',
       passwordLabel: '비밀번호',
       showPassword: '비밀번호 표시',
       hidePassword: '비밀번호 숨기기',

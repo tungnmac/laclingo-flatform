@@ -6,7 +6,19 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Vùng thanh trạng thái / thanh điều hướng hệ thống (viewport-fit=cover: web vẽ tràn dưới chúng). Android WebView cũ
+   trả env() = 0 → Capacitor (SystemBars) đặt sẵn --safe-area-inset-*; lấy giá trị lớn hơn */
+:root {
+  --safe-top: max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px));
+}
+
+/* Chừa chỗ cho thanh trạng thái (giờ, pin, tai thỏ) phía trên header */
+.pt-safe {
+  padding-top: var(--safe-top);
+}
+
 /* Chừa chỗ cho thanh điều hướng dưới cùng trên mobile (kể cả tai thỏ iOS) */
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-bottom);
 }

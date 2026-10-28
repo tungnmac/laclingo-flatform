@@ -19,7 +19,7 @@ export default function LoginPage({ searchParams }: { searchParams: { add?: stri
       <h1 className="text-2xl font-bold text-slate-900">{adding ? t.accounts.addTitle : t.auth.loginTitle}</h1>
       <p className="mt-1 text-sm text-slate-500">{adding ? t.accounts.addSubtitle : t.auth.loginSubtitle}</p>
 
-      <AuthForm mode="login" defaultIdentifier={searchParams.relogin} />
+      <AuthForm mode="login" defaultIdentifier={searchParams.relogin} prefillRemembered={!searchParams.add} />
 
       <p className="mt-6 text-center text-sm text-slate-500">
         {t.auth.noAccount}{' '}

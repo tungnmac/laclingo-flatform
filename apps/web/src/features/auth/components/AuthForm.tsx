@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/features/auth/auth.service'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -9,20 +9,61 @@ import { inlineError } from '@/lib/api'
 import { useSession } from '@/store/session'
 import type { AuthResponse } from '@/types/api'
 
+// Ghi nhớ tài khoản: chỉ lưu email / tên đăng nhập để điền sẵn lần sau — KHÔNG lưu mật khẩu (để trình quản lý mật
+// khẩu của trình duyệt / hệ điều hành lo qua autocomplete). Chuỗi rỗng = người dùng đã bỏ tích (lần sau ô cũng bỏ tích);
+// chưa có khoá = mặc định tích. localStorage có thể bị chặn (chế độ riêng tư) → bỏ qua.
+const REMEMBERED_IDENTIFIER_KEY = 'laclingo:remembered-identifier'
+
+function readRememberedIdentifier() {
+  try {
+    return localStorage.getItem(REMEMBERED_IDENTIFIER_KEY)
+  } catch {
+    return null
+  }
+}
+
+function saveRememberedIdentifier(identifier: string) {
+  try {
+    localStorage.setItem(REMEMBERED_IDENTIFIER_KEY, identifier)
+  } catch {
+    // không lưu được thì thôi — lần sau nhập lại
+  }
+}
+
 export const inputClass =
   'mt-1 block w-full rounded-lg border-0 px-3 py-2.5 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600'
 
 /**
  * Form đăng nhập / đăng ký dùng chung: submit → lưu phiên (thêm vào danh sách tài khoản) → vào /learn.
- * defaultIdentifier: điền sẵn (đăng nhập lại tài khoản hết phiên).
+ * defaultIdentifier: điền sẵn (đăng nhập lại tài khoản hết phiên) — ưu tiên hơn tài khoản đã ghi nhớ.
+ * prefillRemembered=false: không điền tài khoản đã ghi nhớ (Thêm tài khoản — đó thường là tài khoản đang dùng).
  */
-export function AuthForm({ mode, defaultIdentifier }: { mode: 'login' | 'register'; defaultIdentifier?: string }) {
+export function AuthForm({
+  mode,
+  defaultIdentifier,
+  prefillRemembered = true,
+}: {
+  mode: 'login' | 'register'
+  defaultIdentifier?: string
+  prefillRemembered?: boolean
+}) {
   const router = useRouter()
   const setSession = useSession((s) => s.setSession)
   const t = useTranslation()
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [remember, setRemember] = useState(true)
+  const identifierRef = useRef<HTMLInputElement>(null)
+
+  // Đọc sau khi mount (localStorage không có lúc render phía server): giữ lựa chọn bỏ tích lần trước, điền vào ô còn trống
+  useEffect(() => {
+    if (mode !== 'login') return
+    const saved = readRememberedIdentifier()
+    if (saved === '') setRemember(false)
+    if (!saved || defaultIdentifier || !prefillRemembered) return
+    if (identifierRef.current && !identifierRef.current.value) identifierRef.current.value = saved
+  }, [mode, defaultIdentifier, prefillRemembered])
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -41,7 +82,9 @@ export function AuthForm({ mode, defaultIdentifier }: { mode: 'login' | 'registe
           full_name: String(form.get('full_name') ?? ''),
         })
       } else {
-        auth = await authService.login({ identifier: String(form.get('identifier') ?? ''), password })
+        const identifier = String(form.get('identifier') ?? '').trim()
+        auth = await authService.login({ identifier, password })
+        saveRememberedIdentifier(remember ? identifier : '')
       }
       const hadAccount = !!useSession.getState().token
       setSession(auth)
@@ -92,6 +135,7 @@ export function AuthForm({ mode, defaultIdentifier }: { mode: 'login' | 'registe
             type="text"
             required
             autoComplete="username"
+            ref={identifierRef}
             defaultValue={defaultIdentifier}
             className={inputClass}
             placeholder={t.auth.identifierPlaceholder}
@@ -135,6 +179,18 @@ export function AuthForm({ mode, defaultIdentifier }: { mode: 'login' | 'registe
           </button>
         </div>
       </div>
+
+      {mode === 'login' && (
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+          />
+          {t.auth.rememberMe}
+        </label>
+      )}
 
       {error && (
         <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">

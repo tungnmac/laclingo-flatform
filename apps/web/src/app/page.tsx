@@ -15,7 +15,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 pb-4 pt-[calc(1rem+var(--safe-top))] sm:px-6">
         <span className="flex items-center gap-2 text-xl font-bold text-indigo-600 sm:text-2xl">
           <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" /> LacLingo
         </span>
