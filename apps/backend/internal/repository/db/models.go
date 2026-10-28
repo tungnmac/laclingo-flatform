@@ -625,15 +625,16 @@ type UserSpeakingAttempt struct {
 }
 
 type UserVocabularyReview struct {
-	ID             pgtype.UUID        `json:"id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	VocabularyID   pgtype.UUID        `json:"vocabulary_id"`
-	SrsStage       pgtype.Int4        `json:"srs_stage"`
-	EaseFactor     pgtype.Float8      `json:"ease_factor"`
-	IntervalDays   pgtype.Int4        `json:"interval_days"`
-	NextReviewAt   pgtype.Timestamptz `json:"next_review_at"`
-	LastReviewedAt pgtype.Timestamptz `json:"last_reviewed_at"`
-	PracticeCount  int32              `json:"practice_count"`
+	ID                 pgtype.UUID        `json:"id"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	VocabularyID       pgtype.UUID        `json:"vocabulary_id"`
+	SrsStage           pgtype.Int4        `json:"srs_stage"`
+	EaseFactor         pgtype.Float8      `json:"ease_factor"`
+	IntervalDays       pgtype.Int4        `json:"interval_days"`
+	NextReviewAt       pgtype.Timestamptz `json:"next_review_at"`
+	LastReviewedAt     pgtype.Timestamptz `json:"last_reviewed_at"`
+	PracticeCount      int32              `json:"practice_count"`
+	LastClientReviewID pgtype.UUID        `json:"last_client_review_id"`
 }
 
 type Vocabulary struct {

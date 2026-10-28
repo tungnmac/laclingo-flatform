@@ -10,6 +10,10 @@ import (
 type VocabularyReviewRequest struct {
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid" example:"22222222-2222-2222-2222-222222222222"`
 	Quality      int32     `json:"quality" minimum:"0" maximum:"5" example:"4"` // 0 -> 5
+	// Lúc ôn thật — app chỉ gửi khi đồng bộ kết quả ôn offline; bỏ trống = bây giờ (giờ server)
+	ReviewedAt *time.Time `json:"reviewed_at,omitempty"`
+	// uuid app gắn cho lần ôn này — gửi lại cùng uuid (mất mạng giữa chừng) không bị chấm 2 lần
+	ClientReviewID *uuid.UUID `json:"client_review_id,omitempty" swaggertype:"string" format:"uuid"`
 }
 
 type VocabularyReviewResponse struct {
@@ -33,6 +37,9 @@ type LearnVocabularyResponse struct {
 type VocabularyPracticeRequest struct {
 	VocabularyID uuid.UUID `json:"vocabulary_id" swaggertype:"string" format:"uuid" example:"22222222-2222-2222-2222-222222222222"`
 	Mistakes     int32     `json:"mistakes" minimum:"0" example:"1"` // tổng số lần trả lời sai trong các bài
+	// Như VocabularyReviewRequest.ReviewedAt / ClientReviewID
+	ReviewedAt     *time.Time `json:"reviewed_at,omitempty"`
+	ClientReviewID *uuid.UUID `json:"client_review_id,omitempty" swaggertype:"string" format:"uuid"`
 }
 
 type VocabularyPracticeResponse struct {

@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CapacitorConfig } from '@capacitor/cli'
 
@@ -14,6 +14,25 @@ if (!serverUrl || !/^https?:\/\/[^/]+/.test(serverUrl)) {
 // Trang lỗi (www/index.html) đọc URL này để mở lại web khi bấm "Thử lại" — ghi mỗi lần CLI nạp config (cap sync)
 writeFileSync(join(__dirname, 'www', 'config.js'), `window.LACLINGO_URL = ${JSON.stringify(serverUrl)}\n`)
 
+// iOS chỉ chạy service worker (ôn tập offline — web/public/sw.js) cho domain khai báo App-Bound Domains. Chỉ bản
+// https: WKWebView cần https cho service worker, và khi Info.plist có WKAppBoundDomains thì Capacitor chỉ chạy trên
+// domain đó (bản thử http://<IP LAN> sẽ không nạp được) → bản http bỏ khai báo. Ghi lại mỗi lần cap sync theo URL.
+const appBound = serverUrl.startsWith('https://')
+const infoPlist = join(__dirname, 'ios', 'App', 'App', 'Info.plist')
+// Chưa có project iOS (máy chỉ build Android, đang `cap add ios`) → bỏ qua
+if (existsSync(infoPlist)) {
+  const plist = readFileSync(infoPlist, 'utf8')
+  const withoutAppBound = plist.replace(/\s*<key>WKAppBoundDomains<\/key>\s*<array>[\s\S]*?<\/array>/, '')
+  let nextPlist = withoutAppBound
+  if (appBound) {
+    const entry = `\t<key>WKAppBoundDomains</key>\n\t<array>\n\t\t<string>${new URL(serverUrl).hostname}</string>\n\t</array>\n`
+    nextPlist = withoutAppBound.replace(/(\r?\n)<\/dict>(\s*<\/plist>\s*)$/, `$1${entry}</dict>$2`)
+    // Không ghi được domain mà vẫn bật limitsNavigationsToAppBoundDomains → app iOS không nạp được web: dừng sync
+    if (nextPlist === withoutAppBound) throw new Error(`Không ghi được WKAppBoundDomains vào ${infoPlist} — kiểm tra file`)
+  }
+  if (nextPlist !== plist) writeFileSync(infoPlist, nextPlist)
+}
+
 const config: CapacitorConfig = {
   appId: 'vn.laclingo.app',
   appName: 'LacLingo',
@@ -25,6 +44,10 @@ const config: CapacitorConfig = {
     errorPath: 'index.html',
   },
   backgroundColor: '#f8fafc',
+  ios: {
+    // Bắt buộc bật khi Info.plist có WKAppBoundDomains (xem trên) — không thì plugin native không chạy
+    limitsNavigationsToAppBoundDomains: appBound,
+  },
   // SwiftPM: tránh trùng package identity của plugin Firebase (theo hướng dẫn @capacitor-firebase/messaging)
   experimental: {
     ios: {

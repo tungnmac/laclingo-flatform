@@ -85,6 +85,8 @@ export interface ReviewDict {
     sessionDoneBody: (remembered: number, total: number) => string
     continueReviewBtn: string
     reviewAgainIn: (days: number) => string
+    offlineBanner: string
+    pendingSync: string
     srsWordsTitle: string
     srsWordsDesc: string
     srsWordsBtn: string
@@ -199,6 +201,8 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       sessionDoneBody: (remembered, total) => `Bạn nhớ ${remembered}/${total} từ.`,
       continueReviewBtn: 'Ôn tiếp',
       reviewAgainIn: (days) => `Ôn lại sau ${days} ngày`,
+      offlineBanner: 'Đang ôn offline — kết quả được lưu trên máy và tự đồng bộ khi có mạng.',
+      pendingSync: 'Chờ đồng bộ',
       srsWordsTitle: 'Tất cả từ trong SRS',
       srsWordsDesc: 'Mọi từ bạn đang ôn, sắp theo thời gian còn lại tới lúc cần ôn — từ đến hạn ở trên cùng.',
       srsWordsBtn: 'Xem tất cả từ',
@@ -323,6 +327,8 @@ export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
       sessionDoneBody: (remembered, total) => `You remembered ${remembered}/${total} words.`,
       continueReviewBtn: 'Keep reviewing',
       reviewAgainIn: (days) => `Review again in ${days} days`,
+      offlineBanner: "You're reviewing offline — results are saved on this device and sync when you're back online.",
+      pendingSync: 'Waiting to sync',
       srsWordsTitle: 'All words in SRS',
       srsWordsDesc: 'Every word you are reviewing, sorted by time left until its next review — due words first.',
       srsWordsBtn: 'View all words',

@@ -29,10 +29,12 @@ ORDER BY r.next_review_at ASC
 LIMIT sqlc.arg('limit');
 
 -- name: UpsertVocabularyReview :one
+-- $7 = lúc ôn (ôn offline gửi bù kèm lúc ôn thật), $8 = uuid app gắn cho lần ôn (có thể NULL). Không ghi khi đã
+-- lưu chính lần ôn này (gửi lại) hoặc đã có lần ôn mới hơn (máy khác) → 0 dòng, service trả tiến độ hiện tại.
 INSERT INTO user_vocabulary_reviews (
-    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at
+    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, last_client_review_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 ON CONFLICT (user_id, vocabulary_id) 
 DO UPDATE SET
@@ -40,7 +42,12 @@ DO UPDATE SET
     ease_factor = EXCLUDED.ease_factor,
     interval_days = EXCLUDED.interval_days,
     next_review_at = EXCLUDED.next_review_at,
-    last_reviewed_at = NOW()
+    last_reviewed_at = EXCLUDED.last_reviewed_at,
+    last_client_review_id = EXCLUDED.last_client_review_id
+WHERE (user_vocabulary_reviews.last_reviewed_at IS NULL
+       OR user_vocabulary_reviews.last_reviewed_at < EXCLUDED.last_reviewed_at)
+  AND (EXCLUDED.last_client_review_id IS NULL
+       OR user_vocabulary_reviews.last_client_review_id IS DISTINCT FROM EXCLUDED.last_client_review_id)
 RETURNING *;
 
 -- name: GetVocabularyReview :one
@@ -85,17 +92,19 @@ CROSS JOIN LATERAL (
 WHERE c.id = ANY(sqlc.arg('vocabulary_ids')::uuid[]);
 
 -- name: PracticeVocabularyReview :one
--- Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
--- lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
--- có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+-- Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh. Chỉ cập nhật từ đã có trong hàng đợi ôn tập
+-- và theo cùng điều kiện $7/$8 như UpsertVocabularyReview — không có dòng nào thì service xử lý (404 / đã lưu).
 UPDATE user_vocabulary_reviews
 SET srs_stage = $3,
     ease_factor = $4,
     interval_days = $5,
     next_review_at = $6,
-    last_reviewed_at = NOW(),
+    last_reviewed_at = $7,
+    last_client_review_id = $8,
     practice_count = practice_count + 1
 WHERE user_id = $1 AND vocabulary_id = $2
+  AND (last_reviewed_at IS NULL OR last_reviewed_at < $7)
+  AND ($8::uuid IS NULL OR last_client_review_id IS DISTINCT FROM $8::uuid)
 RETURNING *;
 
 -- name: GetDeckVocabulariesForPractice :many
@@ -130,10 +139,12 @@ LIMIT sqlc.arg('limit');
 
 -- name: IncrementVocabularyPracticeOnly :one
 -- Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
--- lịch SM-2 — luyện sớm không được đẩy interval lên.
+-- lịch SM-2 — luyện sớm không được đẩy interval lên. Ghi $3 (uuid lần ôn) để gửi lại không +2 lần luyện.
 UPDATE user_vocabulary_reviews
-SET practice_count = practice_count + 1
+SET practice_count = practice_count + 1,
+    last_client_review_id = $3
 WHERE user_id = $1 AND vocabulary_id = $2
+  AND ($3::uuid IS NULL OR last_client_review_id IS DISTINCT FROM $3::uuid)
 RETURNING *;
 
 -- name: ListReviewVocabulariesForUser :many

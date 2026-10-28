@@ -17,6 +17,7 @@ import { useAchievementAlerts } from '@/features/notification/useAchievementAler
 import { initStoreTransactions } from '@/features/billing/iap'
 import { browserTimezone } from '@/features/reminder/push'
 import { reminderService } from '@/features/reminder/reminder.service'
+import { useOfflineReviewSync } from '@/features/srs-review/offline'
 import { userService } from '@/features/user/user.service'
 import { useHydrated } from '@/hooks/useHydrated'
 import { isSessionValid, useSession } from '@/store/session'
@@ -86,6 +87,7 @@ const REWARDS_POLL_MS = 60_000
 function BackgroundSync() {
   useUnreadPolling()
   useAchievementAlerts()
+  useOfflineReviewSync() // kết quả ôn lúc mất mạng → gửi khi có mạng lại
   useEffect(() => {
     reminderService.updateTimezone(browserTimezone()).catch(() => {})
     initStoreTransactions() // app iOS/Android: xử lý giao dịch store đến ngoài luồng mua (gia hạn, mua dở...)
