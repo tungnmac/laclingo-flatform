@@ -4,7 +4,7 @@ App native bọc web LacLingo: mở thẳng web đã deploy (`server.url`), thê
 Firebase Cloud Messaging. Không đóng gói file tĩnh vì web có nhiều route động — cập nhật web là app đổi theo,
 chỉ build lại app khi đổi phần native (plugin, icon, quyền...).
 
-- App ID: Android `laclingo.app`, iOS `vn.laclingo.app` (không đổi được sau khi lên store)
+- App ID: `laclingo.app` — Android (applicationId) và iOS (bundle ID) dùng chung (không đổi được sau khi lên store)
 - `capacitor.config.ts`: URL web lấy từ `CAP_SERVER_URL` (bắt buộc) lúc `npx cap sync`
 - `www/index.html`: trang báo mất kết nối khi mở app không nạp được web
 - `assets/`: ảnh gốc icon + màn hình khởi động (`npm run assets` sinh lại cho iOS/Android)
@@ -67,7 +67,7 @@ Thiếu các file dưới đây app vẫn chạy, chỉ không nhận được t
 2. **Android:** thêm app Android package `laclingo.app` → tải `google-services.json` → đặt vào
    `android/app/google-services.json`.
 3. **iOS:**
-   - Thêm app iOS bundle `vn.laclingo.app` → tải `GoogleService-Info.plist` → kéo vào Xcode, nhóm `App/App`
+   - Thêm app iOS bundle `laclingo.app` → tải `GoogleService-Info.plist` → kéo vào Xcode, nhóm `App/App`
      (tích "Copy items if needed", target App).
    - Apple Developer → Keys → tạo APNs Auth Key (.p8) → Firebase Console → Project settings → Cloud Messaging →
      tải key lên (kèm Key ID, Team ID).
@@ -102,7 +102,7 @@ trong ứng dụng".
 2. Tạo các sản phẩm ở bảng trên (kèm giá, tên hiển thị, ảnh chụp màn hình cho người duyệt).
 3. App Information → App Store Server Notifications → **Version 2**, URL Production và Sandbox:
    `<API public>/billing/iap/apple/notifications`
-4. Backend: `APPLE_BUNDLE_ID=vn.laclingo.app`.
+4. Backend: `APPLE_BUNDLE_ID=laclingo.app`.
 5. Xcode → Signing & Capabilities → thêm **In-App Purchase**. Thử bằng tài khoản Sandbox (Users and Access → Sandbox).
 
 **Google (Play Console):**
