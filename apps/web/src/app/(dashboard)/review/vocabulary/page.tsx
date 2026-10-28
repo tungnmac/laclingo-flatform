@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
@@ -21,13 +22,25 @@ import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { formatDate } from '@/lib/utils'
 import { useAutoplaySettings } from '@/store/autoplaySettings'
 
+// Trang dùng được khi offline: service worker (public/sw.js) trả bản lưu KHÔNG query string cho mọi ?language=/?deck=
+// → đọc query trên URL ở client (useSearchParams), không qua props searchParams của server (là của bản đã lưu)
+export default function VocabularyReviewPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <VocabularyReview />
+    </Suspense>
+  )
+}
+
 /** ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
  * khi vào từ card "Ôn tập SRS" ở trang khoá học, thay vì gốc Ôn tập. */
-export default function VocabularyReviewPage({
-  searchParams,
-}: {
-  searchParams: { language?: string; scope?: string; deck?: string }
-}) {
+function VocabularyReview() {
+  const params = useSearchParams()
+  const searchParams = {
+    language: params.get('language') ?? undefined,
+    scope: params.get('scope') ?? undefined,
+    deck: params.get('deck') ?? undefined,
+  }
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
@@ -136,6 +149,7 @@ export default function VocabularyReviewPage({
           <Mascot mood="cheer" />
           <h1 className="text-2xl font-bold text-slate-900">{t.review.sessionDoneTitle}</h1>
           <p className="text-slate-600">{t.review.sessionDoneBody(remembered, session.results.length)}</p>
+          {session.offline && <OfflineBanner text={t.review.offlineBanner} />}
           {deck && listPracticeCount !== null && <p className="text-sm font-semibold text-indigo-700">{t.decks.listPracticeCount(listPracticeCount)}</p>}
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button onClick={session.reload}>{t.review.continueReviewBtn}</Button>
@@ -160,17 +174,21 @@ export default function VocabularyReviewPage({
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">{r.vocab.term}</p>
                   <p className="truncate text-sm text-slate-500">{r.vocab.meaning}</p>
-                  {r.mistakes !== undefined && 'practice_count' in r.response && (
+                  {r.mistakes !== undefined && r.response && 'practice_count' in r.response && (
                     <p className="text-xs text-slate-400">
                       {t.practice.mistakesLabel(r.mistakes)} · {t.practice.practiceCount(r.response.practice_count)}
                     </p>
                   )}
                 </div>
-                <span className="shrink-0 text-right text-xs text-slate-500">
-                  {t.review.reviewAgainIn(r.response.interval_days)}
-                  <br />
-                  {formatDate(r.response.next_review_at)}
-                </span>
+                {r.response ? (
+                  <span className="shrink-0 text-right text-xs text-slate-500">
+                    {t.review.reviewAgainIn(r.response.interval_days)}
+                    <br />
+                    {formatDate(r.response.next_review_at)}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-right text-xs font-medium text-amber-600">⏳ {t.review.pendingSync}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -197,6 +215,7 @@ export default function VocabularyReviewPage({
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <Breadcrumbs items={breadcrumbItems} />
+      {session.offline && <OfflineBanner text={t.review.offlineBanner} />}
 
       <div className="flex flex-col items-center gap-6">
         <ProgressHeader done={session.index} total={session.cards.length} />
@@ -239,4 +258,8 @@ export default function VocabularyReviewPage({
       </div>
     </div>
   )
+}
+
+function OfflineBanner({ text }: { text: string }) {
+  return <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">📴 {text}</p>
 }

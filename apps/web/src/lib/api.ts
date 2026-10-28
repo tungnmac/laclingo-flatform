@@ -31,8 +31,9 @@ export function inlineError(err: unknown): string {
 /**
  * RequestInit + `notify`: false = tắt thông báo chung; 'error' = chỉ báo khi lỗi (màn hình tự báo thành công
  * cụ thể hơn, hoặc thao tác gồm nhiều request chỉ báo 1 lần ở cuối).
+ * `paywall`: false = hết lượt gói Free (402) không mở màn nâng cấp Pro (request chạy ngầm, người dùng không bấm gì).
  */
-export type ApiInit = RequestInit & { notify?: NotifyOption }
+export type ApiInit = RequestInit & { notify?: NotifyOption; paywall?: false }
 
 /**
  * Gọi backend, tự gắn Bearer token của phiên hiện tại, parse JSON và chuẩn hoá lỗi về ApiError.
@@ -45,7 +46,7 @@ export function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
 
 /** retried = đã làm mới phiên + gửi lại 1 lần (không lặp nếu vẫn 401) */
 async function request<T>(path: string, init: ApiInit | undefined, retried: boolean): Promise<T> {
-  const { notify, ...requestInit } = init ?? {}
+  const { notify, paywall, ...requestInit } = init ?? {}
   // /auth/* (đăng nhập, đăng ký) không gửi token: 401 ở đó là sai mật khẩu, không phải phiên đang dùng hết hạn
   const authRoute = path.startsWith('/auth/')
   if (!authRoute) await ensureFreshToken() // access token sắp hết hạn → làm mới trước, khỏi nhận 401
@@ -87,7 +88,7 @@ async function request<T>(path: string, init: ApiInit | undefined, retried: bool
     }
     const body = (await res.json().catch(() => null)) as (ErrorResponse & Partial<LimitErrorDetail>) | null
     const err = new ApiError(apiErrorText(res.status, body?.error, useLocale.getState().locale, !!token && !authRoute, body?.code), res.status)
-    if (res.status === 402 && body?.code === 'pro_required') {
+    if (res.status === 402 && body?.code === 'pro_required' && paywall !== false) {
       // Màn nâng cấp Pro đã báo lý do — không hiện thêm toast lỗi chung
       err.shownInline = true
       window.dispatchEvent(new CustomEvent<LimitErrorDetail>(PAYWALL_EVENT, { detail: body as LimitErrorDetail }))

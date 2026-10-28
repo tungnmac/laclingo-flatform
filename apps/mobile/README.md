@@ -32,6 +32,17 @@ Web phải gọi được API từ điện thoại: chạy web với `NEXT_PUBLI
 Bản phát hành: `CAP_SERVER_URL=https://<domain web production> npx cap sync` rồi build bản release.
 Chỉ dùng `https` cho bản phát hành (`http` chỉ để thử trên máy dev).
 
+## Ôn tập offline
+
+Service worker của web (`apps/web/public/sw.js`) lưu sẵn trang ôn tập, dữ liệu thẻ nằm trong IndexedDB — mất mạng vẫn
+mở app và ôn được, kết quả tự đồng bộ khi có mạng lại.
+
+- **Android:** chạy sẵn (Capacitor chuyển request của service worker qua WebView).
+- **iOS:** WKWebView chỉ chạy service worker cho domain khai báo **App-Bound Domains**. `capacitor.config.ts` tự ghi
+  domain của `CAP_SERVER_URL` vào `WKAppBoundDomains` trong `Info.plist` và bật `limitsNavigationsToAppBoundDomains`
+  mỗi lần `cap sync` với URL `https`. URL `http` (thử trên máy dev) thì bỏ khai báo đó → bản dev không có offline.
+  Commit `Info.plist` sau khi sync bản phát hành.
+
 ## Thông báo đẩy (Firebase Cloud Messaging)
 
 Thiếu các file dưới đây app vẫn chạy, chỉ không nhận được thông báo đẩy.

@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS user_vocabulary_reviews (
     next_review_at TIMESTAMPTZ NOT NULL,
     last_reviewed_at TIMESTAMPTZ,
     practice_count INT NOT NULL DEFAULT 0,
+    -- uuid app gắn cho lần ôn gần nhất đã lưu — gửi lại cùng kết quả không bị chấm 2 lần (migration 000048)
+    last_client_review_id UUID,
     CONSTRAINT unique_user_vocab UNIQUE (user_id, vocabulary_id)
 );
 

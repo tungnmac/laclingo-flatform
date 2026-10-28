@@ -226,7 +226,7 @@ func (q *Queries) GetDueVocabulariesForUser(ctx context.Context, arg GetDueVocab
 }
 
 const getVocabularyReview = `-- name: GetVocabularyReview :one
-SELECT id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count FROM user_vocabulary_reviews
+SELECT id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count, last_client_review_id FROM user_vocabulary_reviews
 WHERE user_id = $1 AND vocabulary_id = $2
 `
 
@@ -248,26 +248,30 @@ func (q *Queries) GetVocabularyReview(ctx context.Context, arg GetVocabularyRevi
 		&i.NextReviewAt,
 		&i.LastReviewedAt,
 		&i.PracticeCount,
+		&i.LastClientReviewID,
 	)
 	return i, err
 }
 
 const incrementVocabularyPracticeOnly = `-- name: IncrementVocabularyPracticeOnly :one
 UPDATE user_vocabulary_reviews
-SET practice_count = practice_count + 1
+SET practice_count = practice_count + 1,
+    last_client_review_id = $3
 WHERE user_id = $1 AND vocabulary_id = $2
-RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count
+  AND ($3::uuid IS NULL OR last_client_review_id IS DISTINCT FROM $3::uuid)
+RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count, last_client_review_id
 `
 
 type IncrementVocabularyPracticeOnlyParams struct {
-	UserID       pgtype.UUID `json:"user_id"`
-	VocabularyID pgtype.UUID `json:"vocabulary_id"`
+	UserID             pgtype.UUID `json:"user_id"`
+	VocabularyID       pgtype.UUID `json:"vocabulary_id"`
+	LastClientReviewID pgtype.UUID `json:"last_client_review_id"`
 }
 
 // Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
-// lịch SM-2 — luyện sớm không được đẩy interval lên.
+// lịch SM-2 — luyện sớm không được đẩy interval lên. Ghi $3 (uuid lần ôn) để gửi lại không +2 lần luyện.
 func (q *Queries) IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error) {
-	row := q.db.QueryRow(ctx, incrementVocabularyPracticeOnly, arg.UserID, arg.VocabularyID)
+	row := q.db.QueryRow(ctx, incrementVocabularyPracticeOnly, arg.UserID, arg.VocabularyID, arg.LastClientReviewID)
 	var i UserVocabularyReview
 	err := row.Scan(
 		&i.ID,
@@ -279,6 +283,7 @@ func (q *Queries) IncrementVocabularyPracticeOnly(ctx context.Context, arg Incre
 		&i.NextReviewAt,
 		&i.LastReviewedAt,
 		&i.PracticeCount,
+		&i.LastClientReviewID,
 	)
 	return i, err
 }
@@ -482,24 +487,28 @@ SET srs_stage = $3,
     ease_factor = $4,
     interval_days = $5,
     next_review_at = $6,
-    last_reviewed_at = NOW(),
+    last_reviewed_at = $7,
+    last_client_review_id = $8,
     practice_count = practice_count + 1
 WHERE user_id = $1 AND vocabulary_id = $2
-RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count
+  AND (last_reviewed_at IS NULL OR last_reviewed_at < $7)
+  AND ($8::uuid IS NULL OR last_client_review_id IS DISTINCT FROM $8::uuid)
+RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count, last_client_review_id
 `
 
 type PracticeVocabularyReviewParams struct {
-	UserID       pgtype.UUID        `json:"user_id"`
-	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
-	SrsStage     pgtype.Int4        `json:"srs_stage"`
-	EaseFactor   pgtype.Float8      `json:"ease_factor"`
-	IntervalDays pgtype.Int4        `json:"interval_days"`
-	NextReviewAt pgtype.Timestamptz `json:"next_review_at"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	VocabularyID       pgtype.UUID        `json:"vocabulary_id"`
+	SrsStage           pgtype.Int4        `json:"srs_stage"`
+	EaseFactor         pgtype.Float8      `json:"ease_factor"`
+	IntervalDays       pgtype.Int4        `json:"interval_days"`
+	NextReviewAt       pgtype.Timestamptz `json:"next_review_at"`
+	LastReviewedAt     pgtype.Timestamptz `json:"last_reviewed_at"`
+	LastClientReviewID pgtype.UUID        `json:"last_client_review_id"`
 }
 
-// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
-// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
-// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh. Chỉ cập nhật từ đã có trong hàng đợi ôn tập
+// và theo cùng điều kiện $7/$8 như UpsertVocabularyReview — không có dòng nào thì service xử lý (404 / đã lưu).
 func (q *Queries) PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error) {
 	row := q.db.QueryRow(ctx, practiceVocabularyReview,
 		arg.UserID,
@@ -508,6 +517,8 @@ func (q *Queries) PracticeVocabularyReview(ctx context.Context, arg PracticeVoca
 		arg.EaseFactor,
 		arg.IntervalDays,
 		arg.NextReviewAt,
+		arg.LastReviewedAt,
+		arg.LastClientReviewID,
 	)
 	var i UserVocabularyReview
 	err := row.Scan(
@@ -520,15 +531,16 @@ func (q *Queries) PracticeVocabularyReview(ctx context.Context, arg PracticeVoca
 		&i.NextReviewAt,
 		&i.LastReviewedAt,
 		&i.PracticeCount,
+		&i.LastClientReviewID,
 	)
 	return i, err
 }
 
 const upsertVocabularyReview = `-- name: UpsertVocabularyReview :one
 INSERT INTO user_vocabulary_reviews (
-    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at
+    user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, last_client_review_id
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8
 )
 ON CONFLICT (user_id, vocabulary_id) 
 DO UPDATE SET
@@ -536,19 +548,28 @@ DO UPDATE SET
     ease_factor = EXCLUDED.ease_factor,
     interval_days = EXCLUDED.interval_days,
     next_review_at = EXCLUDED.next_review_at,
-    last_reviewed_at = NOW()
-RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count
+    last_reviewed_at = EXCLUDED.last_reviewed_at,
+    last_client_review_id = EXCLUDED.last_client_review_id
+WHERE (user_vocabulary_reviews.last_reviewed_at IS NULL
+       OR user_vocabulary_reviews.last_reviewed_at < EXCLUDED.last_reviewed_at)
+  AND (EXCLUDED.last_client_review_id IS NULL
+       OR user_vocabulary_reviews.last_client_review_id IS DISTINCT FROM EXCLUDED.last_client_review_id)
+RETURNING id, user_id, vocabulary_id, srs_stage, ease_factor, interval_days, next_review_at, last_reviewed_at, practice_count, last_client_review_id
 `
 
 type UpsertVocabularyReviewParams struct {
-	UserID       pgtype.UUID        `json:"user_id"`
-	VocabularyID pgtype.UUID        `json:"vocabulary_id"`
-	SrsStage     pgtype.Int4        `json:"srs_stage"`
-	EaseFactor   pgtype.Float8      `json:"ease_factor"`
-	IntervalDays pgtype.Int4        `json:"interval_days"`
-	NextReviewAt pgtype.Timestamptz `json:"next_review_at"`
+	UserID             pgtype.UUID        `json:"user_id"`
+	VocabularyID       pgtype.UUID        `json:"vocabulary_id"`
+	SrsStage           pgtype.Int4        `json:"srs_stage"`
+	EaseFactor         pgtype.Float8      `json:"ease_factor"`
+	IntervalDays       pgtype.Int4        `json:"interval_days"`
+	NextReviewAt       pgtype.Timestamptz `json:"next_review_at"`
+	LastReviewedAt     pgtype.Timestamptz `json:"last_reviewed_at"`
+	LastClientReviewID pgtype.UUID        `json:"last_client_review_id"`
 }
 
+// $7 = lúc ôn (ôn offline gửi bù kèm lúc ôn thật), $8 = uuid app gắn cho lần ôn (có thể NULL). Không ghi khi đã
+// lưu chính lần ôn này (gửi lại) hoặc đã có lần ôn mới hơn (máy khác) → 0 dòng, service trả tiến độ hiện tại.
 func (q *Queries) UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error) {
 	row := q.db.QueryRow(ctx, upsertVocabularyReview,
 		arg.UserID,
@@ -557,6 +578,8 @@ func (q *Queries) UpsertVocabularyReview(ctx context.Context, arg UpsertVocabula
 		arg.EaseFactor,
 		arg.IntervalDays,
 		arg.NextReviewAt,
+		arg.LastReviewedAt,
+		arg.LastClientReviewID,
 	)
 	var i UserVocabularyReview
 	err := row.Scan(
@@ -569,6 +592,7 @@ func (q *Queries) UpsertVocabularyReview(ctx context.Context, arg UpsertVocabula
 		&i.NextReviewAt,
 		&i.LastReviewedAt,
 		&i.PracticeCount,
+		&i.LastClientReviewID,
 	)
 	return i, err
 }

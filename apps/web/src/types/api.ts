@@ -94,6 +94,8 @@ export interface DueVocabulary {
 export interface VocabularyReviewRequest {
   vocabulary_id: string
   quality: number // 0 -> 5
+  reviewed_at?: string // lúc ôn thật (ISO) — chỉ gửi khi đồng bộ kết quả ôn offline, bỏ trống = giờ server
+  client_review_id?: string // uuid của lần ôn — gửi lại cùng uuid thì server không chấm 2 lần
 }
 
 export interface NewVocabulary {
@@ -192,6 +194,8 @@ export interface VocabularyReviewResponse {
 export interface VocabularyPracticeRequest {
   vocabulary_id: string
   mistakes: number // tổng số lần trả lời sai trong các bài luyện tập
+  reviewed_at?: string // như VocabularyReviewRequest
+  client_review_id?: string
 }
 
 export interface VocabularyPracticeResponse extends VocabularyReviewResponse {

@@ -241,30 +241,52 @@ func (s *SRSService) PracticeVocabulary(ctx context.Context, userID uuid.UUID, r
 	if userID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Mistakes < 0 {
 		return domain.VocabularyPracticeResponse{}, ErrInvalidInput
 	}
-	return withReviewQuota(ctx, s, userID, func() (domain.VocabularyPracticeResponse, error) { return s.practiceVocabulary(ctx, userID, req) })
-}
-
-func (s *SRSService) practiceVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyPracticeRequest) (domain.VocabularyPracticeResponse, error) {
-	quality := qualityFromMistakes(req.Mistakes)
-
-	current, err := s.repo.GetVocabularyReview(ctx, db.GetVocabularyReviewParams{
-		UserID:       toPgUUID(userID),
-		VocabularyID: toPgUUID(req.VocabularyID),
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.VocabularyPracticeResponse{}, ErrNotFound
-	}
+	at, err := s.reviewTime(req.ReviewedAt)
 	if err != nil {
 		return domain.VocabularyPracticeResponse{}, err
 	}
+	current, err := s.getReview(ctx, userID, req.VocabularyID)
+	if err != nil {
+		return domain.VocabularyPracticeResponse{}, err
+	}
+	if current == nil {
+		return domain.VocabularyPracticeResponse{}, ErrNotFound
+	}
+	quality := qualityFromMistakes(req.Mistakes)
+	clientReviewID := toPgUUIDPtr(req.ClientReviewID)
+	// Gửi lại kết quả đã lưu (đồng bộ offline bị ngắt giữa chừng) → trả tiến độ hiện tại, không trừ lượt / chấm lại
+	if alreadyApplied(current, at, clientReviewID) {
+		return toPracticeResponse(*current, quality), nil
+	}
+	resp, err := withReviewQuota(ctx, s, userID, func() (domain.VocabularyPracticeResponse, error) {
+		return s.practiceVocabulary(ctx, userID, *current, quality, at, clientReviewID)
+	})
+	if errors.Is(err, errReviewSuperseded) {
+		latest, err := s.getReview(ctx, userID, req.VocabularyID)
+		if err != nil {
+			return domain.VocabularyPracticeResponse{}, err
+		}
+		if latest == nil {
+			return domain.VocabularyPracticeResponse{}, ErrNotFound
+		}
+		return toPracticeResponse(*latest, quality), nil
+	}
+	return resp, err
+}
+
+func (s *SRSService) practiceVocabulary(ctx context.Context, userID uuid.UUID, current db.UserVocabularyReview, quality int32, at time.Time, clientReviewID pgtype.UUID) (domain.VocabularyPracticeResponse, error) {
 	// Từ CHƯA đến hạn (vd "học lại list"): chỉ +1 lần luyện, giữ nguyên lịch
 	// SM-2 và không tính nhiệm vụ — luyện sớm/lặp lại không được đẩy interval
 	// lên hay cày tiến độ nhiệm vụ.
-	if current.NextReviewAt.Time.After(s.now()) {
+	if current.NextReviewAt.Time.After(at) {
 		saved, err := s.repo.IncrementVocabularyPracticeOnly(ctx, db.IncrementVocabularyPracticeOnlyParams{
-			UserID:       toPgUUID(userID),
-			VocabularyID: toPgUUID(req.VocabularyID),
+			UserID:             current.UserID,
+			VocabularyID:       current.VocabularyID,
+			LastClientReviewID: clientReviewID,
 		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.VocabularyPracticeResponse{}, errReviewSuperseded
+		}
 		if err != nil {
 			return domain.VocabularyPracticeResponse{}, err
 		}
@@ -272,21 +294,19 @@ func (s *SRSService) practiceVocabulary(ctx context.Context, userID uuid.UUID, r
 		return toPracticeResponse(saved, quality), nil
 	}
 
-	out, err := s.nextSM2(ctx, userID, req.VocabularyID, quality)
-	if err != nil {
-		return domain.VocabularyPracticeResponse{}, err
-	}
-
+	out := s.nextSM2(&current, quality, at)
 	saved, err := s.repo.PracticeVocabularyReview(ctx, db.PracticeVocabularyReviewParams{
-		UserID:       toPgUUID(userID),
-		VocabularyID: toPgUUID(req.VocabularyID),
-		SrsStage:     pgtype.Int4{Int32: out.NewSRSStage, Valid: true},
-		EaseFactor:   pgtype.Float8{Float64: out.NewEaseFactor, Valid: true},
-		IntervalDays: pgtype.Int4{Int32: out.NewIntervalDays, Valid: true},
-		NextReviewAt: pgtype.Timestamptz{Time: out.NextReviewAt, Valid: true},
+		UserID:             current.UserID,
+		VocabularyID:       current.VocabularyID,
+		SrsStage:           pgtype.Int4{Int32: out.NewSRSStage, Valid: true},
+		EaseFactor:         pgtype.Float8{Float64: out.NewEaseFactor, Valid: true},
+		IntervalDays:       pgtype.Int4{Int32: out.NewIntervalDays, Valid: true},
+		NextReviewAt:       pgtype.Timestamptz{Time: out.NextReviewAt, Valid: true},
+		LastReviewedAt:     pgtype.Timestamptz{Time: at, Valid: true},
+		LastClientReviewID: clientReviewID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.VocabularyPracticeResponse{}, ErrNotFound
+		return domain.VocabularyPracticeResponse{}, errReviewSuperseded
 	}
 	if err != nil {
 		return domain.VocabularyPracticeResponse{}, err
@@ -297,44 +317,91 @@ func (s *SRSService) practiceVocabulary(ctx context.Context, userID uuid.UUID, r
 	return toPracticeResponse(saved, quality), nil
 }
 
-func toPracticeResponse(saved db.UserVocabularyReview, quality int32) domain.VocabularyPracticeResponse {
-	return domain.VocabularyPracticeResponse{
-		VocabularyReviewResponse: domain.VocabularyReviewResponse{
-			VocabularyID: uuid.UUID(saved.VocabularyID.Bytes),
-			NewStage:     saved.SrsStage.Int32,
-			IntervalDays: saved.IntervalDays.Int32,
-			NextReviewAt: saved.NextReviewAt.Time,
-		},
-		Quality:       quality,
-		PracticeCount: saved.PracticeCount,
+func toReviewResponse(saved db.UserVocabularyReview) domain.VocabularyReviewResponse {
+	return domain.VocabularyReviewResponse{
+		VocabularyID: uuid.UUID(saved.VocabularyID.Bytes),
+		NewStage:     saved.SrsStage.Int32,
+		IntervalDays: saved.IntervalDays.Int32,
+		NextReviewAt: saved.NextReviewAt.Time,
 	}
 }
 
-// nextSM2 tính lịch ôn tiếp theo theo SM-2 từ tiến độ hiện tại (chưa có thì dùng mặc định)
-func (s *SRSService) nextSM2(ctx context.Context, userID, vocabularyID uuid.UUID, quality int32) (srs.SRSOutput, error) {
-	input := srs.SRSInput{
-		EaseFactor: defaultEaseFactor,
-		Quality:    srs.ReviewQuality(quality),
+func toPracticeResponse(saved db.UserVocabularyReview, quality int32) domain.VocabularyPracticeResponse {
+	return domain.VocabularyPracticeResponse{
+		VocabularyReviewResponse: toReviewResponse(saved),
+		Quality:                  quality,
+		PracticeCount:            saved.PracticeCount,
 	}
+}
 
+// maxOfflineReviewAge — kết quả ôn offline cũ hơn mức này thì từ chối (lịch SM-2 tính từ lúc đó không còn ý nghĩa)
+const maxOfflineReviewAge = 30 * 24 * time.Hour
+
+// errReviewSuperseded — câu lệnh ghi không cập nhật dòng nào vì đã lưu chính lần ôn này hoặc 1 lần ôn mới hơn
+// (2 request trùng chạy song song, hoặc máy khác vừa ôn) — nơi gọi trả tiến độ mới nhất
+var errReviewSuperseded = errors.New("srs: review superseded")
+
+// reviewTime trả về lúc ôn thật: kết quả ôn offline gửi bù kèm reviewed_at; bỏ trống hoặc ở tương lai (đồng hồ máy
+// lệch) = bây giờ
+func (s *SRSService) reviewTime(reviewedAt *time.Time) (time.Time, error) {
+	now := s.now()
+	if reviewedAt == nil || reviewedAt.After(now) {
+		return now, nil
+	}
+	if now.Sub(*reviewedAt) > maxOfflineReviewAge {
+		return time.Time{}, ErrInvalidInput
+	}
+	return *reviewedAt, nil
+}
+
+// getReview trả về tiến độ ôn hiện tại của 1 từ, chưa có thì nil
+func (s *SRSService) getReview(ctx context.Context, userID, vocabularyID uuid.UUID) (*db.UserVocabularyReview, error) {
 	current, err := s.repo.GetVocabularyReview(ctx, db.GetVocabularyReviewParams{
 		UserID:       toPgUUID(userID),
 		VocabularyID: toPgUUID(vocabularyID),
 	})
-	switch {
-	case err == nil:
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &current, nil
+}
+
+// alreadyApplied: đã lưu chính lần ôn này (gửi lại cùng client_review_id) hoặc 1 lần ôn mới hơn `at` → không chấm lại
+func alreadyApplied(current *db.UserVocabularyReview, at time.Time, clientReviewID pgtype.UUID) bool {
+	if current == nil {
+		return false
+	}
+	if clientReviewID.Valid && current.LastClientReviewID == clientReviewID {
+		return true
+	}
+	return current.LastReviewedAt.Valid && !at.After(current.LastReviewedAt.Time)
+}
+
+// toPgUUIDPtr — uuid tuỳ chọn trong body (nil = NULL)
+func toPgUUIDPtr(id *uuid.UUID) pgtype.UUID {
+	if id == nil || *id == uuid.Nil {
+		return pgtype.UUID{}
+	}
+	return toPgUUID(*id)
+}
+
+// nextSM2 tính lịch ôn tiếp theo theo SM-2 từ tiến độ hiện tại (nil = lần ôn đầu, dùng mặc định), tính từ lúc ôn `at`
+func (s *SRSService) nextSM2(current *db.UserVocabularyReview, quality int32, at time.Time) srs.SRSOutput {
+	input := srs.SRSInput{
+		EaseFactor: defaultEaseFactor,
+		Quality:    srs.ReviewQuality(quality),
+	}
+	if current != nil {
 		input.SRSStage = current.SrsStage.Int32
 		input.IntervalDays = current.IntervalDays.Int32
 		if current.EaseFactor.Valid {
 			input.EaseFactor = current.EaseFactor.Float64
 		}
-	case errors.Is(err, pgx.ErrNoRows):
-		// Lần ôn tập đầu tiên — dùng giá trị mặc định
-	default:
-		return srs.SRSOutput{}, err
 	}
-
-	return srs.CalculateSM2(input, s.now()), nil
+	return srs.CalculateSM2(input, at)
 }
 
 // ReviewVocabulary chấm điểm một lần ôn tập theo SM-2 và lưu kết quả
@@ -342,27 +409,55 @@ func (s *SRSService) ReviewVocabulary(ctx context.Context, userID uuid.UUID, req
 	if userID == uuid.Nil || req.VocabularyID == uuid.Nil || req.Quality < 0 || req.Quality > 5 {
 		return domain.VocabularyReviewResponse{}, ErrInvalidInput
 	}
-	return withReviewQuota(ctx, s, userID, func() (domain.VocabularyReviewResponse, error) { return s.reviewVocabulary(ctx, userID, req) })
-}
-
-func (s *SRSService) reviewVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyReviewRequest) (domain.VocabularyReviewResponse, error) {
-
-	out, err := s.nextSM2(ctx, userID, req.VocabularyID, req.Quality)
+	at, err := s.reviewTime(req.ReviewedAt)
 	if err != nil {
 		return domain.VocabularyReviewResponse{}, err
 	}
+	current, err := s.getReview(ctx, userID, req.VocabularyID)
+	if err != nil {
+		return domain.VocabularyReviewResponse{}, err
+	}
+	clientReviewID := toPgUUIDPtr(req.ClientReviewID)
+	// Gửi lại kết quả đã lưu → trả tiến độ hiện tại, không trừ lượt / chấm lại (như PracticeVocabulary)
+	if alreadyApplied(current, at, clientReviewID) {
+		return toReviewResponse(*current), nil
+	}
+	resp, err := withReviewQuota(ctx, s, userID, func() (domain.VocabularyReviewResponse, error) {
+		return s.reviewVocabulary(ctx, userID, req, current, at, clientReviewID)
+	})
+	if errors.Is(err, errReviewSuperseded) {
+		latest, err := s.getReview(ctx, userID, req.VocabularyID)
+		if err != nil {
+			return domain.VocabularyReviewResponse{}, err
+		}
+		if latest == nil {
+			return domain.VocabularyReviewResponse{}, ErrNotFound
+		}
+		return toReviewResponse(*latest), nil
+	}
+	return resp, err
+}
+
+func (s *SRSService) reviewVocabulary(ctx context.Context, userID uuid.UUID, req domain.VocabularyReviewRequest, current *db.UserVocabularyReview, at time.Time, clientReviewID pgtype.UUID) (domain.VocabularyReviewResponse, error) {
+	out := s.nextSM2(current, req.Quality, at)
 
 	saved, err := s.repo.UpsertVocabularyReview(ctx, db.UpsertVocabularyReviewParams{
-		UserID:       toPgUUID(userID),
-		VocabularyID: toPgUUID(req.VocabularyID),
-		SrsStage:     pgtype.Int4{Int32: out.NewSRSStage, Valid: true},
-		EaseFactor:   pgtype.Float8{Float64: out.NewEaseFactor, Valid: true},
-		IntervalDays: pgtype.Int4{Int32: out.NewIntervalDays, Valid: true},
-		NextReviewAt: pgtype.Timestamptz{Time: out.NextReviewAt, Valid: true},
+		UserID:             toPgUUID(userID),
+		VocabularyID:       toPgUUID(req.VocabularyID),
+		SrsStage:           pgtype.Int4{Int32: out.NewSRSStage, Valid: true},
+		EaseFactor:         pgtype.Float8{Float64: out.NewEaseFactor, Valid: true},
+		IntervalDays:       pgtype.Int4{Int32: out.NewIntervalDays, Valid: true},
+		NextReviewAt:       pgtype.Timestamptz{Time: out.NextReviewAt, Valid: true},
+		LastReviewedAt:     pgtype.Timestamptz{Time: at, Valid: true},
+		LastClientReviewID: clientReviewID,
 	})
 	if isPgError(err, pgForeignKeyViolation) {
 		// vocabulary_id (hoặc user) không tồn tại
 		return domain.VocabularyReviewResponse{}, ErrNotFound
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		// ON CONFLICT ... WHERE không cập nhật: đã lưu lần ôn này / lần ôn mới hơn
+		return domain.VocabularyReviewResponse{}, errReviewSuperseded
 	}
 	if err != nil {
 		return domain.VocabularyReviewResponse{}, err
@@ -370,12 +465,7 @@ func (s *SRSService) reviewVocabulary(ctx context.Context, userID uuid.UUID, req
 
 	s.recordMissionAction(ctx, userID, "srs_review")
 
-	return domain.VocabularyReviewResponse{
-		VocabularyID: uuid.UUID(saved.VocabularyID.Bytes),
-		NewStage:     saved.SrsStage.Int32,
-		IntervalDays: saved.IntervalDays.Int32,
-		NextReviewAt: saved.NextReviewAt.Time,
-	}, nil
+	return toReviewResponse(saved), nil
 }
 
 // GetNewVocabularies trả về các từ user chưa học (chưa có review row) để học mới

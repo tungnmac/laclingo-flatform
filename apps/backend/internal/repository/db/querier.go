@@ -265,7 +265,7 @@ type Querier interface {
 	// +1 khi user làm xong 1 lượt "Học lại list"; không phải list của user → no rows
 	IncrementDeckPracticeCount(ctx context.Context, arg IncrementDeckPracticeCountParams) (int32, error)
 	// Luyện từ CHƯA đến hạn (vd "học lại list"): chỉ +1 practice_count, giữ nguyên
-	// lịch SM-2 — luyện sớm không được đẩy interval lên.
+	// lịch SM-2 — luyện sớm không được đẩy interval lên. Ghi $3 (uuid lần ôn) để gửi lại không +2 lần luyện.
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)
 	// Tạo note của ngày; đã có (vd 2 request cùng lúc) → không trả dòng nào (pgx.ErrNoRows)
 	InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams) (DailyNote, error)
@@ -468,9 +468,8 @@ type Querier interface {
 	MarkPaymentOrderPaid(ctx context.Context, arg MarkPaymentOrderPaidParams) (PaymentOrder, error)
 	MarkReportAutoHidden(ctx context.Context, id pgtype.UUID) error
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
-	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh (gọi lại khi
-	// lỗi mạng không bị chấm 2 lần mà practice_count chỉ +1). Chỉ cập nhật từ đã
-	// có trong hàng đợi ôn tập — không có dòng nào thì service trả 404.
+	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh. Chỉ cập nhật từ đã có trong hàng đợi ôn tập
+	// và theo cùng điều kiện $7/$8 như UpsertVocabularyReview — không có dòng nào thì service xử lý (404 / đã lưu).
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	// Chat chỉ giữ 30 ngày (đủ để xử lý báo cáo) — trừ tin đang bị báo cáo chưa xử lý (bằng chứng cho admin)
 	PruneGameChatMessages(ctx context.Context) (int64, error)
@@ -594,6 +593,8 @@ type Querier interface {
 	// Ghi đè toàn bộ phần cấu hình của học viên (NULL = theo mặc định admin);
 	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
 	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)
+	// $7 = lúc ôn (ôn offline gửi bù kèm lúc ôn thật), $8 = uuid app gắn cho lần ôn (có thể NULL). Không ghi khi đã
+	// lưu chính lần ôn này (gửi lại) hoặc đã có lần ôn mới hơn (máy khác) → 0 dòng, service trả tiến độ hiện tại.
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 	// +1 lượt dùng của ngày; đã đủ daily_limit → không trả dòng nào (pgx.ErrNoRows) = hết lượt
 	UseFeatureQuota(ctx context.Context, arg UseFeatureQuotaParams) (int32, error)

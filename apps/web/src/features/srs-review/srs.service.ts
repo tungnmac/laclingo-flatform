@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api'
+import { apiFetch, type ApiInit } from '@/lib/api'
 import type {
   PageResult,
   ReviewWord,
@@ -27,14 +27,16 @@ export const srsService = {
     ),
 
   // Hoàn thành bộ bài luyện tập của 1 từ: backend tự chấm SM-2 theo số lỗi và +1 practice_count
-  practice: (body: VocabularyPracticeRequest) =>
+  practice: (body: VocabularyPracticeRequest, init?: ApiInit) =>
     apiFetch<VocabularyPracticeResponse>('/srs/practice', {
+      ...init,
       method: 'POST',
       body: JSON.stringify(body),
     }),
 
-  review: (body: VocabularyReviewRequest) =>
+  review: (body: VocabularyReviewRequest, init?: ApiInit) =>
     apiFetch<VocabularyReviewResponse>('/srs/reviews', {
+      ...init,
       method: 'POST',
       body: JSON.stringify(body),
     }),
