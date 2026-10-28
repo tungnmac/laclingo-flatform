@@ -93,7 +93,7 @@ export function Sidebar({ user }: { user: User }) {
         collapsed ? 'w-[4.5rem] px-2' : 'w-60 px-4 lg:w-64',
       )}
     >
-      <div className={cn('mb-8 flex items-center', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}>
+      <div className={cn('mb-8 flex items-center', collapsed && 'justify-center')}>
         <Link
           href="/learn"
           title={collapsed ? 'LacLingo' : undefined}
@@ -102,18 +102,19 @@ export function Sidebar({ user }: { user: User }) {
           <img src="/logo.svg" alt={collapsed ? 'LacLingo' : ''} className="h-9 w-9 shrink-0 rounded-xl" />
           {!collapsed && 'LacLingo'}
         </Link>
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={toggleLabel}
-          aria-expanded={!collapsed}
-          aria-controls="app-sidebar"
-          title={`${toggleLabel} (Ctrl/⌘ + B)`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-        >
-          <span aria-hidden>{collapsed ? '›' : '‹'}</span>
-        </button>
       </div>
+      {/* Nút thu gọn/mở rộng nằm đè lên mép phải sidebar (ngang logo) — không chiếm chỗ của logo / menu */}
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={toggleLabel}
+        aria-expanded={!collapsed}
+        aria-controls="app-sidebar"
+        title={`${toggleLabel} (Ctrl/⌘ + B)`}
+        className="absolute -right-3 top-[1.875rem] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-sm leading-none text-slate-500 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600"
+      >
+        <span aria-hidden>{collapsed ? '›' : '‹'}</span>
+      </button>
 
       {/* min-h-0 + cuộn dọc: màn hình thấp thì danh sách menu tự cuộn, khối dưới (ngôn ngữ,
           đăng xuất) luôn nằm trong màn hình. nowrap + ẩn tràn ngang: lúc đang giãn
