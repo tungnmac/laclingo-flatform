@@ -56,7 +56,7 @@ migrate-create:
 	@command -v migrate >/dev/null 2>&1 || go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 	migrate create -ext sql -dir packages/database/migrations -seq $(name)
 
-# Seed dữ liệu mẫu — idempotent (ON CONFLICT), an toàn chạy lại nhiều lần.
+# Seed dữ liệu mẫu — idempotent (ON CONFLICT), an toàn chạy lại nhiều lần. Thêm seed mới thì thêm cả vào deploy/seed.sh.
 # Nhớ cập nhật packages/database/schema.sql khi thêm migration mới (sqlc đọc file này).
 seed:
 	docker exec -i laclingo_postgres psql -U laclingo_user -d laclingo_db -v ON_ERROR_STOP=1 < packages/database/seeds.sql

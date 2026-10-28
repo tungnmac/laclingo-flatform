@@ -1,0 +1,29 @@
+# Caddy tự xin + gia hạn chứng chỉ HTTPS (Let's Encrypt) cho 2 domain — DNS của cả 2 phải trỏ về máy chủ này.
+{
+	email {$ACME_EMAIL}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# Web (Next.js) — app iOS/Android cũng nạp từ đây (CAP_SERVER_URL=https://WEB_DOMAIN)
+{$WEB_DOMAIN} {
+	import common
+	reverse_proxy web:3000
+}
+
+# API (Go Fiber) — WebSocket phòng thử thách đi qua đây luôn
+{$API_DOMAIN} {
+	import common
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy backend:8080
+}
