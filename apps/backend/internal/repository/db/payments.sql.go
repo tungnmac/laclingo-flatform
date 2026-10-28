@@ -299,25 +299,32 @@ func (q *Queries) InsertGemTransaction(ctx context.Context, arg InsertGemTransac
 	return err
 }
 
-const listAutoRenewSubscriptionIDs = `-- name: ListAutoRenewSubscriptionIDs :many
-SELECT provider_subscription_id::text FROM subscriptions
+const listAutoRenewSubscriptions = `-- name: ListAutoRenewSubscriptions :many
+SELECT provider_subscription_id::text AS id, payment_provider, plan FROM subscriptions
 WHERE user_id = $1 AND status = 'ACTIVE' AND auto_renew AND provider_subscription_id IS NOT NULL
 `
 
-// Xoá tài khoản: mọi subscription Stripe còn tự gia hạn — kể cả đã quá hạn local (past_due: Stripe vẫn thử trừ lại)
-func (q *Queries) ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, listAutoRenewSubscriptionIDs, userID)
+type ListAutoRenewSubscriptionsRow struct {
+	ID              string `json:"id"`
+	PaymentProvider string `json:"payment_provider"`
+	Plan            string `json:"plan"`
+}
+
+// Xoá tài khoản: mọi gói còn tự gia hạn (Stripe / App Store / Google Play) — kể cả đã quá hạn local (past_due:
+// cổng vẫn thử trừ lại)
+func (q *Queries) ListAutoRenewSubscriptions(ctx context.Context, userID pgtype.UUID) ([]ListAutoRenewSubscriptionsRow, error) {
+	rows, err := q.db.Query(ctx, listAutoRenewSubscriptions, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []ListAutoRenewSubscriptionsRow
 	for rows.Next() {
-		var provider_subscription_id string
-		if err := rows.Scan(&provider_subscription_id); err != nil {
+		var i ListAutoRenewSubscriptionsRow
+		if err := rows.Scan(&i.ID, &i.PaymentProvider, &i.Plan); err != nil {
 			return nil, err
 		}
-		items = append(items, provider_subscription_id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

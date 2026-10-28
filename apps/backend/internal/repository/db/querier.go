@@ -120,6 +120,8 @@ type Querier interface {
 	CreateVocabularyTopic(ctx context.Context, arg CreateVocabularyTopicParams) (VocabularyTopic, error)
 	// Xoá mềm — giữ lại user_mission_progress đã có (không mất lịch sử/FK).
 	DeactivateMission(ctx context.Context, id pgtype.UUID) error
+	// Trừ tối đa `amount` gems (không để âm) — hoàn tiền gói gems khi học viên đã tiêu một phần
+	DeductGemsUpTo(ctx context.Context, arg DeductGemsUpToParams) (DeductGemsUpToRow, error)
 	DeleteAllNotifications(ctx context.Context, userID pgtype.UUID) (int64, error)
 	DeleteAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteBlogComment(ctx context.Context, id pgtype.UUID) error
@@ -156,10 +158,15 @@ type Querier interface {
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
 	DislikeBlogPost(ctx context.Context, arg DislikeBlogPostParams) error
+	// Store báo hết hạn — chỉ kết thúc khi hạn đã lưu không quá hạn của giao dịch trong thông báo (thông báo cũ gửi lại
+	// / tới muộn sau khi đã gia hạn thì bỏ qua)
+	EndStoreSubscriptionIfDue(ctx context.Context, arg EndStoreSubscriptionIfDueParams) error
 	// Stripe subscription đã kết thúc (huỷ hết kỳ / thanh toán thất bại hẳn)
 	EndSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
+	// Ân hạn (grace period) khi store chưa trừ được tiền kỳ mới: giữ Pro tới hết ân hạn
+	ExtendStoreSubscription(ctx context.Context, arg ExtendStoreSubscriptionParams) error
 	// Gửi tới mọi tài khoản đang active (1 dòng thông báo / user).
 	FanOutAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
@@ -199,6 +206,9 @@ type Querier interface {
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
 	GetGrammarLessonByID(ctx context.Context, id pgtype.UUID) (GrammarLesson, error)
 	GetGrammarTopicByID(ctx context.Context, id pgtype.UUID) (GrammarTopic, error)
+	// Người dùng đã nhận giao dịch đầu tiên của chuỗi này (1 gói store chỉ gắn với 1 tài khoản LacLingo)
+	GetIAPOwner(ctx context.Context, arg GetIAPOwnerParams) (pgtype.UUID, error)
+	GetIAPPurchaseByTransaction(ctx context.Context, arg GetIAPPurchaseByTransactionParams) (IapPurchase, error)
 	GetLanguageByID(ctx context.Context, id string) (Language, error)
 	GetLeaderboard(ctx context.Context, roomID pgtype.UUID) ([]GetLeaderboardRow, error)
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (ListeningPassage, error)
@@ -243,6 +253,9 @@ type Querier interface {
 	InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams) (DailyNote, error)
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
 	InsertGemTransaction(ctx context.Context, arg InsertGemTransactionParams) error
+	// Mua trong app iOS/Android (Apple In-App Purchase, Google Play Billing)
+	// Giao dịch mới → trả dòng vừa tạo; đã có (gửi lại / khôi phục) → không trả dòng (pgx.ErrNoRows), không giao lại
+	InsertIAPPurchase(ctx context.Context, arg InsertIAPPurchaseParams) (IapPurchase, error)
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error)
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
@@ -265,8 +278,9 @@ type Querier interface {
 	ListAllMissions(ctx context.Context) ([]Mission, error)
 	// read_count: số user đã đọc (thông báo user tự xoá thì không còn tính).
 	ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]ListAnnouncementsRow, error)
-	// Xoá tài khoản: mọi subscription Stripe còn tự gia hạn — kể cả đã quá hạn local (past_due: Stripe vẫn thử trừ lại)
-	ListAutoRenewSubscriptionIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
+	// Xoá tài khoản: mọi gói còn tự gia hạn (Stripe / App Store / Google Play) — kể cả đã quá hạn local (past_due:
+	// cổng vẫn thử trừ lại)
+	ListAutoRenewSubscriptions(ctx context.Context, userID pgtype.UUID) ([]ListAutoRenewSubscriptionsRow, error)
 	// Flat, sắp theo thời gian — service dựng cây parent/child ở Go từ parent_comment_id.
 	// Kèm like/dislike count + flag theo user hiện tại (giống cách post làm).
 	ListBlogCommentsByPost(ctx context.Context, arg ListBlogCommentsByPostParams) ([]ListBlogCommentsByPostRow, error)
@@ -403,6 +417,8 @@ type Querier interface {
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
 	LockDailyNoteTask(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
+	// Khoá theo chuỗi giao dịch (platform + original_id) tới hết transaction — 2 lần xác thực cùng lúc không gắn cho 2 tài khoản
+	LockIAPChain(ctx context.Context, chain string) error
 	// Khoá dòng user khi cộng thưởng nhiệm vụ: 2 nhiệm vụ xong cùng lúc không cùng đọc level cũ (không tạo quà lên level 2 lần)
 	LockUserForRewards(ctx context.Context, id pgtype.UUID) (User, error)
 	LockUserInventory(ctx context.Context, userID pgtype.UUID) (UserInventory, error)
@@ -431,6 +447,9 @@ type Querier interface {
 	PracticeVocabularyReview(ctx context.Context, arg PracticeVocabularyReviewParams) (UserVocabularyReview, error)
 	// Giữ bảng gọn: xoá thông báo đã đọc quá 60 ngày và mọi thông báo quá 180 ngày.
 	PruneOldNotifications(ctx context.Context) (int64, error)
+	// Mua lại / khôi phục sau khi gói đã kết thúc: Apple giữ originalTransactionId, Google giữ purchaseToken (unique) —
+	// dùng lại dòng cũ của chính học viên thay vì tạo dòng mới
+	ReactivateStoreSubscription(ctx context.Context, arg ReactivateStoreSubscriptionParams) (pgtype.UUID, error)
 	// Pro được tặng Streak Freeze đầu mỗi tháng: nạp lên tối thiểu `amount` (không cộng dồn), mỗi tháng 1 lần
 	RefillStreakFreezes(ctx context.Context, arg RefillStreakFreezesParams) error
 	// Tính lại trạng thái xong của việc cha sau khi đổi việc con / tiến độ:
@@ -442,6 +461,8 @@ type Querier interface {
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
+	// Store hoàn tiền / thu hồi — đánh dấu 1 lần (đã thu hồi → không trả dòng)
+	RevokeIAPPurchase(ctx context.Context, arg RevokeIAPPurchaseParams) (IapPurchase, error)
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
 	SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNoteTaskPositionParams) error
 	// Thứ tự mới = vị trí trong mảng item_ids; chỉ việc con của đúng task_id (1 câu lệnh cho cả danh sách)
@@ -502,6 +523,9 @@ type Querier interface {
 	UpdateReminderDefaults(ctx context.Context, arg UpdateReminderDefaultsParams) (ReminderDefault, error)
 	UpdateRewardSettings(ctx context.Context, arg UpdateRewardSettingsParams) (RewardSetting, error)
 	UpdateSpeakingItem(ctx context.Context, arg UpdateSpeakingItemParams) (SpeakingItem, error)
+	// Gói store đang ACTIVE: cập nhật gói (nâng/hạ trong cùng nhóm), hạn chỉ tiến lên; auto_renew NULL = giữ nguyên
+	// (giao dịch app gửi lên không mang trạng thái tự gia hạn — chỉ thông báo của store mới đổi)
+	UpdateStoreSubscription(ctx context.Context, arg UpdateStoreSubscriptionParams) error
 	// Stripe gia hạn kỳ mới / đổi trạng thái tự gia hạn — chỉ gói đang ACTIVE (sự kiện tới trễ không làm sống lại gói đã
 	// kết thúc/bị thay); hạn chỉ tiến lên (giữ phần trả trước còn lại nếu dài hơn kỳ Stripe)
 	UpdateSubscriptionPeriod(ctx context.Context, arg UpdateSubscriptionPeriodParams) error

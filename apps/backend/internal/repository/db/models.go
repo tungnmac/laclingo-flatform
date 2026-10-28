@@ -300,6 +300,20 @@ type GrammarTopic struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type IapPurchase struct {
+	ID            pgtype.UUID        `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	Platform      string             `json:"platform"`
+	Item          string             `json:"item"`
+	ProductID     string             `json:"product_id"`
+	TransactionID string             `json:"transaction_id"`
+	OriginalID    string             `json:"original_id"`
+	Environment   string             `json:"environment"`
+	Status        string             `json:"status"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+}
+
 type Language struct {
 	ID        string             `json:"id"`
 	Name      string             `json:"name"`

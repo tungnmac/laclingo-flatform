@@ -811,7 +811,7 @@ CREATE TABLE IF NOT EXISTS gem_transactions (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     delta INT NOT NULL CHECK (delta <> 0),
     balance_after INT NOT NULL CHECK (balance_after >= 0),
-    reason VARCHAR(30) NOT NULL CHECK (reason IN ('PURCHASE', 'MISSION_REWARD', 'CHALLENGE_WIN', 'LEVEL_UP', 'BUY_STREAK_FREEZE', 'ADMIN')),
+    reason VARCHAR(30) NOT NULL CHECK (reason IN ('PURCHASE', 'MISSION_REWARD', 'CHALLENGE_WIN', 'LEVEL_UP', 'BUY_STREAK_FREEZE', 'ADMIN', 'REFUND')), -- REFUND: migration 000043
     note TEXT NOT NULL DEFAULT '',
     order_id UUID REFERENCES payment_orders(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -840,3 +840,23 @@ CREATE TABLE IF NOT EXISTS reward_settings (
     level_up_gems_per_level INT NOT NULL DEFAULT 20 CHECK (level_up_gems_per_level BETWEEN 0 AND 1000),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ===== Mua trong app iOS/Android (migration 000043) =====
+-- Mỗi giao dịch Apple/Google chỉ giao hàng 1 lần. Apple: transaction_id = transactionId, original_id =
+-- originalTransactionId; Google: cả 2 = purchaseToken. Gói tự gia hạn: subscriptions.provider_subscription_id = original_id.
+CREATE TABLE IF NOT EXISTS iap_purchases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    platform VARCHAR(10) NOT NULL CHECK (platform IN ('APPLE', 'GOOGLE')),
+    item VARCHAR(30) NOT NULL,
+    product_id TEXT NOT NULL,
+    transaction_id TEXT NOT NULL,
+    original_id TEXT NOT NULL,
+    environment VARCHAR(20) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'GRANTED' CHECK (status IN ('GRANTED', 'REVOKED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at TIMESTAMPTZ,
+    UNIQUE (platform, transaction_id)
+);
+CREATE INDEX IF NOT EXISTS idx_iap_purchases_original ON iap_purchases (platform, original_id);
+CREATE INDEX IF NOT EXISTS idx_iap_purchases_user ON iap_purchases (user_id) WHERE user_id IS NOT NULL;

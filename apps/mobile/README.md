@@ -54,9 +54,46 @@ Thiếu các file dưới đây app vẫn chạy, chỉ không nhận được t
 
 Trong app: Hồ sơ → Nhắc học → **Bật thông báo**. Bấm thông báo sẽ mở đúng trang (vd `/review`).
 
+## Mua trong app (Apple In-App Purchase, Google Play Billing)
+
+Trong app chỉ bán qua store (plugin `@capgo/native-purchases`); VNPay/Stripe chỉ có trên web. Backend tự xác thực
+giao dịch (Apple: chữ ký JWS của StoreKit 2; Google: Play Developer API), giao hàng 1 lần / giao dịch, rồi theo dõi
+gia hạn / huỷ / hoàn tiền qua thông báo của store. Store nào chưa cấu hình ở backend thì app hiện "Chưa hỗ trợ mua
+trong ứng dụng".
+
+**Mã sản phẩm — khai báo giống hệt ở cả 2 store** (đổi giá trên store, không cần sửa code):
+
+| Món | Mã sản phẩm | App Store | Google Play |
+|---|---|---|---|
+| Pro 1 tháng | `laclingo.pro.monthly` | Auto-Renewable Subscription (chung 1 subscription group với gói năm) | Subscription, base plan `monthly` (tự gia hạn) |
+| Pro 1 năm | `laclingo.pro.yearly` | Auto-Renewable Subscription (cùng group) | Subscription, base plan `yearly` (tự gia hạn) |
+| Pro trọn đời | `laclingo.pro.lifetime` | Non-Consumable | One-time product |
+| 100 / 550 / 1200 gems | `laclingo.gems.100` / `.550` / `.1200` | Consumable | One-time product |
+
+**Apple (App Store Connect):**
+1. Agreements, Tax, and Banking → ký Paid Apps Agreement (chưa ký thì không bán được).
+2. Tạo các sản phẩm ở bảng trên (kèm giá, tên hiển thị, ảnh chụp màn hình cho người duyệt).
+3. App Information → App Store Server Notifications → **Version 2**, URL Production và Sandbox:
+   `<API public>/billing/iap/apple/notifications`
+4. Backend: `APPLE_BUNDLE_ID=vn.laclingo.app`.
+5. Xcode → Signing & Capabilities → thêm **In-App Purchase**. Thử bằng tài khoản Sandbox (Users and Access → Sandbox).
+
+**Google (Play Console):**
+1. Monetize → tạo các sản phẩm ở bảng trên (subscription nhớ đúng base plan `monthly` / `yearly`).
+2. Google Cloud: bật **Google Play Android Developer API**, tạo service account + khoá JSON; Play Console → Users and
+   permissions → mời email service account (quyền xem dữ liệu tài chính, quản lý đơn hàng và subscription).
+3. Real-time developer notifications: tạo Pub/Sub topic (cấp quyền publish cho
+   `google-play-developer-notifications@system.gserviceaccount.com`), subscription kiểu **Push** tới
+   `<API public>/billing/iap/google/notifications?token=<chuỗi ngẫu nhiên dài>`; Play Console → Monetization setup →
+   nhập topic.
+4. Backend: `GOOGLE_PLAY_PACKAGE_NAME=vn.laclingo.app`, `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=<file JSON, ngoài repo>`,
+   `GOOGLE_PLAY_RTDN_TOKEN=<chuỗi ngẫu nhiên ở bước 3>`.
+5. Thử bằng License testing (tài khoản test mua không mất tiền) trên bản phát hành Internal testing.
+
+Gói mua qua store được quản lý / huỷ trong cài đặt tài khoản store (nút "Quản lý trong App Store / Google Play" ở
+trang Bảng giá). Trang Bảng giá trong app có nút **Khôi phục giao dịch** (App Store bắt buộc).
+
 ## Lưu ý trước khi nộp store
 
-- **Thanh toán:** gói Pro / gems là hàng hoá số — trong app phải dùng Apple In-App Purchase / Google Play Billing,
-  không được dẫn sang VNPay/Stripe (bước tiếp theo của lộ trình).
 - Apple có thể từ chối app "chỉ bọc trang web" (Guideline 4.2) — thông báo đẩy native là 1 tính năng giúp vượt qua.
 - Chính sách quyền riêng tư: `<domain web>/privacy`; xoá tài khoản: Hồ sơ → Xoá tài khoản.

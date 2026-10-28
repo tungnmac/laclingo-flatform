@@ -23,6 +23,21 @@ export interface BillingDict {
     autoRenewOn: (date: string) => string
     autoRenewOff: (date: string) => string
     haveLifetime: string
+    // Mua trong app iOS/Android (App Store / Google Play)
+    buyInApp: string
+    processing: string
+    storeUnavailable: string
+    storeError: string
+    storePending: string
+    purchased: string
+    restore: string
+    restored: (n: number) => string
+    manageInStore: (store: string) => string
+    manageOnPhone: string
+    manageOnWeb: string
+    storeRecurringNote: (store: string) => string
+    terms: string
+    privacy: string
     items: Record<CatalogItemId, string>
     walletTitle: string
     walletSubtitle: string
@@ -123,6 +138,21 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       autoRenewOn: (d) => `Tự gia hạn ngày ${d}`,
       autoRenewOff: (d) => `Đã tắt tự gia hạn — Pro đến ${d}`,
       haveLifetime: 'Bạn đã có LacLingo Pro trọn đời 🎉',
+      buyInApp: 'Mua',
+      processing: 'Đang xử lý…',
+      storeUnavailable: 'Chưa hỗ trợ mua trong ứng dụng.',
+      storeError: 'Không hoàn tất được giao dịch, vui lòng thử lại.',
+      storePending: 'Giao dịch đang chờ thanh toán — gói sẽ được kích hoạt khi thanh toán hoàn tất.',
+      purchased: 'Thanh toán thành công 🎉',
+      restore: 'Khôi phục giao dịch',
+      restored: (n) => (n > 0 ? `Đã khôi phục ${n} giao dịch` : 'Không có giao dịch nào cần khôi phục'),
+      manageInStore: (store) => `Quản lý trong ${store}`,
+      manageOnPhone: 'Gói mua qua App Store / Google Play — quản lý trong cài đặt tài khoản store trên điện thoại.',
+      manageOnWeb: 'Gói mua qua website — quản lý gói trên trang web LacLingo.',
+      storeRecurringNote: (store) =>
+        `Gói tháng/năm tự gia hạn mỗi kỳ qua ${store} với giá hiển thị ở trên, trừ khi bạn tắt tự gia hạn ít nhất 24 giờ trước khi hết kỳ. Quản lý và huỷ trong cài đặt tài khoản ${store}.`,
+      terms: 'Điều khoản sử dụng',
+      privacy: 'Chính sách quyền riêng tư',
       items: { MONTHLY: 'Pro 1 tháng', YEARLY: 'Pro 1 năm', LIFETIME: 'Pro trọn đời', GEMS_100: '100 gems', GEMS_550: '550 gems', GEMS_1200: '1.200 gems' },
       walletTitle: '💎 Ví',
       walletSubtitle: 'Gems dùng để mua Streak Freeze giữ chuỗi ngày học. Nhận gems khi hoàn thành nhiệm vụ hoặc nạp thêm.',
@@ -229,6 +259,21 @@ export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
       autoRenewOn: (d) => `Renews on ${d}`,
       autoRenewOff: (d) => `Auto-renewal off — Pro until ${d}`,
       haveLifetime: 'You already have Lifetime LacLingo Pro 🎉',
+      buyInApp: 'Buy',
+      processing: 'Processing…',
+      storeUnavailable: 'In-app purchases are not available yet.',
+      storeError: "Couldn't complete the purchase, please try again.",
+      storePending: 'Payment is pending — your purchase will be activated once the payment completes.',
+      purchased: 'Payment successful 🎉',
+      restore: 'Restore purchases',
+      restored: (n) => (n > 0 ? `Restored ${n} purchase${n > 1 ? 's' : ''}` : 'No purchases to restore'),
+      manageInStore: (store) => `Manage in ${store}`,
+      manageOnPhone: 'Bought through the App Store / Google Play — manage it in your store account settings on your phone.',
+      manageOnWeb: 'Bought on the website — manage it on the LacLingo website.',
+      storeRecurringNote: (store) =>
+        `Monthly/yearly plans renew automatically through ${store} at the price shown above unless auto-renew is turned off at least 24 hours before the end of the period. Manage or cancel in your ${store} account settings.`,
+      terms: 'Terms of Use',
+      privacy: 'Privacy Policy',
       items: { MONTHLY: 'Pro 1 month', YEARLY: 'Pro 1 year', LIFETIME: 'Lifetime Pro', GEMS_100: '100 gems', GEMS_550: '550 gems', GEMS_1200: '1,200 gems' },
       walletTitle: '💎 Wallet',
       walletSubtitle: 'Use gems to buy Streak Freezes that keep your streak. Earn gems from missions or top up.',

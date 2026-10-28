@@ -201,5 +201,33 @@ func newPaymentService(cfg *config.Config, repo *repository.PostgresRepository, 
 	} else {
 		log.Println("⚠️  STRIPE_SECRET_KEY chưa cấu hình — tắt thanh toán Stripe")
 	}
-	return service.NewPaymentService(repo, vnpay, stripe, cfg.AppWebURL, cfg.AppAPIURL, notifier)
+	payments := service.NewPaymentService(repo, vnpay, stripe, cfg.AppWebURL, cfg.AppAPIURL, notifier)
+
+	// Mua trong app iOS/Android
+	var apple *service.AppleVerifier
+	if cfg.AppleBundleID != "" {
+		apple = service.NewAppleVerifier(cfg.AppleBundleID)
+		log.Println("✅ Mua trong app iOS (App Store) đã bật")
+	} else {
+		log.Println("⚠️  APPLE_BUNDLE_ID chưa cấu hình — tắt mua trong app iOS")
+	}
+	var google *service.GooglePlayClient
+	if cfg.GooglePlayPackageName != "" && cfg.GooglePlayServiceAccountFile != "" {
+		data, err := os.ReadFile(cfg.GooglePlayServiceAccountFile)
+		if err == nil {
+			google, err = service.NewGooglePlayClient(data, cfg.GooglePlayPackageName, cfg.GooglePlayAPIBase)
+		}
+		if err != nil {
+			log.Printf("❌ Google Play: %v — tắt mua trong app Android", err)
+		} else {
+			log.Println("✅ Mua trong app Android (Google Play) đã bật")
+			if cfg.GooglePlayRTDNToken == "" {
+				log.Println("⚠️  GOOGLE_PLAY_RTDN_TOKEN trống — không nhận thông báo gia hạn/huỷ từ Google Play")
+			}
+		}
+	} else {
+		log.Println("⚠️  GOOGLE_PLAY_PACKAGE_NAME / GOOGLE_PLAY_SERVICE_ACCOUNT_FILE chưa cấu hình — tắt mua trong app Android")
+	}
+	payments.SetStores(apple, google, cfg.GooglePlayRTDNToken, cfg.IAPAllowSandbox)
+	return payments
 }

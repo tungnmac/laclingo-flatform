@@ -23,6 +23,8 @@ func (h *PaymentHandler) RegisterPublicRoutes(router fiber.Router) {
 	router.Get("/billing/vnpay/ipn", h.VNPayIPN)
 	router.Get("/billing/vnpay/return", h.VNPayReturn)
 	router.Post("/billing/stripe/webhook", h.StripeWebhook)
+	router.Post("/billing/iap/apple/notifications", h.AppleNotification)
+	router.Post("/billing/iap/google/notifications", h.GoogleNotification)
 }
 
 func (h *PaymentHandler) RegisterRoutes(router fiber.Router) {
@@ -37,10 +39,12 @@ func (h *PaymentHandler) RegisterRoutes(router fiber.Router) {
 	api.Get("/rewards", h.PendingRewards)
 	api.Post("/rewards/claim-all", h.ClaimAllRewards)
 	api.Post("/rewards/:id/claim", h.ClaimReward)
+	api.Post("/iap/apple", h.VerifyApple)
+	api.Post("/iap/google", h.VerifyGoogle)
 }
 
 func paymentError(err error) error {
-	if errors.Is(err, service.ErrPaymentNotConfigured) {
+	if errors.Is(err, service.ErrPaymentNotConfigured) || errors.Is(err, service.ErrIAPNotConfigured) {
 		return fiber.NewError(fiber.StatusServiceUnavailable, err.Error())
 	}
 	return err

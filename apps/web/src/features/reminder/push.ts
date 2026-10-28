@@ -1,4 +1,5 @@
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { isNativeApp } from '@/lib/native'
 import type { MyReminderSettings } from '@/types/api'
 import { reminderService } from './reminder.service'
 
@@ -66,10 +67,6 @@ async function revokeNativeToken() {
   }
 }
 
-export function isNativeApp(): boolean {
-  return Capacitor.isNativePlatform()
-}
-
 export function isPushSupported(): boolean {
   if (isNativeApp()) return true
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
@@ -123,13 +120,14 @@ export function initNativePush(navigate: (url: string) => void) {
   if (!isNativeApp() || nativePushInitialized) return
   nativePushInitialized = true
   if (pendingRevoke()) void revokeNativeToken()
-  void FirebaseMessaging.addListener('notificationActionPerformed', (e) => {
+  // .catch: bản app thiếu plugin push thì bỏ qua, không ném lỗi chưa xử lý
+  FirebaseMessaging.addListener('notificationActionPerformed', (e) => {
     const url = e.notification.data?.url
     if (typeof url === 'string' && /^\/(?!\/)/.test(url)) navigate(url) // chỉ đường dẫn trong app (không "//host")
-  })
-  void FirebaseMessaging.addListener('tokenReceived', (e) => {
+  }).catch(() => {})
+  FirebaseMessaging.addListener('tokenReceived', (e) => {
     if (storedNativeToken() && e.token) void subscribeNativeToken(e.token).catch(() => {})
-  })
+  }).catch(() => {})
 }
 
 export function browserTimezone(): string {

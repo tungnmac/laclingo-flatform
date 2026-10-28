@@ -12,6 +12,7 @@ import { reloadAsActiveAccount } from '@/features/auth/components/AccountList'
 import { useRewardsCount } from '@/features/billing/rewardsStore'
 import { PaywallDialog } from '@/features/billing/components/PaywallDialog'
 import { useUnreadPolling } from '@/features/notification/notificationStore'
+import { initStoreTransactions } from '@/features/billing/iap'
 import { browserTimezone } from '@/features/reminder/push'
 import { reminderService } from '@/features/reminder/reminder.service'
 import { userService } from '@/features/user/user.service'
@@ -80,6 +81,7 @@ function BackgroundSync() {
   useUnreadPolling()
   useEffect(() => {
     reminderService.updateTimezone(browserTimezone()).catch(() => {})
+    initStoreTransactions() // app iOS/Android: xử lý giao dịch store đến ngoài luồng mua (gia hạn, mua dở...)
     // Badge quà gems chờ nhận: tải khi vào app, định kỳ và khi quay lại tab (quà mới từ nhiệm vụ / thắng thử thách)
     const refresh = () => void useRewardsCount.getState().refresh()
     refresh()

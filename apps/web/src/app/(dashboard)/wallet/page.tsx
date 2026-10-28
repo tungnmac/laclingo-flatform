@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { ErrorState, Spinner } from '@/components/ui/States'
 import { useToast } from '@/components/ui/ToastProvider'
 import { billingService } from '@/features/billing/billing.service'
-import { CheckoutButtons } from '@/features/billing/components/CheckoutButtons'
+import { CheckoutButtons, useStorePrices } from '@/features/billing/components/CheckoutButtons'
 import { PendingRewards } from '@/features/billing/components/PendingRewards'
 import { formatAmount } from '@/features/billing/pricing'
 import { useApi } from '@/hooks/useApi'
@@ -23,6 +23,10 @@ export default function WalletPage() {
   const toast = useToast()
   const walletApi = useApi(() => billingService.wallet(), [])
   const { data: catalog } = useApi(() => billingService.catalog(), [])
+  const storePrices = useStorePrices(catalog, () => {
+    setWallet(null)
+    walletApi.reload()
+  })
   const { data: orders } = useApi(() => billingService.orders(), [])
   const [wallet, setWallet] = useState<WalletResponse | null>(null)
   const w = wallet ?? walletApi.data
@@ -78,7 +82,16 @@ export default function WalletPage() {
               .map((item) => (
                 <div key={item.id} className="flex flex-col gap-2 rounded-xl bg-sky-50 p-3 text-center ring-1 ring-inset ring-sky-100">
                   <p className="text-2xl font-bold text-sky-700">💎 {b.items[item.id]}</p>
-                  <CheckoutButtons item={item} providers={catalog.providers} compact />
+                  <CheckoutButtons
+                    item={item}
+                    providers={catalog.providers}
+                    compact
+                    storePrice={storePrices[item.store_product_id]}
+                    onPurchased={() => {
+                      setWallet(null)
+                      walletApi.reload()
+                    }}
+                  />
                 </div>
               ))}
           </div>
