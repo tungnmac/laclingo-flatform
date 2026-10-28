@@ -236,6 +236,8 @@ function cachePages(urls: string[]) {
 // mặc định thì mỗi lần vào app (1 request). Trang mở khi có mạng vẫn luôn được service worker lưu bản mới (sw.js)
 const PREFETCH_EVERY_MS = 12 * 3600_000
 const prefetchKey = (userId: string) => `laclingo-offline-prefetch:${userId}`
+// Tải sẵn tối đa bấy nhiêu list (mỗi list: chi tiết + bộ thẻ + trang) — nhiều list hơn thì list còn lại cần mạng
+const MAX_PREFETCH_DECKS = 30
 
 /**
  * Chuẩn bị dùng offline khi đang có mạng: nhờ service worker lưu các trang (kèm JS/CSS) và tải sẵn dữ liệu — người
@@ -290,10 +292,13 @@ async function step<T>(load: () => Promise<T>): Promise<T | null> {
 
 /** Mọi dữ liệu các trang offline cần — chạy lần lượt (không dồn request) */
 async function prefetchAll() {
-  const decks = (await step(() => deckService.list())) ?? []
+  const decks = ((await step(() => deckService.list())) ?? []).slice(0, MAX_PREFETCH_DECKS)
   const languages = (await step(() => courseService.list())) ?? []
   // Giao diện: trang khoá học từng ngôn ngữ + chi tiết từng list (service worker tải lần lượt)
-  cachePages([...languages.map((l) => `/learn/${encodeURIComponent(l.id)}`), ...decks.map((d) => `/review/lists/${d.id}`)])
+  cachePages([
+    ...languages.map((l) => `/learn/${encodeURIComponent(l.id)}`),
+    ...decks.map((d) => `/review/lists/${encodeURIComponent(d.id)}`),
+  ])
 
   // Ôn tập theo list: chi tiết + bộ thẻ "Học lại list" của từng list
   for (const deck of decks) {

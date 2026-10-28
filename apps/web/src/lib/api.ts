@@ -1,6 +1,6 @@
 import { apiErrorText } from '@/lib/apiErrorText'
 import { emitMutationNotice, mutationNotice, type NotifyOption } from '@/lib/mutationNotice'
-import { getCachedResponse, putCachedResponse } from '@/lib/offlineDb'
+import { currentUserId, getCachedResponse, putCachedResponse } from '@/lib/offlineDb'
 import { useLocale } from '@/store/locale'
 import { isAccessValid, useSession } from '@/store/session'
 import type { ErrorResponse, LimitErrorDetail } from '@/types/api'
@@ -48,10 +48,14 @@ export function networkError(): ApiError {
   return new ApiError(apiErrorText(0, undefined, useLocale.getState().locale), 0)
 }
 
-/** GET dùng được khi offline: lưu kết quả mới nhất, mất mạng thì trả bản đã lưu. Trừ đăng nhập và trang quản trị */
+/**
+ * GET dùng được khi offline: lưu kết quả mới nhất, mất mạng thì trả bản đã lưu. Trừ đăng nhập, quản trị và thanh toán
+ * (/billing: ví, đơn hàng, gói — không để lại trên máy, và trạng thái đơn không được trả bản cũ như thể mới)
+ */
 function isOfflineCacheable(path: string, init?: ApiInit) {
   const method = (init?.method ?? 'GET').toUpperCase()
-  return method === 'GET' && init?.offlineCache !== false && !path.startsWith('/auth/') && !path.startsWith('/admin')
+  if (method !== 'GET' || init?.offlineCache === false) return false
+  return !['/auth/', '/admin', '/billing'].some((prefix) => path.startsWith(prefix))
 }
 
 /**
@@ -61,9 +65,10 @@ function isOfflineCacheable(path: string, init?: ApiInit) {
  */
 export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   const cacheable = isOfflineCacheable(path, init)
+  const userId = currentUserId() // tài khoản gửi request — lưu đúng tài khoản dù đổi tài khoản giữa chừng
   try {
     const data = await request<T>(path, init, false)
-    if (cacheable) void putCachedResponse(path, data)
+    if (cacheable && userId) void putCachedResponse(userId, path, data)
     return data
   } catch (err) {
     // Mất mạng → dữ liệu lần trước (giao diện vẫn dùng được); chưa từng tải → lỗi mạng như cũ (màn hình hiện ô trống)

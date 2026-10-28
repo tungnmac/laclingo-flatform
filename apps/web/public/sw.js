@@ -19,6 +19,8 @@ const CACHES = [OFFLINE_CACHE, STATIC_CACHE, PAGES_CACHE]
 const OFFLINE_URL = '/offline.html'
 // Giới hạn số trang giữ lại — bỏ trang lưu lâu nhất trước
 const MAX_PAGES = 80
+// Trang học / ôn chính — không bao giờ bị dọn khi vượt MAX_PAGES (nhiều list / trang blog không đẩy được chúng ra)
+const PINNED_PAGES = ['/learn', '/review', '/review/vocabulary', '/review/new', '/review/new/subtopics', '/review/new/topic', '/review/lists']
 // Giới hạn số file JS/CSS giữ lại — bản deploy cũ để lại file hash cũ, bỏ file lưu lâu nhất trước
 const MAX_STATIC_ENTRIES = 400
 
@@ -97,7 +99,14 @@ function isCacheablePage(response) {
 }
 
 // Lưu trang + mọi JS/CSS/font trang đó tham chiếu — trang lưu offline không thiếu file dù lúc mở chưa có SW kiểm soát
-async function savePage(pathname, response) {
+// Lưu tuần tự: điều hướng + 2 lượt lưu sẵn chạy cùng lúc không dọn nhầm trang vừa lưu (keys() cũ của lượt khác)
+let pageQueue = Promise.resolve()
+function savePage(pathname, response) {
+  pageQueue = pageQueue.then(() => doSavePage(pathname, response)).catch(() => {})
+  return pageQueue
+}
+
+async function doSavePage(pathname, response) {
   const html = await response.clone().text()
   const assets = pageAssets(html)
   // Không phải trang Next (vd trang lỗi 502 của proxy lúc deploy — app Android luôn báo status 200) → không lưu
@@ -113,9 +122,10 @@ async function savePage(pathname, response) {
   const pages = await caches.open(PAGES_CACHE)
   await pages.delete(pathname) // đưa trang vừa lưu về cuối thứ tự (mới nhất) để dọn trang cũ nhất trước
   await pages.put(pathname, response)
-  const keys = await pages.keys()
-  await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_PAGES)).map((k) => pages.delete(k)))
-  await trimStatic()
+  const keys = (await pages.keys()).filter((k) => !PINNED_PAGES.includes(new URL(k.url).pathname))
+  const limit = MAX_PAGES - PINNED_PAGES.length
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - limit)).map((k) => pages.delete(k)))
+  void scheduleTrim() // dọn JS/CSS 1 lần sau cả lượt lưu (mỗi lần dọn phải đọc HTML mọi trang đã lưu)
 }
 
 // Chưa có trong cache: trả response ngay, lưu + dọn chạy sau (không làm chậm lúc tải trang)

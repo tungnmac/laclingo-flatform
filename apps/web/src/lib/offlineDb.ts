@@ -52,19 +52,86 @@ export function currentUserId(): string | undefined {
 }
 
 const responseKey = (userId: string, path: string) => `${userId}|${path}`
+/** Mọi key của 1 tài khoản trong store responses / cards (key bắt đầu bằng `${userId}|`) */
+const userRange = (userId: string) => IDBKeyRange.bound(`${userId}|`, `${userId}|\uffff`)
+
+/** Bản lưu kèm thời điểm (dọn bản cũ nhất trước). Bản lưu cũ (trước khi có thời điểm) là dữ liệu trần */
+interface CachedResponse {
+  cachedAt: number
+  data: unknown
+}
+const isWrapped = (v: unknown): v is CachedResponse => !!v && typeof v === 'object' && 'cachedAt' in v && 'data' in v
+const unwrap = (v: unknown) => (isWrapped(v) ? v.data : v)
+
+// Giữ tối đa MAX_RESPONSES bản mỗi tài khoản (mỗi path 1 bản — trang có phân trang / tìm kiếm sinh nhiều path)
+const MAX_RESPONSES = 500
+const TRIM_EVERY_MS = 5 * 60_000
+let lastTrim = 0
 
 /** Kết quả GET đã lưu của tài khoản đang dùng (undefined = chưa có / không đọc được) */
 export async function getCachedResponse<T>(path: string): Promise<T | undefined> {
   const userId = currentUserId()
   if (!userId) return undefined
-  return run<T | undefined>(RESPONSES, 'readonly', (s) => s.get(responseKey(userId, path))).catch(() => undefined)
+  const value = await run<unknown>(RESPONSES, 'readonly', (s) => s.get(responseKey(userId, path))).catch(() => undefined)
+  return unwrap(value) as T | undefined
 }
 
-/** Lưu kết quả GET mới nhất (lỗi thì bỏ qua — chỉ mất dữ liệu offline) */
-export async function putCachedResponse(path: string, data: unknown): Promise<void> {
-  const userId = currentUserId()
-  if (!userId) return
-  await run(RESPONSES, 'readwrite', (s) => s.put(data, responseKey(userId, path))).catch(() => {})
+/**
+ * Lưu kết quả GET mới nhất cho userId — tài khoản gửi request (lấy TRƯỚC khi gửi: đổi tài khoản giữa chừng không lưu
+ * nhầm sang tài khoản khác). Lỗi thì bỏ qua — chỉ mất dữ liệu offline
+ */
+export async function putCachedResponse(userId: string, path: string, data: unknown): Promise<void> {
+  const value: CachedResponse = { cachedAt: Date.now(), data }
+  await run(RESPONSES, 'readwrite', (s) => s.put(value, responseKey(userId, path))).catch(() => {})
+  if (Date.now() - lastTrim > TRIM_EVERY_MS) {
+    lastTrim = Date.now()
+    void trimResponses(userId).catch(() => {})
+  }
+}
+
+/** Vượt MAX_RESPONSES bản → bỏ các bản lưu lâu nhất của tài khoản đó */
+async function trimResponses(userId: string): Promise<void> {
+  const count = await run<number>(RESPONSES, 'readonly', (s) => s.count(userRange(userId)))
+  if (count <= MAX_RESPONSES) return
+  const db = await openDB()
+  const entries: { key: IDBValidKey; cachedAt: number }[] = []
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(RESPONSES, 'readonly')
+    const req = tx.objectStore(RESPONSES).openCursor(userRange(userId))
+    req.onsuccess = () => {
+      const cursor = req.result
+      if (!cursor) return
+      entries.push({ key: cursor.key, cachedAt: isWrapped(cursor.value) ? cursor.value.cachedAt : 0 })
+      cursor.continue()
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = tx.onabort = () => reject(tx.error)
+  })
+  entries.sort((a, b) => a.cachedAt - b.cachedAt)
+  const drop = entries.slice(0, entries.length - MAX_RESPONSES)
+  await new Promise<void>((resolve) => {
+    const tx = db.transaction(RESPONSES, 'readwrite')
+    const store = tx.objectStore(RESPONSES)
+    for (const e of drop) store.delete(e.key)
+    tx.oncomplete = tx.onerror = tx.onabort = () => resolve()
+  })
+}
+
+/**
+ * Đăng xuất / gỡ tài khoản: xoá dữ liệu đã lưu để dùng offline của tài khoản đó (kết quả API, bộ thẻ) — máy dùng chung
+ * không để lại dữ liệu cá nhân. Giữ hàng đợi chưa gửi (outbox): đăng nhập lại thì tự đồng bộ tiếp
+ */
+export async function clearOfflineData(userIds: string[]): Promise<void> {
+  const db = await openDB().catch(() => null)
+  if (!db || userIds.length === 0) return
+  await new Promise<void>((resolve) => {
+    const tx = db.transaction([RESPONSES, CARDS], 'readwrite')
+    for (const id of userIds) {
+      tx.objectStore(RESPONSES).delete(userRange(id))
+      tx.objectStore(CARDS).delete(userRange(id))
+    }
+    tx.oncomplete = tx.onerror = tx.onabort = () => resolve()
+  })
 }
 
 /**
@@ -87,15 +154,14 @@ export async function markLearnedInCache(vocabularyId: string, deckId?: string):
     req.onsuccess = () => {
       const cursor = req.result
       if (!cursor) return
-      const words = cursor.value as { vocabulary_id: string; in_review: boolean; deck_ids: string[] }[]
-      if (words.some((w) => w.vocabulary_id === vocabularyId)) {
-        cursor.update(
-          words.map((w) =>
-            w.vocabulary_id !== vocabularyId
-              ? w
-              : { ...w, in_review: true, deck_ids: deckId ? [...new Set([...w.deck_ids, deckId])] : w.deck_ids },
-          ),
+      const words = unwrap(cursor.value) as { vocabulary_id: string; in_review: boolean; deck_ids: string[] }[]
+      if (Array.isArray(words) && words.some((w) => w.vocabulary_id === vocabularyId)) {
+        const patched = words.map((w) =>
+          w.vocabulary_id !== vocabularyId
+            ? w
+            : { ...w, in_review: true, deck_ids: deckId ? [...new Set([...w.deck_ids, deckId])] : w.deck_ids },
         )
+        cursor.update(isWrapped(cursor.value) ? { ...cursor.value, data: patched } : patched)
       }
       cursor.continue()
     }
