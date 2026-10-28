@@ -1,6 +1,8 @@
 # Render Blueprint — backend Go + web Next.js, DB dùng Neon (schema/seed chạy tay: deploy/neon/).
 # Biến sync: false = bí mật / tuỳ môi trường → điền trên Render Dashboard, KHÔNG commit giá trị thật.
 # NEXT_PUBLIC_* được Render truyền vào Docker build làm build arg → đổi domain API phải deploy lại web (build mới).
+# Tự deploy khi push main, nhưng chỉ SAU khi GitHub Actions (.github/workflows/ci.yml) pass; buildFilter: chỉ build lại
+# service có code thay đổi.
 services:
   - type: web
     name: laclingo-platform
@@ -9,6 +11,10 @@ services:
     rootDir: apps/backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/backend/**
     envVars:
       - key: APP_ENV
         value: production
@@ -27,6 +33,10 @@ services:
     plan: free
     rootDir: apps/web
     dockerfilePath: ./Dockerfile
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/web/**
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://laclingo-platform.onrender.com/api/v1
