@@ -133,14 +133,16 @@ export function useSpeechRecognition(lang: string) {
       later(NATIVE_STOP_FALLBACK_MS, finish)
     }
     nativeFinish.current = stopAndFinish
+    // Lỗi sau khi người dùng đã bấm dừng (vd Android ERROR_CLIENT sau stopListening) không hiện cho người dùng
     const fail = (code: string, message: string) => {
       if (done()) return
-      const mapped = nativeSpeechError(code, message)
+      const mapped = stopping ? null : nativeSpeechError(code, message)
       if (mapped) setError(mapped)
       finish()
     }
-    const listen = (restart: boolean) =>
-      NativeSpeechRecognition.start({ language: lang, maxResults: 1, partialResults: true, popup: false, muteRecognizerBeep: restart }).catch(
+    // Không dùng muteRecognizerBeep: plugin tắt tiếng thông báo / hệ thống của máy trong lúc khởi động lại
+    const listen = () =>
+      NativeSpeechRecognition.start({ language: lang, maxResults: 1, partialResults: true, popup: false }).catch(
         (e: unknown) => fail('', e instanceof Error ? e.message : String(e)),
       )
 
@@ -166,7 +168,7 @@ export function useSpeechRecognition(lang: string) {
         }
       })
       await NativeSpeechRecognition.addListener('error', ({ code, message }) => {
-        if (done()) return
+        if (done() || stopping) return
         const mapped = nativeSpeechError(code, message)
         if (mapped) setError(mapped) // plugin báo 'stopped' (reason error) ngay sau → chốt ở đó
       })
@@ -178,14 +180,14 @@ export function useSpeechRecognition(lang: string) {
           textRef.current = { committed: `${committed} ${pending}`.trim(), pending: '' }
           setFinalText(textRef.current.committed)
           setInterimText('')
-          void listen(true)
+          void listen()
           return
         }
         finish()
       })
       if (done()) return
       later(NATIVE_NO_SPEECH_MS, () => !speechTimes.current.first && stopAndFinish())
-      await listen(false)
+      await listen()
     } catch (e) {
       fail('', e instanceof Error ? e.message : String(e))
     }

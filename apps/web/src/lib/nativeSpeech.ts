@@ -19,7 +19,6 @@ interface SpeechRecognitionPlugin {
     maxResults?: number
     partialResults?: boolean
     popup?: boolean
-    muteRecognizerBeep?: boolean
   }): Promise<{ matches?: string[] }>
   stop(): Promise<void>
   checkPermissions(): Promise<{ speechRecognition: PermissionState }>
@@ -36,8 +35,9 @@ interface SpeechRecognitionPlugin {
 export const NativeTextToSpeech = registerPlugin<TextToSpeechPlugin>('TextToSpeech')
 export const NativeSpeechRecognition = registerPlugin<SpeechRecognitionPlugin>('SpeechRecognition')
 
-// QueueStrategy.Flush của plugin — lời mới thay lời đang đọc
+// QueueStrategy của plugin: Flush — lời mới thay lời đang đọc; Add — xếp hàng sau lời đang đọc
 export const TTS_QUEUE_FLUSH = 0
+export const TTS_QUEUE_ADD = 1
 
 /** Xin quyền micro + nhận diện giọng nói (hỏi người dùng lần đầu). false = bị từ chối */
 export async function ensureSpeechPermission(): Promise<boolean> {
@@ -53,8 +53,10 @@ export async function ensureSpeechPermission(): Promise<boolean> {
  * lời từ chối của start() chỉ có message.
  */
 export function nativeSpeechError(code: string, message: string): string | null {
-  if (code === 'NO_MATCH' || code === 'SPEECH_TIMEOUT' || /no match|no speech|speech timeout|cancel/i.test(message)) return null
-  if (code.includes('PERMISSION') || /denied|missing permission|insufficient permissions/i.test(message)) return 'app-not-allowed'
+  // "stopped before final results" (iOS: bấm Dừng ngay sau khi bắt đầu), "already running" (phiên cũ đang dừng dở)
+  if (code === 'NO_MATCH' || code === 'SPEECH_TIMEOUT' || /no match|no speech|speech timeout|cancel|stopped before|already running/i.test(message))
+    return null
+  if (code.includes('PERMISSION') || /denied|missing .*permission|insufficient permissions/i.test(message)) return 'app-not-allowed'
   if (code.startsWith('NETWORK') || code.startsWith('SERVER')) return 'network'
   if (code === 'AUDIO' || code.startsWith('AUDIO_')) return 'audio-capture'
   return message || code || 'start-failed'

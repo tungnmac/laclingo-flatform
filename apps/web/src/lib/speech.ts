@@ -1,6 +1,6 @@
 import { speechLang } from '@/features/course/components/LanguageCard'
 import { isNativeApp } from '@/lib/native'
-import { NativeTextToSpeech, TTS_QUEUE_FLUSH } from '@/lib/nativeSpeech'
+import { NativeTextToSpeech, TTS_QUEUE_ADD, TTS_QUEUE_FLUSH } from '@/lib/nativeSpeech'
 
 /** Sự kiện window phát ra khi không đọc được — SpeechErrorToaster (dashboard layout) hiện thông báo kèm mã lỗi */
 export const SPEECH_ERROR_EVENT = 'laclingo:speech-error'
@@ -51,6 +51,7 @@ export function stopSpeech() {
 let settleNativeSpeech: (() => void) | null = null
 // Android: bộ đọc chưa khởi tạo xong ngay sau khi mở app thì từ chối lời đầu → thử lại 1 lần
 const NATIVE_RETRY_MS = 600
+const NATIVE_END_TIMEOUT_MS_PER_CHAR = 400
 
 /**
  * Trong app iOS/Android: đọc bằng bộ đọc của hệ điều hành (Android WebView không có speechSynthesis). Giọng chọn ở
@@ -63,14 +64,17 @@ async function speakNative(text: string, languageId: string, options: { rate?: n
   const myGeneration = generation
   const stale = () => generation !== myGeneration
   const lang = speechLang(languageId)
-  const maxMs = Math.max(MIN_END_TIMEOUT_MS, (text.length * END_TIMEOUT_MS_PER_CHAR) / (options.rate || 1))
+  // Hạn rộng hơn bản web: chữ Hán / kana / Hangul đọc ~200ms mỗi ký tự — hết hạn sớm thì câu sau (Flush) cắt mất câu đang đọc
+  const maxMs = Math.max(MIN_END_TIMEOUT_MS, (text.length * NATIVE_END_TIMEOUT_MS_PER_CHAR) / (options.rate || 1))
   // Xong khi plugin báo xong, bị thay / dừng (settleNativeSpeech) hoặc quá thời gian; lỗi thì reject
   const speakOnce = () =>
     new Promise<void>((resolve, reject) => {
       const timer = window.setTimeout(resolve, maxMs)
       const settle = () => (window.clearTimeout(timer), resolve())
       settleNativeSpeech = settle
-      NativeTextToSpeech.speak({ text, lang, rate: options.rate ?? 1, queueStrategy: TTS_QUEUE_FLUSH }).then(settle, (e) => {
+      // Đọc nối tiếp trong 1 chuỗi (không interrupt) thì xếp hàng sau lời đang đọc — vd người dùng vừa bấm nghe 1 từ khi
+      // trình phát bài nghe đang chạy: từ đó không bị câu kế tiếp của chuỗi cắt ngang
+      NativeTextToSpeech.speak({ text, lang, rate: options.rate ?? 1, queueStrategy: options.interrupt ? TTS_QUEUE_FLUSH : TTS_QUEUE_ADD }).then(settle, (e) => {
         window.clearTimeout(timer)
         reject(e)
       })
