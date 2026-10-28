@@ -29,6 +29,7 @@ type UserRepository interface {
 	UpdateUserRole(ctx context.Context, arg db.UpdateUserRoleParams) (db.User, error)
 	UpdateUserModules(ctx context.Context, arg db.UpdateUserModulesParams) (db.User, error)
 	UpdateUserActive(ctx context.Context, arg db.UpdateUserActiveParams) (db.User, error)
+	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
 }
 
 var validUserRoles = map[string]bool{"user": true, "admin": true}
@@ -371,6 +372,12 @@ func (s *UserService) SetActive(ctx context.Context, actingOwnerID, targetID uui
 	}
 	if err != nil {
 		return UserResponse{}, err
+	}
+	if !active {
+		// Đăng xuất mọi thiết bị — mở khoá lại cũng phải đăng nhập lại (access token còn lại tự hết hạn ≤ JWT_TTL)
+		if err := s.repo.RevokeUserRefreshTokens(ctx, u.ID); err != nil {
+			return UserResponse{}, err
+		}
 	}
 	return toUserResponse(u), nil
 }

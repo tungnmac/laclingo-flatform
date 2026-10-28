@@ -1,7 +1,7 @@
 import { apiErrorText } from '@/lib/apiErrorText'
 import { emitMutationNotice, mutationNotice, type NotifyOption } from '@/lib/mutationNotice'
 import { useLocale } from '@/store/locale'
-import { useSession } from '@/store/session'
+import { isAccessValid, useSession } from '@/store/session'
 import type { ErrorResponse, LimitErrorDetail } from '@/types/api'
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1'
@@ -39,16 +39,22 @@ export type ApiInit = RequestInit & { notify?: NotifyOption }
  * Token bị từ chối (401) thì đăng xuất để layout đưa người dùng về trang đăng nhập.
  * Request ghi dữ liệu (POST/PUT/PATCH/DELETE) tự hiện thông báo thành công/thất bại (xem mutationNotice).
  */
-export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
+export function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
+  return request<T>(path, init, false)
+}
+
+/** retried = đã làm mới phiên + gửi lại 1 lần (không lặp nếu vẫn 401) */
+async function request<T>(path: string, init: ApiInit | undefined, retried: boolean): Promise<T> {
   const { notify, ...requestInit } = init ?? {}
+  // /auth/* (đăng nhập, đăng ký) không gửi token: 401 ở đó là sai mật khẩu, không phải phiên đang dùng hết hạn
+  const authRoute = path.startsWith('/auth/')
+  if (!authRoute) await ensureFreshToken() // access token sắp hết hạn → làm mới trước, khỏi nhận 401
   const token = useSession.getState().token
   const headers = new Headers(requestInit.headers)
   // Chỉ gắn Content-Type khi có body JSON — GET không cần, tránh preflight CORS
   // thừa; body là FormData (upload file) thì ĐỂ BROWSER tự set (kèm boundary),
   // tự set cứng application/json sẽ làm hỏng multipart request.
   if (requestInit.body && !(requestInit.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-  // /auth/* (đăng nhập, đăng ký) không gửi token: 401 ở đó là sai mật khẩu, không phải phiên đang dùng hết hạn
-  const authRoute = path.startsWith('/auth/')
   if (token && !authRoute) headers.set('Authorization', `Bearer ${token}`)
   const fail = (err: ApiError) => {
     const notice = mutationNotice(requestInit.method, path, false, err.message, notify)
@@ -67,6 +73,13 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
     // Token bị từ chối → tài khoản này hết phiên (giữ trong danh sách); còn tài khoản khác thì chuyển sang, không thì
     // đăng nhập lại — luôn tải lại trang để không lẫn dữ liệu
     if (res.status === 401 && token && !authRoute) {
+      // Access token bị từ chối (hết hạn sớm / máy lệch giờ) → làm mới phiên rồi gửi lại 1 lần
+      const refreshed = retried ? 'invalid' : await refreshSession()
+      if (refreshed === 'ok') return request<T>(path, init, true)
+      if (refreshed === 'transient') {
+        // Mất mạng / máy chủ lỗi khi làm mới — giữ phiên (refresh token vẫn còn), báo lỗi kết nối
+        throw fail(new ApiError(apiErrorText(0, undefined, useLocale.getState().locale), 0))
+      }
       const username = useSession.getState().user?.username
       const result = useSession.getState().expireToken(token)
       if (result === 'switched') window.location.assign('/learn')
@@ -90,6 +103,70 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   const method = (requestInit.method ?? 'GET').toUpperCase()
   if (method !== 'GET' && !authRoute && !path.startsWith('/notifications')) window.dispatchEvent(new Event(API_WRITE_EVENT))
   return data
+}
+
+// ===== Làm mới phiên (refresh token) =====
+
+const REFRESH_EARLY_MS = 60_000 // làm mới khi access token còn dưới 1 phút
+let refreshing: Promise<RefreshResult> | null = null
+
+/** ok = có token mới; invalid = phiên hết hẳn (đăng nhập lại); transient = mất mạng / máy chủ lỗi (giữ phiên, thử lại sau) */
+export type RefreshResult = 'ok' | 'invalid' | 'transient'
+
+/**
+ * Đổi refresh token của tài khoản đang dùng lấy access + refresh token mới. Nhiều request cùng lúc dùng chung 1 lần
+ * làm mới. Chỉ 'invalid' mới xử lý như hết phiên.
+ */
+export function refreshSession(): Promise<RefreshResult> {
+  if (!refreshing) refreshing = doRefresh().finally(() => (refreshing = null))
+  return refreshing
+}
+
+async function doRefresh(): Promise<RefreshResult> {
+  const s = useSession.getState()
+  const userId = s.user?.id
+  const refreshToken = s.refreshToken
+  if (!userId || !refreshToken || !s.refreshExpiresAt || Date.parse(s.refreshExpiresAt) <= Date.now()) return 'invalid'
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+  } catch {
+    return 'transient'
+  }
+  if (res.ok) {
+    useSession.getState().updateTokens(userId, await res.json())
+    return 'ok'
+  }
+  if (res.status !== 401 && res.status !== 403) return 'transient' // 429 / 5xx
+  // Tab khác vừa làm mới (token cũ đã đổi) → nạp lại phiên từ localStorage rồi dùng token của tab đó
+  await useSession.persist.rehydrate()
+  const now = useSession.getState()
+  if (now.user?.id === userId && now.refreshToken !== refreshToken && isAccessValid(now)) return 'ok'
+  // Token bị từ chối mà không tab nào có token mới — có thể ai đó đã dùng trộm token này: thu hồi cả họ token
+  revokeRefreshToken(refreshToken)
+  return 'invalid'
+}
+
+/** Access token sắp / đã hết hạn mà còn refresh token → làm mới trước khi dùng (API, WebSocket) */
+export async function ensureFreshToken(): Promise<void> {
+  const s = useSession.getState()
+  if (!s.user || !s.refreshToken) return
+  if (s.token && s.expiresAt && Date.parse(s.expiresAt) - Date.now() > REFRESH_EARLY_MS) return
+  await refreshSession()
+}
+
+/** Thu hồi refresh token ở server (đăng xuất) — không chờ kết quả, vẫn gửi khi trang đang chuyển đi */
+export function revokeRefreshToken(refreshToken: string) {
+  void fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+    keepalive: true,
+  }).catch(() => {})
 }
 
 /** Phát sau mỗi request ghi dữ liệu thành công (xem apiFetch) */

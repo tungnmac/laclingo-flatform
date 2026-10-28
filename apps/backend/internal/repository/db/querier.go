@@ -117,6 +117,8 @@ type Querier interface {
 	CreatePaidSubscription(ctx context.Context, arg CreatePaidSubscriptionParams) (Subscription, error)
 	// Thanh toán (VNPay, Stripe) + ví gems
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
+	// Refresh token (xoay vòng, lưu hash)
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateSpeakingAttempt(ctx context.Context, arg CreateSpeakingAttemptParams) error
 	CreateSpeakingItem(ctx context.Context, arg CreateSpeakingItemParams) (SpeakingItem, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
@@ -141,6 +143,9 @@ type Querier interface {
 	DeleteDailyTaskItem(ctx context.Context, id pgtype.UUID) error
 	DeleteDailyTaskTemplate(ctx context.Context, arg DeleteDailyTaskTemplateParams) error
 	DeleteDeck(ctx context.Context, arg DeleteDeckParams) (int64, error)
+	// Dọn token hết hạn quá 1 ngày + token đã đổi quá 14 ngày (dùng lại token cũ tới vậy thì việc phát hiện không còn
+	// nhiều giá trị — access token 1 giờ nên mỗi người tạo vài chục dòng / ngày)
+	DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 	DeleteGameParticipant(ctx context.Context, arg DeleteGameParticipantParams) error
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
 	DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error
@@ -223,6 +228,7 @@ type Querier interface {
 	GetMissionByID(ctx context.Context, id pgtype.UUID) (Mission, error)
 	GetPaymentOrder(ctx context.Context, id pgtype.UUID) (PaymentOrder, error)
 	GetPaymentOrderForUser(ctx context.Context, arg GetPaymentOrderForUserParams) (PaymentOrder, error)
+	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetReminderDefaults(ctx context.Context) (ReminderDefault, error)
 	// Quà gems chờ nhận + mức thưởng (admin)
 	GetRewardSettings(ctx context.Context) (RewardSetting, error)
@@ -480,6 +486,15 @@ type Querier interface {
 	ResolveContentReports(ctx context.Context, arg ResolveContentReportsParams) (int64, error)
 	// Store hoàn tiền / thu hồi — đánh dấu 1 lần (đã thu hồi → không trả dòng)
 	RevokeIAPPurchase(ctx context.Context, arg RevokeIAPPurchaseParams) (IapPurchase, error)
+	// Token đã đổi bị dùng lại (bị đánh cắp) → thu hồi mọi token của lần đăng nhập đó
+	RevokeRefreshFamily(ctx context.Context, familyID pgtype.UUID) error
+	// Đăng xuất: thu hồi cả họ token của phiên này
+	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	// Khoá tài khoản: thu hồi mọi phiên đăng nhập (mở khoá lại phải đăng nhập lại)
+	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
+	// Đổi token cũ lấy token mới (cùng họ) trong 1 câu lệnh: đánh dấu đã đổi + tạo token mới cùng thành công / thất bại.
+	// Token cũ đã đổi / thu hồi (2 request làm mới cùng lúc) → không trả dòng (pgx.ErrNoRows)
+	RotateRefreshToken(ctx context.Context, arg RotateRefreshTokenParams) (RefreshToken, error)
 	SetAnnouncementRecipientCount(ctx context.Context, arg SetAnnouncementRecipientCountParams) (Announcement, error)
 	SetDailyNoteTaskPosition(ctx context.Context, arg SetDailyNoteTaskPositionParams) error
 	// Thứ tự mới = vị trí trong mảng item_ids; chỉ việc con của đúng task_id (1 câu lệnh cho cả danh sách)

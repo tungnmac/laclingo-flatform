@@ -19,6 +19,10 @@ type Config struct {
 	AppEnv      string
 	JWTSecret   string
 	JWTTTL      time.Duration
+	// RefreshTTL — hạn refresh token (mặc định 60 ngày); TrustedProxies — IP reverse proxy được tin header
+	// X-Forwarded-For (giới hạn đăng nhập theo IP thật của người dùng); trống = lấy IP kết nối trực tiếp
+	RefreshTTL     time.Duration
+	TrustedProxies []string
 
 	// R2* — Cloudflare R2 (lưu audio luyện nghe). Để trống hết thì tính năng
 	// upload audio tắt (handler trả lỗi rõ ràng), không bắt buộc như JWT_SECRET.
@@ -103,21 +107,38 @@ func Load() (*Config, error) {
 		jwtSecret = devJWTSecret
 	}
 
-	jwtTTL := 24 * time.Hour
+	// Access token ngắn hạn — hết hạn thì app tự đổi bằng refresh token (POST /auth/refresh)
+	jwtTTL := time.Hour
 	if v := os.Getenv("JWT_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
-			return nil, fmt.Errorf("JWT_TTL không hợp lệ (ví dụ: 24h, 30m): %q", v)
+			return nil, fmt.Errorf("JWT_TTL không hợp lệ (ví dụ: 1h, 30m): %q", v)
 		}
 		jwtTTL = d
 	}
+	refreshTTL := 60 * 24 * time.Hour
+	if v := os.Getenv("REFRESH_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			return nil, fmt.Errorf("REFRESH_TTL không hợp lệ (ví dụ: 1440h = 60 ngày): %q", v)
+		}
+		refreshTTL = d
+	}
+	var trustedProxies []string
+	for _, p := range strings.Split(os.Getenv("TRUSTED_PROXIES"), ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			trustedProxies = append(trustedProxies, p)
+		}
+	}
 
 	return &Config{
-		Port:        port,
-		DatabaseURL: dbURL,
-		AppEnv:      appEnv,
-		JWTSecret:   jwtSecret,
-		JWTTTL:      jwtTTL,
+		Port:           port,
+		DatabaseURL:    dbURL,
+		AppEnv:         appEnv,
+		JWTSecret:      jwtSecret,
+		JWTTTL:         jwtTTL,
+		RefreshTTL:     refreshTTL,
+		TrustedProxies: trustedProxies,
 
 		R2AccountID:       os.Getenv("R2_ACCOUNT_ID"),
 		R2Bucket:          os.Getenv("R2_BUCKET"),

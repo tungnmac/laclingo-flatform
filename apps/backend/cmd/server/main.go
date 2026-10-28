@@ -120,7 +120,13 @@ func main() {
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
 
-	handler.RegisterRoutes(app, repo, auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL), hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans, newPaymentService(cfg, repo, notificationService))
+	// Sau reverse proxy: lấy IP người dùng từ X-Forwarded-For (giới hạn đăng nhập, VNPay) — xem handler.clientIP
+	if err := handler.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatal(err)
+	}
+	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
+	tokens.SetRefreshTTL(cfg.RefreshTTL)
+	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans, newPaymentService(cfg, repo, notificationService))
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

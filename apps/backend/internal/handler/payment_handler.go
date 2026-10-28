@@ -77,7 +77,7 @@ func (h *PaymentHandler) Checkout(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
-	out, err := h.svc.Checkout(c.UserContext(), currentUserID(c), req, c.IP())
+	out, err := h.svc.Checkout(c.UserContext(), currentUserID(c), req, clientIP(c))
 	if err != nil {
 		return paymentError(err)
 	}
