@@ -164,7 +164,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
     <div
       role="dialog"
       aria-label={t.notifications.title}
-      className="fixed inset-x-4 top-16 z-40 flex max-h-[min(32rem,75vh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
+      className="fixed inset-x-4 top-[calc(4rem+var(--safe-top))] z-40 flex max-h-[min(32rem,75vh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
     >
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-900">{t.notifications.title}</h2>

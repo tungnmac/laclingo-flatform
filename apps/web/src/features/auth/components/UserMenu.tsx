@@ -72,7 +72,7 @@ export function UserMenu({ user }: { user: User }) {
           id={panelId}
           role="dialog"
           aria-label={t.accounts.title}
-          className="fixed inset-x-4 top-16 z-40 max-h-[calc(100dvh-9rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(32rem,calc(100dvh-5rem))] sm:w-80"
+          className="fixed inset-x-4 top-[calc(4rem+var(--safe-top))] z-40 max-h-[calc(100dvh-9rem-var(--safe-top)-var(--safe-bottom))] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-[min(32rem,calc(100dvh-5rem))] sm:w-80"
         >
           <Link
             href="/profile"

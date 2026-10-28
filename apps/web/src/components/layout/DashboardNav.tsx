@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import { signOutCurrent } from '@/features/auth/components/AccountList'
 import { UserMenu } from '@/features/auth/components/UserMenu'
@@ -183,27 +184,135 @@ export function Sidebar({ user }: { user: User }) {
 
 /**
  * Header trên cùng của vùng nội dung (mọi kích thước màn hình): bên phải là chuông thông báo + menu tài khoản (hồ sơ,
- * chuyển tài khoản). Mobile thêm logo + lối tắt vì không có sidebar.
+ * chuyển tài khoản). Mobile thêm logo + nút ☰ mở các mục của sidebar (không có sidebar trên mobile).
+ * pt-safe: app iOS/Android vẽ web tràn dưới thanh trạng thái — chừa chỗ để giờ / pin không đè lên header.
  */
 export function TopBar({ user }: { user: User }) {
-  const t = useTranslation()
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200 bg-white/90 px-4 py-2.5 backdrop-blur sm:px-6 lg:px-8">
-      <Link href="/learn" className="flex items-center gap-1.5 text-lg font-bold text-indigo-600 md:hidden">
-        <img src="/logo.svg" alt="" className="h-7 w-7 rounded-lg" /> LacLingo
-      </Link>
-      <div className="ml-auto flex items-center gap-2">
-        <StreakBadge count={user.streak_count} />
-        <Link href={ANALYZE_ITEM.href} aria-label={t.nav.analyze} className="text-xl md:hidden">
-          {ANALYZE_ITEM.icon}
+    <header className="pt-safe sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 sm:px-6 lg:px-8">
+        <Link href="/learn" className="flex min-w-0 items-center gap-1.5 text-lg font-bold text-indigo-600 md:hidden">
+          <img src="/logo.svg" alt="" className="h-7 w-7 shrink-0 rounded-lg" />
+          <span className="hidden min-[360px]:inline">LacLingo</span>
         </Link>
-        <Link href={DAILY_ITEM.href} aria-label={t.nav.daily} className="text-xl md:hidden">
-          {DAILY_ITEM.icon}
-        </Link>
-        <NotificationBell />
-        <UserMenu user={user} />
+        <div className="ml-auto flex items-center gap-2">
+          <StreakBadge count={user.streak_count} />
+          <NotificationBell />
+          <UserMenu user={user} />
+          <MobileMenu user={user} />
+        </div>
       </div>
     </header>
+  )
+}
+
+/**
+ * Menu ☰ cho mobile: các mục của sidebar không có trên BottomNav (nghe, nói, nhiệm vụ, blog, Pro, ví, quản trị…)
+ * + đổi ngôn ngữ + đăng xuất. Tự đóng khi chuyển trang / Escape / bấm nền tối / màn hình giãn ra md+.
+ * Portal ra body: header có backdrop-blur → thành khung chứa của phần tử fixed (Chromium) + kẹt z-index của header,
+ * ngăn kéo sẽ chỉ cao bằng header và bị BottomNav đè.
+ */
+function MobileMenu({ user }: { user: User }) {
+  const t = useTranslation()
+  const pathname = useNavPathname()
+  const rewardCount = useRewardsCount((s) => s.count)
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const isAdmin = user.role === 'admin' || user.role === 'owner'
+  const items = [LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+
+  // Đóng + trả focus về nút ☰ (Escape / nút ✕ / nền tối); chuyển trang thì chỉ đóng
+  const close = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    // Xoay ngang / giãn ra md+: nút ☰ ẩn — đóng để aria-modal không chặn phím tắt Ctrl/⌘+B của Sidebar
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const onResize = () => desktop.matches && setOpen(false)
+    document.addEventListener('keydown', onKey)
+    desktop.addEventListener('change', onResize)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      desktop.removeEventListener('change', onResize)
+    }
+  }, [open])
+
+  return (
+    <div className="md:hidden">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t.nav.menu}
+        aria-expanded={open}
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-xl text-slate-600 hover:bg-slate-100"
+      >
+        <span aria-hidden>☰</span>
+        {rewardCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />}
+      </button>
+      {open && createPortal(
+        <div role="presentation" className="fixed inset-0 z-50 bg-slate-900/40 md:hidden" onClick={close}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.nav.menu}
+            onClick={(e) => e.stopPropagation()}
+            className="pt-safe pb-safe absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
+              <span className="text-base font-bold text-slate-800">{t.nav.menu}</span>
+              <button
+                type="button"
+                autoFocus
+                onClick={close}
+                aria-label={t.nav.closeMenu}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-xl text-slate-500 hover:bg-slate-100"
+              >
+                <span aria-hidden>✕</span>
+              </button>
+            </div>
+            <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3">
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  aria-current={isActive(pathname, item.href) ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
+                    isActive(pathname, item.href) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100',
+                  )}
+                >
+                  <span className="text-lg" aria-hidden>
+                    {item.icon}
+                  </span>
+                  {t.nav[item.key]}
+                  {item.key === 'wallet' && rewardCount > 0 && (
+                    <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
+                  )}
+                </Link>
+              ))}
+            </nav>
+            <div className="border-t border-slate-200 p-3">
+              <LanguageSwitcher className="mb-3" />
+              <button
+                type="button"
+                onClick={signOutCurrent}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-500 hover:bg-slate-100"
+              >
+                {t.nav.logout}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
   )
 }
 
