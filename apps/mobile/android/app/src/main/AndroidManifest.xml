@@ -33,6 +33,14 @@
         </provider>
     </application>
 
+    <!-- Android 11+ (package visibility): plugin nhận giọng nói (@capgo/capacitor-speech-recognition) không tự khai báo —
+         thiếu thì SpeechRecognizer.isRecognitionAvailable() = false, app ẩn phần luyện nói. Bộ đọc TTS do plugin tự khai báo -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
