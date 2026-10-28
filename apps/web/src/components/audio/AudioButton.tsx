@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
-import { canSpeak, speakText } from '@/lib/speech'
+import { speakText } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
@@ -40,7 +40,7 @@ export function AudioButton({
       audio.play().catch(() => setPlaying(false))
       return
     }
-    if (canSpeak()) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       // Giọng user tự chọn ở Hồ sơ > giọng đầu tiên khớp ngôn ngữ trên máy —
       // không để trình duyệt tự đoán theo `lang`, vì 1 số trình duyệt (đặc
       // biệt Firefox) không tự khớp giọng được và sẽ im lặng hoàn toàn.

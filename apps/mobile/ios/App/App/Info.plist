@@ -24,10 +24,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>LacLingo cần micro để chấm phát âm khi bạn luyện nói.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>LacLingo nhận diện giọng nói để so câu bạn nói với câu mẫu khi luyện nói.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

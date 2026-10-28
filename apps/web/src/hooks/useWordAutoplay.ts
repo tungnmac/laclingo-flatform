@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
-import { canSpeak, speakText, stopSpeech } from '@/lib/speech'
+import { speakText, stopSpeech } from '@/lib/speech'
 import { useVoiceSettings } from '@/store/voiceSettings'
 
 // Nghĩa từ vựng (vocabularies.meaning) chỉ có 1 bản tiếng Việt, KHÔNG dịch theo
@@ -55,7 +55,7 @@ export function useWordAutoplay({
 
   useEffect(() => {
     if (!enabled || !term) return
-    if (!canSpeak()) return
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
 
     const queue: QueueItem[] = []
     for (let i = 0; i < repeatCount; i++) {

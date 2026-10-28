@@ -1,6 +1,4 @@
 import { speechLang } from '@/features/course/components/LanguageCard'
-import { isNativeApp } from '@/lib/native'
-import { NativeTextToSpeech, TTS_CATEGORY, TTS_QUEUE_FLUSH } from '@/lib/nativeSpeech'
 
 /** Sự kiện window phát ra khi không đọc được — SpeechErrorToaster (dashboard layout) hiện thông báo kèm mã lỗi */
 export const SPEECH_ERROR_EVENT = 'laclingo:speech-error'
@@ -28,11 +26,6 @@ function supported() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window
 }
 
-/** Đọc được không: trình duyệt có speechSynthesis, hoặc đang trong app iOS/Android (bộ đọc native) */
-export function canSpeak() {
-  return supported() || (typeof window !== 'undefined' && isNativeApp())
-}
-
 function reportSpeechError(code: string) {
   window.dispatchEvent(new CustomEvent<string>(SPEECH_ERROR_EVENT, { detail: code }))
 }
@@ -40,26 +33,7 @@ function reportSpeechError(code: string) {
 /** Dừng mọi lời đang đọc và huỷ các lệnh đọc đang chờ phát */
 export function stopSpeech() {
   generation++
-  if (isNativeApp()) void NativeTextToSpeech.stop().catch(() => {})
-  else if (supported()) window.speechSynthesis.cancel()
-}
-
-/**
- * Trong app iOS/Android: đọc bằng bộ đọc của hệ điều hành (Android WebView không có speechSynthesis). Giọng chọn ở
- * Hồ sơ là giọng của trình duyệt nên không áp dụng — dùng giọng mặc định của máy cho ngôn ngữ đó.
- */
-async function speakNative(text: string, languageId: string, options: { rate?: number; interrupt?: boolean }) {
-  // Ngắt lời: queueStrategy Flush đã thay lời đang đọc — không gọi stop() (lệnh stop tới sau có thể tắt luôn lời mới)
-  if (options.interrupt) generation++
-  const myGeneration = generation
-  const lang = speechLang(languageId)
-  try {
-    await NativeTextToSpeech.speak({ text, lang, rate: options.rate ?? 1, category: TTS_CATEGORY, queueStrategy: TTS_QUEUE_FLUSH })
-  } catch {
-    if (generation !== myGeneration) return // bị dừng / ngắt lời — không phải lỗi
-    const { supported: hasLang } = await NativeTextToSpeech.isLanguageSupported({ lang }).catch(() => ({ supported: true }))
-    reportSpeechError(hasLang ? 'native-error' : 'language-unavailable')
-  }
+  if (supported()) window.speechSynthesis.cancel()
 }
 
 /**
@@ -77,7 +51,6 @@ export function speakText(
   voiceByLang: Record<string, string>,
   options: { rate?: number; interrupt?: boolean } = {},
 ): Promise<void> {
-  if (text && isNativeApp()) return speakNative(text, languageId, options)
   return new Promise((resolve) => {
     if (!text || !supported()) {
       resolve()
