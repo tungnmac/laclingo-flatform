@@ -14,12 +14,10 @@ import { useNotificationStore } from '../notificationStore'
 import { formatRelativeTime } from '../relativeTime'
 
 /**
- * Chuông thông báo: badge số chưa đọc (làm mới định kỳ ở useUnreadPolling),
- * bấm mở bảng danh sách. variant "sidebar" = nút ngang ở góc dưới sidebar,
- * "rail" = chỉ icon ở sidebar thu gọn (bảng vẫn mở lên trên như sidebar),
- * bảng mở lên trên; "header" = nút icon trên header mobile, bảng thả xuống.
+ * Chuông thông báo trên header: badge số chưa đọc (làm mới định kỳ ở useUnreadPolling), bấm mở bảng danh sách thả
+ * xuống (mobile: phủ ngang màn hình).
  */
-export function NotificationBell({ variant }: { variant: 'sidebar' | 'rail' | 'header' }) {
+export function NotificationBell() {
   const t = useTranslation()
   const unread = useNotificationStore((s) => s.unread)
   const [open, setOpen] = useState(false)
@@ -44,12 +42,7 @@ export function NotificationBell({ variant }: { variant: 'sidebar' | 'rail' | 'h
   }, [open])
 
   const badge = unread > 0 && (
-    <span
-      className={cn(
-        'flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold leading-none text-white',
-        variant !== 'sidebar' && 'absolute -right-1 -top-1',
-      )}
-    >
+    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold leading-none text-white">
       {unread > 99 ? '99+' : unread}
     </span>
   )
@@ -63,28 +56,18 @@ export function NotificationBell({ variant }: { variant: 'sidebar' | 'rail' | 'h
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="dialog"
-        title={variant === 'rail' ? label : undefined}
-        className={cn(
-          'transition',
-          variant === 'sidebar' &&
-            cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium', open ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'),
-          variant === 'rail' &&
-            cn('relative mx-auto flex h-10 w-10 items-center justify-center rounded-xl text-lg', open ? 'bg-indigo-50' : 'hover:bg-slate-100'),
-          variant === 'header' && 'relative flex h-9 w-9 items-center justify-center rounded-full text-xl hover:bg-slate-100',
-        )}
+        title={label}
+        className={cn('relative flex h-9 w-9 items-center justify-center rounded-full text-xl transition', open ? 'bg-indigo-50' : 'hover:bg-slate-100')}
       >
-        <span className={variant === 'sidebar' ? 'text-lg' : undefined} aria-hidden>
-          🔔
-        </span>
-        {variant === 'sidebar' && <span className="flex-1 text-left">{t.notifications.bellLabel}</span>}
+        <span aria-hidden>🔔</span>
         {badge}
       </button>
-      {open && <NotificationPanel variant={variant} onClose={() => setOpen(false)} />}
+      {open && <NotificationPanel onClose={() => setOpen(false)} />}
     </div>
   )
 }
 
-function NotificationPanel({ variant, onClose }: { variant: 'sidebar' | 'rail' | 'header'; onClose: () => void }) {
+function NotificationPanel({ onClose }: { onClose: () => void }) {
   const t = useTranslation()
   const locale = useLocale((s) => s.locale)
   const router = useRouter()
@@ -181,13 +164,7 @@ function NotificationPanel({ variant, onClose }: { variant: 'sidebar' | 'rail' |
     <div
       role="dialog"
       aria-label={t.notifications.title}
-      className={cn(
-        'z-40 flex max-h-[min(32rem,75vh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl',
-        variant === 'rail'
-          ? 'absolute bottom-0 left-full ml-3 w-80' // thanh icon hẹp: mở sang phải, ngang chuông
-          : variant === 'sidebar'
-            ? 'absolute bottom-full left-0 mb-2 w-80' : 'fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80',
-      )}
+      className="fixed inset-x-4 top-16 z-40 flex max-h-[min(32rem,75vh)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
     >
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-900">{t.notifications.title}</h2>
