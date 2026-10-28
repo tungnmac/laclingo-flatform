@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CapacitorConfig } from '@capacitor/cli'
 
@@ -11,8 +11,13 @@ const serverUrl = process.env.CAP_SERVER_URL
 if (!serverUrl || !/^https?:\/\/[^/]+/.test(serverUrl)) {
   throw new Error('Thiếu CAP_SERVER_URL (vd https://app.example.com) — xem apps/mobile/README.md')
 }
-// Trang lỗi (www/index.html) đọc URL này để mở lại web khi bấm "Thử lại" — ghi mỗi lần CLI nạp config (cap sync)
-writeFileSync(join(__dirname, 'www', 'config.js'), `window.LACLINGO_URL = ${JSON.stringify(serverUrl)}\n`)
+// Trang lỗi (www/index.html — server.errorPath) sinh từ error-page.html mỗi lần CLI nạp config (cap sync), kèm URL web
+// để mở lại web ("Thử lại", tự mở lại khi offline). File sinh ra không commit (.gitignore) — URL máy dev không lọt vào repo
+const errorTemplate = readFileSync(join(__dirname, 'error-page.html'), 'utf8')
+const errorHtml = errorTemplate.replace('window.LACLINGO_URL = "";', `window.LACLINGO_URL = ${JSON.stringify(serverUrl)};`)
+if (errorHtml === errorTemplate) throw new Error('error-page.html thiếu dòng window.LACLINGO_URL = "";')
+mkdirSync(join(__dirname, 'www'), { recursive: true })
+writeFileSync(join(__dirname, 'www', 'index.html'), errorHtml)
 
 // iOS chỉ chạy service worker (ôn tập offline — web/public/sw.js) cho domain khai báo App-Bound Domains. Chỉ bản
 // https: WKWebView cần https cho service worker, và khi Info.plist có WKAppBoundDomains thì Capacitor chỉ chạy trên
@@ -36,7 +41,7 @@ if (existsSync(infoPlist)) {
 const config: CapacitorConfig = {
   appId: 'laclingo.app',
   appName: 'LacLingo',
-  // www/index.html chỉ hiện khi không nạp được web (mất mạng lúc mở app)
+  // www/index.html (sinh từ error-page.html) chỉ hiện khi không nạp được web (mất mạng lúc mở app)
   webDir: 'www',
   server: {
     url: serverUrl,

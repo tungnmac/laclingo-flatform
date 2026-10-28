@@ -9,6 +9,7 @@ export interface CommonDict {
     speechError: (code: string) => string
     mutationSuccess: { create: string; update: string; delete: string }
     mutationFailed: { create: (error: string) => string; update: (error: string) => string; delete: (error: string) => string }
+    offlineBanner: string
   }
 }
 
@@ -16,6 +17,7 @@ export const commonTranslations: Partial<Record<Locale, CommonDict>> = {
   vi: {
     common: {
       streakTooltip: (days) => `Chuỗi ${days} ngày học liên tiếp`,
+      offlineBanner: 'Bạn đang offline — đang dùng dữ liệu đã lưu trên máy. Thao tác học / ôn tự đồng bộ khi có mạng.',
       mutationSuccess: { create: '✅ Tạo mới thành công', update: '✅ Cập nhật thành công', delete: '✅ Đã xoá thành công' },
       mutationFailed: {
         create: (error) => `❌ Tạo mới thất bại: ${error}`,
@@ -39,6 +41,7 @@ export const commonTranslations: Partial<Record<Locale, CommonDict>> = {
   en: {
     common: {
       streakTooltip: (days) => `${days}-day streak`,
+      offlineBanner: "You're offline — showing data saved on this device. Learning and review actions sync when you're back online.",
       mutationSuccess: { create: '✅ Created successfully', update: '✅ Updated successfully', delete: '✅ Deleted successfully' },
       mutationFailed: {
         create: (error) => `❌ Create failed: ${error}`,

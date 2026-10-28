@@ -1,6 +1,5 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -16,14 +15,14 @@ import { PracticeSession } from '@/features/srs-review/components/practice/Pract
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
+import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { formatDate } from '@/lib/utils'
 import { useAutoplaySettings } from '@/store/autoplaySettings'
 
-// Trang dùng được khi offline: service worker (public/sw.js) trả bản lưu KHÔNG query string cho mọi ?language=/?deck=
-// → đọc query trên URL ở client (useSearchParams), không qua props searchParams của server (là của bản đã lưu)
+// Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
 export default function VocabularyReviewPage() {
   return (
     <Suspense fallback={<Spinner />}>
@@ -35,12 +34,7 @@ export default function VocabularyReviewPage() {
 /** ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
  * khi vào từ card "Ôn tập SRS" ở trang khoá học, thay vì gốc Ôn tập. */
 function VocabularyReview() {
-  const params = useSearchParams()
-  const searchParams = {
-    language: params.get('language') ?? undefined,
-    scope: params.get('scope') ?? undefined,
-    deck: params.get('deck') ?? undefined,
-  }
+  const searchParams = useQueryParams('language', 'scope', 'deck')
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()

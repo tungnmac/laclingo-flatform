@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { Button } from '@/components/ui/Button'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { deckService } from '@/features/deck/deck.service'
+import { withPendingLearns } from '@/features/srs-review/offline'
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
@@ -14,6 +15,7 @@ import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
 import { useKeypress } from '@/hooks/useKeypress'
+import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { cn } from '@/lib/utils'
@@ -48,10 +50,20 @@ function matchesFilter(w: VocabularyCard, filter: WordFilter, query: string) {
   }
 }
 
+// Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
+export default function TopicWordsPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <TopicWords />
+    </Suspense>
+  )
+}
+
 /** Học từ theo một chủ đề: lướt từng từ, like / yêu thích / thêm vào ôn tập.
  * ?scope=learn giữ breadcrumb gốc Học/{ngôn ngữ} khi vào từ card "Từ vựng" ở
  * trang khoá học (xem review/new/page.tsx), thay vì gốc Ôn tập. */
-export default function TopicWordsPage({ searchParams }: { searchParams: { name?: string; language?: string; scope?: string } }) {
+function TopicWords() {
+  const searchParams = useQueryParams('name', 'language', 'scope')
   const topic = searchParams.name ?? ''
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
@@ -102,6 +114,7 @@ export default function TopicWordsPage({ searchParams }: { searchParams: { name?
     setError(null)
     vocabularyService
       .listWords(topic, language)
+      .then(withPendingLearns) // từ vừa thêm vào ôn tập lúc offline — server chưa biết
       .then((res) => {
         setWords(res)
         // Áp bộ lọc đang chọn; bắt đầu ở từ đầu tiên chưa vào ôn tập — quay lại chủ đề thì học tiếp chỗ cũ

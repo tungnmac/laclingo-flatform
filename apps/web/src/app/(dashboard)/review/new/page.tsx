@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ButtonLink } from '@/components/ui/Button'
@@ -9,14 +10,25 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
+
+// Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
+export default function NewWordsTopicsPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <NewWordsTopics />
+    </Suspense>
+  )
+}
 
 /** Học từ mới: chọn một chủ đề để học — mỗi thẻ hiện tiến độ đã đưa vào ôn tập.
  * Trang này dùng chung cho 2 lối vào: từ hub "Ôn tập" (breadcrumb gốc Ôn tập)
  * và từ card "Từ vựng" ở trang khoá học /learn/[courseId] (breadcrumb gốc
  * Học/{ngôn ngữ} — nhận biết qua query ?scope=learn, PHẢI truyền tiếp xuống
  * mọi link con để giữ đúng breadcrumb khi đi sâu hơn). */
-export default function NewWordsTopicsPage({ searchParams }: { searchParams: { language?: string; scope?: string } }) {
+function NewWordsTopics() {
+  const searchParams = useQueryParams('language', 'scope')
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()

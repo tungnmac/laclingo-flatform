@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -8,14 +9,25 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
+
+// Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
+export default function SubtopicsPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <Subtopics />
+    </Suspense>
+  )
+}
 
 /** Mục con của 1 chủ đề cha — "ngoài các từ chung thì chia theo mục con".
  * Mục đầu tiên trùng tên chủ đề cha (nếu có) là từ gắn trực tiếp vào chủ đề
  * cha, hiển thị riêng như "Từ chung"; còn lại là các chủ đề con thật.
  * ?scope=learn (xem review/new/page.tsx) giữ breadcrumb gốc Học/{ngôn ngữ}
  * khi vào từ card "Từ vựng" ở trang khoá học, thay vì gốc Ôn tập. */
-export default function SubtopicsPage({ searchParams }: { searchParams: { parent?: string; language?: string; scope?: string } }) {
+function Subtopics() {
+  const searchParams = useQueryParams('parent', 'language', 'scope')
   const parent = searchParams.parent ?? ''
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'

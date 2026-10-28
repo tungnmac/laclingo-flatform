@@ -10,14 +10,15 @@
 // - Request khác (API ở domain khác, RSC của Next...) đi mạng như bình thường
 
 // Đổi hậu tố khi đổi cách lưu / sửa offline.html — activate xoá cache cũ cùng tiền tố
-const OFFLINE_CACHE = 'laclingo-offline-v2'
+const OFFLINE_CACHE = 'laclingo-offline-v3'
 const STATIC_CACHE = 'laclingo-static-v1'
 const PAGES_CACHE = 'laclingo-pages-v1'
 const CACHES = [OFFLINE_CACHE, STATIC_CACHE, PAGES_CACHE]
 // Chỉ dọn cache của các họ trên (bản cũ) — cache laclingo-* khác không phải của SW này
 const OFFLINE_URL = '/offline.html'
-// Trang dùng được khi offline (pathname, khớp đúng) — trang khác cần API nên mất mạng thì hiện trang offline
-const OFFLINE_PAGES = ['/review/vocabulary']
+// Trang dùng được khi offline (pathname, khớp đúng — khớp OFFLINE_PAGES ở features/srs-review/offline.ts): hub ôn tập,
+// ôn tập (cả theo list), học từ vựng, danh sách ôn tập. Trang khác cần API nên mất mạng thì hiện trang offline
+const OFFLINE_PAGES = ['/review', '/review/vocabulary', '/review/new', '/review/new/subtopics', '/review/new/topic', '/review/lists']
 // Giới hạn số file JS/CSS giữ lại — bản deploy cũ để lại file hash cũ, bỏ file lưu lâu nhất trước
 const MAX_STATIC_ENTRIES = 400
 

@@ -1,6 +1,6 @@
+# Trang lỗi native — sinh từ error-page.html mỗi lần `cap sync` (kèm URL web theo CAP_SERVER_URL)
+www/index.html
 node_modules/
-# Sinh ra mỗi lần `cap sync` (URL web theo CAP_SERVER_URL)
-www/config.js
 # cap sync tạo symlink tuyệt đối tới node_modules của máy đang build
 ios/App/CapApp-SPM/symlinks/
 # Cấu hình Firebase của từng môi trường — tải từ Firebase Console, không commit
