@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
-import { speakText, stopSpeech } from '@/lib/speech'
+import { canSpeak, speakText, stopSpeech } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 import { useSpeechSettings } from '@/store/speechSettings'
 import { useVoiceSettings } from '@/store/voiceSettings'
@@ -62,7 +62,7 @@ export function ScriptPlayer({ script, languageId, audioUrl }: { script: string;
   )
 
   const speakFrom = (startIndex: number) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    if (!canSpeak()) return
     const run = ++runRef.current
     setPlaying(true)
 
