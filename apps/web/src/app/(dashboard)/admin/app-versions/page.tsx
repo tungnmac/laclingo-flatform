@@ -92,7 +92,7 @@ function PlatformForm({ value }: { value: AppVersionInfo }) {
             type="url"
             required
             defaultValue={current.store_url}
-            placeholder={value.platform === 'ios' ? 'https://apps.apple.com/app/id…' : 'https://play.google.com/store/apps/details?id=vn.laclingo.app'}
+            placeholder={value.platform === 'ios' ? 'https://apps.apple.com/app/id…' : 'https://play.google.com/store/apps/details?id=laclingo.app'}
             className={inputClass}
           />
         </label>

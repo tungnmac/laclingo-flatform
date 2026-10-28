@@ -4,7 +4,7 @@ App native bọc web LacLingo: mở thẳng web đã deploy (`server.url`), thê
 Firebase Cloud Messaging. Không đóng gói file tĩnh vì web có nhiều route động — cập nhật web là app đổi theo,
 chỉ build lại app khi đổi phần native (plugin, icon, quyền...).
 
-- App ID: `vn.laclingo.app` (không đổi được sau khi lên store)
+- App ID: Android `laclingo.app`, iOS `vn.laclingo.app` (không đổi được sau khi lên store)
 - `capacitor.config.ts`: URL web lấy từ `CAP_SERVER_URL` (bắt buộc) lúc `npx cap sync`
 - `www/index.html`: trang báo mất kết nối khi mở app không nạp được web
 - `assets/`: ảnh gốc icon + màn hình khởi động (`npm run assets` sinh lại cho iOS/Android)
@@ -32,6 +32,22 @@ Web phải gọi được API từ điện thoại: chạy web với `NEXT_PUBLI
 Bản phát hành: `CAP_SERVER_URL=https://<domain web production> npx cap sync` rồi build bản release.
 Chỉ dùng `https` cho bản phát hành (`http` chỉ để thử trên máy dev).
 
+## Ký bản phát hành Android
+
+`android/app/build.gradle` ký bản release bằng upload keystore khai báo trong `android/keystore.properties` (không
+commit — có trong `.gitignore`):
+
+```properties
+storeFile=/đường/dẫn/tuyệt/đối/laclingo-upload.jks
+storePassword=...
+keyAlias=upload
+keyPassword=...
+```
+
+Mất upload keystore là không gửi được bản cập nhật lên Google Play (phải nhờ Google đặt lại khoá) — backup file
+`.jks` + mật khẩu ra nơi an toàn (trình quản lý mật khẩu). Build: `cd android && ./gradlew bundleRelease` →
+`app/build/outputs/bundle/release/app-release.aab`.
+
 ## Ôn tập offline
 
 Service worker của web (`apps/web/public/sw.js`) lưu sẵn trang ôn tập, dữ liệu thẻ nằm trong IndexedDB — mất mạng vẫn
@@ -48,7 +64,7 @@ mở app và ôn được, kết quả tự đồng bộ khi có mạng lại.
 Thiếu các file dưới đây app vẫn chạy, chỉ không nhận được thông báo đẩy.
 
 1. Tạo project trên [Firebase Console](https://console.firebase.google.com).
-2. **Android:** thêm app Android package `vn.laclingo.app` → tải `google-services.json` → đặt vào
+2. **Android:** thêm app Android package `laclingo.app` → tải `google-services.json` → đặt vào
    `android/app/google-services.json`.
 3. **iOS:**
    - Thêm app iOS bundle `vn.laclingo.app` → tải `GoogleService-Info.plist` → kéo vào Xcode, nhóm `App/App`
@@ -97,7 +113,7 @@ trong ứng dụng".
    `google-play-developer-notifications@system.gserviceaccount.com`), subscription kiểu **Push** tới
    `<API public>/billing/iap/google/notifications?token=<chuỗi ngẫu nhiên dài>`; Play Console → Monetization setup →
    nhập topic.
-4. Backend: `GOOGLE_PLAY_PACKAGE_NAME=vn.laclingo.app`, `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=<file JSON, ngoài repo>`,
+4. Backend: `GOOGLE_PLAY_PACKAGE_NAME=laclingo.app`, `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=<file JSON, ngoài repo>`,
    `GOOGLE_PLAY_RTDN_TOKEN=<chuỗi ngẫu nhiên ở bước 3>`.
 5. Thử bằng License testing (tài khoản test mua không mất tiền) trên bản phát hành Internal testing.
 

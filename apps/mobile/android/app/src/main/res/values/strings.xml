@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">LacLingo</string>
     <string name="title_activity_main">LacLingo</string>
-    <string name="package_name">vn.laclingo.app</string>
-    <string name="custom_url_scheme">vn.laclingo.app</string>
+    <string name="package_name">laclingo.app</string>
+    <string name="custom_url_scheme">laclingo.app</string>
 </resources>

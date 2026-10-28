@@ -34,6 +34,7 @@ if (existsSync(infoPlist)) {
 }
 
 const config: CapacitorConfig = {
+  // Chỉ dùng khi tạo project native (cap add) — Android thật dùng applicationId laclingo.app (android/app/build.gradle)
   appId: 'vn.laclingo.app',
   appName: 'LacLingo',
   // www/index.html chỉ hiện khi không nạp được web (mất mạng lúc mở app)

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "vn.laclingo.app"
+    namespace = "laclingo.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "vn.laclingo.app"
+        applicationId "laclingo.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 2
@@ -16,8 +16,26 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Ký bản phát hành bằng upload keystore khai báo trong android/keystore.properties (không commit — xem
+    // apps/mobile/README.md). Máy không có file này vẫn build được, chỉ là bản release chưa ký.
+    def keystorePropsFile = rootProject.file('keystore.properties')
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            release {
+                def props = new Properties()
+                keystorePropsFile.withInputStream { props.load(it) }
+                def missing = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].findAll { !props[it] }
+                if (missing) throw new GradleException("keystore.properties thiếu: ${missing.join(', ')}")
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePropsFile.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

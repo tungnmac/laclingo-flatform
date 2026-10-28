@@ -1,4 +1,4 @@
-package vn.laclingo.app;
+package laclingo.app;
 
 import com.getcapacitor.BridgeActivity;
 
