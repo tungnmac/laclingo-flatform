@@ -39,6 +39,50 @@ export const subscriptions = pgTable(
   ],
 )
 
+/** Đơn mua Pro (thanh toán trực tuyến). order_code: số nguyên dương — định dạng mã đơn của cổng VN (PayOS/VietQR) */
+export const proOrders = pgTable(
+  'pro_orders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderCode: bigint('order_code', { mode: 'number' }).notNull().unique(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    period: varchar('period', { length: 8 }).notNull(), // month | year
+    months: integer('months').notNull(),
+    amountVnd: integer('amount_vnd').notNull(),
+    status: varchar('status', { length: 10 }).notNull().default('pending'), // pending | paid | cancelled | expired
+    provider: varchar('provider', { length: 16 }).notNull(), // mock | payos | vnpay …
+    providerRef: varchar('provider_ref', { length: 200 }),
+    checkoutUrl: text('checkout_url'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    subscriptionId: uuid('subscription_id').references(() => subscriptions.id, { onDelete: 'set null' }),
+    issue: varchar('issue', { length: 20 }), // cần xử lý tay: needs_refund (đã trả nhưng không cấp được) | amount_mismatch
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('pro_orders_user_created_idx').on(t.userId, t.createdAt),
+    check('pro_orders_status_check', sql`${t.status} in ('pending', 'paid', 'cancelled', 'expired')`),
+    check('pro_orders_amount_check', sql`${t.amountVnd} > 0`),
+  ],
+)
+
+/** Sự kiện từ cổng thanh toán — (provider, event_id) duy nhất → webhook gửi lặp không cấp Pro hai lần */
+export const paymentEvents = pgTable(
+  'payment_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: varchar('provider', { length: 16 }).notNull(),
+    eventId: varchar('event_id', { length: 200 }).notNull(),
+    orderId: uuid('order_id').references(() => proOrders.id, { onDelete: 'set null' }),
+    result: varchar('result', { length: 20 }).notNull(), // paid | cancelled | ignored | amount_mismatch …
+    payload: jsonb('payload').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('payment_events_provider_event_key').on(t.provider, t.eventId), index('payment_events_order_idx').on(t.orderId)],
+)
+
 export const instruments = pgTable(
   'instruments',
   {
