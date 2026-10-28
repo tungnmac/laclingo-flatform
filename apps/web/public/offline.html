@@ -25,21 +25,28 @@
     <img src="/logo.svg" alt="LacLingo">
     <h1>Bạn đang offline</h1>
     <p>LacLingo cần kết nối mạng để tải bài học. Kiểm tra Wi-Fi hoặc dữ liệu di động rồi thử lại nhé.</p>
-    <p id="review-hint" hidden>Bạn vẫn ôn được các từ đã tải trên máy — kết quả tự đồng bộ khi có mạng.</p>
+    <p id="review-hint" hidden>Bạn vẫn học và ôn được các từ đã tải trên máy — kết quả tự đồng bộ khi có mạng.</p>
     <div class="actions">
       <a id="review" class="btn" href="/review/vocabulary" hidden>📚 Ôn tập offline</a>
+      <a class="btn secondary offline-link" href="/review/new" hidden>🆕 Học từ vựng</a>
+      <a class="btn secondary offline-link" href="/review/lists" hidden>📋 Ôn tập theo list</a>
       <button type="button" class="secondary" onclick="location.reload()">Thử lại</button>
     </div>
   </main>
   <script>
     window.addEventListener('online', () => location.reload())
-    // Trang ôn tập đã được service worker lưu (public/sw.js — OFFLINE_PAGES) → hiện nút mở
+    // Trang đã được service worker lưu (public/sw.js — OFFLINE_PAGES) → hiện nút mở
     if (window.caches) {
-      caches.match('/review/vocabulary', { ignoreVary: true }).then((r) => {
-        if (!r) return
-        document.getElementById('review').hidden = false
+      const show = (path, el, onShown) =>
+        caches.match(path, { ignoreVary: true }).then((r) => {
+          if (!r) return
+          el.hidden = false
+          if (onShown) onShown()
+        }, () => {})
+      show('/review/vocabulary', document.getElementById('review'), () => {
         document.getElementById('review-hint').hidden = false
-      }, () => {})
+      })
+      document.querySelectorAll('.offline-link').forEach((el) => show(el.getAttribute('href'), el))
     }
   </script>
 </body>

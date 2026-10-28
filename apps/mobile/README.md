@@ -6,7 +6,7 @@ chỉ build lại app khi đổi phần native (plugin, icon, quyền...).
 
 - App ID: `laclingo.app` — Android (applicationId) và iOS (bundle ID) dùng chung (không đổi được sau khi lên store)
 - `capacitor.config.ts`: URL web lấy từ `CAP_SERVER_URL` (bắt buộc) lúc `npx cap sync`
-- `www/index.html`: trang báo mất kết nối khi mở app không nạp được web
+- `error-page.html`: trang báo mất kết nối khi mở app không nạp được web — `cap sync` sinh `www/index.html` từ file này (kèm URL web, không commit)
 - `assets/`: ảnh gốc icon + màn hình khởi động (`npm run assets` sinh lại cho iOS/Android)
 
 ## Cần cài trên máy build

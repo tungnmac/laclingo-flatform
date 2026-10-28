@@ -1,8 +1,8 @@
-import { apiFetch } from '@/lib/api'
+import { cachedGet } from '@/lib/offlineDb'
 import type { Language } from '@/types/api'
 
-// Hiện tại mỗi ngôn ngữ được xem như một khoá học (courseId = language id)
+// Hiện tại mỗi ngôn ngữ được xem như một khoá học (courseId = language id). cachedGet: xem được khi offline
 export const courseService = {
-  list: () => apiFetch<Language[]>('/languages'),
-  getById: (id: string) => apiFetch<Language>(`/languages/${encodeURIComponent(id)}`),
+  list: () => cachedGet<Language[]>('/languages'),
+  getById: (id: string) => cachedGet<Language>(`/languages/${encodeURIComponent(id)}`),
 }

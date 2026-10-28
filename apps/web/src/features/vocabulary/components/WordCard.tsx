@@ -172,6 +172,7 @@ export function WordCard({
         <AddToDeckDialog
           vocabularyId={word.vocabulary_id}
           term={word.term}
+          deckIds={word.deck_ids}
           onClose={() => setDeckDialogOpen(false)}
           onAdded={() => !word.in_review && onChange({ in_review: true })}
           onMembershipChange={(deck, contained) => onDeckChange?.(word.vocabulary_id, deck, contained)}

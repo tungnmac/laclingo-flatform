@@ -1,12 +1,13 @@
 import { apiFetch, type ApiInit } from '@/lib/api'
+import { cachedGet } from '@/lib/offlineDb'
 import type { DeckDetail, DeckRequest, DeckSummary } from '@/types/api'
 
 const deckPath = (id: string) => `/decks/${encodeURIComponent(id)}`
 
 export const deckService = {
-  // vocabularyId: đánh dấu list nào đã chứa từ đó (contains_vocabulary)
+  // vocabularyId: đánh dấu list nào đã chứa từ đó (contains_vocabulary). cachedGet: xem được khi offline
   list: (vocabularyId?: string) =>
-    apiFetch<DeckSummary[]>(`/decks${vocabularyId ? `?vocabulary_id=${encodeURIComponent(vocabularyId)}` : ''}`),
+    cachedGet<DeckSummary[]>(`/decks${vocabularyId ? `?vocabulary_id=${encodeURIComponent(vocabularyId)}` : ''}`),
   get: (id: string) => apiFetch<DeckDetail>(deckPath(id)),
   create: (body: DeckRequest, opts?: Pick<ApiInit, 'notify'>) =>
     apiFetch<DeckSummary>('/decks', { method: 'POST', body: JSON.stringify(body), ...opts }),
@@ -18,7 +19,8 @@ export const deckService = {
 
   // Thêm từ vào list cũng đưa từ vào hàng đợi SRS (backend tự làm)
   // opts.notify = false: màn hình tự hiện thông báo cụ thể (vd chuyển/sao chép từ giữa các list)
-  addWord: (deckId: string, vocabularyId: string, opts?: Pick<ApiInit, 'notify'>) =>
+  // opts.paywall = false: chạy ngầm (đồng bộ thao tác offline — features/srs-review/offline.ts)
+  addWord: (deckId: string, vocabularyId: string, opts?: Pick<ApiInit, 'notify' | 'paywall'>) =>
     apiFetch<void>(`${deckPath(deckId)}/vocabularies`, { method: 'POST', body: JSON.stringify({ vocabulary_id: vocabularyId }), ...opts }),
   // Chỉ gỡ khỏi list — tiến độ SRS của từ giữ nguyên
   removeWord: (deckId: string, vocabularyId: string, opts?: Pick<ApiInit, 'notify'>) =>

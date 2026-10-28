@@ -1,4 +1,5 @@
 import { apiFetch, type ApiInit } from '@/lib/api'
+import { cachedGet } from '@/lib/offlineDb'
 import type {
   PageResult,
   ReviewWord,
@@ -19,6 +20,11 @@ export const srsService = {
     apiFetch<DueVocabulary[]>(
       `/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}${deck ? `&deck=${encodeURIComponent(deck)}` : ''}`,
     ),
+
+  // Như getDue nhưng mất mạng thì trả kết quả đã lưu — chỉ để hiện số từ đến hạn (hub ôn tập). Phiên ôn tập dùng
+  // getDue + bộ thẻ offline riêng (useSRSReviewSession) vì cần biết đang offline để báo người dùng
+  getDueCached: (limit = 20, language?: string) =>
+    cachedGet<DueVocabulary[]>(`/srs/due?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
 
   // Mọi từ đang ôn trong SRS (kể cả chưa đến hạn), sắp theo thời gian còn lại tới lúc ôn
   listWords: (language?: string, page = 1, pageSize = 20) =>
@@ -46,8 +52,9 @@ export const srsService = {
   getNew: (limit = 10, language?: string) =>
     apiFetch<NewVocabulary[]>(`/srs/new?limit=${limit}${language ? `&language=${encodeURIComponent(language)}` : ''}`),
 
-  learn: (vocabularyId: string) =>
+  learn: (vocabularyId: string, init?: ApiInit) =>
     apiFetch<LearnVocabularyResponse>('/srs/learn', {
+      ...init,
       method: 'POST',
       body: JSON.stringify({ vocabulary_id: vocabularyId }),
     }),

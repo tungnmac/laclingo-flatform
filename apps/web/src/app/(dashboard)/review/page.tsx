@@ -1,22 +1,35 @@
 'use client'
 
+import { Suspense } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Mascot } from '@/components/mascot/Mascot'
 import { ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useApi } from '@/hooks/useApi'
+import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 
+// Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
+export default function ReviewHubPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <ReviewHub />
+    </Suspense>
+  )
+}
+
 /** Hub ôn tập: liệt kê các dạng ôn tập để người học chọn */
-export default function ReviewHubPage({ searchParams }: { searchParams: { language?: string } }) {
+function ReviewHub() {
+  const searchParams = useQueryParams('language')
   const language = searchParams.language
   const t = useTranslation()
-  // Chỉ để hiện số từ đến hạn — lỗi thì ẩn badge, không chặn trang. Có
+  // Chỉ để hiện số từ đến hạn (offline: số đã lưu) — lỗi thì ẩn badge, không chặn trang. Có
   // language thì đếm riêng ngôn ngữ đó, khớp với nơi "Ôn ngay" sẽ dẫn tới.
-  const { data: due } = useApi(() => srsService.getDue(100, language), [language])
+  const { data: due } = useApi(() => srsService.getDueCached(100, language), [language])
   const dueCount = due?.length ?? null
   // Chỉ để hiện tên ngôn ngữ đang học trong description — lỗi thì bỏ qua, không chặn trang
   const { data: currentLanguage } = useApi(() => courseService.getById(language!), [language], !!language)

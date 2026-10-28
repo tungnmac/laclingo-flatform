@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
-import { srsService } from '@/features/srs-review/srs.service'
+import { addWordToDeck, isNetworkError, learnWord } from '@/features/srs-review/offline'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import type { DeckSummary } from '@/types/api'
@@ -13,7 +13,8 @@ import { DeckPicker } from './DeckPicker'
 /**
  * Hộp "Thêm vào ôn tập": tích/bỏ tích list là thêm/bỏ từ ngay (không cần nút
  * Lưu), tạo list mới tại chỗ, hoặc chỉ đưa vào hàng đợi SRS không qua list.
- * onAdded báo cha khi từ đã chắc chắn nằm trong hàng đợi ôn tập.
+ * onAdded báo cha khi từ đã chắc chắn nằm trong hàng đợi ôn tập (hoặc đã xếp hàng đợi đồng bộ khi offline).
+ * Offline: thêm vào list có sẵn / chỉ đưa vào hàng đợi vẫn dùng được; tạo list, bỏ từ khỏi list cần mạng.
  */
 export function AddToDeckDialog({
   vocabularyId,
@@ -21,9 +22,12 @@ export function AddToDeckDialog({
   onClose,
   onAdded,
   onMembershipChange,
+  deckIds,
 }: {
   vocabularyId: string
   term: string
+  /** Các list đang chứa từ (nếu nơi gọi biết) — đánh dấu list khi offline, không hỏi được server */
+  deckIds?: string[]
   onClose: () => void
   onAdded: () => void
   /** Báo mỗi lần từ được thêm vào / gỡ khỏi 1 list (kể cả list vừa tạo) */
@@ -37,8 +41,15 @@ export function AddToDeckDialog({
   useEffect(() => {
     deckService
       .list(vocabularyId)
+      .catch((err: Error) => {
+        if (!isNetworkError(err)) throw err
+        return deckService.list() // offline, chưa lưu riêng cho từ này: danh sách list đã lưu (đánh dấu theo deckIds bên dưới)
+      })
+      // deckIds (từ danh sách từ, đã gồm thao tác đang chờ đồng bộ) đúng hơn kết quả đã lưu có thể cũ khi offline
+      .then((list) => (deckIds ? list.map((d) => ({ ...d, contains_vocabulary: deckIds.includes(d.id) })) : list))
       .then(setDecks)
       .catch((err: Error) => setError(err.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vocabularyId])
 
   useEffect(() => {
@@ -67,7 +78,7 @@ export function AddToDeckDialog({
     run(deck.id, async () => {
       if (deck.contains_vocabulary) await deckService.removeWord(deck.id, vocabularyId)
       else {
-        await deckService.addWord(deck.id, vocabularyId)
+        await addWordToDeck(deck.id, vocabularyId)
         onAdded()
       }
       onMembershipChange?.(deck, !deck.contains_vocabulary)
@@ -91,7 +102,7 @@ export function AddToDeckDialog({
       setDecks((ds) => [{ ...deck, word_count: 0, contains_vocabulary: false }, ...(ds ?? [])])
       onMembershipChange?.(deck, false) // báo list mới ngay cả khi bước thêm từ bên dưới lỗi
       // Đã có toast "Tạo mới" của list — bước thêm từ không báo thêm (lỗi vẫn hiện ngay trong hộp thoại)
-      await deckService.addWord(deck.id, vocabularyId, { notify: false })
+      await addWordToDeck(deck.id, vocabularyId, { notify: false })
       onAdded()
       onMembershipChange?.(deck, true)
       setDecks((ds) => ds?.map((d) => (d.id === deck.id ? { ...d, word_count: 1, contains_vocabulary: true } : d)) ?? null)
@@ -102,7 +113,7 @@ export function AddToDeckDialog({
 
   const onlyQueue = () =>
     run('__queue__', async () => {
-      await srsService.learn(vocabularyId)
+      await learnWord(vocabularyId)
       onAdded()
       onClose()
     })

@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { SpeechErrorToaster } from '@/components/audio/SpeechErrorToaster'
 import { BottomNav, Sidebar, TopBar } from '@/components/layout/DashboardNav'
+import { OfflineBanner } from '@/components/layout/OfflineBanner'
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialogProvider'
 import { Spinner } from '@/components/ui/States'
 import { MutationToaster } from '@/components/ui/MutationToaster'
@@ -71,7 +72,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar user={user} />
-            <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-10">{children}</main>
+            <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-10">
+              <OfflineBanner />
+              {children}
+            </main>
           </div>
           <BottomNav />
         </div>
