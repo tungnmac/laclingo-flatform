@@ -58,6 +58,7 @@ type AuthRepository interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
+	ListUserAvatarKeys(ctx context.Context, userID pgtype.UUID) ([]string, error)
 }
 
 // AccountBilling dọn thanh toán trước khi xoá tài khoản — không thì cổng thanh toán vẫn trừ tiền kỳ sau
@@ -300,6 +301,11 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID uuid.UUID, req D
 	if err != nil {
 		return err
 	}
+	avatarKeys, err := s.repo.ListUserAvatarKeys(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	keys = append(keys, avatarKeys...)
 	n, err := s.repo.DeleteUser(ctx, user.ID)
 	if err != nil {
 		return err
@@ -307,7 +313,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID uuid.UUID, req D
 	if n == 0 {
 		return ErrNotFound
 	}
-	// Ảnh blog trên R2 — tài khoản đã xoá nên lỗi chỉ ghi log (file mồ côi, không còn link nào trỏ tới)
+	// Ảnh blog + ảnh đại diện trên R2 — tài khoản đã xoá nên lỗi chỉ ghi log (file mồ côi, không còn link nào trỏ tới)
 	if s.files != nil {
 		for _, key := range keys {
 			if err := s.files.Delete(context.WithoutCancel(ctx), key); err != nil {

@@ -513,23 +513,35 @@ type Subscription struct {
 }
 
 type User struct {
-	ID            pgtype.UUID        `json:"id"`
-	Email         string             `json:"email"`
-	Username      string             `json:"username"`
-	PasswordHash  string             `json:"password_hash"`
-	FullName      pgtype.Text        `json:"full_name"`
-	AvatarUrl     pgtype.Text        `json:"avatar_url"`
-	StreakCount   pgtype.Int4        `json:"streak_count"`
-	Role          string             `json:"role"`
-	AdminModules  []string           `json:"admin_modules"`
-	IsActive      bool               `json:"is_active"`
-	Exp           int64              `json:"exp"`
-	Level         int32              `json:"level"`
-	Points        int64              `json:"points"`
-	LastStudiedAt pgtype.Timestamptz `json:"last_studied_at"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	StreakDate    pgtype.Date        `json:"streak_date"`
+	ID             pgtype.UUID        `json:"id"`
+	Email          string             `json:"email"`
+	Username       string             `json:"username"`
+	PasswordHash   string             `json:"password_hash"`
+	FullName       pgtype.Text        `json:"full_name"`
+	AvatarUrl      pgtype.Text        `json:"avatar_url"`
+	StreakCount    pgtype.Int4        `json:"streak_count"`
+	Role           string             `json:"role"`
+	AdminModules   []string           `json:"admin_modules"`
+	IsActive       bool               `json:"is_active"`
+	Exp            int64              `json:"exp"`
+	Level          int32              `json:"level"`
+	Points         int64              `json:"points"`
+	LastStudiedAt  pgtype.Timestamptz `json:"last_studied_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	StreakDate     pgtype.Date        `json:"streak_date"`
+	Country        pgtype.Text        `json:"country"`
+	NativeLanguage pgtype.Text        `json:"native_language"`
+	BirthYear      pgtype.Int2        `json:"birth_year"`
+	Bio            pgtype.Text        `json:"bio"`
+	OnboardedAt    pgtype.Timestamptz `json:"onboarded_at"`
+}
+
+type UserAvatar struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ImageKey  string             `json:"image_key"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserBlock struct {
@@ -602,6 +614,13 @@ type UserMissionProgress struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type UserPreferredTopic struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	LanguageID string             `json:"language_id"`
+	Topic      string             `json:"topic"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type UserReminderSetting struct {
 	UserID             pgtype.UUID        `json:"user_id"`
 	DailyEnabled       pgtype.Bool        `json:"daily_enabled"`
@@ -621,6 +640,13 @@ type UserSpeakingAttempt struct {
 	ItemID     pgtype.UUID        `json:"item_id"`
 	Transcript string             `json:"transcript"`
 	Score      int32              `json:"score"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type UserTargetLanguage struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	LanguageID string             `json:"language_id"`
+	Level      string             `json:"level"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 

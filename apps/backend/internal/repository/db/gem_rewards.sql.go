@@ -188,7 +188,7 @@ func (q *Queries) ListPendingGemRewards(ctx context.Context, userID pgtype.UUID)
 }
 
 const lockUserForRewards = `-- name: LockUserForRewards :one
-SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date FROM users WHERE id = $1 FOR UPDATE
+SELECT id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date, country, native_language, birth_year, bio, onboarded_at FROM users WHERE id = $1 FOR UPDATE
 `
 
 // Khoá dòng user khi cộng thưởng nhiệm vụ: 2 nhiệm vụ xong cùng lúc không cùng đọc level cũ (không tạo quà lên level 2 lần)
@@ -213,6 +213,11 @@ func (q *Queries) LockUserForRewards(ctx context.Context, id pgtype.UUID) (User,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StreakDate,
+		&i.Country,
+		&i.NativeLanguage,
+		&i.BirthYear,
+		&i.Bio,
+		&i.OnboardedAt,
 	)
 	return i, err
 }

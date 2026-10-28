@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS user_avatars;
+DROP TABLE IF EXISTS user_preferred_topics;
+DROP TABLE IF EXISTS user_target_languages;
+ALTER TABLE users DROP COLUMN IF EXISTS onboarded_at;
+ALTER TABLE users DROP COLUMN IF EXISTS bio;
+ALTER TABLE users DROP COLUMN IF EXISTS birth_year;
+ALTER TABLE users DROP COLUMN IF EXISTS native_language;
+ALTER TABLE users DROP COLUMN IF EXISTS country;

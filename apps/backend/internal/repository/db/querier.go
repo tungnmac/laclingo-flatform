@@ -123,6 +123,7 @@ type Querier interface {
 	CreateSpeakingItem(ctx context.Context, arg CreateSpeakingItemParams) (SpeakingItem, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateUserAvatar(ctx context.Context, arg CreateUserAvatarParams) (UserAvatar, error)
 	// ===== Admin CRUD (quản lý nội dung từ vựng) =====
 	CreateVocabulary(ctx context.Context, arg CreateVocabularyParams) (Vocabulary, error)
 	CreateVocabularyReviewIfAbsent(ctx context.Context, arg CreateVocabularyReviewIfAbsentParams) (int64, error)
@@ -166,6 +167,8 @@ type Querier interface {
 	// Học viên tự xoá tài khoản — dữ liệu cá nhân xoá theo (ON DELETE CASCADE); phòng thi đấu, nhiệm vụ, đơn thanh toán
 	// giữ lại, bỏ trống người dùng (SET NULL)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteUserPreferredTopics(ctx context.Context, userID pgtype.UUID) error
+	DeleteUserTargetLanguages(ctx context.Context, userID pgtype.UUID) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
 	DislikeBlogComment(ctx context.Context, arg DislikeBlogCommentParams) error
@@ -237,6 +240,7 @@ type Querier interface {
 	GetRewardSettings(ctx context.Context) (RewardSetting, error)
 	GetSpeakingItem(ctx context.Context, id pgtype.UUID) (SpeakingItem, error)
 	GetSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) (Subscription, error)
+	GetUserAvatarByID(ctx context.Context, id pgtype.UUID) (UserAvatar, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserByIdentifier(ctx context.Context, email string) (User, error)
@@ -280,6 +284,8 @@ type Querier interface {
 	InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error)
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertSpeakingTopic(ctx context.Context, arg InsertSpeakingTopicParams) (SpeakingTopic, error)
+	InsertUserPreferredTopic(ctx context.Context, arg InsertUserPreferredTopicParams) error
+	InsertUserTargetLanguage(ctx context.Context, arg InsertUserTargetLanguageParams) error
 	// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error)
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
@@ -406,8 +412,12 @@ type Querier interface {
 	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
 	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
+	// Xoá tài khoản: gom key ảnh đại diện trên R2 để xoá file (dòng user_avatars tự xoá theo cascade)
+	ListUserAvatarKeys(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
+	ListUserPreferredTopics(ctx context.Context, userID pgtype.UUID) ([]ListUserPreferredTopicsRow, error)
+	ListUserTargetLanguages(ctx context.Context, userID pgtype.UUID) ([]ListUserTargetLanguagesRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
 	// role và/hoặc theo module đã được cấp quyền (admin_modules chứa module đó).
@@ -467,6 +477,8 @@ type Querier interface {
 	// PENDING → PAID đúng 1 lần (IPN + Return URL / webhook gửi lại) — đã xử lý → không trả dòng (pgx.ErrNoRows)
 	MarkPaymentOrderPaid(ctx context.Context, arg MarkPaymentOrderPaidParams) (PaymentOrder, error)
 	MarkReportAutoHidden(ctx context.Context, id pgtype.UUID) error
+	// Hoàn tất hoặc "Để sau" — giữ mốc lần đầu
+	MarkUserOnboarded(ctx context.Context, id pgtype.UUID) (User, error)
 	PickRandomQuestions(ctx context.Context, arg PickRandomQuestionsParams) ([]ChallengeQuestion, error)
 	// Lưu kết quả SM-2 + tăng practice_count trong CÙNG 1 câu lệnh. Chỉ cập nhật từ đã có trong hàng đợi ôn tập
 	// và theo cùng điều kiện $7/$8 như UpsertVocabularyReview — không có dòng nào thì service xử lý (404 / đã lưu).
@@ -575,6 +587,8 @@ type Querier interface {
 	// xoá cứng để giữ lại dữ liệu liên quan, có thể khôi phục bằng is_active=true.
 	UpdateUserActive(ctx context.Context, arg UpdateUserActiveParams) (User, error)
 	UpdateUserModules(ctx context.Context, arg UpdateUserModulesParams) (User, error)
+	// Bước "thông tin cơ bản" + ảnh đại diện của onboarding — ghi thẳng (NULL = xoá), khác UpdateUserProfile (COALESCE).
+	UpdateUserOnboardingProfile(ctx context.Context, arg UpdateUserOnboardingProfileParams) (User, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	// Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý
 	// nghĩa giữ module cũ (RequireModule chặn từ role trước khi xét module).

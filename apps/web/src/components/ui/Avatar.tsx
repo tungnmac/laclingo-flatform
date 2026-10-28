@@ -1,9 +1,11 @@
+import { resolveMediaUrl } from '@/lib/api'
 import { cn, initials } from '@/lib/utils'
 
 export function Avatar({ name, src, className }: { name: string; src?: string; className?: string }) {
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name} className={cn('rounded-full object-cover', className)} />
+    // Ảnh tải lên lưu dạng "/users/avatars/<id>" (tương đối với API) — ghép địa chỉ API
+    return <img src={resolveMediaUrl(src)} alt={name} className={cn('rounded-full object-cover', className)} />
   }
   return (
     <span

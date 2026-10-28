@@ -14,6 +14,42 @@ export interface User {
   exp: number
   points: number
   created_at: string
+  // Onboarding — onboarded_at null = chưa qua bước thiết lập lần đầu (dashboard chuyển sang /onboarding)
+  country?: string
+  native_language?: string
+  birth_year?: number
+  bio?: string
+  onboarded_at?: string | null
+}
+
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+
+export interface TargetLanguage {
+  language_id: string
+  level: CefrLevel
+}
+
+export interface PreferredTopic {
+  language_id: string
+  topic: string
+}
+
+export interface OnboardingData {
+  user: User
+  target_languages: TargetLanguage[]
+  preferred_topics: PreferredTopic[]
+}
+
+export interface SaveOnboardingRequest {
+  full_name: string
+  avatar_url: string
+  country: string
+  native_language: string
+  birth_year: number | null
+  bio: string
+  target_languages: TargetLanguage[]
+  preferred_topics: PreferredTopic[]
+  complete: boolean
 }
 
 export interface Language {

@@ -42,6 +42,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	blogHandler.RegisterPublicRoutes(api)
 	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2))
 	vocabularyHandler.RegisterPublicRoutes(api)
+	onboardingHandler := NewOnboardingHandler(service.NewOnboardingService(repo, r2))
+	onboardingHandler.RegisterPublicRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
 	// WS đăng ký trên "api", TRƯỚC khi tạo "protected": Fiber lưu route theo 1
@@ -62,6 +64,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	userService := service.NewUserService(repo)
 	userHandler := NewUserHandler(userService, plans)
 	protected := api.Group("", RequireAuth(tokens))
+	// Trước userHandler: /users/me/onboarding không bị /users/:id bắt nhầm (khác số đoạn nhưng giữ thứ tự cho chắc)
+	onboardingHandler.RegisterRoutes(protected)
 	userHandler.RegisterRoutes(protected)
 	authHandler.RegisterProtectedRoutes(protected)
 	srsService := service.NewSRSService(repo, missions, plans)
