@@ -2,7 +2,7 @@
 
 ## 1. Bối cảnh & mục tiêu
 
-Thêm một sản phẩm mới trong monorepo `laclingo-flatform`: **web học trading + paper trading**
+Thêm một sản phẩm mới trong monorepo `laclingo-platform`: **web học trading + paper trading**
 (giao dịch bằng tiền ảo trên giá thị trường thật). Sản phẩm tách biệt với LacLingo (học ngoại ngữ):
 app riêng, database riêng, tài khoản riêng.
 
