@@ -60,10 +60,15 @@ export function isSessionValid(state: TokenState) {
 
 const emptyActive = { token: null, expiresAt: null, refreshToken: null, refreshExpiresAt: null, user: null }
 
-/** Thu hồi refresh token ở server khi đăng xuất / gỡ tài khoản (best-effort). Import động: api.ts → store này. */
+/**
+ * Đăng xuất / gỡ tài khoản: thu hồi refresh token ở server (best-effort) và xoá dữ liệu offline của tài khoản đó trên
+ * máy. Import động: api.ts / offlineDb.ts → store này.
+ */
 function revokeRefresh(...accounts: (SavedAccount | undefined)[]) {
   const tokens = accounts.map((a) => a?.refreshToken).filter((t): t is string => !!t)
   if (tokens.length) void import('@/lib/api').then((m) => tokens.forEach(m.revokeRefreshToken)).catch(() => {})
+  const userIds = accounts.flatMap((a) => (a ? [a.user.id] : []))
+  if (userIds.length) void import('@/lib/offlineDb').then((m) => m.clearOfflineData(userIds)).catch(() => {})
 }
 
 /**
