@@ -92,6 +92,24 @@ func (q *Queries) CreateContentReport(ctx context.Context, arg CreateContentRepo
 	return i, err
 }
 
+const getGameChatMessage = `-- name: GetGameChatMessage :one
+SELECT id, room_id, user_id, message, is_hidden, created_at FROM game_chat_messages WHERE id = $1
+`
+
+func (q *Queries) GetGameChatMessage(ctx context.Context, id pgtype.UUID) (GameChatMessage, error) {
+	row := q.db.QueryRow(ctx, getGameChatMessage, id)
+	var i GameChatMessage
+	err := row.Scan(
+		&i.ID,
+		&i.RoomID,
+		&i.UserID,
+		&i.Message,
+		&i.IsHidden,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const hasAutoHiddenOpenReport = `-- name: HasAutoHiddenOpenReport :one
 SELECT EXISTS (
     SELECT 1 FROM content_reports WHERE target_type = $1 AND target_id = $2 AND status = 'OPEN' AND auto_hidden
@@ -180,11 +198,12 @@ SELECT
     MAX(r.created_at)::timestamptz AS last_reported_at,
     COALESCE(p.id, c.post_id) AS post_id,
     COALESCE(p.title, cp.title, '')::text AS post_title,
-    LEFT(COALESCE(c.content, p.content, ''), 2000)::text AS content,
-    COALESCE(c.author_id, p.author_id) AS author_id,
-    COALESCE(cu.username, pu.username, '')::text AS author_username,
-    COALESCE(c.is_hidden, p.is_hidden, FALSE)::bool AS is_hidden,
-    (p.id IS NULL AND c.id IS NULL)::bool AS deleted,
+    LEFT(COALESCE(c.content, p.content, m.message, ''), 2000)::text AS content,
+    COALESCE(c.author_id, p.author_id, m.user_id) AS author_id,
+    COALESCE(cu.username, pu.username, mu.username, '')::text AS author_username,
+    COALESCE(c.is_hidden, p.is_hidden, m.is_hidden, FALSE)::bool AS is_hidden,
+    (p.id IS NULL AND c.id IS NULL AND m.id IS NULL)::bool AS deleted,
+    COALESCE(gr.code, '')::text AS room_code,
     COUNT(*) OVER()::int AS total_count
 FROM content_reports r
 LEFT JOIN blog_posts p ON r.target_type = 'post' AND p.id = r.target_id
@@ -192,8 +211,11 @@ LEFT JOIN blog_comments c ON r.target_type = 'comment' AND c.id = r.target_id
 LEFT JOIN blog_posts cp ON cp.id = c.post_id
 LEFT JOIN users pu ON pu.id = p.author_id
 LEFT JOIN users cu ON cu.id = c.author_id
+LEFT JOIN game_chat_messages m ON r.target_type = 'chat' AND m.id = r.target_id
+LEFT JOIN users mu ON mu.id = m.user_id
+LEFT JOIN game_rooms gr ON gr.id = m.room_id
 WHERE r.status = $1
-GROUP BY r.target_type, r.target_id, p.id, c.id, cp.id, pu.username, cu.username
+GROUP BY r.target_type, r.target_id, p.id, c.id, cp.id, pu.username, cu.username, m.id, mu.username, gr.code
 ORDER BY MAX(r.created_at) DESC, r.target_id
 LIMIT $3 OFFSET $2
 `
@@ -218,6 +240,7 @@ type ListReportedContentRow struct {
 	AuthorUsername string             `json:"author_username"`
 	IsHidden       bool               `json:"is_hidden"`
 	Deleted        bool               `json:"deleted"`
+	RoomCode       string             `json:"room_code"`
 	TotalCount     int32              `json:"total_count"`
 }
 
@@ -245,6 +268,7 @@ func (q *Queries) ListReportedContent(ctx context.Context, arg ListReportedConte
 			&i.AuthorUsername,
 			&i.IsHidden,
 			&i.Deleted,
+			&i.RoomCode,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -290,6 +314,20 @@ func (q *Queries) ResolveContentReports(ctx context.Context, arg ResolveContentR
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setGameChatMessageHidden = `-- name: SetGameChatMessageHidden :exec
+UPDATE game_chat_messages SET is_hidden = $2 WHERE id = $1
+`
+
+type SetGameChatMessageHiddenParams struct {
+	ID       pgtype.UUID `json:"id"`
+	IsHidden bool        `json:"is_hidden"`
+}
+
+func (q *Queries) SetGameChatMessageHidden(ctx context.Context, arg SetGameChatMessageHiddenParams) error {
+	_, err := q.db.Exec(ctx, setGameChatMessageHidden, arg.ID, arg.IsHidden)
+	return err
 }
 
 const unblockUser = `-- name: UnblockUser :exec

@@ -1,9 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Button, ButtonLink } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { ReportDialog } from '@/features/moderation/components/ReportDialog'
+import { moderationService } from '@/features/moderation/moderation.service'
+import { useBlockUser } from '@/features/moderation/useBlockUser'
+import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useSession } from '@/store/session'
 import type { ChallengeRoomDetail } from '@/types/api'
@@ -22,6 +26,11 @@ export function LiveRoomView({ room, onParticipantChange }: { room: ChallengeRoo
   const isHost = me?.id === room.host_user_id
   const [chatOpen, setChatOpen] = useState(false)
   const t = useTranslation()
+  // Người đã chặn: tin nhắn của họ chỉ hiện dòng giữ chỗ
+  const blockedApi = useApi(() => moderationService.blocked(), [])
+  const blockedIds = useMemo(() => new Set((blockedApi.data ?? []).map((u) => u.id)), [blockedApi.data])
+  const [reporting, setReporting] = useState<string | null>(null)
+  const { block } = useBlockUser()
 
   if (socket.kicked) {
     return (
@@ -95,11 +104,21 @@ export function LiveRoomView({ room, onParticipantChange }: { room: ChallengeRoo
         </button>
         {chatOpen && (
           <div className="border-t border-slate-200">
-            <ChatPanel messages={socket.chatMessages} participants={room.participants} myUserId={me?.id} onSend={socket.sendChat} />
+            <ChatPanel
+              messages={socket.chatMessages}
+              participants={room.participants}
+              myUserId={me?.id}
+              blockedIds={blockedIds}
+              onSend={socket.sendChat}
+              onReport={setReporting}
+              onBlock={(userId, name) => void block(userId, name).then((done) => done && blockedApi.reload())}
+            />
             <ReactionBar onReact={socket.sendReaction} />
           </div>
         )}
       </Card>
+
+      <ReportDialog target={reporting ? { type: 'chat', id: reporting } : null} onClose={() => setReporting(null)} />
     </div>
   )
 }

@@ -112,6 +112,7 @@ type participantReadyPayload struct {
 }
 
 type chatMessagePayload struct {
+	ID      string    `json:"id"` // báo cáo tin nhắn (POST /reports, target_type "chat")
 	UserID  uuid.UUID `json:"user_id"`
 	Message string    `json:"message"`
 	SentAt  time.Time `json:"sent_at"`

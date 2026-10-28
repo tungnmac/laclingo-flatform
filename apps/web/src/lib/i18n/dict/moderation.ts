@@ -7,6 +7,7 @@ export interface ModerationDict {
     report: string
     reportPost: string
     reportComment: string
+    reportChat: string
     reportTitle: string
     reportHint: string
     reasons: Record<ReportReason, string>
@@ -23,6 +24,7 @@ export interface ModerationDict {
     blockedPost: (name: string) => string
     blockedComment: string
     hiddenComment: string
+    blockedChat: string
     blockedListTitle: string
     blockedListHint: string
     blockedListEmpty: string
@@ -35,11 +37,13 @@ export interface ModerationDict {
     statusDismissed: string
     targetPost: string
     targetComment: string
+    targetChat: (room: string) => string
     reportCount: (n: number) => string
     deletedContent: string
     hiddenNow: string
     openPost: string
     actionHide: string
+    actionConfirmChat: string
     actionDismiss: string
     actionDone: string
     empty: string
@@ -52,6 +56,7 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       report: 'Báo cáo',
       reportPost: 'Báo cáo bài viết',
       reportComment: 'Báo cáo bình luận',
+      reportChat: 'Báo cáo tin nhắn',
       reportTitle: 'Báo cáo nội dung vi phạm',
       reportHint: 'Quản trị viên sẽ xem xét trong vòng 24 giờ. Người bị báo cáo không biết ai đã báo cáo.',
       reasons: {
@@ -76,6 +81,7 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       blockedPost: (n) => `Bạn đã chặn ${n} — nội dung bài viết được ẩn.`,
       blockedComment: 'Bình luận từ người bạn đã chặn',
       hiddenComment: 'Bình luận đã bị ẩn do vi phạm quy định cộng đồng',
+      blockedChat: 'Tin nhắn từ người bạn đã chặn',
       blockedListTitle: 'Người đã chặn',
       blockedListHint: 'Bạn không thấy bài viết, bình luận của những người này và không nhận thông báo từ họ.',
       blockedListEmpty: 'Bạn chưa chặn ai.',
@@ -87,11 +93,13 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       statusDismissed: 'Đã bỏ qua',
       targetPost: 'Bài viết',
       targetComment: 'Bình luận',
+      targetChat: (room) => (room ? `Chat phòng ${room}` : 'Chat thử thách'),
       reportCount: (n) => `${n} báo cáo`,
       deletedContent: 'Nội dung đã bị xoá',
       hiddenNow: 'Đang ẩn',
       openPost: 'Mở bài viết',
       actionHide: 'Vi phạm — ẩn nội dung',
+      actionConfirmChat: 'Xác nhận vi phạm',
       actionDismiss: 'Không vi phạm — bỏ qua',
       actionDone: 'Đã xử lý báo cáo',
       empty: 'Không có báo cáo nào.',
@@ -102,6 +110,7 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       report: 'Report',
       reportPost: 'Report post',
       reportComment: 'Report comment',
+      reportChat: 'Report message',
       reportTitle: 'Report objectionable content',
       reportHint: 'Moderators review reports within 24 hours. The reported user is not told who reported them.',
       reasons: {
@@ -126,6 +135,7 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       blockedPost: (n) => `You blocked ${n} — this post's content is hidden.`,
       blockedComment: 'Comment from a user you blocked',
       hiddenComment: 'This comment was hidden for breaking community guidelines',
+      blockedChat: 'Message from a user you blocked',
       blockedListTitle: 'Blocked users',
       blockedListHint: "You don't see posts or comments from these people and get no notifications from them.",
       blockedListEmpty: "You haven't blocked anyone.",
@@ -137,11 +147,13 @@ export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
       statusDismissed: 'Dismissed',
       targetPost: 'Post',
       targetComment: 'Comment',
+      targetChat: (room) => (room ? `Chat in room ${room}` : 'Challenge chat'),
       reportCount: (n) => `${n} report${n > 1 ? 's' : ''}`,
       deletedContent: 'Content was deleted',
       hiddenNow: 'Hidden',
       openPost: 'Open post',
       actionHide: 'Violation — hide content',
+      actionConfirmChat: 'Confirm violation',
       actionDismiss: 'No violation — dismiss',
       actionDone: 'Report handled',
       empty: 'No reports.',

@@ -91,7 +91,7 @@ export default function AdminReportsPage() {
               <li key={`${r.target_type}-${r.target_id}`} className="space-y-2 px-4 py-4 sm:px-6">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
-                    {r.target_type === 'post' ? m.targetPost : m.targetComment}
+                    {r.target_type === 'post' ? m.targetPost : r.target_type === 'chat' ? m.targetChat(r.room_code ?? '') : m.targetComment}
                   </span>
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">{m.reportCount(r.report_count)}</span>
                   {r.reasons.map((reason) => (
@@ -125,7 +125,8 @@ export default function AdminReportsPage() {
                   {status === 'OPEN' && (
                     <>
                       <Button size="sm" variant="danger" disabled={busy !== null} onClick={() => void resolve(r, 'hide')}>
-                        {m.actionHide}
+                        {/* chat đã phát tức thời, không còn gì để ẩn — chỉ ghi nhận vi phạm */}
+                        {r.target_type === 'chat' ? m.actionConfirmChat : m.actionHide}
                       </Button>
                       <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => void resolve(r, 'dismiss')}>
                         {m.actionDismiss}

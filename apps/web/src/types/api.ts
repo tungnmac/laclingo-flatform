@@ -316,6 +316,7 @@ export interface WsParticipantReadyPayload {
 }
 
 export interface WsChatMessagePayload {
+  id?: string // ID tin đã lưu (báo cáo tin nhắn); không có = máy chủ lưu lỗi
   user_id: string
   message: string
   sent_at: string
@@ -1271,9 +1272,9 @@ export interface PendingRewardsResponse {
   settings: RewardSettings
 }
 
-// ===== Báo cáo + chặn nội dung (blog, bình luận) =====
+// ===== Báo cáo + chặn nội dung (blog, bình luận, chat phòng thử thách) =====
 export type ReportReason = 'spam' | 'harassment' | 'hate' | 'sexual' | 'violence' | 'other'
-export type ReportTargetType = 'post' | 'comment'
+export type ReportTargetType = 'post' | 'comment' | 'chat'
 export type ReportStatus = 'OPEN' | 'RESOLVED' | 'DISMISSED'
 
 export interface ReportRequest {
@@ -1295,6 +1296,7 @@ export interface BlockedUser {
 export interface ReportedContent {
   target_type: ReportTargetType
   target_id: string
+  room_code?: string // tin nhắn chat: mã phòng thử thách
   report_count: number
   reasons: ReportReason[]
   notes?: string
