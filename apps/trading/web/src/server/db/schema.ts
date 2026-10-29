@@ -776,6 +776,22 @@ export const vnSyncRuns = pgTable(
   (t) => [index('vn_sync_runs_job_started_idx').on(t.job, t.startedAt)],
 )
 
+/** Thông báo trong app (chuông trên header). Nội dung dựng ở client từ kind + data theo ngôn ngữ đang chọn */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { length: 20 }).notNull(), // 'order_filled' | 'liquidation' | 'contest_result'
+    data: jsonb('data').notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }), // null = chưa đọc
+    createdAt: createdAt(),
+  },
+  (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)],
+)
+
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect
 export type AccountRow = typeof tradingAccounts.$inferSelect

@@ -155,6 +155,13 @@
       "when": 1793263615074,
       "tag": "0021_users_username_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793266438958,
+      "tag": "0022_notifications",
+      "breakpoints": true
     }
   ]
 }

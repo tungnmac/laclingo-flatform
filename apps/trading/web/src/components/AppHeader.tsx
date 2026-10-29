@@ -7,8 +7,9 @@ import { LanguageSwitcher } from '@/i18n/LanguageSwitcher'
 import type { SessionUser } from '@/server/auth/types'
 import type { Plan } from '@/server/billing/plans'
 import { AccountMenu } from './AccountMenu'
+import { NotificationBell } from './NotificationBell'
 
-/** Header trên cùng: logo, Pro, ngôn ngữ, tài khoản. Mục menu nằm ở sidebar trái (☰ mở trên mobile). */
+/** Header trên cùng: logo, Pro, ngôn ngữ, thông báo, tài khoản. Mục menu nằm ở sidebar trái (☰ mở trên mobile). */
 export function AppHeader({
   user,
   plan,
@@ -46,6 +47,7 @@ export function AppHeader({
           {t(plan === 'pro' ? 'pro.badge' : 'pro.upgradeShort')}
         </Link>
         <LanguageSwitcher className="hidden sm:block" />
+        <NotificationBell />
         <AccountMenu user={user} />
       </div>
     </header>

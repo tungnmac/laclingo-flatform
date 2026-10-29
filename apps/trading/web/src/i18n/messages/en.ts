@@ -1134,6 +1134,17 @@ export const en: Messages = {
     continueAs: 'Continue with a signed-in account',
     orSignIn: 'Or sign in to another account:',
   },
+  notifications: {
+    title: 'Notifications',
+    open: 'Open notifications',
+    openUnread: 'Open notifications ({n} unread)',
+    empty: 'No notifications yet',
+    orderFilled: '{type} {side} order for {qty} {base} filled at {price}',
+    liquidation: 'Short position of {qty} {base} was liquidated at {price}',
+    pnl: ' · P&L {pnl} USDT',
+    contestRanked: 'Contest "{title}" results are in: you placed {rank}/{total}',
+    contestUnranked: 'Contest "{title}" results are in: you did not qualify for a ranking',
+  },
   pro: {
     needsRefund: 'Payment received, but your account already has Pro with no end date, so this order needs a refund — support will contact you.',
     buyTitle: 'Upgrade to Pro',

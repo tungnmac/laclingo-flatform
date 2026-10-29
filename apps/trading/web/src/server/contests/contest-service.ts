@@ -4,6 +4,7 @@ import type { Locale } from '@/i18n/locales'
 import { db } from '../db/client'
 import { contestEntries, contests, positions, trades, tradingAccounts, users, type ContestRow } from '../db/schema'
 import { HttpError, isUniqueViolation } from '../http'
+import { notify } from '../notifications/notification-service'
 import { getAccountSnapshot, quotePrices, resetAccount } from '../trading/account-service'
 import { D, Decimal } from '../trading/decimal'
 import { contestState, MIN_CLOSING_TRADES, rank, scoreEntry, type ContestState, type EntryScore } from './rules'
@@ -191,13 +192,21 @@ export async function finalizeDueContests(now = new Date()): Promise<{ finalized
     }
     const ranked = await liveStandings(c, openLoss)
     await db.transaction(async (tx) => {
+      // Giành quyền chốt TRƯỚC: lượt chạy chồng nhau (đã bị lượt kia chốt) không ghi đè hạng / không báo lần 2
+      const claimed = await tx
+        .update(contests)
+        .set({ finalizedAt: new Date() })
+        .where(and(eq(contests.id, c.id), isNull(contests.finalizedAt)))
+        .returning({ id: contests.id })
+      if (claimed.length === 0) return
       for (const { rank: r, entry } of ranked) {
         await tx
           .update(contestEntries)
           .set({ finalRank: r, finalScore: entry.score })
           .where(and(eq(contestEntries.contestId, c.id), eq(contestEntries.userId, entry.userId)))
       }
-      await tx.update(contests).set({ finalizedAt: new Date() }).where(and(eq(contests.id, c.id), isNull(contests.finalizedAt)))
+      const base = { kind: 'contest_result' as const, slug: c.slug, title_vi: c.titleVi, title_en: c.titleEn, total: ranked.length }
+      await notify(tx, ranked.map(({ rank: r, entry }) => ({ userId: entry.userId, data: { ...base, rank: r } })))
     })
     finalized.push(c.slug)
   }
