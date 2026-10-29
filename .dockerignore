@@ -1,0 +1,10 @@
+# Chỉ image backend LacLingo build với context = gốc repo (cần packages/database/migrations) — các image khác dùng
+# context riêng (apps/laclingo/web, …) nên không bị ảnh hưởng. Chỉ gửi backend + migration vào context.
+*
+!apps/laclingo/backend/
+!packages/database/migrations/
+apps/laclingo/backend/.env
+apps/laclingo/backend/.env.*
+!apps/laclingo/backend/.env.example
+apps/laclingo/backend/**/*.test
+apps/laclingo/backend/tmp/

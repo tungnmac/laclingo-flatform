@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -39,6 +40,20 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("❌ Không thể load config: %v", err)
+	}
+
+	// Migrate trước khi nhận request — lỗi thì thoát, Render giữ bản đang chạy (bản mới không qua health check).
+	// DB mới hơn bản này (rollback / bản mới migrate lỗi) thì chỉ cảnh báo, vẫn chạy.
+	if cfg.MigrationsDir != "" {
+		version, err := repository.Migrate(cfg.DatabaseURL, cfg.MigrationsDir)
+		switch {
+		case errors.Is(err, repository.ErrSchemaAhead):
+			log.Printf("⚠️  %v — bỏ qua migration", err)
+		case err != nil:
+			log.Fatalf("❌ Migration lỗi: %v", err)
+		default:
+			log.Printf("✅ Database schema version %d", version)
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

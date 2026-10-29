@@ -61,11 +61,19 @@ git pull
 cd deploy && docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Migration mới tự chạy trước khi backend mới khởi động. Nên `./backup.sh` trước khi cập nhật.
+Migration mới tự chạy trước khi backend mới khởi động (container `migrate`; backend cũng tự áp migration còn thiếu lúc
+khởi động — `MIGRATIONS_DIR=/migrations` trong image, cách Render dùng). Nên `./backup.sh` trước khi cập nhật.
 Có seed mới (`packages/database/seeds/…`) thì thêm vào `seed.sh` rồi chạy lại `./seed.sh`.
 
-**Migration lỗi** (`docker compose -f docker-compose.prod.yml logs migrate`): DB bị đánh dấu *dirty*, backend không
-khởi động. Sửa tay phần migration dở dang trong psql, rồi đánh dấu lại version đúng và chạy tiếp:
+**Viết migration tương thích ngược:** backend tự migrate lúc khởi động, trong lúc bản cũ vẫn đang phục vụ (Render đổi
+sang bản mới sau khi bản mới khoẻ) — nên migration chỉ *thêm* (bảng/cột nullable/index), không xoá/đổi tên cột bản cũ
+còn dùng; xoá ở 1 lần deploy sau. Rollback về bản cũ vẫn chạy được: DB mới hơn migration của bản đó thì backend chỉ cảnh
+báo, bỏ qua migrate. Mỗi câu migration chờ lock bảng tối đa 10s (`lock_timeout`) rồi báo lỗi thay vì làm API treo.
+
+**Migration lỗi** (`docker compose -f docker-compose.prod.yml logs migrate`, Render: log của service backend): DB bị
+đánh dấu *dirty*, bản mới không khởi động (trên Render bản cũ vẫn chạy được vì DB đã mới hơn migration của nó). Sửa
+tay phần migration dở dang trong psql, rồi đánh dấu lại version đúng và chạy tiếp (Render/Neon: `migrate -path
+packages/database/migrations -database "$NEON_DATABASE_URL" force <version>` rồi deploy lại):
 ```bash
 docker compose -f docker-compose.prod.yml run --rm migrate -path /migrations \
   -database "postgres://laclingo:<POSTGRES_PASSWORD>@postgres:5432/laclingo?sslmode=disable" force <version>
