@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,8 @@ const (
 	// Lô lỗi (AI từ chối / trả sai định dạng) thì bỏ qua lô đó dịch tiếp — 1 lô hỏng không chặn mãi các lô sau; lỗi liền
 	// chừng này lô (AI sập / hết hạn mức) thì dừng lượt, lượt sau thử lại
 	contentTranslationMaxFailures = 3
+	// Nghỉ giữa 2 lần gọi AI — gói miễn phí (vd Gemini ~15 lần/phút) không bị từ chối vì gọi dồn khi dịch cả kho lần đầu
+	contentTranslationCallGap = 4 * time.Second
 )
 
 type ContentTranslationRepository interface {
@@ -248,12 +251,16 @@ type contentTranslationWorker struct {
 	sources   []translationSource
 	locales   []string
 	batchSize int
+	callGap   time.Duration // nghỉ giữa 2 lần gọi AI (0 = không nghỉ, dùng trong test)
 }
 
 // StartContentTranslationWorker chạy tới khi ctx huỷ: dịch 1 lượt ngay khi khởi động rồi mỗi 10 phút. Chỉ gọi khi đã
 // cấu hình AI.
 func StartContentTranslationWorker(ctx context.Context, repo ContentTranslationRepository, ai AIClient) {
-	w := &contentTranslationWorker{repo: repo, ai: ai, sources: contentTranslationSources, locales: contentLocales, batchSize: contentTranslationBatchSize}
+	w := &contentTranslationWorker{
+		repo: repo, ai: ai, sources: contentTranslationSources, locales: contentLocales,
+		batchSize: contentTranslationBatchSize, callGap: contentTranslationCallGap,
+	}
 	ticker := time.NewTicker(contentTranslationInterval)
 	defer ticker.Stop()
 	for {
@@ -275,14 +282,24 @@ type pendingTranslation struct {
 	keys []translationKey // entity giống nhau, chỉ dùng id + field
 }
 
-// runRound — 1 lượt dịch mọi nguồn × mọi ngôn ngữ; lỗi DB / AI lỗi liền nhiều lô thì dừng lượt (lượt sau thử lại)
+// translationWork — các câu cần AI dịch của 1 nguồn sang 1 ngôn ngữ
+type translationWork struct {
+	entity  string
+	locale  string
+	pending []pendingTranslation
+}
+
+// runRound — 1 lượt dịch mọi nguồn × mọi ngôn ngữ; lỗi DB / AI lỗi liền nhiều lô / AI báo hết hạn mức thì dừng lượt
+// (lượt sau thử lại). Phần ít câu dịch trước (tên chủ đề, nhiệm vụ... hiện khắp nơi) — hạn mức AI có hết giữa chừng thì
+// kho nghĩa từ lớn dịch dần ở các lượt sau, không chặn phần nhỏ.
 func (w *contentTranslationWorker) runRound(ctx context.Context) error {
-	translated, failures := 0, 0
+	translated, failures, calls := 0, 0, 0
 	defer func() {
 		if translated > 0 {
 			log.Printf("🌐 content translation: đã dịch %d câu", translated)
 		}
 	}()
+	var works []translationWork
 	for _, src := range w.sources {
 		rows, err := src.list(ctx, w.repo)
 		if err != nil {
@@ -308,20 +325,36 @@ func (w *contentTranslationWorker) runRound(ctx context.Context) error {
 					translated += n
 				}
 			}
-			for start := 0; start < len(pending); start += w.batchSize {
-				batch := pending[start:min(start+w.batchSize, len(pending))]
-				n, err := w.translateBatch(ctx, src.entity, locale, batch)
-				translated += n
-				if err == nil {
-					failures = 0
-					continue
-				}
-				err = fmt.Errorf("dịch %s sang %s: %w", src.entity, locale, err)
-				if failures++; failures >= contentTranslationMaxFailures || ctx.Err() != nil {
-					return err
-				}
-				log.Printf("⚠️  content translation: %v — bỏ qua lô này", err)
+			if len(pending) > 0 {
+				works = append(works, translationWork{entity: src.entity, locale: locale, pending: pending})
 			}
+		}
+	}
+	slices.SortStableFunc(works, func(a, b translationWork) int { return len(a.pending) - len(b.pending) })
+
+	for _, work := range works {
+		for start := 0; start < len(work.pending); start += w.batchSize {
+			if calls > 0 && w.callGap > 0 {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(w.callGap):
+				}
+			}
+			calls++
+			batch := work.pending[start:min(start+w.batchSize, len(work.pending))]
+			n, err := w.translateBatch(ctx, work.entity, work.locale, batch)
+			translated += n
+			if err == nil {
+				failures = 0
+				continue
+			}
+			err = fmt.Errorf("dịch %s sang %s: %w", work.entity, work.locale, err)
+			// Hết hạn mức / vượt tần suất: gọi tiếp lô khác cũng bị từ chối — dừng lượt luôn
+			if failures++; failures >= contentTranslationMaxFailures || isAIRateLimited(err) || ctx.Err() != nil {
+				return err
+			}
+			log.Printf("⚠️  content translation: %v — bỏ qua lô này", err)
 		}
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -373,4 +374,58 @@ func TestTranslateChoicesKeepsOneLanguage(t *testing.T) {
 	if results[1].Meaning != "con chó" || distractors[1].Meaning != "con gà" || distractors[2].Meaning != "con vịt" {
 		t.Fatalf("b: %q / %q / %q, want giữ tiếng Việt", results[1].Meaning, distractors[1].Meaning, distractors[2].Meaning)
 	}
+}
+
+// Phần ít câu dịch trước (tên chủ đề trước kho nghĩa từ); AI báo hết hạn mức thì dừng lượt ngay, không gọi tiếp
+func TestContentTranslationWorkerSmallFirstAndStopsOnQuota(t *testing.T) {
+	repo := &fakeTranslationRepo{
+		vocab: []db.ListVocabularyTranslationSourcesRow{
+			{ID: uuid.New().String(), Meaning: "con mèo"}, {ID: uuid.New().String(), Meaning: "con chó"},
+			{ID: uuid.New().String(), Meaning: "con cá"},
+		},
+		topics: []string{"Động vật"},
+	}
+	ai := &quotaAfterAI{fakeTranslateAI: fakeTranslateAI{}, okCalls: 1}
+	w := newTestWorker(repo, ai, 40)
+	w.locales = []string{"en"}
+	err := w.runRound(context.Background())
+	if err == nil || !isAIRateLimited(err) {
+		t.Fatalf("err = %v, want lỗi hết hạn mức", err)
+	}
+	if ai.calls != 2 {
+		t.Fatalf("AI calls = %d, want 2 (1 lô thành công + dừng ngay ở lô bị từ chối)", ai.calls)
+	}
+	if len(ai.sizes) != 1 || ai.sizes[0] != 1 {
+		t.Fatalf("lô đầu = %v, want 1 câu (tên chủ đề dịch trước kho nghĩa)", ai.sizes)
+	}
+}
+
+// Nghỉ giữa 2 lần gọi AI (không nghỉ trước lần đầu)
+func TestContentTranslationWorkerCallGap(t *testing.T) {
+	repo := &fakeTranslationRepo{topics: []string{"Động vật", "Gia đình"}}
+	ai := &fakeTranslateAI{}
+	w := newTestWorker(repo, ai, 1)
+	w.locales = []string{"en"}
+	w.callGap = 30 * time.Millisecond
+	start := time.Now()
+	if err := w.runRound(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if ai.calls != 2 || time.Since(start) < 30*time.Millisecond {
+		t.Fatalf("calls = %d, elapsed = %v — want 2 lần gọi cách nhau ≥ 30ms", ai.calls, time.Since(start))
+	}
+}
+
+// quotaAfterAI — okCalls lần đầu dịch bình thường, sau đó trả lỗi hết hạn mức (HTTP 429)
+type quotaAfterAI struct {
+	fakeTranslateAI
+	okCalls int
+}
+
+func (q *quotaAfterAI) GenerateJSON(ctx context.Context, req AIJSONRequest) (string, error) {
+	if q.calls >= q.okCalls {
+		q.calls++
+		return "", &aiError{reason: geminiQuotaReason, cause: errors.New("429")}
+	}
+	return q.fakeTranslateAI.GenerateJSON(ctx, req)
 }
