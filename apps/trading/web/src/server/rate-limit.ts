@@ -30,8 +30,16 @@ export async function resetRateLimit(counter: Counter, key: string): Promise<voi
 /**
  * IP người gọi. Client tự đặt được X-Forwarded-For; proxy NỐI THÊM IP thật vào CUỐI → lấy hop thứ
  * `TRUSTED_PROXY_HOPS` tính từ phải (mặc định 1 = 1 reverse proxy). Không có XFF → X-Real-IP → 'unknown'.
+ * `CLIENT_IP_HEADER` (vd `CF-Connecting-IP` trên Render — luôn qua Cloudflare, header do Cloudflare ghi đè) được ưu
+ * tiên hơn XFF. Chỉ đặt khi mọi request chắc chắn đi qua proxy ghi đè header đó — không thì client tự giả được IP.
  */
-export function clientIp(req: Request, trustedHops = Number(process.env.TRUSTED_PROXY_HOPS) || 1): string {
+export function clientIp(
+  req: Request,
+  trustedHops = Number(process.env.TRUSTED_PROXY_HOPS) || 1,
+  ipHeader = process.env.CLIENT_IP_HEADER,
+): string {
+  const fromHeader = ipHeader ? req.headers.get(ipHeader)?.trim() : undefined
+  if (fromHeader) return fromHeader
   const hops = req.headers.get('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean) ?? []
   const fromRight = hops[hops.length - trustedHops] ?? hops[0]
   return fromRight || req.headers.get('x-real-ip')?.trim() || 'unknown'

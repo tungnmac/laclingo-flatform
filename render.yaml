@@ -1,4 +1,4 @@
-# Render Blueprint — backend Go + web Next.js, DB dùng Neon (schema/seed chạy tay: deploy/neon/).
+# Render Blueprint — LacLingo (backend Go + web Next.js) và TradeLab (trading web + Key Value), DB dùng Neon (schema/seed chạy tay: deploy/neon/).
 # Biến sync: false = bí mật / tuỳ môi trường → điền trên Render Dashboard, KHÔNG commit giá trị thật.
 # NEXT_PUBLIC_* được Render truyền vào Docker build làm build arg → đổi domain API phải deploy lại web (build mới).
 # Tự deploy khi push main, nhưng chỉ SAU khi GitHub Actions (.github/workflows/ci.yml) pass; buildFilter: chỉ build lại
@@ -47,3 +47,49 @@ services:
         value: https://laclingo-platform.onrender.com/api/v1
       - key: NEXT_PUBLIC_CONTACT_EMAIL
         sync: false
+
+  # ===== TradeLab (apps/trading/web) — Next.js full-stack, DB riêng trên Neon (trading_db), Redis = Render Key Value =====
+  - type: web
+    name: lactrader
+    runtime: node
+    plan: free # ngủ sau ~15 phút không có request, lần mở sau chờ ~30–60 giây
+    region: singapore
+    rootDir: apps/trading/web
+    # Gói free không có pre-deploy command → migration chạy lúc build (drizzle chỉ áp migration chưa chạy).
+    # Seed chạy tay 1 lần: DATABASE_URL=<Neon> npm run seed:all
+    buildCommand: npm ci && npm run db:migrate && npm run build
+    startCommand: npx next start -p $PORT
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/trading/web/**
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATABASE_URL # chuỗi kết nối Neon tới trading_db (sslmode=require)
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: lactrader-redis
+          property: connectionString
+      - key: JWT_SECRET # Render tự sinh 1 lần lúc tạo service — đổi là mọi phiên đăng nhập bị đăng xuất
+        generateValue: true
+      # *.onrender.com luôn đi qua Cloudflare → IP thật của người dùng ở header này (giới hạn đăng nhập / đăng ký)
+      - key: CLIENT_IP_HEADER
+        value: CF-Connecting-IP
+      - key: APP_URL # URL công khai, vd https://lactrader.onrender.com (cổng thanh toán trả người dùng về đây)
+        sync: false
+      - key: EODHD_API_KEY # để trống → tắt số liệu doanh nghiệp quốc tế
+        sync: false
+      - key: SSI_CONSUMER_ID # để trống → dữ liệu VN hạn chế
+        sync: false
+      - key: SSI_CONSUMER_SECRET
+        sync: false
+
+  - type: keyvalue
+    name: lactrader-redis
+    plan: free
+    region: singapore
+    maxmemoryPolicy: allkeys-lru # chỉ chứa cache thị trường + bộ đếm giới hạn tần suất — đầy thì bỏ key cũ
+    ipAllowList: [] # không mở ra Internet — chỉ service cùng tài khoản / region kết nối nội bộ
