@@ -109,7 +109,9 @@ func main() {
 	missionService.SetDailyRecorder(service.NewDailyNoteService(repo)) // hoạt động học → tiến độ Nhật ký học
 	plans := service.NewPlanService(repo)                              // LacLingo Pro: giới hạn Free/Pro, chuỗi ngày học, Streak Freeze
 	missionService.SetStreakRecorder(plans)
-	hub := game.NewHub(repo, missionService)
+	translator := service.NewContentTranslator(repo) // dịch nội dung học theo ngôn ngữ giao diện
+	missionService.SetTranslator(translator)
+	hub := game.NewHub(repo, missionService, translator)
 
 	var r2 *storage.R2Client
 	if cfg.R2Configured() {
@@ -146,7 +148,6 @@ func main() {
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
-	translator := service.NewContentTranslator(repo)
 	languageContent := service.NewLanguageContentService(repo, aiClient, notificationService, translator)
 	go languageContent.StartSyncWorker(schedulerCtx) // hàng đợi dựng nội dung cho ngôn ngữ mới
 	if aiClient != nil {
