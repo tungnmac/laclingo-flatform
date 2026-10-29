@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { DUMMY_PASSWORD_HASH, verifyPassword } from '@/server/auth/password'
-import { setSessions, signedInAccounts } from '@/server/auth/account-switch'
+import { rememberSession, setSessions, signedInAccounts } from '@/server/auth/account-switch'
 import { toSessionUser } from '@/server/auth/require-user'
 import { signSession } from '@/server/auth/session'
 import { loginSchema } from '@/server/auth/validation'
@@ -15,6 +15,9 @@ export const POST = handleRoute(async (req: Request) => {
   const raw = await readJson(req)
   const body = loginSchema.parse(raw)
   const adding = (raw as { add?: unknown } | null)?.add === true
+  // mặc định ghi nhớ (cookie 7 ngày) — remember: false → cookie phiên trình duyệt.
+  // "Thêm tài khoản" dùng chung 1 cookie danh sách nên giữ lựa chọn hiện có, không đổi theo tài khoản mới.
+  const remember = adding ? await rememberSession() : (raw as { remember?: unknown } | null)?.remember !== false
   // Chống dò mật khẩu: theo IP (nhiều tài khoản) và theo email (1 tài khoản từ nhiều IP)
   await rateLimit(redisCounter, `login:ip:${clientIp(req)}`, 30, 60)
   await rateLimit(redisCounter, `login:email:${body.email}`, 10, 15 * 60)
@@ -28,6 +31,6 @@ export const POST = handleRoute(async (req: Request) => {
   // chỉ giữ các tài khoản cũ khi người dùng chủ động "Thêm tài khoản"; đăng nhập thường thay thế như trước
   // (tránh trường hợp máy dùng chung: B đăng nhập rồi đăng xuất lại bị chuyển vào tài khoản A)
   const keep = adding ? await signedInAccounts().catch(() => []) : []
-  setSessions(res, { token: await signSession(user.id, user.tokenVersion), userId: user.id }, keep)
+  setSessions(res, { token: await signSession(user.id, user.tokenVersion), userId: user.id }, keep, remember)
   return res
 })

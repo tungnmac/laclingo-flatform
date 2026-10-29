@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { freshToken, setSessions, signedInAccounts } from '@/server/auth/account-switch'
+import { freshToken, rememberSession, setSessions, signedInAccounts } from '@/server/auth/account-switch'
 import { handleRoute, HttpError, readJson } from '@/server/http'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +14,6 @@ export const POST = handleRoute(async (req: Request) => {
   const target = list.find((a) => a.user.id === user_id)
   if (!target) throw new HttpError(404, 'ACCOUNT_NOT_SIGNED_IN')
   const res = NextResponse.json(target.user)
-  setSessions(res, { token: await freshToken(target), userId: target.user.id }, list) // token mới: hạn tính lại từ lúc chuyển
+  setSessions(res, { token: await freshToken(target), userId: target.user.id }, list, await rememberSession()) // token mới: hạn tính lại từ lúc chuyển
   return res
 })

@@ -32,12 +32,13 @@ export async function verifySession(token: string | undefined): Promise<string |
   return (await readSession(token))?.userId ?? null
 }
 
-export function sessionCookieOptions() {
+/** `persist` = false ("Ghi nhớ đăng nhập" bỏ chọn): cookie phiên trình duyệt, đóng trình duyệt là mất */
+export function sessionCookieOptions(persist = true) {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: SESSION_TTL_SECONDS,
+    ...(persist ? { maxAge: SESSION_TTL_SECONDS } : {}),
   }
 }

@@ -43,4 +43,4 @@ export const serializeAccounts = (list: AccountToken[]) => JSON.stringify(list.m
 
 /** Chỉ gửi kèm request /api/auth/* (route duy nhất đọc cookie này) — không mang 5 token theo mọi request trang/tài nguyên */
 export const ACCOUNTS_COOKIE_PATH = '/api/auth'
-export const accountsCookieOptions = () => ({ ...sessionCookieOptions(), path: ACCOUNTS_COOKIE_PATH })
+export const accountsCookieOptions = (persist = true) => ({ ...sessionCookieOptions(persist), path: ACCOUNTS_COOKIE_PATH })

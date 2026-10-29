@@ -36,23 +36,43 @@ export async function signedInAccounts(): Promise<SignedInAccount[]> {
   })
 }
 
+/** Bỏ chọn "Ghi nhớ đăng nhập" → cookie đánh dấu (cũng chỉ sống tới khi đóng trình duyệt) để các lần ghi cookie sau
+ * (chuyển / đăng xuất / dọn danh sách) giữ đúng lựa chọn — trình duyệt không gửi lại maxAge nên server không tự biết */
+const REMEMBER_COOKIE = 'trading_remember'
+
+export async function rememberSession(): Promise<boolean> {
+  return (await cookies()).get(REMEMBER_COOKIE)?.value !== '0'
+}
+
+function setRememberMarker(res: NextResponse, persist: boolean): void {
+  if (persist) res.cookies.set(REMEMBER_COOKIE, '', { ...sessionCookieOptions(), maxAge: 0 })
+  else res.cookies.set(REMEMBER_COOKIE, '0', sessionCookieOptions(false))
+}
+
 const asTokens = (list: SignedInAccount[]): AccountToken[] => list.map((a) => ({ token: a.token, userId: a.user.id, tokenVersion: 0 }))
 
 /** Token mới cho tài khoản (hạn 7 ngày tính lại từ bây giờ) — dùng khi chuyển sang tài khoản đó */
 export const freshToken = (a: SignedInAccount) => signSession(a.user.id, a.tokenVersion)
 
 /** Chỉ ghi lại danh sách (không đụng phiên đang dùng) — dọn token hết hạn / đã đăng xuất */
-export function setAccountList(res: NextResponse, list: SignedInAccount[]): void {
-  if (list.length) res.cookies.set(ACCOUNTS_COOKIE, serializeAccounts(asTokens(list)), accountsCookieOptions())
+export function setAccountList(res: NextResponse, list: SignedInAccount[], persist: boolean): void {
+  if (list.length) res.cookies.set(ACCOUNTS_COOKIE, serializeAccounts(asTokens(list)), accountsCookieOptions(persist))
   else res.cookies.set(ACCOUNTS_COOKIE, '', { ...accountsCookieOptions(), maxAge: 0 })
 }
 
-/** Đặt phiên đang dùng + ghi lại danh sách tài khoản (thêm tài khoản `active` lên đầu) */
-export function setSessions(res: NextResponse, active: { token: string; userId: string } | null, others: SignedInAccount[]): void {
+/** Đặt phiên đang dùng + ghi lại danh sách tài khoản (thêm tài khoản `active` lên đầu).
+ * `persist` — xem sessionCookieOptions; ngoài trang đăng nhập lấy từ rememberSession() */
+export function setSessions(
+  res: NextResponse,
+  active: { token: string; userId: string } | null,
+  others: SignedInAccount[],
+  persist: boolean,
+): void {
   let list = asTokens(others)
   if (active) list = mergeAccount(list, { token: active.token, userId: active.userId, tokenVersion: 0 })
-  if (active) res.cookies.set(SESSION_COOKIE, active.token, sessionCookieOptions())
+  if (active) res.cookies.set(SESSION_COOKIE, active.token, sessionCookieOptions(persist))
   else res.cookies.set(SESSION_COOKIE, '', { ...sessionCookieOptions(), maxAge: 0 })
-  if (list.length) res.cookies.set(ACCOUNTS_COOKIE, serializeAccounts(list), accountsCookieOptions())
+  if (list.length) res.cookies.set(ACCOUNTS_COOKIE, serializeAccounts(list), accountsCookieOptions(persist))
   else res.cookies.set(ACCOUNTS_COOKIE, '', { ...accountsCookieOptions(), maxAge: 0 })
+  setRememberMarker(res, persist)
 }
