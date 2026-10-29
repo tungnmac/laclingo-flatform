@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"laclingo-backend/internal/repository/db"
+
 	"github.com/google/uuid"
 )
 
@@ -12,6 +14,12 @@ import (
 // trực tiếp) để tránh import cycle: internal/service không được import internal/game.
 type MissionRecorder interface {
 	RecordAction(ctx context.Context, userID uuid.UUID, actionType string, amount int32) error
+}
+
+// QuestionTranslator dịch câu hỏi + lựa chọn của 1 phòng sang ngôn ngữ giao diện của người chơi (service.ContentTranslator).
+// Trả bản sao cùng thứ tự / số lựa chọn (chấm theo chỉ số không đổi); thiếu bản dịch thì câu đó giữ tiếng Việt.
+type QuestionTranslator interface {
+	TranslateChallengeQuestions(ctx context.Context, locale string, questions []db.ListGameRoomQuestionsRow) []db.ListGameRoomQuestionsRow
 }
 
 // Hub quản lý các Room đang hoạt động. Mỗi Room có goroutine run() riêng; Hub
@@ -23,10 +31,11 @@ type Hub struct {
 	rooms    map[uuid.UUID]*Room
 	repo     Repository
 	missions MissionRecorder
+	tr       QuestionTranslator // nil = mọi người chơi thấy câu hỏi gốc
 }
 
-func NewHub(repo Repository, missions MissionRecorder) *Hub {
-	return &Hub{rooms: make(map[uuid.UUID]*Room), repo: repo, missions: missions}
+func NewHub(repo Repository, missions MissionRecorder, tr QuestionTranslator) *Hub {
+	return &Hub{rooms: make(map[uuid.UUID]*Room), repo: repo, missions: missions, tr: tr}
 }
 
 // GetOrCreateRoom trả về Room đang chạy cho roomID, tạo mới (và chạy goroutine

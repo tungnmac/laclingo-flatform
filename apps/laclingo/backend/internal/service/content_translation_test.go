@@ -46,6 +46,8 @@ type fakeTranslationRepo struct {
 	questions []db.ListListeningQuestionTranslationSourcesRow
 	spTopics  []db.ListSpeakingTopicTranslationSourcesRow
 	spItems   []db.ListSpeakingItemTranslationSourcesRow
+	missions  []db.ListMissionTranslationSourcesRow
+	chQs      []db.ListChallengeQuestionTranslationSourcesRow
 	upserts   int
 	readErr   error
 	lastQuery db.ListContentTranslationsParams
@@ -142,6 +144,14 @@ func (f *fakeTranslationRepo) ListSpeakingTopicTranslationSources(context.Contex
 
 func (f *fakeTranslationRepo) ListSpeakingItemTranslationSources(context.Context) ([]db.ListSpeakingItemTranslationSourcesRow, error) {
 	return f.spItems, nil
+}
+
+func (f *fakeTranslationRepo) ListMissionTranslationSources(context.Context) ([]db.ListMissionTranslationSourcesRow, error) {
+	return f.missions, nil
+}
+
+func (f *fakeTranslationRepo) ListChallengeQuestionTranslationSources(context.Context) ([]db.ListChallengeQuestionTranslationSourcesRow, error) {
+	return f.chQs, nil
 }
 
 func TestContentTranslatorApply(t *testing.T) {

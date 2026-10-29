@@ -60,10 +60,10 @@ SELECT id::text AS id, question, COALESCE(explanation, '')::text AS explanation
 FROM grammar_exercises;
 
 -- name: ListGrammarAnswerTranslationSources :many
--- Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp và câu hỏi luyện
--- nghe (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng Việt — cùng 1 câu luôn ra cùng
--- 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới hạn index) → bỏ, bài đó giữ
--- tiếng Việt.
+-- Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, câu hỏi luyện
+-- nghe và lựa chọn câu hỏi thách đấu (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng
+-- Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới
+-- hạn index) → bỏ, bài đó giữ tiếng Việt.
 SELECT a.text::text AS text FROM (
     SELECT correct_answer AS text FROM grammar_exercises
     UNION
@@ -72,6 +72,8 @@ SELECT a.text::text AS text FROM (
     SELECT correct_answer FROM listening_questions
     UNION
     SELECT jsonb_array_elements_text(options) FROM listening_questions WHERE jsonb_typeof(options) = 'array'
+    UNION
+    SELECT jsonb_array_elements_text(options) FROM challenge_questions WHERE jsonb_typeof(options) = 'array'
 ) a
 WHERE a.text <> '' AND length(a.text) <= 1000;
 
@@ -99,3 +101,14 @@ FROM speaking_topics;
 -- Nguồn dịch "speaking_item": nghĩa của câu luyện (prompt / câu mẫu / từ khoá là ngôn ngữ đang học — không dịch)
 SELECT id::text AS id, prompt_meaning
 FROM speaking_items;
+
+-- name: ListMissionTranslationSources :many
+-- Nguồn dịch "mission": tên + mô tả nhiệm vụ (admin soạn, học viên xem ở /missions)
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM missions;
+
+-- name: ListChallengeQuestionTranslationSources :many
+-- Nguồn dịch "challenge_question": câu hỏi thách đấu (lựa chọn dịch qua từ điển grammar_answer; giải thích không gửi cho
+-- người chơi — không dịch)
+SELECT id::text AS id, question
+FROM challenge_questions;
