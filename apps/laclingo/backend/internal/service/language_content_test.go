@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"laclingo-backend/internal/repository/db"
 )
@@ -101,5 +102,14 @@ func TestAskDeriveAIRetriesOnce(t *testing.T) {
 		[]db.ListTopicSourceWordsRow{{Term: "mother", Meaning: "mẹ"}})
 	if err != nil || ai.calls != 2 || got[0].Term != "はは" {
 		t.Fatalf("calls=%d err=%v got=%+v", ai.calls, err, got)
+	}
+}
+
+func TestSyncBackoff(t *testing.T) {
+	want := map[int32]time.Duration{1: 30 * time.Second, 2: time.Minute, 3: 2 * time.Minute, 7: 30 * time.Minute, 20: 30 * time.Minute}
+	for attempts, d := range want {
+		if got := syncBackoff(attempts); got != d {
+			t.Errorf("syncBackoff(%d) = %v, muốn %v", attempts, got, d)
+		}
 	}
 }

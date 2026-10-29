@@ -336,6 +336,12 @@ func (s *OnboardingService) AddLanguage(ctx context.Context, userID uuid.UUID, l
 	if !learning && len(current) >= maxTargetLanguages {
 		return OnboardingResponse{}, fmt.Errorf("chỉ học tối đa %d ngôn ngữ cùng lúc: %w", maxTargetLanguages, ErrInvalidInput)
 	}
+	// Ngôn ngữ trong danh mục phổ biến chưa có dòng (chưa ai học) → tạo; nội dung dựng sau qua hàng đợi (EnqueueSync)
+	if l, ok := findCatalogLanguage(languageID); ok {
+		if err := q.InsertLanguageIfMissing(ctx, db.InsertLanguageIfMissingParams{ID: l.ID, Name: l.Name, Code: l.Code}); err != nil {
+			return OnboardingResponse{}, err
+		}
+	}
 	err = q.UpsertUserTargetLanguage(ctx, db.UpsertUserTargetLanguageParams{UserID: uid, LanguageID: languageID, Level: level})
 	if isPgError(err, pgForeignKeyViolation) {
 		return OnboardingResponse{}, fmt.Errorf("ngôn ngữ %q không tồn tại: %w", languageID, ErrInvalidInput)

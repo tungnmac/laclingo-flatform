@@ -44,10 +44,13 @@ func (q *Queries) InsertLanguageIfMissing(ctx context.Context, arg InsertLanguag
 }
 
 const listLanguages = `-- name: ListLanguages :many
-SELECT id, name, code, created_at FROM languages
-ORDER BY name
+SELECT id, name, code, created_at FROM languages l
+WHERE EXISTS (SELECT 1 FROM vocabularies v WHERE v.language_id = l.id)
+ORDER BY l.name
 `
 
+// Chỉ ngôn ngữ đã có từ vựng — ngôn ngữ "Học ngôn ngữ mới" vừa tạo mà nội dung còn đang dựng (hoặc dựng lỗi) không hiện
+// thành khoá học rỗng (vẫn mở được bằng GetLanguageByID)
 func (q *Queries) ListLanguages(ctx context.Context) ([]Language, error) {
 	rows, err := q.db.Query(ctx, listLanguages)
 	if err != nil {

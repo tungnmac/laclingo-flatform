@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
-	"sync"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -20,115 +18,48 @@ import (
 // gốc chỉ dựng 1 lần cho mỗi ngôn ngữ (vocabularies.source_vocabulary_id) và dùng chung cho mọi user, nên dữ liệu tối
 // đa = số từ gốc × số ngôn ngữ, không tăng theo số user.
 
-const (
-	maxDerivedWordsPerTopic = 30
-	deriveTopicConcurrency  = 4 // số chủ đề gọi AI cùng lúc trong 1 yêu cầu
-)
+const maxDerivedWordsPerTopic = 30
 
-// ErrLanguageContentAIFailed — AI lỗi khi dựng từ (key sai, hết hạn mức, quá tải...) — handler trả 502
+// ErrLanguageContentAIFailed — AI lỗi khi dựng từ (key sai, hết hạn mức, quá tải...) — job dựng chờ rồi thử lại
 var ErrLanguageContentAIFailed = errors.New("chưa dựng được nội dung cho ngôn ngữ mới")
 
 type LanguageContentRepository interface {
 	GetLanguageByID(ctx context.Context, id string) (db.Language, error)
+	InsertLanguageIfMissing(ctx context.Context, arg db.InsertLanguageIfMissingParams) error
 	GetVocabularyTopic(ctx context.Context, arg db.GetVocabularyTopicParams) (db.VocabularyTopic, error)
 	ListLanguageTopicKeys(ctx context.Context, languageID string) ([]db.ListLanguageTopicKeysRow, error)
 	ListTopicSourceWords(ctx context.Context, arg db.ListTopicSourceWordsParams) ([]db.ListTopicSourceWordsRow, error)
 	CountTopicWords(ctx context.Context, arg db.CountTopicWordsParams) (int64, error)
+	EnqueueLanguageSyncJob(ctx context.Context, arg db.EnqueueLanguageSyncJobParams) error
+	ClaimLanguageSyncJob(ctx context.Context) (db.LanguageSyncJob, error)
+	CompleteLanguageSyncJob(ctx context.Context, arg db.CompleteLanguageSyncJobParams) error
+	RescheduleLanguageSyncJob(ctx context.Context, arg db.RescheduleLanguageSyncJobParams) error
+	FailLanguageSyncJob(ctx context.Context, arg db.FailLanguageSyncJobParams) error
+	ListUserLanguageSyncJobs(ctx context.Context, arg db.ListUserLanguageSyncJobsParams) ([]db.LanguageSyncJob, error)
+	RetryFailedLanguageSyncJobs(ctx context.Context, arg db.RetryFailedLanguageSyncJobsParams) (int64, error)
+	CountOpenLanguageSyncJobs(ctx context.Context, arg db.CountOpenLanguageSyncJobsParams) (int64, error)
+	CountUserOpenLanguageSyncJobs(ctx context.Context, userID pgtype.UUID) (int64, error)
+	ListUserTargetLanguages(ctx context.Context, userID pgtype.UUID) ([]db.ListUserTargetLanguagesRow, error)
+	AddUserPreferredTopic(ctx context.Context, arg db.AddUserPreferredTopicParams) error
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 	WithTx(tx pgx.Tx) *db.Queries
 }
 
-// PrepareLanguageRequest — chủ đề (tên ở ngôn ngữ nguồn From) muốn học ở ngôn ngữ mới
-type PrepareLanguageRequest struct {
+// SyncLanguageRequest — chủ đề (tên ở ngôn ngữ nguồn From) muốn học ở ngôn ngữ mới — đưa vào hàng đợi dựng nội dung
+type SyncLanguageRequest struct {
 	From   string   `json:"from" example:"en"`
 	Topics []string `json:"topics" example:"Gia đình & Con người"`
 }
 
-// PrepareLanguageResponse — Topics: tên chủ đề tương ứng ở ngôn ngữ mới (đã có từ), theo thứ tự yêu cầu — web lưu làm
-// chủ đề yêu thích của ngôn ngữ đó. Skipped: chủ đề nguồn không dựng được từ nào (chủ đề nguồn không có từ, hoặc các từ
-// tương ứng đã nằm ở chủ đề khác của ngôn ngữ mới)
-type PrepareLanguageResponse struct {
-	Topics  []string `json:"topics"`
-	Skipped []string `json:"skipped"`
-}
-
 type LanguageContentService struct {
-	repo LanguageContentRepository
-	ai   AIClient // nil = chưa cấu hình AI: chỉ dùng được chủ đề ngôn ngữ mới đã có sẵn từ
+	repo     LanguageContentRepository
+	ai       AIClient      // nil = chưa cấu hình AI: job dựng chờ rồi thử lại, chỉ chủ đề đã có sẵn từ là xong ngay
+	notifier Notifier      // báo user khi dựng xong (nil = không báo)
+	wake     chan struct{} // có job mới → đánh thức worker (xem language_sync.go)
 }
 
-func NewLanguageContentService(repo LanguageContentRepository, ai AIClient) *LanguageContentService {
-	return &LanguageContentService{repo: repo, ai: ai}
-}
-
-// Prepare đảm bảo ngôn ngữ languageID có từ cho từng chủ đề nguồn (dựng phần còn thiếu)
-func (s *LanguageContentService) Prepare(ctx context.Context, userID uuid.UUID, languageID string, req PrepareLanguageRequest) (PrepareLanguageResponse, error) {
-	languageID = strings.TrimSpace(languageID)
-	from := strings.TrimSpace(req.From)
-	if languageID == "" || from == "" || languageID == from || languageID == nativeLanguageID {
-		return PrepareLanguageResponse{}, fmt.Errorf("ngôn ngữ nguồn không hợp lệ: %w", ErrInvalidInput)
-	}
-	topics, err := normalizeTopics(req.Topics)
-	if err != nil {
-		return PrepareLanguageResponse{}, err
-	}
-	// Ngôn ngữ trong danh mục chưa có dòng: dòng languages chỉ tạo khi sắp ghi từ đầu tiên (prepareTopic) — AI lỗi thì
-	// không để lại ngôn ngữ rỗng trong danh sách khoá học
-	target, err := s.repo.GetLanguageByID(ctx, languageID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		l, ok := findCatalogLanguage(languageID)
-		if !ok {
-			return PrepareLanguageResponse{}, fmt.Errorf("ngôn ngữ %q không tồn tại: %w", languageID, ErrInvalidInput)
-		}
-		target, err = db.Language{ID: l.ID, Name: l.Name, Code: l.Code}, nil
-	}
-	if err != nil {
-		return PrepareLanguageResponse{}, err
-	}
-	source, err := s.language(ctx, from)
-	if err != nil {
-		return PrepareLanguageResponse{}, err
-	}
-	existing, err := s.repo.ListLanguageTopicKeys(ctx, languageID)
-	if err != nil {
-		return PrepareLanguageResponse{}, err
-	}
-	targetByKey := make(map[string]string, len(existing))
-	for _, t := range existing {
-		if t.TopicKey.Valid {
-			targetByKey[t.TopicKey.String] = t.Name
-		}
-	}
-
-	names := make([]string, len(topics))
-	errs := make([]error, len(topics))
-	sem := make(chan struct{}, deriveTopicConcurrency)
-	var wg sync.WaitGroup
-	for i, topic := range topics {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			names[i], errs[i] = s.prepareTopic(ctx, userID, source, target, topic, targetByKey)
-		}()
-	}
-	wg.Wait()
-	if err := errors.Join(errs...); err != nil {
-		return PrepareLanguageResponse{}, err
-	}
-
-	res := PrepareLanguageResponse{Topics: []string{}, Skipped: []string{}}
-	seen := map[string]bool{}
-	for i, name := range names {
-		if name == "" {
-			res.Skipped = append(res.Skipped, topics[i])
-		} else if !seen[name] {
-			seen[name] = true
-			res.Topics = append(res.Topics, name)
-		}
-	}
-	return res, nil
+func NewLanguageContentService(repo LanguageContentRepository, ai AIClient, notifier Notifier) *LanguageContentService {
+	return &LanguageContentService{repo: repo, ai: ai, notifier: notifier, wake: make(chan struct{}, 1)}
 }
 
 func (s *LanguageContentService) language(ctx context.Context, id string) (db.Language, error) {

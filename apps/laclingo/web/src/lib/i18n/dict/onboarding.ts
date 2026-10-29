@@ -54,10 +54,18 @@ export interface OnboardingDict {
     buildHint: string
     noContentYet: string
     needTopic: string
-    preparing: (done: number, total: number) => string
-    buildFailed: string
     maxTopics: (max: number) => string
     start: string
+  }
+  // Banner tiến độ hàng đợi dựng nội dung cho ngôn ngữ mới (hiện ở mọi trang trong app)
+  languageSync: {
+    building: (language: string, done: number, total: number) => string
+    waiting: string
+    failed: (language: string, count: number) => string
+    ready: (language: string) => string
+    retry: string
+    open: string
+    dismiss: string
   }
 }
 
@@ -123,13 +131,21 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       syncNone: (language) => `Chưa có chủ đề nào ở ${language} khớp với ngôn ngữ này — hãy chọn trong danh sách bên dưới.`,
       existingTopics: 'Chủ đề có sẵn',
       buildFrom: (language) => `Dựng từ chủ đề ${language}`,
-      buildHint: 'Từ vựng được dựng từ chủ đề nguồn (ưu tiên những từ bạn đã học) và dùng chung cho mọi người học.',
+      buildHint:
+        'Từ vựng được dựng dần từ chủ đề nguồn (ưu tiên những từ bạn đã học) ở chế độ nền — bạn vẫn học bình thường, tiến độ hiện ở đầu trang.',
       noContentYet: 'Ngôn ngữ này chưa có nội dung — chọn chủ đề để dựng từ vựng.',
       needTopic: 'Chọn ít nhất 1 chủ đề để dựng nội dung.',
-      preparing: (done, total) => `Đang chuẩn bị nội dung… chủ đề ${done}/${total} (mỗi chủ đề có thể mất tới 1 phút)`,
-      buildFailed: 'Chưa dựng được chủ đề nào cho ngôn ngữ này — hãy chọn chủ đề khác.',
       maxTopics: (max) => `Chọn tối đa ${max} chủ đề.`,
       start: 'Bắt đầu học',
+    },
+    languageSync: {
+      building: (language, done, total) => `Đang chuẩn bị nội dung ${language}: ${done}/${total} chủ đề`,
+      waiting: 'Dịch vụ AI đang bận — sẽ tự thử lại, bạn cứ học tiếp.',
+      failed: (language, count) => `${count} chủ đề ${language} chưa dựng được.`,
+      ready: (language) => `Nội dung ${language} đã sẵn sàng.`,
+      retry: 'Thử lại',
+      open: 'Vào học',
+      dismiss: 'Đóng',
     },
   },
   en: {
@@ -193,13 +209,21 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       syncNone: (language) => `None of your ${language} topics exist in this language yet — pick from the list below.`,
       existingTopics: 'Available topics',
       buildFrom: (language) => `Build from ${language} topics`,
-      buildHint: 'Words are built from the source topics (words you studied first) and shared by all learners.',
+      buildHint:
+        'Words are built gradually from the source topics (words you studied first) in the background — keep learning, progress shows at the top.',
       noContentYet: 'This language has no content yet — pick topics to build its vocabulary.',
       needTopic: 'Pick at least 1 topic to build content.',
-      preparing: (done, total) => `Preparing content… topic ${done}/${total} (each may take up to a minute)`,
-      buildFailed: 'Could not build any topic for this language — pick other topics.',
       maxTopics: (max) => `Pick at most ${max} topics.`,
       start: 'Start learning',
+    },
+    languageSync: {
+      building: (language, done, total) => `Preparing ${language} content: ${done}/${total} topics`,
+      waiting: 'The AI service is busy — it will retry automatically, keep learning.',
+      failed: (language, count) => `${count} ${language} topics could not be built.`,
+      ready: (language) => `${language} content is ready.`,
+      retry: 'Retry',
+      open: 'Start learning',
+      dismiss: 'Dismiss',
     },
   },
 }
