@@ -45,7 +45,11 @@ services:
 
   backend:
     logging: *logging
-    build: ../apps/laclingo/backend
+    # Context gốc repo: image chứa packages/database/migrations (backend cũng tự migrate lúc khởi động — sau container
+    # migrate ở trên thì không còn gì để chạy)
+    build:
+      context: ..
+      dockerfile: apps/laclingo/backend/Dockerfile
     restart: unless-stopped
     env_file: .env
     environment:

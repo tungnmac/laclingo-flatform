@@ -17,9 +17,12 @@ const devJWTSecret = "laclingo-dev-secret-do-not-use-in-production"
 type Config struct {
 	Port        string
 	DatabaseURL string
-	AppEnv      string
-	JWTSecret   string
-	JWTTTL      time.Duration
+	// MigrationsDir — thư mục migration áp lúc khởi động (image Docker đặt sẵn /migrations); trống = không tự migrate
+	// (local dev chạy `make migrate`)
+	MigrationsDir string
+	AppEnv        string
+	JWTSecret     string
+	JWTTTL        time.Duration
 	// RefreshTTL — hạn refresh token (mặc định 60 ngày); TrustedProxies — IP reverse proxy được tin header
 	// X-Forwarded-For (giới hạn đăng nhập theo IP thật của người dùng); trống = lấy IP kết nối trực tiếp
 	RefreshTTL     time.Duration
@@ -152,6 +155,7 @@ func Load() (*Config, error) {
 	return &Config{
 		Port:           port,
 		DatabaseURL:    dbURL,
+		MigrationsDir:  os.Getenv("MIGRATIONS_DIR"),
 		AppEnv:         appEnv,
 		JWTSecret:      jwtSecret,
 		JWTTTL:         jwtTTL,

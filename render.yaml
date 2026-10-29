@@ -1,4 +1,5 @@
-# Render Blueprint — LacLingo (backend Go + web Next.js) và TradeLab (trading web + Key Value), DB dùng Neon (schema/seed chạy tay: deploy/neon/).
+# Render Blueprint — LacLingo (backend Go + web Next.js) và TradeLab (trading web + Key Value), DB dùng Neon.
+# Backend LacLingo tự áp migration chưa chạy lúc khởi động (packages/database/migrations); seed vẫn chạy tay: deploy/neon/.
 # Biến sync: false = bí mật / tuỳ môi trường → điền trên Render Dashboard, KHÔNG commit giá trị thật.
 # NEXT_PUBLIC_* được Render truyền vào Docker build làm build arg → đổi domain API phải deploy lại web (build mới).
 # Tự deploy khi push main, nhưng chỉ SAU khi GitHub Actions (.github/workflows/ci.yml) pass; buildFilter: chỉ build lại
@@ -9,13 +10,15 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    rootDir: apps/laclingo/backend
-    dockerfilePath: ./Dockerfile
+    # Build context = gốc repo để image chứa packages/database/migrations (backend migrate lúc khởi động)
+    dockerfilePath: ./apps/laclingo/backend/Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
         - apps/laclingo/backend/**
+        - packages/database/migrations/**
     envVars:
       - key: APP_ENV
         value: production
