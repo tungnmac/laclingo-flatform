@@ -29,7 +29,7 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
         items={[
           { label: t.nav.listening, href: '/listening' },
           passage.topic
-            ? { label: passage.topic, href: `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` }
+            ? { label: passage.topic_label || passage.topic, href: `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` }
             : { label: languageName(params.languageId, language?.name), href: `/listening/${params.languageId}` },
           { label: passage.title },
         ]}

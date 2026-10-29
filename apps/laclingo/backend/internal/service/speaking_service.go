@@ -54,6 +54,7 @@ type SpeakingRepository interface {
 // SpeakingTopic — 1 chủ đề luyện nói (vd "Phỏng vấn CNTT") kèm tiến độ của user
 type SpeakingTopic struct {
 	Name        string `json:"name" example:"Phỏng vấn CNTT"`
+	Label       string `json:"label" example:"IT interview"` // tên hiển thị theo ngôn ngữ giao diện (chưa dịch = Name)
 	Icon        string `json:"icon" example:"💼"`
 	Description string `json:"description"`
 	Total       int32  `json:"total"`
@@ -70,6 +71,7 @@ type SpeakingItem struct {
 	SampleAnswer  string    `json:"sample_answer,omitempty"`
 	Keywords      []string  `json:"keywords"`
 	Level         string    `json:"level" example:"B1"`
+	TopicLabel    string    `json:"topic_label"`          // tên chủ đề theo ngôn ngữ giao diện
 	BestScore     *int32    `json:"best_score,omitempty"` // chưa luyện = không có
 	AttemptCount  int32     `json:"attempt_count"`
 }
@@ -123,11 +125,12 @@ type SpeakingItemAdmin struct {
 type SpeakingService struct {
 	repo     SpeakingRepository
 	missions *MissionService
-	quota    QuotaProvider // lượt luyện nói/ngày theo gói
+	quota    QuotaProvider      // lượt luyện nói/ngày theo gói
+	tr       *ContentTranslator // dịch tên / mô tả chủ đề + nghĩa câu luyện theo ngôn ngữ giao diện (chỉ response học viên)
 }
 
-func NewSpeakingService(repo SpeakingRepository, missions *MissionService, quota QuotaProvider) *SpeakingService {
-	return &SpeakingService{repo: repo, missions: missions, quota: quota}
+func NewSpeakingService(repo SpeakingRepository, missions *MissionService, quota QuotaProvider, tr *ContentTranslator) *SpeakingService {
+	return &SpeakingService{repo: repo, missions: missions, quota: quota, tr: tr}
 }
 
 func (s *SpeakingService) ListTopics(ctx context.Context, userID uuid.UUID, languageID string) ([]SpeakingTopic, error) {
@@ -142,6 +145,14 @@ func (s *SpeakingService) ListTopics(ctx context.Context, userID uuid.UUID, lang
 	for _, r := range rows {
 		out = append(out, SpeakingTopic{Name: r.Name, Icon: r.Icon, Description: r.Description, Total: r.Total, Practiced: r.Practiced, AvgBest: r.AvgBest})
 	}
+	// Dịch nhãn tên + mô tả (1 query); name vẫn là khoá dùng trong URL / ListItems
+	fields := make([]TranslatableField, 0, 2*len(out))
+	for i := range out {
+		t := &out[i]
+		fields = append(fields, topicLabelField(t.Name, &t.Label),
+			TranslatableField{Entity: translationEntitySpeakingTopic, ID: speakingTopicTranslationID(languageID, t.Name), Field: translationFieldDescription, Value: &t.Description})
+	}
+	s.tr.Apply(ctx, fields)
 	return out, nil
 }
 
@@ -168,7 +179,22 @@ func (s *SpeakingService) ListItems(ctx context.Context, userID uuid.UUID, langu
 		}
 		out = append(out, item)
 	}
+	// Dịch nghĩa câu (prompt / câu mẫu / từ khoá là ngôn ngữ đang học — không dịch) + nhãn chủ đề (1 query)
+	var topicLabel string
+	fields := []TranslatableField{topicLabelField(topic, &topicLabel)}
+	for i := range out {
+		fields = append(fields, TranslatableField{Entity: translationEntitySpeakingItem, ID: out[i].ID.String(), Field: translationFieldPromptMeaning, Value: &out[i].PromptMeaning})
+	}
+	s.tr.Apply(ctx, fields)
+	for i := range out {
+		out[i].TopicLabel = topicLabel
+	}
 	return out, nil
+}
+
+// speakingTopicTranslationID — id bản dịch của 1 chủ đề luyện nói (khoá chính language_id + name)
+func speakingTopicTranslationID(languageID, name string) string {
+	return languageID + "/" + name
 }
 
 // SubmitAttempt chấm 1 lần nói, lưu lại (transcript rỗng thì chỉ chấm, không lưu)

@@ -353,36 +353,31 @@ func (q *Queries) ListListeningPassagesByLanguage(ctx context.Context, arg ListL
 }
 
 const listListeningQuestionsByPassage = `-- name: ListListeningQuestionsByPassage :many
-SELECT id, passage_id, question, options, order_index
+SELECT id, passage_id, question, options, correct_answer, explanation, order_index
 FROM listening_questions
 WHERE passage_id = $1
 ORDER BY order_index
 `
 
-type ListListeningQuestionsByPassageRow struct {
-	ID         pgtype.UUID `json:"id"`
-	PassageID  pgtype.UUID `json:"passage_id"`
-	Question   string      `json:"question"`
-	Options    []byte      `json:"options"`
-	OrderIndex pgtype.Int4 `json:"order_index"`
-}
-
-// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
-// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
-func (q *Queries) ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error) {
+// correct_answer / explanation chỉ để service quyết định câu hỏi có hiện bản dịch không (dịch cả câu hoặc không) —
+// KHÔNG trả cho learner: câu hỏi hiển thị trước khi nộp bài không được lộ đáp án (khác với grammar_exercises cũ, vốn
+// đã lộ sẵn ở FE).
+func (q *Queries) ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error) {
 	rows, err := q.db.Query(ctx, listListeningQuestionsByPassage, passageID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListListeningQuestionsByPassageRow
+	var items []ListeningQuestion
 	for rows.Next() {
-		var i ListListeningQuestionsByPassageRow
+		var i ListeningQuestion
 		if err := rows.Scan(
 			&i.ID,
 			&i.PassageID,
 			&i.Question,
 			&i.Options,
+			&i.CorrectAnswer,
+			&i.Explanation,
 			&i.OrderIndex,
 		); err != nil {
 			return nil, err

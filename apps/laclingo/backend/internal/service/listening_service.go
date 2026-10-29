@@ -23,7 +23,7 @@ import (
 type ListeningRepository interface {
 	ListListeningPassagesByLanguage(ctx context.Context, arg db.ListListeningPassagesByLanguageParams) ([]db.ListListeningPassagesByLanguageRow, error)
 	GetListeningPassageByID(ctx context.Context, id pgtype.UUID) (db.ListeningPassage, error)
-	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]db.ListListeningQuestionsByPassageRow, error)
+	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]db.ListeningQuestion, error)
 	GetListeningQuestionByID(ctx context.Context, id pgtype.UUID) (db.ListeningQuestion, error)
 	ListListeningTopics(ctx context.Context, languageID string) ([]db.ListListeningTopicsRow, error)
 
@@ -47,6 +47,7 @@ type ListeningPassageSummary struct {
 	ID         uuid.UUID `json:"id" swaggertype:"string" format:"uuid"`
 	Title      string    `json:"title" example:"A Day at the Market"`
 	Topic      string    `json:"topic,omitempty"`
+	TopicLabel string    `json:"topic_label,omitempty"` // tên chủ đề theo ngôn ngữ giao diện (topic vẫn là khoá)
 	Level      string    `json:"level" example:"A1"`
 	OrderIndex int32     `json:"order_index"`
 }
@@ -54,6 +55,7 @@ type ListeningPassageSummary struct {
 // ListeningTopic là một chủ đề luyện nghe kèm số bài trong chủ đề đó
 type ListeningTopic struct {
 	Name  string `json:"name" example:"Daily life"`
+	Label string `json:"label" example:"Daily life"` // tên hiển thị theo ngôn ngữ giao diện (chưa dịch = Name)
 	Icon  string `json:"icon" example:"🎧"`
 	Total int32  `json:"total" example:"5"`
 }
@@ -68,13 +70,14 @@ type ListeningQuestionResponse struct {
 
 // ListeningPassageDetail — bài luyện nghe đầy đủ: script để phát TTS + câu hỏi
 type ListeningPassageDetail struct {
-	ID        uuid.UUID                   `json:"id" swaggertype:"string" format:"uuid"`
-	Title     string                      `json:"title"`
-	Script    string                      `json:"script"`
-	Topic     string                      `json:"topic,omitempty"`
-	Level     string                      `json:"level"`
-	AudioURL  string                      `json:"audio_url,omitempty"` // link tạm (presigned) phát audio thật nếu có — không thì FE fallback TTS từ Script
-	Questions []ListeningQuestionResponse `json:"questions"`
+	ID         uuid.UUID                   `json:"id" swaggertype:"string" format:"uuid"`
+	Title      string                      `json:"title"`
+	Script     string                      `json:"script"`
+	Topic      string                      `json:"topic,omitempty"`
+	TopicLabel string                      `json:"topic_label,omitempty"` // tên chủ đề theo ngôn ngữ giao diện
+	Level      string                      `json:"level"`
+	AudioURL   string                      `json:"audio_url,omitempty"` // link tạm (presigned) phát audio thật nếu có — không thì FE fallback TTS từ Script
+	Questions  []ListeningQuestionResponse `json:"questions"`
 }
 
 // SubmitListeningAnswerResponse — kết quả chấm 1 câu hỏi nghe hiểu
@@ -87,13 +90,14 @@ type SubmitListeningAnswerResponse struct {
 type ListeningService struct {
 	repo     ListeningRepository
 	missions *MissionService
+	tr       *ContentTranslator // dịch nội dung bài nghe theo ngôn ngữ giao diện (chỉ response học viên)
 	// r2 có thể nil — tính năng audio tắt nếu R2 chưa được cấu hình (xem
 	// config.Config.R2Configured), các hàm liên quan trả ErrInvalidInput rõ ràng.
 	r2 *storage.R2Client
 }
 
-func NewListeningService(repo ListeningRepository, missions *MissionService, r2 *storage.R2Client) *ListeningService {
-	return &ListeningService{repo: repo, missions: missions, r2: r2}
+func NewListeningService(repo ListeningRepository, missions *MissionService, r2 *storage.R2Client, tr *ContentTranslator) *ListeningService {
+	return &ListeningService{repo: repo, missions: missions, r2: r2, tr: tr}
 }
 
 // audioPresignTTL — đủ dài cho 1 phiên nghe, không cần bucket public.
@@ -134,6 +138,7 @@ func (s *ListeningService) ListPassages(ctx context.Context, languageID, topic s
 			OrderIndex: r.OrderIndex.Int32,
 		})
 	}
+	s.translatePassages(ctx, results)
 	return results, nil
 }
 
@@ -147,6 +152,11 @@ func (s *ListeningService) ListTopics(ctx context.Context, languageID string) ([
 	for _, r := range rows {
 		results = append(results, ListeningTopic{Name: r.Name, Icon: r.Icon, Total: r.Total})
 	}
+	fields := make([]TranslatableField, 0, len(results))
+	for i := range results {
+		fields = append(fields, topicLabelField(results[i].Name, &results[i].Label))
+	}
+	s.tr.Apply(ctx, fields)
 	return results, nil
 }
 
@@ -168,18 +178,14 @@ func (s *ListeningService) GetPassageDetail(ctx context.Context, id uuid.UUID) (
 
 	questionResponses := make([]ListeningQuestionResponse, 0, len(questions))
 	for _, q := range questions {
-		options := json.RawMessage(q.Options)
-		if options == nil || bytes.Equal(options, []byte("null")) {
-			options = json.RawMessage("[]")
-		}
 		questionResponses = append(questionResponses, ListeningQuestionResponse{
 			ID:       uuid.UUID(q.ID.Bytes),
 			Question: q.Question,
-			Options:  options,
+			Options:  listeningOptions(q.Options),
 		})
 	}
 
-	return ListeningPassageDetail{
+	detail := ListeningPassageDetail{
 		ID:        uuid.UUID(passage.ID.Bytes),
 		Title:     passage.Title,
 		Script:    passage.Script,
@@ -187,7 +193,18 @@ func (s *ListeningService) GetPassageDetail(ctx context.Context, id uuid.UUID) (
 		Level:     passage.Level.String,
 		AudioURL:  s.presignAudioURL(ctx, passage.AudioKey),
 		Questions: questionResponses,
-	}, nil
+	}
+	s.translatePassage(ctx, &detail, questions)
+	return detail, nil
+}
+
+// listeningOptions — options của câu hỏi, NULL / rỗng thành mảng rỗng
+func listeningOptions(raw []byte) json.RawMessage {
+	options := json.RawMessage(raw)
+	if options == nil || bytes.Equal(options, []byte("null")) {
+		options = json.RawMessage("[]")
+	}
+	return options
 }
 
 // SubmitAnswer chấm 1 câu hỏi nghe hiểu — đúng thì ghi nhận nhiệm vụ
@@ -206,7 +223,11 @@ func (s *ListeningService) SubmitAnswer(ctx context.Context, userID, questionID 
 		return SubmitListeningAnswerResponse{}, err
 	}
 
-	correct := strings.EqualFold(strings.TrimSpace(answer), strings.TrimSpace(question.CorrectAnswer))
+	correct := sameAnswer(answer, question.CorrectAnswer)
+	correctAnswer, explanation := question.CorrectAnswer, question.Explanation.String
+	if ContentLocale(ctx) != "" {
+		correct, correctAnswer, explanation = s.translateSubmitResult(ctx, question, answer, correct)
+	}
 	if correct {
 		if err := s.missions.RecordAction(ctx, userID, "listening_practice", 1); err != nil {
 			log.Printf("❌ mission: RecordAction user=%s action=listening_practice: %v", userID, err)
@@ -217,9 +238,63 @@ func (s *ListeningService) SubmitAnswer(ctx context.Context, userID, questionID 
 
 	return SubmitListeningAnswerResponse{
 		Correct:       correct,
-		CorrectAnswer: question.CorrectAnswer,
-		Explanation:   question.Explanation.String,
+		CorrectAnswer: correctAnswer,
+		Explanation:   explanation,
 	}, nil
+}
+
+// ===== Dịch nội dung bài nghe theo ngôn ngữ giao diện (xem content_translation.go) =====
+// Script là bài nghe bằng ngôn ngữ đang học — không dịch. Câu hỏi dịch cả câu hoặc không (choiceTranslation, như bài
+// tập ngữ pháp); quyết định tính trên mọi ô kể cả đáp án đúng + giải thích (chưa lộ trước khi nộp) để SubmitAnswer trả
+// về đúng bản đang hiện.
+
+// translatePassages dịch tên bài + nhãn chủ đề của danh sách bài nghe (1 query)
+func (s *ListeningService) translatePassages(ctx context.Context, passages []ListeningPassageSummary) {
+	fields := make([]TranslatableField, 0, 2*len(passages))
+	for i := range passages {
+		p := &passages[i]
+		fields = append(fields, listeningPassageTitleField(p.ID, &p.Title), topicLabelField(p.Topic, &p.TopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
+}
+
+func listeningPassageTitleField(id uuid.UUID, title *string) TranslatableField {
+	return TranslatableField{Entity: translationEntityListeningPassage, ID: id.String(), Field: translationFieldTitle, Value: title}
+}
+
+// translatePassage dịch tên bài, nhãn chủ đề và câu hỏi của 1 bài nghe (1 query); rows cùng thứ tự detail.Questions
+func (s *ListeningService) translatePassage(ctx context.Context, detail *ListeningPassageDetail, rows []db.ListeningQuestion) {
+	fields := []TranslatableField{listeningPassageTitleField(detail.ID, &detail.Title), topicLabelField(detail.Topic, &detail.TopicLabel)}
+	if ContentLocale(ctx) == "" {
+		return // topicLabelField đã gán nhãn = tên
+	}
+	questions := make([]choiceTranslation, len(detail.Questions))
+	answers := make([]string, len(rows))
+	explanations := make([]string, len(rows))
+	for i := range detail.Questions {
+		q := &detail.Questions[i]
+		answers[i], explanations[i] = rows[i].CorrectAnswer, rows[i].Explanation.String
+		fields, questions[i] = addChoiceFields(fields, translationEntityListeningQuestion, q.ID.String(), &q.Question, &explanations[i], &answers[i], &q.Options)
+	}
+	hits := s.tr.Apply(ctx, fields)
+	for i := range questions {
+		questions[i].apply(fields, hits)
+	}
+}
+
+// translateSubmitResult chấm lại theo bản dịch và dịch kết quả trả về (1 query): đáp án khớp bản dịch hiện hành của
+// đáp án đúng cũng tính đúng (câu hỏi đang hiện bản dịch); đáp án đúng + giải thích trả về theo đúng quyết định hiện
+// câu hỏi của GetPassageDetail — để FE tô đúng lựa chọn đang hiển thị.
+func (s *ListeningService) translateSubmitResult(ctx context.Context, q db.ListeningQuestion, answer string, correct bool) (bool, string, string) {
+	question, explanation, correctAnswer := q.Question, q.Explanation.String, q.CorrectAnswer
+	options := listeningOptions(q.Options)
+	fields, c := addChoiceFields(nil, translationEntityListeningQuestion, uuid.UUID(q.ID.Bytes).String(), &question, &explanation, &correctAnswer, &options)
+	hits := s.tr.Apply(ctx, fields)
+	if !correct && c.answerTranslated(hits) {
+		correct = sameAnswer(answer, correctAnswer)
+	}
+	c.apply(fields, hits)
+	return correct, correctAnswer, explanation
 }
 
 // ===== Admin CRUD (quản lý nội dung luyện nghe) =====

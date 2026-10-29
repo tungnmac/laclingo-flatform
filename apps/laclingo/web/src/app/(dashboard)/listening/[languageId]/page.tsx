@@ -43,7 +43,7 @@ export default function ListeningTopicsPage({ params }: { params: { languageId: 
             >
               <Card className="flex h-full flex-col gap-2 transition group-hover:ring-indigo-300">
                 <span className="text-4xl">{topic.icon}</span>
-                <h2 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>
+                <h2 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.label || topic.name}</h2>
                 <p className="text-sm text-slate-500">
                   {topic.total} {t.listening.passageCountSuffix}
                 </p>
