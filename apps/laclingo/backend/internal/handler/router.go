@@ -35,11 +35,11 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	authHandler := NewAuthHandler(service.NewAuthService(repo, tokens, payments, files))
 	authHandler.RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
-	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions))
+	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions, translator))
 	grammarHandler.RegisterRoutes(api)
-	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2))
+	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2, translator))
 	listeningHandler.RegisterRoutes(api)
-	classHandler := NewClassHandler(service.NewClassService(repo))
+	classHandler := NewClassHandler(service.NewClassService(repo, translator))
 	blogHandler := NewBlogHandler(service.NewBlogService(repo, r2, notifications))
 	blogHandler.RegisterPublicRoutes(api)
 	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2, translator))
@@ -93,7 +93,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	// SAU reminderHandler: /notifications/push/* phải khớp trước /notifications/:id
 	notificationHandler := NewNotificationHandler(notifications)
 	notificationHandler.RegisterRoutes(protected)
-	speakingHandler := NewSpeakingHandler(service.NewSpeakingService(repo, missions, plans))
+	speakingHandler := NewSpeakingHandler(service.NewSpeakingService(repo, missions, plans, translator))
 	speakingHandler.RegisterRoutes(protected)
 
 	// Cần đăng nhập + được cấp module /admin tương ứng — 1 group DUY NHẤT,

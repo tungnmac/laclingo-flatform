@@ -25,6 +25,7 @@ export default function SpeakingTopicPage({ params, searchParams }: { params: { 
     { kind: 'repeat', title: t.speaking.repeatSection, desc: t.speaking.repeatSectionDesc },
     { kind: 'answer', title: t.speaking.answerSection, desc: t.speaking.answerSectionDesc },
   ]
+  const topicLabel = data?.[0]?.topic_label || topic // nhãn theo ngôn ngữ giao diện (topic vẫn là khoá trong URL)
   const practiceHref = (id: string) =>
     `/speaking/${params.languageId}/practice?topic=${encodeURIComponent(topic)}&id=${encodeURIComponent(id)}`
 
@@ -34,10 +35,10 @@ export default function SpeakingTopicPage({ params, searchParams }: { params: { 
         items={[
           { label: t.nav.speaking, href: '/speaking' },
           { label: languageName(params.languageId, language?.name), href: `/speaking/${params.languageId}` },
-          { label: topic },
+          { label: topicLabel },
         ]}
       />
-      <h1 className="text-2xl font-bold text-slate-900">{topic}</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{topicLabel}</h1>
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}

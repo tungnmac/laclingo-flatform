@@ -87,10 +87,11 @@ type GrammarLessonDetail struct {
 type GrammarService struct {
 	repo     GrammarRepository
 	missions *MissionService
+	tr       *ContentTranslator // dịch nội dung bài học theo ngôn ngữ giao diện (chỉ response học viên)
 }
 
-func NewGrammarService(repo GrammarRepository, missions *MissionService) *GrammarService {
-	return &GrammarService{repo: repo, missions: missions}
+func NewGrammarService(repo GrammarRepository, missions *MissionService, tr *ContentTranslator) *GrammarService {
+	return &GrammarService{repo: repo, missions: missions, tr: tr}
 }
 
 // ListTopics trả về các chủ đề ngữ pháp của một ngôn ngữ, kèm bài học đã nhóm theo chủ đề
@@ -132,7 +133,27 @@ func (s *GrammarService) ListTopics(ctx context.Context, languageID string) ([]G
 			Lessons:     topicLessons,
 		})
 	}
+	s.translateTopics(ctx, results)
 	return results, nil
+}
+
+// translateTopics dịch tên + mô tả chủ đề và tên các bài học (1 query)
+func (s *GrammarService) translateTopics(ctx context.Context, topics []GrammarTopicResponse) {
+	if ContentLocale(ctx) == "" {
+		return
+	}
+	var fields []TranslatableField
+	for i := range topics {
+		t := &topics[i]
+		id := t.ID.String()
+		fields = append(fields,
+			TranslatableField{Entity: translationEntityGrammarTopic, ID: id, Field: translationFieldTitle, Value: &t.Title},
+			TranslatableField{Entity: translationEntityGrammarTopic, ID: id, Field: translationFieldDescription, Value: &t.Description})
+		for j := range t.Lessons {
+			fields = append(fields, grammarLessonTitleField(t.Lessons[j].ID, &t.Lessons[j].Title))
+		}
+	}
+	s.tr.Apply(ctx, fields)
 }
 
 // GetLessonByCode trả về bài học đầy đủ (content + bài tập) theo code
@@ -168,14 +189,16 @@ func (s *GrammarService) GetLessonByCode(ctx context.Context, code string) (Gram
 		})
 	}
 
-	return GrammarLessonDetail{
+	detail := GrammarLessonDetail{
 		ID:        uuid.UUID(lesson.ID.Bytes),
 		Code:      lesson.Code,
 		Title:     lesson.Title,
 		Level:     lesson.Level.String,
 		Content:   json.RawMessage(lesson.Content),
 		Exercises: exerciseResponses,
-	}, nil
+	}
+	s.translateLesson(ctx, &detail)
+	return detail, nil
 }
 
 // SubmitExercise chấm 1 bài tập ngữ pháp — chạy SONG SONG với check client-side
@@ -195,7 +218,14 @@ func (s *GrammarService) SubmitExercise(ctx context.Context, userID, exerciseID 
 		return SubmitExerciseResponse{}, err
 	}
 
-	correct := strings.EqualFold(strings.TrimSpace(answer), strings.TrimSpace(exercise.CorrectAnswer))
+	correct := sameAnswer(answer, exercise.CorrectAnswer)
+	if !correct && ContentLocale(ctx) != "" {
+		// Bài hiện bản dịch thì học viên nộp đáp án đã dịch — nhận cả bản dịch hiện hành của ngôn ngữ giao diện này
+		translated := exercise.CorrectAnswer
+		if s.tr.Apply(ctx, []TranslatableField{grammarAnswerField(&translated)})[0] {
+			correct = sameAnswer(answer, translated)
+		}
+	}
 	if correct {
 		if err := s.missions.RecordAction(ctx, userID, "grammar_exercise", 1); err != nil {
 			log.Printf("❌ mission: RecordAction user=%s action=grammar_exercise: %v", userID, err)
@@ -209,6 +239,191 @@ func (s *GrammarService) SubmitExercise(ctx context.Context, userID, exerciseID 
 	}
 
 	return SubmitExerciseResponse{Correct: correct}, nil
+}
+
+// sameAnswer — so đáp án bỏ qua hoa thường / khoảng trắng 2 đầu (như FE)
+func sameAnswer(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
+// ===== Dịch nội dung bài học theo ngôn ngữ giao diện (xem content_translation.go) =====
+
+// grammarLessonContentKeys — các khoá chuỗi tiếng Việt cấp 1 trong content bài học được dịch (field "content.<khoá>").
+// formulas (type / pattern / example) và signals là mẫu câu / từ của ngôn ngữ đang học — không dịch. Thêm khoá mới
+// vào đây là đủ: worker lẫn lúc phủ bản dịch cùng đọc danh sách này.
+var grammarLessonContentKeys = []string{"summary"}
+
+// grammarLessonTranslationFields — các field của entity grammar_lesson, đúng thứ tự giá trị nguồn của worker
+func grammarLessonTranslationFields() []string {
+	fields := []string{translationFieldTitle}
+	for _, k := range grammarLessonContentKeys {
+		fields = append(fields, translationFieldContentPrefix+k)
+	}
+	return fields
+}
+
+func grammarLessonTitleField(id uuid.UUID, title *string) TranslatableField {
+	return TranslatableField{Entity: translationEntityGrammarLesson, ID: id.String(), Field: translationFieldTitle, Value: title}
+}
+
+// grammarAnswerField — 1 đáp án / lựa chọn: tra từ điển theo chính câu tiếng Việt (id = giá trị hiện tại)
+func grammarAnswerField(text *string) TranslatableField {
+	return TranslatableField{Entity: translationEntityGrammarAnswer, ID: *text, Field: translationFieldText, Value: text}
+}
+
+// jsonTextFields đọc các khoá chuỗi cấp 1 của 1 object JSON (theo thứ tự keys); JSON hỏng / khoá thiếu / không phải
+// chuỗi → ""
+func jsonTextFields(raw []byte, keys []string) []string {
+	values := make([]string, len(keys))
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return values
+	}
+	for i, k := range keys {
+		_ = json.Unmarshal(obj[k], &values[i]) // không phải chuỗi → giữ ""
+	}
+	return values
+}
+
+// setJSONTextFields ghi các khoá chuỗi cấp 1 (khoá → câu) vào object JSON, giữ nguyên mọi khoá khác; lỗi thì trả raw
+// như cũ
+func setJSONTextFields(raw json.RawMessage, values map[string]string) json.RawMessage {
+	var obj map[string]json.RawMessage
+	if len(values) == 0 || json.Unmarshal(raw, &obj) != nil || obj == nil {
+		return raw
+	}
+	for k, text := range values {
+		v, err := json.Marshal(text)
+		if err != nil {
+			return raw
+		}
+		obj[k] = v
+	}
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// choiceTranslation — 1 câu trắc nghiệm (câu hỏi, giải thích, đáp án đúng, từng lựa chọn) dịch kiểu cả câu hoặc không;
+// dùng chung cho bài tập ngữ pháp và câu hỏi luyện nghe. Đáp án đúng và lựa chọn tra cùng từ điển grammar_answer nên
+// luôn khớp nhau.
+type choiceTranslation struct {
+	question, explanation, answer *string
+	options                       *json.RawMessage
+	original                      [3]string // câu hỏi, giải thích, đáp án đúng tiếng Việt
+	originalOptions               json.RawMessage
+	opts                          []string // lựa chọn đang dịch (fields trỏ vào đây)
+	optionsTranslate              bool     // options là mảng chuỗi — không phải thì không dịch được lựa chọn
+	answerInOptions               bool     // đáp án đúng có trong lựa chọn (bản gốc) — sau dịch cũng phải còn
+	from, to                      int      // vị trí các ô của câu trong lô fields
+}
+
+// addChoiceFields thêm các ô của 1 câu trắc nghiệm vào lô fields (câu hỏi + giải thích theo entity/id, đáp án + lựa chọn
+// theo từ điển); gọi choiceTranslation.apply sau Apply để chốt dịch cả câu hay giữ tiếng Việt
+func addChoiceFields(fields []TranslatableField, entity, id string, question, explanation, answer *string, options *json.RawMessage) ([]TranslatableField, choiceTranslation) {
+	c := choiceTranslation{
+		question: question, explanation: explanation, answer: answer, options: options,
+		original: [3]string{*question, *explanation, *answer}, originalOptions: *options, from: len(fields),
+	}
+	fields = append(fields,
+		TranslatableField{Entity: entity, ID: id, Field: translationFieldQuestion, Value: question},
+		TranslatableField{Entity: entity, ID: id, Field: translationFieldExplanation, Value: explanation},
+		grammarAnswerField(answer))
+	if json.Unmarshal(*options, &c.opts) == nil {
+		c.optionsTranslate = true
+		for j := range c.opts {
+			fields = append(fields, grammarAnswerField(&c.opts[j]))
+		}
+		c.answerInOptions = containsAnswer(c.opts, *answer)
+	}
+	c.to = len(fields)
+	return fields, c
+}
+
+// answerTranslated — ô đáp án đúng của câu đã dùng bản dịch (ô thứ 3 của câu, xem addChoiceFields)
+func (c *choiceTranslation) answerTranslated(hits []bool) bool {
+	return hits[c.from+2]
+}
+
+// apply chốt 1 câu sau Apply: chỉ dùng bản dịch khi MỌI ô (câu hỏi, giải thích, đáp án đúng, từng lựa chọn) đều đã dịch
+// và các lựa chọn sau dịch không trùng nhau — lẫn 1 lựa chọn tiếng Việt thì lộ đáp án, 2 lựa chọn trùng chữ thì chọn cái
+// nào cũng "đúng"; khi đó trả lại tiếng Việt cả câu tới khi worker dịch xong. Trả về câu có dùng bản dịch không.
+func (c *choiceTranslation) apply(fields []TranslatableField, hits []bool) bool {
+	complete := true
+	for j := c.from; j < c.to; j++ {
+		// ô rỗng không có gì để dịch (worker cũng bỏ qua) — không chặn cả câu
+		complete = complete && (hits[j] || strings.TrimSpace(*fields[j].Value) == "")
+	}
+	// options không phải mảng chuỗi thì không dịch được lựa chọn → giữ tiếng Việt cả câu (không nửa dịch nửa không).
+	// Đáp án / lựa chọn chỉ khác hoa thường / khoảng trắng là 2 khoá từ điển riêng, có thể dịch lệch nhau → kiểm lại.
+	if !complete || !c.optionsTranslate || hasDuplicateAnswers(c.opts) ||
+		(c.answerInOptions && !containsAnswer(c.opts, *c.answer)) {
+		*c.question, *c.explanation, *c.answer = c.original[0], c.original[1], c.original[2]
+		*c.options = c.originalOptions
+		return false
+	}
+	if raw, err := json.Marshal(c.opts); err == nil {
+		*c.options = raw
+	}
+	return true
+}
+
+// translateLesson dịch tên bài, các khoá tiếng Việt trong content và bài tập (1 query). Mỗi bài tập dịch cả bài hoặc
+// giữ tiếng Việt cả bài (xem choiceTranslation.apply).
+func (s *GrammarService) translateLesson(ctx context.Context, detail *GrammarLessonDetail) {
+	if ContentLocale(ctx) == "" {
+		return
+	}
+	contentValues := jsonTextFields(detail.Content, grammarLessonContentKeys)
+	lessonID := detail.ID.String()
+	fields := []TranslatableField{grammarLessonTitleField(detail.ID, &detail.Title)}
+	for i, k := range grammarLessonContentKeys {
+		fields = append(fields, TranslatableField{Entity: translationEntityGrammarLesson, ID: lessonID, Field: translationFieldContentPrefix + k, Value: &contentValues[i]})
+	}
+
+	exercises := make([]choiceTranslation, len(detail.Exercises))
+	for i := range detail.Exercises {
+		e := &detail.Exercises[i]
+		fields, exercises[i] = addChoiceFields(fields, translationEntityGrammarExercise, e.ID.String(), &e.Question, &e.Explanation, &e.CorrectAnswer, &e.Options)
+	}
+
+	hits := s.tr.Apply(ctx, fields)
+
+	changed := map[string]string{}
+	for i, k := range grammarLessonContentKeys {
+		if hits[1+i] { // fields[0] là tên bài, tiếp theo là các khoá content theo thứ tự
+			changed[k] = contentValues[i]
+		}
+	}
+	detail.Content = setJSONTextFields(detail.Content, changed)
+	for i := range exercises {
+		exercises[i].apply(fields, hits)
+	}
+}
+
+// containsAnswer — đáp án có trong các lựa chọn (so như sameAnswer)
+func containsAnswer(options []string, answer string) bool {
+	for _, o := range options {
+		if sameAnswer(o, answer) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasDuplicateAnswers — 2 lựa chọn giống nhau (bỏ qua hoa thường / khoảng trắng 2 đầu)
+func hasDuplicateAnswers(options []string) bool {
+	seen := make(map[string]bool, len(options))
+	for _, o := range options {
+		k := strings.ToLower(strings.TrimSpace(o))
+		if seen[k] {
+			return true
+		}
+		seen[k] = true
+	}
+	return false
 }
 
 // ===== Admin CRUD (quản lý nội dung ngữ pháp) =====

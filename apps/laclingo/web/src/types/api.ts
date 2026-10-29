@@ -495,12 +495,14 @@ export interface ListeningPassageSummary {
   id: string
   title: string
   topic?: string
+  topic_label?: string // tên chủ đề theo ngôn ngữ giao diện (topic vẫn là khoá)
   level: string
   order_index: number
 }
 
 export interface ListeningTopic {
-  name: string
+  name: string // khoá (tiếng Việt / tên gốc) — dùng trong URL, bộ lọc
+  label: string // tên hiển thị theo ngôn ngữ giao diện
   icon: string
   total: number
 }
@@ -517,6 +519,7 @@ export interface ListeningPassageDetail {
   title: string
   script: string
   topic?: string
+  topic_label?: string // tên chủ đề theo ngôn ngữ giao diện
   level: string
   audio_url?: string // link tạm (presigned) phát audio thật nếu có — không thì dùng TTS từ script
   questions: ListeningQuestion[]
@@ -1040,7 +1043,8 @@ export interface Announcement {
 export type SpeakingKind = 'repeat' | 'answer'
 
 export interface SpeakingTopic {
-  name: string
+  name: string // khoá — dùng trong URL / listItems
+  label: string // tên hiển thị theo ngôn ngữ giao diện
   icon: string
   description: string
   total: number
@@ -1056,6 +1060,7 @@ export interface SpeakingItem {
   sample_answer?: string
   keywords: string[] // "REST|RESTful" = 1 trong các cách nói
   level: string
+  topic_label: string // tên chủ đề theo ngôn ngữ giao diện
   best_score?: number // chưa luyện = không có
   attempt_count: number
 }

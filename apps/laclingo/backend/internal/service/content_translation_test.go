@@ -39,6 +39,13 @@ type fakeTranslationRepo struct {
 	reads     int
 	vocab     []db.ListVocabularyTranslationSourcesRow
 	topics    []string
+	lessons   []db.ListGrammarLessonTranslationSourcesRow
+	exercises []db.ListGrammarExerciseTranslationSourcesRow
+	answers   []string
+	passages  []db.ListListeningPassageTranslationSourcesRow
+	questions []db.ListListeningQuestionTranslationSourcesRow
+	spTopics  []db.ListSpeakingTopicTranslationSourcesRow
+	spItems   []db.ListSpeakingItemTranslationSourcesRow
 	upserts   int
 	readErr   error
 	lastQuery db.ListContentTranslationsParams
@@ -99,6 +106,42 @@ func (f *fakeTranslationRepo) ListVocabularyTranslationSources(context.Context) 
 
 func (f *fakeTranslationRepo) ListTopicNameTranslationSources(context.Context) ([]string, error) {
 	return f.topics, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarTopicTranslationSources(context.Context) ([]db.ListGrammarTopicTranslationSourcesRow, error) {
+	return nil, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarLessonTranslationSources(context.Context) ([]db.ListGrammarLessonTranslationSourcesRow, error) {
+	return f.lessons, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarExerciseTranslationSources(context.Context) ([]db.ListGrammarExerciseTranslationSourcesRow, error) {
+	return f.exercises, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarAnswerTranslationSources(context.Context) ([]string, error) {
+	return f.answers, nil
+}
+
+func (f *fakeTranslationRepo) ListClassTranslationSources(context.Context) ([]db.ListClassTranslationSourcesRow, error) {
+	return nil, nil
+}
+
+func (f *fakeTranslationRepo) ListListeningPassageTranslationSources(context.Context) ([]db.ListListeningPassageTranslationSourcesRow, error) {
+	return f.passages, nil
+}
+
+func (f *fakeTranslationRepo) ListListeningQuestionTranslationSources(context.Context) ([]db.ListListeningQuestionTranslationSourcesRow, error) {
+	return f.questions, nil
+}
+
+func (f *fakeTranslationRepo) ListSpeakingTopicTranslationSources(context.Context) ([]db.ListSpeakingTopicTranslationSourcesRow, error) {
+	return f.spTopics, nil
+}
+
+func (f *fakeTranslationRepo) ListSpeakingItemTranslationSources(context.Context) ([]db.ListSpeakingItemTranslationSourcesRow, error) {
+	return f.spItems, nil
 }
 
 func TestContentTranslatorApply(t *testing.T) {
@@ -260,7 +303,7 @@ func TestContentTranslationWorkerRound(t *testing.T) {
 }
 
 func TestContentTranslationWorkerSkipsFailedBatch(t *testing.T) {
-	repo := &fakeTranslationRepo{topics: []string{"A", "B", "C"}}
+	repo := &fakeTranslationRepo{topics: []string{"Ă", "Â", "Ê"}}
 	ai := &fakeTranslateAI{failAt: 2}
 	w := newTestWorker(repo, ai, 1)
 	if err := w.runRound(context.Background()); err != nil {
@@ -278,7 +321,7 @@ func TestContentTranslationWorkerSkipsFailedBatch(t *testing.T) {
 }
 
 func TestContentTranslationWorkerStopsWhenAIDown(t *testing.T) {
-	repo := &fakeTranslationRepo{topics: []string{"A", "B", "C", "D", "E"}}
+	repo := &fakeTranslationRepo{topics: []string{"Ă", "Â", "Ê", "Ô", "Ơ"}}
 	ai := &fakeTranslateAI{failFrom: 1}
 	w := newTestWorker(repo, ai, 1)
 	if err := w.runRound(context.Background()); err == nil {

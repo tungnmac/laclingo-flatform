@@ -27,6 +27,7 @@ export default function ListeningPassagesByTopicPage({
   const languageName = useLanguageName()
 
   if (!topic) return <EmptyState icon="🧭" title={t.listening.emptyNoTopic} />
+  const topicLabel = data?.[0]?.topic_label || topic // mọi bài cùng chủ đề — nhãn theo ngôn ngữ giao diện
 
   return (
     <div className="space-y-6">
@@ -34,11 +35,11 @@ export default function ListeningPassagesByTopicPage({
         items={[
           { label: t.nav.listening, href: '/listening' },
           { label: languageName(params.languageId, language?.name), href: `/listening/${params.languageId}` },
-          { label: topic },
+          { label: topicLabel },
         ]}
       />
 
-      <h1 className="text-2xl font-bold text-slate-900">{topic}</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{topicLabel}</h1>
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}

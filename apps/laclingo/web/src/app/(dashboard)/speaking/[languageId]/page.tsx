@@ -41,7 +41,7 @@ export default function SpeakingTopicsPage({ params }: { params: { languageId: s
             >
               <Card className="flex h-full flex-col gap-2 transition group-hover:ring-indigo-300">
                 <span className="text-4xl">{topic.icon}</span>
-                <h2 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>
+                <h2 className="text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.label || topic.name}</h2>
                 {topic.description && <p className="text-sm text-slate-600">{topic.description}</p>}
                 <p className="mt-auto text-sm text-slate-500">{t.speaking.topicProgress(topic.practiced, topic.total, topic.avg_best)}</p>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
