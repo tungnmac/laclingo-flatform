@@ -97,10 +97,10 @@ func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyPara
 }
 
 const createVocabularyTopic = `-- name: CreateVocabularyTopic :one
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name
-RETURNING language_id, name, icon, order_index, parent_name
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name, topic_key)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name, topic_key = EXCLUDED.topic_key
+RETURNING language_id, name, icon, order_index, parent_name, topic_key
 `
 
 type CreateVocabularyTopicParams struct {
@@ -109,6 +109,7 @@ type CreateVocabularyTopicParams struct {
 	Icon       string      `json:"icon"`
 	OrderIndex int32       `json:"order_index"`
 	ParentName pgtype.Text `json:"parent_name"`
+	TopicKey   pgtype.Text `json:"topic_key"`
 }
 
 func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabularyTopicParams) (VocabularyTopic, error) {
@@ -118,6 +119,7 @@ func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabular
 		arg.Icon,
 		arg.OrderIndex,
 		arg.ParentName,
+		arg.TopicKey,
 	)
 	var i VocabularyTopic
 	err := row.Scan(
@@ -126,6 +128,7 @@ func (q *Queries) CreateVocabularyTopic(ctx context.Context, arg CreateVocabular
 		&i.Icon,
 		&i.OrderIndex,
 		&i.ParentName,
+		&i.TopicKey,
 	)
 	return i, err
 }
@@ -169,7 +172,7 @@ func (q *Queries) FavoriteVocabulary(ctx context.Context, arg FavoriteVocabulary
 }
 
 const getVocabularyTopic = `-- name: GetVocabularyTopic :one
-SELECT language_id, name, icon, order_index, parent_name FROM vocabulary_topics WHERE language_id = $1 AND name = $2
+SELECT language_id, name, icon, order_index, parent_name, topic_key FROM vocabulary_topics WHERE language_id = $1 AND name = $2
 `
 
 type GetVocabularyTopicParams struct {
@@ -186,6 +189,7 @@ func (q *Queries) GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopic
 		&i.Icon,
 		&i.OrderIndex,
 		&i.ParentName,
+		&i.TopicKey,
 	)
 	return i, err
 }
@@ -220,9 +224,9 @@ func (q *Queries) GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabul
 }
 
 const insertVocabularyTopic = `-- name: InsertVocabularyTopic :one
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING language_id, name, icon, order_index, parent_name
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name, topic_key)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING language_id, name, icon, order_index, parent_name, topic_key
 `
 
 type InsertVocabularyTopicParams struct {
@@ -231,6 +235,7 @@ type InsertVocabularyTopicParams struct {
 	Icon       string      `json:"icon"`
 	OrderIndex int32       `json:"order_index"`
 	ParentName pgtype.Text `json:"parent_name"`
+	TopicKey   pgtype.Text `json:"topic_key"`
 }
 
 // Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
@@ -241,6 +246,7 @@ func (q *Queries) InsertVocabularyTopic(ctx context.Context, arg InsertVocabular
 		arg.Icon,
 		arg.OrderIndex,
 		arg.ParentName,
+		arg.TopicKey,
 	)
 	var i VocabularyTopic
 	err := row.Scan(
@@ -249,6 +255,7 @@ func (q *Queries) InsertVocabularyTopic(ctx context.Context, arg InsertVocabular
 		&i.Icon,
 		&i.OrderIndex,
 		&i.ParentName,
+		&i.TopicKey,
 	)
 	return i, err
 }
@@ -683,7 +690,7 @@ func (q *Queries) ListVocabularyTopics(ctx context.Context, arg ListVocabularyTo
 }
 
 const listVocabularyTopicsByLanguageAdmin = `-- name: ListVocabularyTopicsByLanguageAdmin :many
-SELECT language_id, name, icon, order_index, parent_name, COUNT(*) OVER() AS total_count FROM vocabulary_topics
+SELECT language_id, name, icon, order_index, parent_name, topic_key, COUNT(*) OVER() AS total_count FROM vocabulary_topics
 WHERE language_id = $1
   AND ($2::text IS NULL OR name ILIKE '%' || $2::text || '%')
 ORDER BY order_index, name
@@ -703,6 +710,7 @@ type ListVocabularyTopicsByLanguageAdminRow struct {
 	Icon       string      `json:"icon"`
 	OrderIndex int32       `json:"order_index"`
 	ParentName pgtype.Text `json:"parent_name"`
+	TopicKey   pgtype.Text `json:"topic_key"`
 	TotalCount int64       `json:"total_count"`
 }
 
@@ -726,6 +734,7 @@ func (q *Queries) ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg L
 			&i.Icon,
 			&i.OrderIndex,
 			&i.ParentName,
+			&i.TopicKey,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err

@@ -42,6 +42,20 @@ func (q *Queries) DeleteUserPreferredTopics(ctx context.Context, userID pgtype.U
 	return err
 }
 
+const deleteUserPreferredTopicsByLanguage = `-- name: DeleteUserPreferredTopicsByLanguage :exec
+DELETE FROM user_preferred_topics WHERE user_id = $1 AND language_id = $2
+`
+
+type DeleteUserPreferredTopicsByLanguageParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID string      `json:"language_id"`
+}
+
+func (q *Queries) DeleteUserPreferredTopicsByLanguage(ctx context.Context, arg DeleteUserPreferredTopicsByLanguageParams) error {
+	_, err := q.db.Exec(ctx, deleteUserPreferredTopicsByLanguage, arg.UserID, arg.LanguageID)
+	return err
+}
+
 const deleteUserTargetLanguages = `-- name: DeleteUserTargetLanguages :exec
 DELETE FROM user_target_languages WHERE user_id = $1
 `
@@ -95,6 +109,41 @@ type InsertUserTargetLanguageParams struct {
 func (q *Queries) InsertUserTargetLanguage(ctx context.Context, arg InsertUserTargetLanguageParams) error {
 	_, err := q.db.Exec(ctx, insertUserTargetLanguage, arg.UserID, arg.LanguageID, arg.Level)
 	return err
+}
+
+const listLanguageTopicKeys = `-- name: ListLanguageTopicKeys :many
+SELECT vt.name::varchar AS name, vt.topic_key FROM vocabulary_topics vt WHERE vt.language_id = $1
+UNION
+SELECT DISTINCT v.topic::varchar, NULL::varchar FROM vocabularies v
+WHERE v.language_id = $1 AND v.topic IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM vocabulary_topics t WHERE t.language_id = v.language_id AND t.name = v.topic)
+`
+
+type ListLanguageTopicKeysRow struct {
+	Name     string      `json:"name"`
+	TopicKey pgtype.Text `json:"topic_key"`
+}
+
+// Toàn bộ chủ đề của 1 ngôn ngữ kèm topic_key (NULL = chưa gắn khoá): có dòng metadata ở vocabulary_topics hoặc chỉ
+// xuất hiện qua vocabularies.topic
+func (q *Queries) ListLanguageTopicKeys(ctx context.Context, languageID string) ([]ListLanguageTopicKeysRow, error) {
+	rows, err := q.db.Query(ctx, listLanguageTopicKeys, languageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLanguageTopicKeysRow
+	for rows.Next() {
+		var i ListLanguageTopicKeysRow
+		if err := rows.Scan(&i.Name, &i.TopicKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUserAvatarKeys = `-- name: ListUserAvatarKeys :many
@@ -153,6 +202,42 @@ func (q *Queries) ListUserPreferredTopics(ctx context.Context, userID pgtype.UUI
 	return items, nil
 }
 
+const listUserSourceTopics = `-- name: ListUserSourceTopics :many
+SELECT topic::varchar AS topic FROM user_preferred_topics p
+WHERE p.user_id = $1 AND p.language_id = $2
+UNION
+SELECT v.topic::varchar FROM user_vocabulary_reviews r
+JOIN vocabularies v ON v.id = r.vocabulary_id
+WHERE r.user_id = $1 AND v.language_id = $2 AND v.topic IS NOT NULL
+ORDER BY 1
+`
+
+type ListUserSourceTopicsParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID string      `json:"language_id"`
+}
+
+// Chủ đề user đã chọn (yêu thích) hoặc đã học (có từ trong hàng đợi SRS) ở 1 ngôn ngữ — nguồn đồng bộ sang ngôn ngữ mới
+func (q *Queries) ListUserSourceTopics(ctx context.Context, arg ListUserSourceTopicsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUserSourceTopics, arg.UserID, arg.LanguageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var topic string
+		if err := rows.Scan(&topic); err != nil {
+			return nil, err
+		}
+		items = append(items, topic)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserTargetLanguages = `-- name: ListUserTargetLanguages :many
 SELECT language_id, level FROM user_target_languages
 WHERE user_id = $1
@@ -182,6 +267,18 @@ func (q *Queries) ListUserTargetLanguages(ctx context.Context, userID pgtype.UUI
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockUserForUpdate = `-- name: LockUserForUpdate :one
+SELECT id FROM users WHERE id = $1 FOR UPDATE
+`
+
+// AddLanguage: khoá dòng user trong tx để 2 request thêm ngôn ngữ song song không cùng vượt giới hạn số ngôn ngữ
+func (q *Queries) LockUserForUpdate(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockUserForUpdate, id)
+	var id_2 pgtype.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const markUserOnboarded = `-- name: MarkUserOnboarded :one
@@ -281,4 +378,21 @@ func (q *Queries) UpdateUserOnboardingProfile(ctx context.Context, arg UpdateUse
 		&i.OnboardedAt,
 	)
 	return i, err
+}
+
+const upsertUserTargetLanguage = `-- name: UpsertUserTargetLanguage :exec
+INSERT INTO user_target_languages (user_id, language_id, level) VALUES ($1, $2, $3)
+ON CONFLICT (user_id, language_id) DO UPDATE SET level = EXCLUDED.level
+`
+
+type UpsertUserTargetLanguageParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	LanguageID string      `json:"language_id"`
+	Level      string      `json:"level"`
+}
+
+// Luồng "Học ngôn ngữ mới": thêm 1 ngôn ngữ (đã có thì chỉ đổi trình độ) — không đụng các ngôn ngữ khác như Save onboarding
+func (q *Queries) UpsertUserTargetLanguage(ctx context.Context, arg UpsertUserTargetLanguageParams) error {
+	_, err := q.db.Exec(ctx, upsertUserTargetLanguage, arg.UserID, arg.LanguageID, arg.Level)
+	return err
 }

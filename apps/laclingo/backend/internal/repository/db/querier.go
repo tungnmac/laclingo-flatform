@@ -168,6 +168,7 @@ type Querier interface {
 	// giữ lại, bỏ trống người dùng (SET NULL)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteUserPreferredTopics(ctx context.Context, userID pgtype.UUID) error
+	DeleteUserPreferredTopicsByLanguage(ctx context.Context, arg DeleteUserPreferredTopicsByLanguageParams) error
 	DeleteUserTargetLanguages(ctx context.Context, userID pgtype.UUID) error
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	DeleteVocabularyTopic(ctx context.Context, arg DeleteVocabularyTopicParams) error
@@ -368,6 +369,9 @@ type Querier interface {
 	// để không đổi hành vi hiện có của learner.
 	ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
+	// Toàn bộ chủ đề của 1 ngôn ngữ kèm topic_key (NULL = chưa gắn khoá): có dòng metadata ở vocabulary_topics hoặc chỉ
+	// xuất hiện qua vocabularies.topic
+	ListLanguageTopicKeys(ctx context.Context, languageID string) ([]ListLanguageTopicKeysRow, error)
 	ListLanguages(ctx context.Context) ([]Language, error)
 	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
 	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
@@ -417,6 +421,8 @@ type Querier interface {
 	// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
 	ListUserPreferredTopics(ctx context.Context, userID pgtype.UUID) ([]ListUserPreferredTopicsRow, error)
+	// Chủ đề user đã chọn (yêu thích) hoặc đã học (có từ trong hàng đợi SRS) ở 1 ngôn ngữ — nguồn đồng bộ sang ngôn ngữ mới
+	ListUserSourceTopics(ctx context.Context, arg ListUserSourceTopicsParams) ([]string, error)
 	ListUserTargetLanguages(ctx context.Context, userID pgtype.UUID) ([]ListUserTargetLanguagesRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Quản lý học viên (admin) — search theo username/email/full_name, lọc theo
@@ -457,6 +463,8 @@ type Querier interface {
 	LockIAPChain(ctx context.Context, chain string) error
 	// Khoá dòng user khi cộng thưởng nhiệm vụ: 2 nhiệm vụ xong cùng lúc không cùng đọc level cũ (không tạo quà lên level 2 lần)
 	LockUserForRewards(ctx context.Context, id pgtype.UUID) (User, error)
+	// AddLanguage: khoá dòng user trong tx để 2 request thêm ngôn ngữ song song không cùng vượt giới hạn số ngôn ngữ
+	LockUserForUpdate(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	LockUserInventory(ctx context.Context, userID pgtype.UUID) (UserInventory, error)
 	LockUserStreak(ctx context.Context, id pgtype.UUID) (LockUserStreakRow, error)
 	MarkAllNotificationsRead(ctx context.Context, userID pgtype.UUID) (int64, error)
@@ -607,6 +615,8 @@ type Querier interface {
 	// Ghi đè toàn bộ phần cấu hình của học viên (NULL = theo mặc định admin);
 	// giữ nguyên dấu vết gửi (last_reminded_on, last_inactive_sent_at).
 	UpsertUserReminderSettings(ctx context.Context, arg UpsertUserReminderSettingsParams) (UserReminderSetting, error)
+	// Luồng "Học ngôn ngữ mới": thêm 1 ngôn ngữ (đã có thì chỉ đổi trình độ) — không đụng các ngôn ngữ khác như Save onboarding
+	UpsertUserTargetLanguage(ctx context.Context, arg UpsertUserTargetLanguageParams) error
 	// $7 = lúc ôn (ôn offline gửi bù kèm lúc ôn thật), $8 = uuid app gắn cho lần ôn (có thể NULL). Không ghi khi đã
 	// lưu chính lần ôn này (gửi lại) hoặc đã có lần ôn mới hơn (máy khác) → 0 dòng, service trả tiến độ hiện tại.
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)

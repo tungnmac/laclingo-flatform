@@ -380,29 +380,37 @@ function LanguagesStep({ form, update }: StepProps) {
               {target && (
                 <div className="border-t border-indigo-100 px-4 pb-4 pt-3">
                   <p className="mb-2 text-xs font-medium text-slate-500">{t.onboarding.levelLabel}</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {LEVELS.map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => setLevel(lang.id, level)}
-                        aria-pressed={target.level === level}
-                        className={cn(
-                          'rounded-lg px-3 py-2 text-left ring-1 transition',
-                          target.level === level ? 'bg-white ring-2 ring-indigo-600' : 'bg-white/70 ring-slate-200 hover:ring-slate-300',
-                        )}
-                      >
-                        <span className="block text-sm font-semibold text-slate-800">{t.onboarding.levels[level].name}</span>
-                        <span className="block text-xs text-slate-500">{t.onboarding.levels[level].desc}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <LevelPicker value={target.level} onChange={(level) => setLevel(lang.id, level)} />
                 </div>
               )}
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/** Lưới chọn trình độ CEFR — dùng chung cho onboarding và luồng "Học ngôn ngữ mới" */
+export function LevelPicker({ value, onChange }: { value: CefrLevel; onChange: (level: CefrLevel) => void }) {
+  const t = useTranslation()
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {LEVELS.map((level) => (
+        <button
+          key={level}
+          type="button"
+          onClick={() => onChange(level)}
+          aria-pressed={value === level}
+          className={cn(
+            'rounded-lg px-3 py-2 text-left ring-1 transition',
+            value === level ? 'bg-white ring-2 ring-indigo-600' : 'bg-white/70 ring-slate-200 hover:ring-slate-300',
+          )}
+        >
+          <span className="block text-sm font-semibold text-slate-800">{t.onboarding.levels[level].name}</span>
+          <span className="block text-xs text-slate-500">{t.onboarding.levels[level].desc}</span>
+        </button>
+      ))}
     </div>
   )
 }

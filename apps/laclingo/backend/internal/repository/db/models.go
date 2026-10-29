@@ -711,4 +711,5 @@ type VocabularyTopic struct {
 	Icon       string      `json:"icon"`
 	OrderIndex int32       `json:"order_index"`
 	ParentName pgtype.Text `json:"parent_name"`
+	TopicKey   pgtype.Text `json:"topic_key"`
 }

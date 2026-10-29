@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { LanguageCard } from '@/features/course/components/LanguageCard'
@@ -13,7 +14,18 @@ export default function LearnPage() {
 
   return (
     <>
-      <PageHeader title={t.learn.pageTitle} description={t.learn.pageDescription} />
+      <PageHeader
+        title={t.learn.pageTitle}
+        description={t.learn.pageDescription}
+        action={
+          <Link
+            href="/learn/new-language"
+            className="self-start rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 sm:self-auto"
+          >
+            {t.addLanguage.cta}
+          </Link>
+        }
+      />
 
       {loading && <Spinner />}
       {error && <ErrorState error={error} onRetry={reload} />}

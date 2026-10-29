@@ -157,6 +157,7 @@ function TopicsSection({
       icon: String(form.get('icon') ?? '📘').trim() || '📘',
       order_index: Number(form.get('order_index')),
       parent_name: String(form.get('parent_name') ?? '').trim() || null,
+      topic_key: String(form.get('topic_key') ?? '').trim(),
       create_only: !editing,
     }
     setSaving(true)
@@ -232,6 +233,19 @@ function TopicsSection({
               )}
             </label>
             <TopicParentAndOrderFields editing={editing} parentOptions={parentOptions} allTopics={allTopics} />
+            <label className="block text-sm font-medium text-slate-700">
+              {t.adminVocabulary.topicKeyLabel}
+              <input
+                name="topic_key"
+                type="text"
+                defaultValue={editing?.topic_key ?? ''}
+                pattern="[a-z0-9_]{1,50}"
+                maxLength={50}
+                className={inputClass}
+                placeholder="family"
+              />
+              <span className="mt-1 block text-xs font-normal text-slate-400">{t.adminVocabulary.topicKeyHint}</span>
+            </label>
             {formError && (
               <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
                 {formError}

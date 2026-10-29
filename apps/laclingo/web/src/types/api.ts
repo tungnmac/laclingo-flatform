@@ -52,6 +52,18 @@ export interface SaveOnboardingRequest {
   complete: boolean
 }
 
+// PUT /users/me/languages/{id} — "Học ngôn ngữ mới": trình độ + chủ đề yêu thích của riêng ngôn ngữ đó
+export interface AddLanguageRequest {
+  level: CefrLevel
+  topics: string[]
+}
+
+// GET /users/me/languages/{id}/topic-sync?from= — chủ đề đã chọn/đã học ở ngôn ngữ nguồn ứng với chủ đề nào ở ngôn ngữ mới
+export interface TopicSyncPreview {
+  matched: { from: string; to: string }[]
+  missing: string[] // ngôn ngữ mới chưa có chủ đề tương ứng
+}
+
 export interface Language {
   id: string
   name: string
@@ -674,6 +686,7 @@ export interface VocabularyTopicRequest {
   icon: string
   order_index: number
   parent_name?: string | null
+  topic_key?: string // khoá dùng chung giữa các ngôn ngữ (vd "family") — để đồng bộ chủ đề sang ngôn ngữ mới
   create_only?: boolean // tạo mới: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
 }
 
@@ -683,6 +696,7 @@ export interface VocabularyTopicAdmin {
   icon: string
   order_index: number
   parent_name?: string | null
+  topic_key?: string
 }
 
 // --- Lớp học (classes — giáo án ngữ pháp theo thứ tự) ---
