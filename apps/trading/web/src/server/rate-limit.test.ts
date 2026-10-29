@@ -35,6 +35,12 @@ describe('clientIp', () => {
     expect(clientIp(new Request('http://x', { headers: { 'x-real-ip': '2.2.2.2' } }))).toBe('2.2.2.2')
     expect(clientIp(new Request('http://x'))).toBe('unknown')
   })
+  it('prefers CLIENT_IP_HEADER when configured, falling back to x-forwarded-for', () => {
+    const req = new Request('http://x', { headers: { 'cf-connecting-ip': '3.3.3.3', 'x-forwarded-for': '6.6.6.6, 1.1.1.1' } })
+    expect(clientIp(req, 1, 'CF-Connecting-IP')).toBe('3.3.3.3')
+    expect(clientIp(req, 1, undefined)).toBe('1.1.1.1') // không cấu hình → bỏ qua header (client tự gửi được)
+    expect(clientIp(new Request('http://x', { headers: { 'x-forwarded-for': '1.1.1.1' } }), 1, 'CF-Connecting-IP')).toBe('1.1.1.1')
+  })
   it('resets a counter', async () => {
     const c = memoryCounter()
     for (let i = 0; i < 3; i++) await rateLimit(c, 'k', 3, 60)
