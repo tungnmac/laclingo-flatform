@@ -86,10 +86,13 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     image_url TEXT,
     image_emoji VARCHAR(16),
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    -- Từ dựng cho ngôn ngữ mới từ từ gốc cùng nghĩa ở ngôn ngữ khác (000051) — NULL = từ nhập tay
+    source_vocabulary_id UUID REFERENCES vocabularies(id) ON DELETE SET NULL,
     UNIQUE (language_id, term)
 );
 
 CREATE INDEX IF NOT EXISTS idx_vocabularies_lang_topic ON vocabularies(language_id, topic);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_vocabularies_source ON vocabularies(language_id, source_vocabulary_id) WHERE source_vocabulary_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS user_vocabulary_reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

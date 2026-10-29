@@ -1,17 +1,20 @@
 package handler
 
 import (
+	"errors"
+
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type OnboardingHandler struct {
-	svc *service.OnboardingService
+	svc     *service.OnboardingService
+	content *service.LanguageContentService
 }
 
-func NewOnboardingHandler(svc *service.OnboardingService) *OnboardingHandler {
-	return &OnboardingHandler{svc: svc}
+func NewOnboardingHandler(svc *service.OnboardingService, content *service.LanguageContentService) *OnboardingHandler {
+	return &OnboardingHandler{svc: svc, content: content}
 }
 
 // RegisterPublicRoutes — ảnh đại diện phải public (thẻ <img> không gửi được Bearer token)
@@ -26,6 +29,37 @@ func (h *OnboardingHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/users/me/avatar", h.UploadAvatar)
 	router.Put("/users/me/languages/:languageId", h.AddLanguage)
 	router.Get("/users/me/languages/:languageId/topic-sync", h.TopicSyncPreview)
+	router.Post("/users/me/languages/:languageId/prepare", h.PrepareLanguage)
+}
+
+// PrepareLanguage godoc
+// @Summary      Dựng nội dung còn thiếu cho ngôn ngữ mới từ các chủ đề của ngôn ngữ nguồn (từ đã học trước, dùng chung cho mọi user)
+// @Tags         onboarding
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        languageId  path      string                          true  "Ngôn ngữ mới"
+// @Param        body        body      service.PrepareLanguageRequest  true  "Ngôn ngữ nguồn + chủ đề (tên ở ngôn ngữ nguồn)"
+// @Success      200         {object}  service.PrepareLanguageResponse
+// @Failure      400         {object}  ErrorResponse
+// @Failure      502         {object}  ErrorResponse
+// @Failure      503         {object}  ErrorResponse
+// @Router       /users/me/languages/{languageId}/prepare [post]
+func (h *OnboardingHandler) PrepareLanguage(c *fiber.Ctx) error {
+	var req service.PrepareLanguageRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.content.Prepare(c.UserContext(), currentUserID(c), c.Params("languageId"), req)
+	switch {
+	case errors.Is(err, service.ErrAINotConfigured):
+		return fiber.NewError(fiber.StatusServiceUnavailable, "chưa dựng được nội dung cho ngôn ngữ này: "+err.Error())
+	case errors.Is(err, service.ErrLanguageContentAIFailed):
+		return fiber.NewError(fiber.StatusBadGateway, err.Error())
+	case err != nil:
+		return err
+	}
+	return c.JSON(res)
 }
 
 // Get godoc
