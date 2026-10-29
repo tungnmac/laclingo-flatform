@@ -19,6 +19,12 @@ if (errorHtml === errorTemplate) throw new Error('error-page.html thiếu dòng 
 mkdirSync(join(__dirname, 'www'), { recursive: true })
 writeFileSync(join(__dirname, 'www', 'index.html'), errorHtml)
 
+// Phiên bản app (versionName trong android/app/build.gradle) gắn vào User-Agent → web biết app cũ để báo / bắt buộc
+// cập nhật (mốc đặt ở Quản trị → Công cụ). Web không nhúng Capacitor JS nên không đọc được phiên bản cách khác
+const versionName = /versionName\s+"([^"]+)"/.exec(readFileSync(join(__dirname, 'android', 'app', 'build.gradle'), 'utf8'))?.[1]
+// web chỉ nhận dạng x.y.z — sai dạng thì kiểm tra cập nhật âm thầm tắt
+if (!versionName || !/^\d+\.\d+\.\d+$/.test(versionName)) throw new Error(`versionName trong android/app/build.gradle phải dạng x.y.z (đang là ${versionName})`)
+
 const config: CapacitorConfig = {
   appId: 'lactrader.app',
   appName: 'TradeLab',
@@ -30,6 +36,7 @@ const config: CapacitorConfig = {
     errorPath: 'index.html',
   },
   backgroundColor: '#f8fafc',
+  appendUserAgent: `TradeLabApp/${versionName}`,
   plugins: {
     // @capacitor/app chỉ để đọc phiên bản app (kiểm tra cập nhật sau này). Nút Back do MainActivity xử lý (lùi trang
     // trong WebView, trang đầu → đưa app xuống nền) — tắt bộ xử lý của plugin (không có listener JS thì ở trang đầu nó

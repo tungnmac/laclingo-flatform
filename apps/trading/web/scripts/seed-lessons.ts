@@ -8,13 +8,7 @@ import { translationKeys } from './lessons/translations'
 import type { SeedChapter } from './lessons/types'
 import { VI } from './lessons/vi'
 
-try {
-  process.loadEnvFile('.env')
-} catch {
-  // không có .env → dùng biến môi trường sẵn có
-}
-
-async function main() {
+export async function seedLessons(): Promise<string> {
   // import động SAU khi nạp .env — client đọc DATABASE_URL lúc import
   const { db } = await import('../src/server/db/client')
   const { chapters, lessons, quizQuestions } = await import('../src/server/db/schema')
@@ -101,11 +95,5 @@ async function main() {
     }
   }
 
-  console.log(`✅ Seed lessons: ${addedChapters} chapters, ${addedLessons} lessons added, ${linkedLessons} linked to translations (vi+en)`)
-  process.exit(0)
+  return `✅ Seed lessons: ${addedChapters} chapters, ${addedLessons} lessons added, ${linkedLessons} linked to translations (vi+en)`
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

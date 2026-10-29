@@ -30,7 +30,7 @@ export async function signedInAccounts(): Promise<SignedInAccount[]> {
   const seen = new Set<string>()
   return decoded.flatMap((d) => {
     const u = byId.get(d.userId)
-    if (!u || u.tokenVersion !== d.tokenVersion || seen.has(u.id)) return []
+    if (!u || u.tokenVersion !== d.tokenVersion || u.disabledAt || seen.has(u.id)) return []
     seen.add(u.id)
     return [{ token: d.token, user: toSessionUser(u), tokenVersion: u.tokenVersion }]
   })

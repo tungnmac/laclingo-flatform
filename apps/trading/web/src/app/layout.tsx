@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { AppUpdateNotice } from '@/components/AppUpdateNotice'
 import { I18nProvider } from '@/i18n/I18nProvider'
 import { getLocale } from '@/i18n/server'
 import './globals.css'
@@ -14,7 +15,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={locale}>
       <body>
-        <I18nProvider locale={locale}>{children}</I18nProvider>
+        <I18nProvider locale={locale}>
+          <AppUpdateNotice />
+          {children}
+        </I18nProvider>
       </body>
     </html>
   )

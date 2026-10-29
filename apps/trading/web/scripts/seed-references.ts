@@ -6,13 +6,7 @@ import { INVESTORS } from './references/investors'
 import { RESOURCES } from './references/resources'
 import { seedAction } from './references/seed-plan'
 
-try {
-  process.loadEnvFile('.env')
-} catch {
-  // không có .env → dùng biến môi trường sẵn có
-}
-
-async function main() {
+export async function seedReferences(): Promise<string> {
   const { db } = await import('../src/server/db/client')
   const { investors, learningResources } = await import('../src/server/db/schema')
   const { eq, or, sql } = await import('drizzle-orm')
@@ -58,11 +52,5 @@ async function main() {
     resCount[action]++
   }
 
-  console.log(`✅ Seed references — investors: ${JSON.stringify(count)}, resources: ${JSON.stringify(resCount)}`)
-  process.exit(0)
+  return `✅ Seed references — investors: ${JSON.stringify(count)}, resources: ${JSON.stringify(resCount)}`
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

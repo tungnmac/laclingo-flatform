@@ -1,9 +1,4 @@
 // Seed danh mục mã crypto — idempotent (upsert theo market+symbol). Chạy: npm run db:seed
-try {
-  process.loadEnvFile('.env')
-} catch {
-  // không có .env → dùng biến môi trường sẵn có
-}
 
 const CRYPTO = [
   ['BTC', 'Bitcoin'],
@@ -18,7 +13,7 @@ const CRYPTO = [
   ['LINK', 'Chainlink'],
 ] as const
 
-async function main() {
+export async function seedInstruments(): Promise<string> {
   // import động SAU khi nạp .env — client đọc DATABASE_URL lúc import
   const { db } = await import('../src/server/db/client')
   const { instruments } = await import('../src/server/db/schema')
@@ -31,11 +26,5 @@ async function main() {
       target: [instruments.market, instruments.symbol],
       set: { name: sql`excluded.name`, sortOrder: sql`excluded.sort_order`, isActive: sql`excluded.is_active` },
     })
-  console.log(`✅ Seed ${CRYPTO.length} instruments`)
-  process.exit(0)
+  return `✅ Seed ${CRYPTO.length} instruments`
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

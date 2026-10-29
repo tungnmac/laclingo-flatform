@@ -5,13 +5,7 @@ import { BOOKS } from './library/books'
 import { GLOSSARY_EN } from './library/glossary-en'
 import { GLOSSARY_VI } from './library/glossary-vi'
 
-try {
-  process.loadEnvFile('.env')
-} catch {
-  // không có .env → dùng biến môi trường sẵn có
-}
-
-async function main() {
+export async function seedLibrary(): Promise<string> {
   const { db } = await import('../src/server/db/client')
   const { books, glossaryTerms } = await import('../src/server/db/schema')
   const { and, eq, isNull } = await import('drizzle-orm')
@@ -66,11 +60,5 @@ async function main() {
     }
   }
 
-  console.log(`✅ Seed library: ${addedBooks} books, ${addedTerms} glossary terms added, ${reindexed} books reindexed`)
-  process.exit(0)
+  return `✅ Seed library: ${addedBooks} books, ${addedTerms} glossary terms added, ${reindexed} books reindexed`
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
