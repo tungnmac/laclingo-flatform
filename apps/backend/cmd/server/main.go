@@ -23,7 +23,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger"
 )
 
@@ -60,11 +59,19 @@ func main() {
 		BodyLimit: 25 * 1024 * 1024,
 	})
 
-	app.Use(logger.New())
+	// IP người dùng (giới hạn đăng nhập / tần suất, log, VNPay) — đặt trước mọi middleware dùng clientIP
+	if err := handler.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatal(err)
+	}
+	handler.SetClientIPHeader(cfg.ClientIPHeader)
+
+	app.Use(handler.RequestLogger())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
+	app.Use(handler.SecurityHeaders(cfg.AppEnv == "production"))
+	app.Use(handler.RateLimit(cfg.RateLimitPerMinute))
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -74,7 +81,8 @@ func main() {
 		})
 	})
 
-	if cfg.AppEnv != "production" {
+	// Tài liệu API chỉ bật khi chạy dev — quên đặt APP_ENV trên server cũng không lộ danh sách API
+	if cfg.AppEnv == "development" {
 		app.Get("/swagger/*", swagger.HandlerDefault)
 	}
 
@@ -121,10 +129,6 @@ func main() {
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
 
-	// Sau reverse proxy: lấy IP người dùng từ X-Forwarded-For (giới hạn đăng nhập, VNPay) — xem handler.clientIP
-	if err := handler.SetTrustedProxies(cfg.TrustedProxies); err != nil {
-		log.Fatal(err)
-	}
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	tokens.SetRefreshTTL(cfg.RefreshTTL)
 	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans, newPaymentService(cfg, repo, notificationService))

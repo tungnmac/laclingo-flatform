@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,11 @@ type Config struct {
 	// X-Forwarded-For (giới hạn đăng nhập theo IP thật của người dùng); trống = lấy IP kết nối trực tiếp
 	RefreshTTL     time.Duration
 	TrustedProxies []string
+	// ClientIPHeader — header proxy ngoài cùng ghi đè bằng IP thật (vd "CF-Connecting-IP" khi MỌI request đi qua
+	// Cloudflare như *.onrender.com); trống = dùng TrustedProxies / IP kết nối. RateLimitPerMinute — giới hạn chung
+	// mỗi IP mỗi phút (0 = tắt)
+	ClientIPHeader     string
+	RateLimitPerMinute int
 
 	// R2* — Cloudflare R2 (lưu audio luyện nghe). Để trống hết thì tính năng
 	// upload audio tắt (handler trả lỗi rõ ràng), không bắt buộc như JWT_SECRET.
@@ -124,6 +130,14 @@ func Load() (*Config, error) {
 		}
 		refreshTTL = d
 	}
+	rateLimit := 600
+	if v := os.Getenv("RATE_LIMIT_PER_MINUTE"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf("RATE_LIMIT_PER_MINUTE không hợp lệ (số nguyên >= 0): %q", v)
+		}
+		rateLimit = n
+	}
 	var trustedProxies []string
 	for _, p := range strings.Split(os.Getenv("TRUSTED_PROXIES"), ",") {
 		if p = strings.TrimSpace(p); p != "" {
@@ -139,6 +153,9 @@ func Load() (*Config, error) {
 		JWTTTL:         jwtTTL,
 		RefreshTTL:     refreshTTL,
 		TrustedProxies: trustedProxies,
+
+		ClientIPHeader:     strings.TrimSpace(os.Getenv("CLIENT_IP_HEADER")),
+		RateLimitPerMinute: rateLimit,
 
 		R2AccountID:       os.Getenv("R2_ACCOUNT_ID"),
 		R2Bucket:          os.Getenv("R2_BUCKET"),

@@ -12,6 +12,14 @@ import (
 // X-Forwarded-For (giá trị bên trái do client tự đặt) → giả IP để vượt giới hạn đăng nhập.
 var trustedProxies []netip.Prefix
 
+// clientIPHeader — header do proxy ngoài cùng GHI ĐÈ bằng IP thật (CLIENT_IP_HEADER, vd CF-Connecting-IP). Chỉ bật khi
+// mọi request bắt buộc đi qua proxy đó (Render *.onrender.com luôn qua Cloudflare) — không thì client tự đặt header để
+// giả IP. Render không cho biết IP load balancer → không khai báo được TRUSTED_PROXIES, nên cần cách này.
+var clientIPHeader string
+
+// SetClientIPHeader đặt header IP thật (gọi 1 lần lúc khởi động; trống = tắt)
+func SetClientIPHeader(name string) { clientIPHeader = name }
+
 // SetTrustedProxies đọc danh sách IP / CIDR proxy tin cậy (gọi 1 lần lúc khởi động)
 func SetTrustedProxies(list []string) error {
 	trustedProxies = nil
@@ -41,10 +49,15 @@ func isTrustedProxy(addr netip.Addr) bool {
 	return false
 }
 
-// clientIP — IP người dùng. Kết nối tới từ proxy tin cậy: đọc X-Forwarded-For từ PHẢI sang trái (proxy nối IP nó
+// clientIP — IP người dùng. Có CLIENT_IP_HEADER (hợp lệ) thì lấy header đó. Kết nối tới từ proxy tin cậy: đọc X-Forwarded-For từ PHẢI sang trái (proxy nối IP nó
 // thấy vào cuối), bỏ qua các hop là proxy tin cậy, lấy hop đầu tiên không phải proxy — phần client tự thêm ở bên trái
 // không được dùng. Không có proxy tin cậy → IP kết nối trực tiếp.
 func clientIP(c *fiber.Ctx) string {
+	if clientIPHeader != "" {
+		if addr, err := netip.ParseAddr(strings.TrimSpace(c.Get(clientIPHeader))); err == nil {
+			return addr.Unmap().String()
+		}
+	}
 	remote, ok := netip.AddrFromSlice(c.Context().RemoteIP())
 	if !ok {
 		return c.IP()
