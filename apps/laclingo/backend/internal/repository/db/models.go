@@ -152,6 +152,16 @@ type ContentReport struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type ContentTranslation struct {
+	Entity     string             `json:"entity"`
+	EntityID   string             `json:"entity_id"`
+	Field      string             `json:"field"`
+	Locale     string             `json:"locale"`
+	SourceHash string             `json:"source_hash"`
+	Text       string             `json:"text"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DailyNote struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`

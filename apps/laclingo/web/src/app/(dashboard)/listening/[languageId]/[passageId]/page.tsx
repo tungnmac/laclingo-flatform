@@ -10,12 +10,14 @@ import { ListeningQuestionCard } from '@/features/listening/components/Listening
 import { ScriptPlayer } from '@/features/listening/components/ScriptPlayer'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningPassagePage({ params }: { params: { languageId: string; passageId: string } }) {
   const { data: passage, error, loading, reload } = useApi(() => listeningService.getPassage(params.passageId), [params.passageId])
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
@@ -28,7 +30,7 @@ export default function ListeningPassagePage({ params }: { params: { languageId:
           { label: t.nav.listening, href: '/listening' },
           passage.topic
             ? { label: passage.topic, href: `/listening/${params.languageId}/topic?name=${encodeURIComponent(passage.topic)}` }
-            : { label: language?.name ?? params.languageId, href: `/listening/${params.languageId}` },
+            : { label: languageName(params.languageId, language?.name), href: `/listening/${params.languageId}` },
           { label: passage.title },
         ]}
       />

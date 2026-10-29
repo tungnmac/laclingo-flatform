@@ -9,6 +9,7 @@ import { courseService } from '@/features/course/course.service'
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { VocabularyCard } from '@/types/api'
 
@@ -19,6 +20,7 @@ export default function FavoriteWordsPage({ searchParams }: { searchParams: { la
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
@@ -38,7 +40,7 @@ export default function FavoriteWordsPage({ searchParams }: { searchParams: { la
     fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
-          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: languageName(language, course?.name), href: `/learn/${language}` },
           { label: t.learn.vocabularyCardTitle, href: newWordsHref },
           { label: t.review.favoritesTitle },
         ]

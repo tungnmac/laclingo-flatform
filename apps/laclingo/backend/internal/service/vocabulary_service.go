@@ -47,7 +47,8 @@ type VocabularyRepository interface {
 // của chủ đề CẤP CAO NHẤT cộng gộp cả từ gắn trực tiếp (từ chung) và từ của
 // các chủ đề con (nếu có) — xem VocabularyService.ListTopics.
 type VocabularyTopic struct {
-	Name        string `json:"name" example:"Đồ ăn & Thức uống"`
+	Name        string `json:"name" example:"Đồ ăn & Thức uống"` // khoá dùng trong URL / bộ lọc / chủ đề yêu thích
+	Label       string `json:"label" example:"Food & Drinks"`    // tên hiển thị theo ngôn ngữ giao diện (chưa dịch = Name)
 	Icon        string `json:"icon" example:"🍜"`
 	Total       int32  `json:"total" example:"25"`
 	Learned     int32  `json:"learned" example:"12"` // số từ đã vào hàng đợi SRS
@@ -64,6 +65,7 @@ type VocabularyCard struct {
 	Example      string    `json:"example"`
 	PartOfSpeech string    `json:"part_of_speech" example:"noun"` // rỗng = chưa phân loại, xem partsOfSpeech
 	Topic        string    `json:"topic"`
+	TopicLabel   string    `json:"topic_label"` // tên chủ đề theo ngôn ngữ giao diện (xem VocabularyTopic.Label)
 	Level        string    `json:"level" example:"A1"`
 	AudioURL     string    `json:"audio_url"`
 	ImageURL     string    `json:"image_url"`
@@ -91,11 +93,32 @@ type FavoriteResponse struct {
 
 type VocabularyService struct {
 	repo VocabularyRepository
-	r2   *storage.R2Client // nil = R2 chưa cấu hình, upload ảnh minh hoạ tắt
+	r2   *storage.R2Client  // nil = R2 chưa cấu hình, upload ảnh minh hoạ tắt
+	tr   *ContentTranslator // dịch nghĩa / tên chủ đề theo ngôn ngữ giao diện (chỉ response học viên)
 }
 
-func NewVocabularyService(repo VocabularyRepository, r2 *storage.R2Client) *VocabularyService {
-	return &VocabularyService{repo: repo, r2: r2}
+func NewVocabularyService(repo VocabularyRepository, r2 *storage.R2Client, tr *ContentTranslator) *VocabularyService {
+	return &VocabularyService{repo: repo, r2: r2, tr: tr}
+}
+
+// translateTopics gắn Label (đã dịch) cho danh sách chủ đề
+func (s *VocabularyService) translateTopics(ctx context.Context, topics []VocabularyTopic) {
+	fields := make([]TranslatableField, 0, len(topics))
+	for i := range topics {
+		fields = append(fields, topicLabelField(topics[i].Name, &topics[i].Label))
+	}
+	s.tr.Apply(ctx, fields)
+}
+
+// translateCards dịch nghĩa + tên chủ đề của các thẻ từ (1 query)
+func (s *VocabularyService) translateCards(ctx context.Context, cards []VocabularyCard) {
+	fields := make([]TranslatableField, 0, 2*len(cards))
+	for i := range cards {
+		c := &cards[i]
+		fields = append(fields, vocabularyFields(c.VocabularyID, &c.Meaning, nil)...)
+		fields = append(fields, topicLabelField(c.Topic, &c.TopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
 }
 
 // ListTopics trả về các chủ đề CẤP CAO NHẤT của 1 ngôn ngữ (mặc định en) kèm
@@ -175,6 +198,7 @@ func (s *VocabularyService) ListTopics(ctx context.Context, userID uuid.UUID, la
 		}
 		results = append(results, VocabularyTopic{Name: name, Icon: b.icon, Total: b.total, Learned: b.learned, HasChildren: hasChildren[name]})
 	}
+	s.translateTopics(ctx, results)
 	return results, nil
 }
 
@@ -217,6 +241,7 @@ func (s *VocabularyService) ListChildTopics(ctx context.Context, userID uuid.UUI
 	for _, r := range rows {
 		results = append(results, VocabularyTopic{Name: r.Name, Icon: r.Icon, Total: r.Total, Learned: r.Learned})
 	}
+	s.translateTopics(ctx, results)
 	return results, nil
 }
 
@@ -241,6 +266,7 @@ func (s *VocabularyService) ListWordsByTopic(ctx context.Context, userID uuid.UU
 	for _, r := range rows {
 		results = append(results, toVocabularyCard(r))
 	}
+	s.translateCards(ctx, results)
 	return results, nil
 }
 
@@ -263,6 +289,7 @@ func (s *VocabularyService) ListFavorites(ctx context.Context, userID uuid.UUID,
 		// 2 query cố ý chọn cùng danh sách cột nên 2 kiểu Row convert được cho nhau
 		results = append(results, toVocabularyCard(db.ListVocabulariesByTopicRow(r)))
 	}
+	s.translateCards(ctx, results)
 	return results, nil
 }
 

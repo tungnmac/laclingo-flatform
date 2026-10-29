@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { LanguageSyncJob } from '@/types/api'
@@ -53,6 +54,7 @@ function summarize(jobs: LanguageSyncJob[]): Progress[] {
  * (link vào học), hoặc có chủ đề lỗi (thử lại). Chỉ hỏi lại định kỳ khi còn chủ đề đang chờ / đang dựng. */
 export function LanguageSyncBanner() {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const pathname = usePathname()
   const [jobs, setJobs] = useState<LanguageSyncJob[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
@@ -89,7 +91,7 @@ export function LanguageSyncBanner() {
       .catch(() => {})
   }, [hasJobs])
 
-  const nameOf = (id: string) => names[id] ?? id.toUpperCase()
+  const nameOf = (id: string) => languageName(id, names[id])
   const retry = (id: string) => {
     setDismissed((d) => d.filter((x) => x !== id))
     // API trả job của riêng ngôn ngữ này → tải lại toàn bộ để không mất tiến độ các ngôn ngữ khác

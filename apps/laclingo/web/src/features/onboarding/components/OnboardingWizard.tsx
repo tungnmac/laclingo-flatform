@@ -12,6 +12,7 @@ import { languageFlag } from '@/features/course/components/LanguageCard'
 import { userService } from '@/features/user/user.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn, displayName } from '@/lib/utils'
@@ -338,6 +339,7 @@ function AvatarStep({ form, update, onError }: StepProps & { onError: (msg: stri
 
 function LanguagesStep({ form, update }: StepProps) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: languages, error, loading, reload } = useApi(() => courseService.list(), [])
   if (loading) return <Spinner />
   if (!languages) return <ErrorState error={error ?? new Error()} onRetry={reload} />
@@ -369,7 +371,7 @@ function LanguagesStep({ form, update }: StepProps) {
                 <span className="text-2xl" aria-hidden>
                   {languageFlag(lang.id)}
                 </span>
-                <span className="flex-1 font-semibold text-slate-800">{lang.name}</span>
+                <span className="flex-1 font-semibold text-slate-800">{languageName(lang.id, lang.name)}</span>
                 <span
                   aria-hidden
                   className={cn('flex h-5 w-5 items-center justify-center rounded-full text-xs text-white', target ? 'bg-indigo-600' : 'ring-1 ring-slate-300')}
@@ -431,6 +433,7 @@ function TopicsStep({ form, update }: StepProps) {
 
 function LanguageTopics({ languageId, form, update }: StepProps & { languageId: string }) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: topics, error, loading, reload } = useApi(() => vocabularyService.listTopics(languageId), [languageId])
   const isSelected = (topic: string) => form.preferred_topics.some((p) => p.language_id === languageId && p.topic === topic)
   const toggle = (topic: string) =>
@@ -443,7 +446,7 @@ function LanguageTopics({ languageId, form, update }: StepProps & { languageId: 
   return (
     <section>
       <h3 className="mb-2 text-sm font-semibold text-slate-700">
-        <span aria-hidden>{languageFlag(languageId)}</span> {languageId.toUpperCase()}
+        <span aria-hidden>{languageFlag(languageId)}</span> {languageName(languageId)}
       </h3>
       {loading ? (
         <Spinner />
@@ -465,7 +468,7 @@ function LanguageTopics({ languageId, form, update }: StepProps & { languageId: 
               )}
             >
               {topic.icon && <span aria-hidden>{topic.icon} </span>}
-              {topic.name}
+              {topic.label || topic.name}
             </button>
           ))}
         </div>

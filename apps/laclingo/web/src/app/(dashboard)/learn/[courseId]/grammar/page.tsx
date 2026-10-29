@@ -6,19 +6,21 @@ import { courseService } from '@/features/course/course.service'
 import { TopicLessonList } from '@/features/grammar/components/TopicLessonList'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function GrammarTopicsPage({ params }: { params: { courseId: string } }) {
   const { data, error, loading, reload } = useApi(() => grammarService.listTopics(params.courseId), [params.courseId])
   const { data: language } = useApi(() => courseService.getById(params.courseId), [params.courseId])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   return (
     <div className="space-y-6">
       <Breadcrumbs
         items={[
           { label: t.nav.learn, href: '/learn' },
-          { label: language?.name ?? params.courseId, href: `/learn/${params.courseId}` },
+          { label: languageName(params.courseId, language?.name), href: `/learn/${params.courseId}` },
           { label: t.learn.grammarSectionTitle },
         ]}
       />

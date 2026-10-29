@@ -17,6 +17,7 @@ import { BlockedUsersCard } from '@/features/moderation/components/BlockedUsersC
 import { DeleteAccountCard } from '@/features/user/components/DeleteAccountCard'
 import { userService } from '@/features/user/user.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useSpeechVoices } from '@/hooks/useSpeechVoices'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
@@ -193,6 +194,7 @@ function VoiceSettingsCard() {
   const voiceByLang = useVoiceSettings((s) => s.voiceByLang)
   const setVoice = useVoiceSettings((s) => s.setVoice)
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   const preview = (languageId: string) => {
     void speakText(previewPhrase(languageId), languageId, voices, voiceByLang, { interrupt: true })
@@ -214,7 +216,7 @@ function VoiceSettingsCard() {
           return (
             <div key={lang.id} className="flex flex-wrap items-center gap-2">
               <span className="w-28 shrink-0 text-sm font-medium text-slate-700">
-                {languageFlag(lang.id)} {lang.name}
+                {languageFlag(lang.id)} {lang.id === 'vi' ? lang.name : languageName(lang.id, lang.name)}
               </span>
               <select
                 value={voiceByLang[lang.id] ?? ''}

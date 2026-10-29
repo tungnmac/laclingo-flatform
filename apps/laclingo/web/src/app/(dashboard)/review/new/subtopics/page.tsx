@@ -9,8 +9,10 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useLocale } from '@/store/locale'
 
 // Dùng được khi offline → đọc query bằng useQueryParams (xem hooks/useQueryParams.ts), cần bọc Suspense
 export default function SubtopicsPage() {
@@ -32,6 +34,8 @@ function Subtopics() {
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const languageName = useLanguageName()
+  const locale = useLocale((s) => s.locale)
   const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const languageQuery = (language ? `&language=${encodeURIComponent(language)}` : '') + scopeQuery
@@ -39,6 +43,15 @@ function Subtopics() {
   const topicsHref = (language ? `/review/new?language=${encodeURIComponent(language)}` : '/review/new') + scopeQuery
 
   const { data: subtopics, error, loading, reload } = useApi(() => vocabularyService.listChildTopics(parent, language), [parent, language])
+  // Tên hiển thị của chủ đề cha: có trong danh sách khi chủ đề cha có từ riêng, không thì lấy từ danh sách chủ đề
+  // (thường đã lưu sẵn) — giao diện tiếng Việt thì chính là tên
+  const ownLabel = subtopics?.find((s) => s.name === parent)?.label
+  const { data: topics } = useApi(
+    () => vocabularyService.listTopics(language),
+    [language],
+    !!subtopics && !ownLabel && locale !== 'vi',
+  )
+  const parentLabel = ownLabel || topics?.find((s) => s.name === parent)?.label || parent
 
   if (!parent) return <EmptyState icon="🧭" title={t.review.emptyNoTopic} />
   if (loading) return <Spinner label={t.review.loadingTopics} />
@@ -48,20 +61,20 @@ function Subtopics() {
     fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
-          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: languageName(language, course?.name), href: `/learn/${language}` },
           { label: t.learn.vocabularyCardTitle, href: topicsHref },
-          { label: parent },
+          { label: parentLabel },
         ]
       : [
           { label: t.nav.review, href: reviewHref },
           { label: t.review.newWordsTitle, href: topicsHref },
-          { label: parent },
+          { label: parentLabel },
         ]
 
   return (
     <div className="space-y-6">
       <Breadcrumbs items={breadcrumbItems} />
-      <PageHeader title={parent} description={t.review.subtopicsDesc} />
+      <PageHeader title={parentLabel} description={t.review.subtopicsDesc} />
 
       {!subtopics || subtopics.length === 0 ? (
         <EmptyState icon="📭" title={t.review.emptySubtopicWords} />
@@ -86,7 +99,7 @@ function Subtopics() {
                       </span>
                     )}
                   </div>
-                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{isOwn ? t.review.ownWordsLabel : sub.name}</h2>
+                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{isOwn ? t.review.ownWordsLabel : sub.label || sub.name}</h2>
                   <div>
                     <div className="mb-1 flex justify-between text-xs text-slate-500">
                       <span>{t.review.learnedLabel}</span>

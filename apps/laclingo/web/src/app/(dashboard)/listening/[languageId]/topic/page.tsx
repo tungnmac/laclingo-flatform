@@ -8,6 +8,7 @@ import { courseService } from '@/features/course/course.service'
 import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 /** Danh sách bài luyện nghe của 1 chủ đề — trước đây hiện hết bài của cả ngôn
@@ -23,6 +24,7 @@ export default function ListeningPassagesByTopicPage({
   const { data, error, loading, reload } = useApi(() => listeningService.listPassages(params.languageId, topic), [params.languageId, topic])
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   if (!topic) return <EmptyState icon="🧭" title={t.listening.emptyNoTopic} />
 
@@ -31,7 +33,7 @@ export default function ListeningPassagesByTopicPage({
       <Breadcrumbs
         items={[
           { label: t.nav.listening, href: '/listening' },
-          { label: language?.name ?? params.languageId, href: `/listening/${params.languageId}` },
+          { label: languageName(params.languageId, language?.name), href: `/listening/${params.languageId}` },
           { label: topic },
         ]}
       />

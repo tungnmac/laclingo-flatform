@@ -11,6 +11,7 @@ import { blogService } from '@/features/blog/blog.service'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn, formatDate } from '@/lib/utils'
@@ -19,6 +20,7 @@ const PAGE_SIZE = 10
 
 export default function BlogListPage() {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const [languageId, setLanguageId] = useState('')
   const [tag, setTag] = useState('')
   const [mineOnly, setMineOnly] = useState(false)
@@ -51,7 +53,7 @@ export default function BlogListPage() {
           <option value="">{t.blog.allLanguagesOption}</option>
           {languages?.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.name}
+              {languageName(l.id, l.name)}
             </option>
           ))}
         </select>

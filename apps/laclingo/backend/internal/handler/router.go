@@ -21,8 +21,10 @@ type ErrorResponse struct {
 // RegisterRoutes khởi tạo service/handler và gắn toàn bộ route /api/v1. r2 có
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
-// MissionService) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, languageContent *service.LanguageContentService, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService) {
+// MissionService) — luôn khác nil. translator dịch nội dung học theo ngôn ngữ giao diện (dùng chung với languageContent).
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, languageContent *service.LanguageContentService, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService, translator *service.ContentTranslator) {
+	// Trước mọi route: ngôn ngữ giao diện (Accept-Language) → ctx, service dịch nội dung học theo đó
+	app.Use(ContentLocale())
 	api := app.Group("/api/v1")
 
 	// Public
@@ -40,9 +42,9 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	classHandler := NewClassHandler(service.NewClassService(repo))
 	blogHandler := NewBlogHandler(service.NewBlogService(repo, r2, notifications))
 	blogHandler.RegisterPublicRoutes(api)
-	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2))
+	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2, translator))
 	vocabularyHandler.RegisterPublicRoutes(api)
-	onboardingHandler := NewOnboardingHandler(service.NewOnboardingService(repo, r2), languageContent)
+	onboardingHandler := NewOnboardingHandler(service.NewOnboardingService(repo, r2, translator), languageContent)
 	onboardingHandler.RegisterPublicRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
@@ -68,9 +70,9 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	onboardingHandler.RegisterRoutes(protected)
 	userHandler.RegisterRoutes(protected)
 	authHandler.RegisterProtectedRoutes(protected)
-	srsService := service.NewSRSService(repo, missions, plans)
+	srsService := service.NewSRSService(repo, missions, plans, translator)
 	NewSRSHandler(srsService).RegisterRoutes(protected)
-	NewDeckHandler(service.NewDeckService(repo, srsService)).RegisterRoutes(protected)
+	NewDeckHandler(service.NewDeckService(repo, srsService, translator)).RegisterRoutes(protected)
 	vocabularyHandler.RegisterRoutes(protected)
 	challengeHandler.RegisterRoutes(protected)
 	grammarHandler.RegisterProtectedRoutes(protected)

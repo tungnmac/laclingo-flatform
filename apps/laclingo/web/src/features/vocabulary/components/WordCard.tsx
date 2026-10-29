@@ -68,7 +68,7 @@ export function WordCard({
     <Card className={cn('flex w-full flex-col items-center gap-3 text-center', compact ? 'py-6' : 'py-8')}>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
-          {word.topic}
+          {word.topic_label || word.topic}
         </span>
         <LevelBadge level={word.level} />
       </div>

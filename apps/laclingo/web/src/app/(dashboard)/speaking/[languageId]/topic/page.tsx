@@ -9,6 +9,7 @@ import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { ScoreBadge } from '@/features/speaking/components/ScoreBadge'
 import { speakingService } from '@/features/speaking/speaking.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { SpeakingItem } from '@/types/api'
 
@@ -16,6 +17,7 @@ import type { SpeakingItem } from '@/types/api'
 export default function SpeakingTopicPage({ params, searchParams }: { params: { languageId: string }; searchParams: { name?: string } }) {
   const topic = searchParams.name ?? ''
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const { data, error, loading, reload } = useApi(() => speakingService.listItems(params.languageId, topic), [params.languageId, topic], !!topic)
 
@@ -31,7 +33,7 @@ export default function SpeakingTopicPage({ params, searchParams }: { params: { 
       <Breadcrumbs
         items={[
           { label: t.nav.speaking, href: '/speaking' },
-          { label: language?.name ?? params.languageId, href: `/speaking/${params.languageId}` },
+          { label: languageName(params.languageId, language?.name), href: `/speaking/${params.languageId}` },
           { label: topic },
         ]}
       />

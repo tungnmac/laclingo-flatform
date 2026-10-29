@@ -122,7 +122,7 @@ func newSRSFixture() *srsFixture {
 		NextReviewAt:   pgtype.Timestamptz{Time: f.now.Add(-48 * time.Hour), Valid: true},
 		LastReviewedAt: pgtype.Timestamptz{Time: f.now.Add(-72 * time.Hour), Valid: true},
 	}
-	f.svc = NewSRSService(f.repo, NewMissionService(f.missions, nil), f.quota)
+	f.svc = NewSRSService(f.repo, NewMissionService(f.missions, nil), f.quota, nil)
 	f.svc.now = func() time.Time { return f.now }
 	return f
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { RichTextEditor } from '@/features/blog/components/RichTextEditor'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import type { BlogPostDetail, BlogPostRequest, Language } from '@/types/api'
 
 /** Form tạo/sửa bài viết — dùng chung cho /blog/new và /blog/[postId]/edit.
@@ -24,6 +25,7 @@ export function BlogPostForm({
   error: string | null
 }) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const [title, setTitle] = useState(initial?.title ?? '')
   const [content, setContent] = useState(initial?.content ?? '')
   const [languageId, setLanguageId] = useState(initial?.language_id ?? '')
@@ -66,7 +68,7 @@ export function BlogPostForm({
           <option value="">—</option>
           {languages.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.name}
+              {languageName(l.id, l.name)}
             </option>
           ))}
         </select>

@@ -6,11 +6,13 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningLanguagePage() {
   const { data, error, loading, reload } = useApi(courseService.list, [])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   return (
     <>
@@ -29,7 +31,7 @@ export default function ListeningLanguagePage() {
             >
               <span className="text-4xl">{languageFlag(lang.id)}</span>
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-lg font-semibold text-slate-900 group-hover:text-indigo-600">{lang.name}</h3>
+                <h3 className="truncate text-lg font-semibold text-slate-900 group-hover:text-indigo-600">{languageName(lang.id, lang.name)}</h3>
               </div>
               <span aria-hidden className="text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-500">
                 →

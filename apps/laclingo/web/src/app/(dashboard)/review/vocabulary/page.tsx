@@ -15,6 +15,7 @@ import { PracticeSession } from '@/features/srs-review/components/practice/Pract
 import { useSRSReviewSession } from '@/features/srs-review/hooks/useSRSReviewSession'
 import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/AutoplaySettingsDropdown'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
@@ -38,6 +39,7 @@ function VocabularyReview() {
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
@@ -201,7 +203,7 @@ function VocabularyReview() {
     : fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
-          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: languageName(language, course?.name), href: `/learn/${language}` },
           { label: t.review.vocabReviewTitle },
         ]
       : [{ label: t.nav.review, href: reviewHref }, { label: t.review.vocabReviewTitle }]

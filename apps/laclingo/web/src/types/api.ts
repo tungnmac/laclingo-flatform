@@ -62,6 +62,7 @@ export interface AddLanguageRequest {
 export interface TopicSyncPreview {
   matched: { from: string; to: string }[]
   missing: string[] // ngôn ngữ mới chưa có chủ đề tương ứng
+  labels?: Record<string, string> // tên chủ đề → tên hiển thị theo ngôn ngữ giao diện (tên vẫn là khoá gửi lên)
 }
 
 // POST /users/me/languages/{id}/sync — đưa chủ đề (tên ở ngôn ngữ nguồn from) vào hàng đợi dựng nội dung cho ngôn ngữ mới;
@@ -77,10 +78,12 @@ export interface LanguageSyncJob {
   language_id: string
   source_language_id: string
   topic: string // tên ở ngôn ngữ nguồn
+  topic_label?: string // topic theo ngôn ngữ giao diện
   status: 'pending' | 'running' | 'done' | 'failed'
   attempts: number
   error?: string // lỗi lần gần nhất (chờ thử lại hoặc đã lỗi hẳn)
   result_topic?: string // tên chủ đề ở ngôn ngữ mới khi xong
+  result_topic_label?: string // result_topic theo ngôn ngữ giao diện
   run_after: string
   updated_at: string
 }
@@ -176,6 +179,7 @@ export interface NewVocabulary {
   part_of_speech: string // rỗng = chưa phân loại
   example: string
   topic: string
+  topic_label?: string // tên chủ đề theo ngôn ngữ giao diện (hiển thị; topic vẫn là khoá)
   level: string
   audio_url: string
 }
@@ -185,8 +189,11 @@ export interface LearnVocabularyResponse {
   learned: boolean
 }
 
+// name là khoá (URL, bộ lọc, chủ đề yêu thích); label là tên hiển thị theo ngôn ngữ giao diện. Trường *label đánh dấu
+// tuỳ chọn vì dữ liệu lưu offline từ trước có thể chưa có — hiển thị luôn `label || name`.
 export interface VocabularyTopic {
   name: string
+  label?: string
   icon: string
   total: number
   learned: number // số từ đã vào hàng đợi ôn tập SRS
@@ -203,6 +210,7 @@ export interface VocabularyCard {
   part_of_speech: string // rỗng = chưa phân loại
   example: string
   topic: string
+  topic_label?: string
   level: string
   audio_url: string
   image_url: string
@@ -923,6 +931,7 @@ export interface DeckWord {
   meaning: string
   part_of_speech: string // rỗng = chưa phân loại
   topic: string
+  topic_label?: string
   level: string
   image_url: string
   image_emoji: string
@@ -944,6 +953,7 @@ export interface ReviewWord {
   meaning: string
   part_of_speech: string // rỗng = chưa phân loại
   topic: string
+  topic_label?: string
   level: string
   image_url: string
   image_emoji: string

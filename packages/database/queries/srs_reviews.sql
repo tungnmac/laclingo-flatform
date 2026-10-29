@@ -74,12 +74,12 @@ ON CONFLICT (user_id, vocabulary_id) DO NOTHING;
 -- name: ListMeaningDistractorsForVocabularies :many
 -- 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
 -- chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
--- để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
-SELECT c.id AS vocabulary_id, d.meaning::text AS meaning
+-- để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa. distractor_id — từ chứa nghĩa nhiễu (để dịch nghĩa đó).
+SELECT c.id AS vocabulary_id, d.id AS distractor_id, d.meaning::text AS meaning
 FROM vocabularies c
 CROSS JOIN LATERAL (
-    SELECT x.meaning FROM (
-        SELECT DISTINCT ON (lower(trim(v.meaning))) v.meaning, v.topic IS NOT DISTINCT FROM c.topic AS same_topic
+    SELECT x.id, x.meaning FROM (
+        SELECT DISTINCT ON (lower(trim(v.meaning))) v.id, v.meaning, v.topic IS NOT DISTINCT FROM c.topic AS same_topic
         FROM vocabularies v
         WHERE v.language_id = c.language_id
           AND v.id <> c.id

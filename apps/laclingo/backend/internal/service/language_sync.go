@@ -36,10 +36,12 @@ type LanguageSyncJob struct {
 	LanguageID       string    `json:"language_id" example:"ja"`
 	SourceLanguageID string    `json:"source_language_id" example:"en"`
 	Topic            string    `json:"topic" example:"Gia đình & Con người"` // tên ở ngôn ngữ nguồn
+	TopicLabel       string    `json:"topic_label"`                          // Topic theo ngôn ngữ giao diện
 	Status           string    `json:"status" example:"pending" enums:"pending,running,done,failed"`
 	Attempts         int32     `json:"attempts"`
-	Error            string    `json:"error,omitempty"`        // lỗi lần gần nhất (job chờ thử lại hoặc đã lỗi hẳn)
-	ResultTopic      string    `json:"result_topic,omitempty"` // tên chủ đề ở ngôn ngữ mới khi xong
+	Error            string    `json:"error,omitempty"`              // lỗi lần gần nhất (job chờ thử lại hoặc đã lỗi hẳn)
+	ResultTopic      string    `json:"result_topic,omitempty"`       // tên chủ đề ở ngôn ngữ mới khi xong
+	ResultTopicLabel string    `json:"result_topic_label,omitempty"` // ResultTopic theo ngôn ngữ giao diện
 	RunAfter         time.Time `json:"run_after"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -131,6 +133,12 @@ func (s *LanguageContentService) SyncJobs(ctx context.Context, userID uuid.UUID,
 	for _, r := range rows {
 		jobs = append(jobs, toLanguageSyncJob(r))
 	}
+	fields := make([]TranslatableField, 0, 2*len(jobs))
+	for i := range jobs {
+		j := &jobs[i]
+		fields = append(fields, topicLabelField(j.Topic, &j.TopicLabel), topicLabelField(j.ResultTopic, &j.ResultTopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
 	return jobs, nil
 }
 
