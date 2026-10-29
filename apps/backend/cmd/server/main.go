@@ -64,6 +64,9 @@ func main() {
 		log.Fatal(err)
 	}
 	handler.SetClientIPHeader(cfg.ClientIPHeader)
+	if cfg.ClientIPHeader != "" && len(cfg.TrustedProxies) > 0 {
+		log.Printf("⚠️  CLIENT_IP_HEADER và TRUSTED_PROXIES cùng được đặt — chỉ tin %s khi kết nối tới từ proxy tin cậy", cfg.ClientIPHeader)
+	}
 
 	app.Use(handler.RequestLogger())
 	app.Use(cors.New(cors.Config{

@@ -53,16 +53,18 @@ func isTrustedProxy(addr netip.Addr) bool {
 // thấy vào cuối), bỏ qua các hop là proxy tin cậy, lấy hop đầu tiên không phải proxy — phần client tự thêm ở bên trái
 // không được dùng. Không có proxy tin cậy → IP kết nối trực tiếp.
 func clientIP(c *fiber.Ctx) string {
-	if clientIPHeader != "" {
-		if addr, err := netip.ParseAddr(strings.TrimSpace(c.Get(clientIPHeader))); err == nil {
-			return addr.Unmap().String()
-		}
-	}
 	remote, ok := netip.AddrFromSlice(c.Context().RemoteIP())
 	if !ok {
 		return c.IP()
 	}
 	remote = remote.Unmap()
+	// Có cả TRUSTED_PROXIES (reverse proxy riêng, vd Caddy): chỉ tin header khi kết nối tới từ proxy tin cậy — không thì
+	// client nối thẳng tự đặt header để giả IP
+	if clientIPHeader != "" && (len(trustedProxies) == 0 || isTrustedProxy(remote)) {
+		if addr, err := netip.ParseAddr(strings.TrimSpace(c.Get(clientIPHeader))); err == nil {
+			return addr.Unmap().String()
+		}
+	}
 	if len(trustedProxies) == 0 || !isTrustedProxy(remote) {
 		return remote.String()
 	}

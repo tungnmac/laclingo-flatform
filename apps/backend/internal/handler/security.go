@@ -22,6 +22,12 @@ func SecurityHeaders(production bool) fiber.Handler {
 	}
 }
 
+// rateLimitedResponse — 429 của giới hạn chung, code riêng để web không nhầm với hết lượt dùng trong ngày (daily_limit)
+type rateLimitedResponse struct {
+	Error string `json:"error"`
+	Code  string `json:"code" enums:"rate_limited"`
+}
+
 // RateLimit — giới hạn chung mỗi IP mỗi phút (chống 1 máy dồn request làm chậm cả server). Bỏ qua /health (Render
 // kiểm tra sức khoẻ) và preflight CORS. perMinute <= 0 = tắt. Bộ đếm trong bộ nhớ từng instance như failureLimiter.
 func RateLimit(perMinute int) fiber.Handler {
@@ -34,7 +40,9 @@ func RateLimit(perMinute int) fiber.Handler {
 		Next:              func(c *fiber.Ctx) bool { return c.Path() == "/health" || c.Method() == fiber.MethodOptions },
 		KeyGenerator:      keyByIP("all"),
 		LimiterMiddleware: limiter.SlidingWindow{},
-		LimitReached:      tooManyRequests("Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút"),
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(rateLimitedResponse{Error: "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút", Code: "rate_limited"})
+		},
 	})
 }
 
