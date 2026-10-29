@@ -1,0 +1,20 @@
+{
+  "name": "trading-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "TradeLab app Android (Capacitor) — nạp trading web production",
+  "scripts": {
+    "open:android": "cap open android",
+    "assets": "capacitor-assets generate --android --iconBackgroundColor '#059669' --splashBackgroundColor '#059669' --splashBackgroundColorDark '#064e3b'"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.3",
+    "typescript": "^5.6.0"
+  }
+}
