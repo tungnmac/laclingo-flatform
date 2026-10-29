@@ -17,7 +17,7 @@ android {
         }
     }
     // Ký bản phát hành bằng upload keystore khai báo trong android/keystore.properties (không commit — xem
-    // apps/mobile/README.md). Máy không có file này vẫn build được, chỉ là bản release chưa ký.
+    // apps/laclingo/mobile/README.md). Máy không có file này vẫn build được, chỉ là bản release chưa ký.
     def keystorePropsFile = rootProject.file('keystore.properties')
     signingConfigs {
         if (keystorePropsFile.exists()) {

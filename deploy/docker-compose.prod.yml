@@ -45,7 +45,7 @@ services:
 
   backend:
     logging: *logging
-    build: ../apps/backend
+    build: ../apps/laclingo/backend
     restart: unless-stopped
     env_file: .env
     environment:
@@ -67,7 +67,7 @@ services:
   web:
     logging: *logging
     build:
-      context: ../apps/web
+      context: ../apps/laclingo/web
       args:
         NEXT_PUBLIC_API_URL: https://${API_DOMAIN}/api/v1
         NEXT_PUBLIC_CONTACT_EMAIL: ${CONTACT_EMAIL:?Đặt CONTACT_EMAIL trong deploy/.env}

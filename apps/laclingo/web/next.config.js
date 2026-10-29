@@ -11,7 +11,7 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Docker (apps/web/Dockerfile): gom server + đúng phần node_modules cần chạy vào .next/standalone
+  // Docker (apps/laclingo/web/Dockerfile): gom server + đúng phần node_modules cần chạy vào .next/standalone
   output: 'standalone',
   // Không lộ "X-Powered-By: Next.js"
   poweredByHeader: false,

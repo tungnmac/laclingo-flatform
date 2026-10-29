@@ -4,7 +4,7 @@ import { isNativeApp, nativePlatform } from '@/lib/native'
 import type { AppPlatform, AppVersionInfo, AppVersionRequest } from '@/types/api'
 
 // Phiên bản vỏ native (Capacitor) đang cài — web nạp từ server nên luôn mới, chỉ vỏ native mới có thể cũ.
-// Plugin @capacitor/app cài ở apps/mobile; app build trước khi có plugin thì không kiểm tra được (bỏ qua).
+// Plugin @capacitor/app cài ở apps/laclingo/mobile; app build trước khi có plugin thì không kiểm tra được (bỏ qua).
 
 interface AppPlugin {
   getInfo(): Promise<{ version: string; build: string }>

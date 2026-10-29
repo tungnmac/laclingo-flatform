@@ -1,5 +1,5 @@
 # Backend Go Fiber — build tĩnh (CGO tắt), chạy trên Alpine nhỏ gọn bằng user không phải root.
-# Build: docker build -t laclingo-backend apps/backend
+# Build: docker build -t laclingo-backend apps/laclingo/backend
 FROM golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./

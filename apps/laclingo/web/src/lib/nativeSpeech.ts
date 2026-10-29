@@ -1,7 +1,7 @@
 import { registerPlugin, type PermissionState, type PluginListenerHandle } from '@capacitor/core'
 
 // Android WebView không có Web Speech API (speechSynthesis / SpeechRecognition) → trong app iOS/Android dùng plugin
-// native cài ở apps/mobile (@capacitor-community/text-to-speech, @capgo/capacitor-speech-recognition — bản có Swift
+// native cài ở apps/laclingo/mobile (@capacitor-community/text-to-speech, @capgo/capacitor-speech-recognition — bản có Swift
 // Package Manager cho iOS), web gọi qua registerPlugin như iap.ts. Chỉ khai báo phần đang dùng.
 
 interface TextToSpeechPlugin {

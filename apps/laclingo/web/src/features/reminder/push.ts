@@ -6,7 +6,7 @@ import { reminderService } from './reminder.service'
 // Thông báo đẩy nhắc học, 2 kênh:
 // - Trình duyệt: web push — đăng ký service worker (public/sw.js), xin quyền và gửi subscription lên backend.
 //   iOS chỉ hỗ trợ khi web được "Thêm vào Màn hình chính" (PWA) — trình duyệt thường thì isPushSupported() = false.
-// - App iOS/Android (Capacitor, apps/mobile): Firebase Cloud Messaging qua plugin @capacitor-firebase/messaging
+// - App iOS/Android (Capacitor, apps/laclingo/mobile): Firebase Cloud Messaging qua plugin @capacitor-firebase/messaging
 //   (cài ở app native, web chỉ gọi qua bridge) — gửi FCM token lên backend.
 
 /** Phần plugin @capacitor-firebase/messaging mà web dùng (plugin chỉ có ở app native) */

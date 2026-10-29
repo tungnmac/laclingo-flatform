@@ -9,7 +9,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 // Bắt buộc đặt — không mặc định localhost để bản phát hành không lỡ trỏ về máy dev.
 const serverUrl = process.env.CAP_SERVER_URL
 if (!serverUrl || !/^https?:\/\/[^/]+/.test(serverUrl)) {
-  throw new Error('Thiếu CAP_SERVER_URL (vd https://app.example.com) — xem apps/mobile/README.md')
+  throw new Error('Thiếu CAP_SERVER_URL (vd https://app.example.com) — xem apps/laclingo/mobile/README.md')
 }
 // Trang lỗi (www/index.html — server.errorPath) sinh từ error-page.html mỗi lần CLI nạp config (cap sync), kèm URL web
 // để mở lại web ("Thử lại", tự mở lại khi offline). File sinh ra không commit (.gitignore) — URL máy dev không lọt vào repo

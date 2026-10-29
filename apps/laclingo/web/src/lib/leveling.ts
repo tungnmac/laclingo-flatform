@@ -1,4 +1,4 @@
-// PHẢI khớp công thức backend: apps/backend/internal/leveling/leveling.go
+// PHẢI khớp công thức backend: apps/laclingo/backend/internal/leveling/leveling.go
 // (baseExp=100, growth=1.5) — chỉ dùng để vẽ progress bar, không phải nguồn
 // sự thật (level/exp thật luôn lấy từ server).
 export function expForLevel(level: number): number {

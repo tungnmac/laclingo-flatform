@@ -6,8 +6,8 @@ LacLingo chạy trên **1 máy chủ Linux** bằng Docker Compose:
 |---|---|
 | `postgres` | CSDL (volume `postgres_data`, không mở cổng ra ngoài) |
 | `migrate` | Chạy migration mỗi lần deploy rồi thoát — backend chỉ khởi động khi migration thành công |
-| `backend` | API Go (`apps/backend/Dockerfile`) |
-| `web` | Next.js (`apps/web/Dockerfile`) — app iOS/Android cũng nạp web từ đây |
+| `backend` | API Go (`apps/laclingo/backend/Dockerfile`) |
+| `web` | Next.js (`apps/laclingo/web/Dockerfile`) — app iOS/Android cũng nạp web từ đây |
 | `caddy` | Reverse proxy, **tự xin + gia hạn HTTPS** (Let's Encrypt) cho 2 domain |
 
 Cấu hình tối thiểu: 2 vCPU, 2 GB RAM (build image Next.js cần ~1.5 GB), Docker 24+ với Compose v2.
@@ -87,7 +87,7 @@ docker compose -f docker-compose.prod.yml up -d             # migrate chỉ ch�
 ## Ghi chú
 
 - **Đổi domain API** phải build lại web (`NEXT_PUBLIC_API_URL` nhúng lúc build) — lệnh `up -d --build` ở trên đã làm.
-- **App iOS/Android:** build bằng `CAP_SERVER_URL=https://<WEB_DOMAIN> npx cap sync` (xem `apps/mobile/README.md`).
+- **App iOS/Android:** build bằng `CAP_SERVER_URL=https://<WEB_DOMAIN> npx cap sync` (xem `apps/laclingo/mobile/README.md`).
 - **URL cần khai báo ở dịch vụ ngoài** (sau khi có domain):
   - Stripe webhook: `https://<API_DOMAIN>/api/v1/billing/stripe/webhook`
   - VNPay IPN: `https://<API_DOMAIN>/api/v1/billing/vnpay/ipn`

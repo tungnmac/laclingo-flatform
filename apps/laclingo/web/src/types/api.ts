@@ -1,4 +1,4 @@
-// Kiểu dữ liệu khớp với DTO của backend (xem apps/backend/docs/swagger.yaml)
+// Kiểu dữ liệu khớp với DTO của backend (xem apps/laclingo/backend/docs/swagger.yaml)
 
 export interface User {
   id: string
@@ -304,7 +304,7 @@ export interface ChallengeLeaderboardEntry {
   rank: number
 }
 
-// --- WebSocket message payloads (xem apps/backend/internal/game/messages.go) ---
+// --- WebSocket message payloads (xem apps/laclingo/backend/internal/game/messages.go) ---
 
 export interface WsEnvelope<T = unknown> {
   type: string
