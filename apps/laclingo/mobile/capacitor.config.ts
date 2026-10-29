@@ -68,8 +68,9 @@ const config: CapacitorConfig = {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     // Mua trong app: chỉ hoàn tất / acknowledge giao dịch sau khi backend đã xác thực + giao hàng
-    // @capacitor/app chỉ dùng để đọc phiên bản (kiểm tra cập nhật) — giữ nút Back Android như cũ (WebView lùi trang /
-    // thoát app), không để plugin tự bắt nút Back
+    // @capacitor/app chỉ dùng để đọc phiên bản (kiểm tra cập nhật). Nút Back do MainActivity xử lý (lùi trang trong
+    // WebView, trang đầu → đưa app xuống nền) — tắt bộ xử lý của plugin (không có listener JS thì ở trang đầu nó bỏ qua
+    // nút Back)
     App: {
       disableBackButtonHandler: true,
     },
