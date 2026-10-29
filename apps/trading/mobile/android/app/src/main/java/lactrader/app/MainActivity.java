@@ -40,7 +40,10 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
-    /** Trang lỗi nằm CÙNG host với web (server.url + "/" + errorPath, Capacitor phục vụ file local tại đó) */
+    /**
+     * Trang lỗi là file local Capacitor phục vụ ở host cục bộ (vd https://localhost/index.html — server.hostname +
+     * errorPath), KHÔNG cùng host với web; so khớp đúng URL đó vì getLocalUrl() khi có server.url lại là origin của web
+     */
     private boolean isErrorPage(String url) {
         String errorUrl = getBridge().getErrorUrl();
         return errorUrl != null && url != null && url.split("[?#]", 2)[0].equals(errorUrl);
