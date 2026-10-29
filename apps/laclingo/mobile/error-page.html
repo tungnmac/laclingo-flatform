@@ -30,7 +30,8 @@
   </main>
   <script>
     window.LACLINGO_URL = "";
-    function retry() { if (window.LACLINGO_URL) location.href = window.LACLINGO_URL }
+    // replace: thay trang lỗi trong lịch sử bằng web — nút Back không quay lại trang lỗi
+    function retry() { if (window.LACLINGO_URL) location.replace(window.LACLINGO_URL) }
     window.addEventListener('online', retry)
 
     // Mở app lúc mất mạng: lần nạp đầu lỗi vì service worker của web (ôn tập offline — web/public/sw.js) còn đang
