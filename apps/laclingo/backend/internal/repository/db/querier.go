@@ -357,6 +357,8 @@ type Querier interface {
 	// là lesson_count (lớp chưa có bài nào thì không có dòng, tự hiểu count=0).
 	// Gộp thành % tiến độ ở Go (lesson "done" khi completed_exercises >= total_exercises và total > 0).
 	ListClassProgressByLanguage(ctx context.Context, arg ListClassProgressByLanguageParams) ([]ListClassProgressByLanguageRow, error)
+	// Nguồn dịch "class": tên + mô tả lớp học
+	ListClassTranslationSources(ctx context.Context) ([]ListClassTranslationSourcesRow, error)
 	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
 	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
 	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
@@ -385,12 +387,22 @@ type Querier interface {
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGemTransactions(ctx context.Context, arg ListGemTransactionsParams) ([]GemTransaction, error)
+	// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, khoá = chính câu
+	// tiếng Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá
+	// được (giới hạn index) → bỏ, bài đó giữ tiếng Việt.
+	ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error)
+	// Nguồn dịch "grammar_exercise": câu hỏi + giải thích (đáp án / lựa chọn dịch riêng theo nguyên văn, xem grammar_answer)
+	ListGrammarExerciseTranslationSources(ctx context.Context) ([]ListGrammarExerciseTranslationSourcesRow, error)
 	// Tách riêng khỏi ListGrammarExercisesByLesson (learner dùng trong GetLessonByCode, không phân trang).
 	ListGrammarExercisesAdminPaged(ctx context.Context, arg ListGrammarExercisesAdminPagedParams) ([]ListGrammarExercisesAdminPagedRow, error)
 	ListGrammarExercisesByLesson(ctx context.Context, lessonID pgtype.UUID) ([]GrammarExercise, error)
+	// Nguồn dịch "grammar_lesson": tên bài + content (JSON — service chỉ lấy các khoá tiếng Việt, xem grammarLessonContentKeys)
+	ListGrammarLessonTranslationSources(ctx context.Context) ([]ListGrammarLessonTranslationSourcesRow, error)
 	// Tách riêng khỏi ListGrammarLessonsByLanguage (learner dùng, không phân trang).
 	ListGrammarLessonsAdminPaged(ctx context.Context, arg ListGrammarLessonsAdminPagedParams) ([]ListGrammarLessonsAdminPagedRow, error)
 	ListGrammarLessonsByLanguage(ctx context.Context, languageID string) ([]ListGrammarLessonsByLanguageRow, error)
+	// Nguồn dịch "grammar_topic": tên + mô tả chủ đề ngữ pháp
+	ListGrammarTopicTranslationSources(ctx context.Context) ([]ListGrammarTopicTranslationSourcesRow, error)
 	// Tách riêng khỏi ListGrammarTopicsByLanguage (learner dùng, không phân trang)
 	// để không đổi hành vi hiện có của learner.
 	ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error)

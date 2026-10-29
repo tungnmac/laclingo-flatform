@@ -9,6 +9,38 @@ import (
 	"context"
 )
 
+const listClassTranslationSources = `-- name: ListClassTranslationSources :many
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM classes
+`
+
+type ListClassTranslationSourcesRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// Nguồn dịch "class": tên + mô tả lớp học
+func (q *Queries) ListClassTranslationSources(ctx context.Context) ([]ListClassTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listClassTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassTranslationSourcesRow
+	for rows.Next() {
+		var i ListClassTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Description); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listContentTranslationHashes = `-- name: ListContentTranslationHashes :many
 SELECT entity_id, field, source_hash::text AS source_hash
 FROM content_translations
@@ -96,6 +128,134 @@ func (q *Queries) ListContentTranslations(ctx context.Context, arg ListContentTr
 			&i.SourceHash,
 			&i.Text,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarAnswerTranslationSources = `-- name: ListGrammarAnswerTranslationSources :many
+SELECT a.text::text AS text FROM (
+    SELECT correct_answer AS text FROM grammar_exercises
+    UNION
+    SELECT jsonb_array_elements_text(options) FROM grammar_exercises WHERE jsonb_typeof(options) = 'array'
+) a
+WHERE a.text <> '' AND length(a.text) <= 1000
+`
+
+// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, khoá = chính câu
+// tiếng Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá
+// được (giới hạn index) → bỏ, bài đó giữ tiếng Việt.
+func (q *Queries) ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listGrammarAnswerTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		items = append(items, text)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarExerciseTranslationSources = `-- name: ListGrammarExerciseTranslationSources :many
+SELECT id::text AS id, question, COALESCE(explanation, '')::text AS explanation
+FROM grammar_exercises
+`
+
+type ListGrammarExerciseTranslationSourcesRow struct {
+	ID          string `json:"id"`
+	Question    string `json:"question"`
+	Explanation string `json:"explanation"`
+}
+
+// Nguồn dịch "grammar_exercise": câu hỏi + giải thích (đáp án / lựa chọn dịch riêng theo nguyên văn, xem grammar_answer)
+func (q *Queries) ListGrammarExerciseTranslationSources(ctx context.Context) ([]ListGrammarExerciseTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarExerciseTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarExerciseTranslationSourcesRow
+	for rows.Next() {
+		var i ListGrammarExerciseTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Question, &i.Explanation); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarLessonTranslationSources = `-- name: ListGrammarLessonTranslationSources :many
+SELECT id::text AS id, title, content
+FROM grammar_lessons
+`
+
+type ListGrammarLessonTranslationSourcesRow struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Content []byte `json:"content"`
+}
+
+// Nguồn dịch "grammar_lesson": tên bài + content (JSON — service chỉ lấy các khoá tiếng Việt, xem grammarLessonContentKeys)
+func (q *Queries) ListGrammarLessonTranslationSources(ctx context.Context) ([]ListGrammarLessonTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarLessonTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarLessonTranslationSourcesRow
+	for rows.Next() {
+		var i ListGrammarLessonTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Content); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGrammarTopicTranslationSources = `-- name: ListGrammarTopicTranslationSources :many
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM grammar_topics
+`
+
+type ListGrammarTopicTranslationSourcesRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// Nguồn dịch "grammar_topic": tên + mô tả chủ đề ngữ pháp
+func (q *Queries) ListGrammarTopicTranslationSources(ctx context.Context) ([]ListGrammarTopicTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listGrammarTopicTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGrammarTopicTranslationSourcesRow
+	for rows.Next() {
+		var i ListGrammarTopicTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Description); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

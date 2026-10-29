@@ -36,3 +36,34 @@ SELECT DISTINCT name::text AS name FROM (
     UNION
     SELECT name FROM vocabulary_topics
 ) n;
+
+-- name: ListGrammarTopicTranslationSources :many
+-- Nguồn dịch "grammar_topic": tên + mô tả chủ đề ngữ pháp
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM grammar_topics;
+
+-- name: ListGrammarLessonTranslationSources :many
+-- Nguồn dịch "grammar_lesson": tên bài + content (JSON — service chỉ lấy các khoá tiếng Việt, xem grammarLessonContentKeys)
+SELECT id::text AS id, title, content
+FROM grammar_lessons;
+
+-- name: ListGrammarExerciseTranslationSources :many
+-- Nguồn dịch "grammar_exercise": câu hỏi + giải thích (đáp án / lựa chọn dịch riêng theo nguyên văn, xem grammar_answer)
+SELECT id::text AS id, question, COALESCE(explanation, '')::text AS explanation
+FROM grammar_exercises;
+
+-- name: ListGrammarAnswerTranslationSources :many
+-- Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, khoá = chính câu
+-- tiếng Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá
+-- được (giới hạn index) → bỏ, bài đó giữ tiếng Việt.
+SELECT a.text::text AS text FROM (
+    SELECT correct_answer AS text FROM grammar_exercises
+    UNION
+    SELECT jsonb_array_elements_text(options) FROM grammar_exercises WHERE jsonb_typeof(options) = 'array'
+) a
+WHERE a.text <> '' AND length(a.text) <= 1000;
+
+-- name: ListClassTranslationSources :many
+-- Nguồn dịch "class": tên + mô tả lớp học
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM classes;

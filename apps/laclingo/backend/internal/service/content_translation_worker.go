@@ -29,6 +29,11 @@ type ContentTranslationRepository interface {
 	UpsertContentTranslations(ctx context.Context, arg db.UpsertContentTranslationsParams) error
 	ListVocabularyTranslationSources(ctx context.Context) ([]db.ListVocabularyTranslationSourcesRow, error)
 	ListTopicNameTranslationSources(ctx context.Context) ([]string, error)
+	ListGrammarTopicTranslationSources(ctx context.Context) ([]db.ListGrammarTopicTranslationSourcesRow, error)
+	ListGrammarLessonTranslationSources(ctx context.Context) ([]db.ListGrammarLessonTranslationSourcesRow, error)
+	ListGrammarExerciseTranslationSources(ctx context.Context) ([]db.ListGrammarExerciseTranslationSourcesRow, error)
+	ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error)
+	ListClassTranslationSources(ctx context.Context) ([]db.ListClassTranslationSourcesRow, error)
 }
 
 // translationSourceRow — 1 dòng nguồn: values xếp đúng thứ tự fields của nguồn
@@ -41,7 +46,10 @@ type translationSourceRow struct {
 type translationSource struct {
 	entity string
 	fields []string
-	list   func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error)
+	// keepForeign: câu không có chữ cái riêng của tiếng Việt (vd lựa chọn "goes", "了", câu hỏi toàn tiếng Anh) ghi luôn
+	// bản dịch = nguyên văn, không gửi AI — AI dịch 1 chữ ngoại ngữ đứng lẻ (vd "goes" → "去") là hỏng bài tập
+	keepForeign bool
+	list        func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error)
 }
 
 var contentTranslationSources = []translationSource{
@@ -62,13 +70,79 @@ var contentTranslationSources = []translationSource{
 		fields: []string{translationFieldLabel},
 		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
 			names, err := repo.ListTopicNameTranslationSources(ctx)
-			out := make([]translationSourceRow, 0, len(names))
-			for _, name := range names {
-				out = append(out, translationSourceRow{id: name, values: []string{name}})
+			return dictionarySourceRows(names), err
+		},
+	},
+	{
+		entity: translationEntityGrammarTopic,
+		fields: []string{translationFieldTitle, translationFieldDescription},
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListGrammarTopicTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, translationSourceRow{id: r.ID, values: []string{r.Title, r.Description}})
 			}
 			return out, err
 		},
 	},
+	{
+		entity: translationEntityGrammarLesson,
+		fields: grammarLessonTranslationFields(),
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListGrammarLessonTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				// Câu trong content lấy bằng cùng hàm với lúc phủ bản dịch → hash khớp nhau
+				values := append([]string{r.Title}, jsonTextFields(r.Content, grammarLessonContentKeys)...)
+				out = append(out, translationSourceRow{id: r.ID, values: values})
+			}
+			return out, err
+		},
+	},
+	{
+		entity:      translationEntityGrammarExercise,
+		fields:      []string{translationFieldQuestion, translationFieldExplanation},
+		keepForeign: true,
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListGrammarExerciseTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, translationSourceRow{id: r.ID, values: []string{r.Question, r.Explanation}})
+			}
+			return out, err
+		},
+	},
+	{
+		// Mỗi đáp án / lựa chọn dịch thành 1 mục riêng — lựa chọn chỉ có chữ tiếng nước ngoài AI trả nguyên văn
+		entity:      translationEntityGrammarAnswer,
+		fields:      []string{translationFieldText},
+		keepForeign: true,
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			texts, err := repo.ListGrammarAnswerTranslationSources(ctx)
+			return dictionarySourceRows(texts), err
+		},
+	},
+	{
+		entity: translationEntityClass,
+		fields: []string{translationFieldTitle, translationFieldDescription},
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListClassTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, translationSourceRow{id: r.ID, values: []string{r.Title, r.Description}})
+			}
+			return out, err
+		},
+	},
+}
+
+// dictionarySourceRows — nguồn kiểu từ điển: id = chính câu tiếng Việt, 1 ô duy nhất
+func dictionarySourceRows(texts []string) []translationSourceRow {
+	out := make([]translationSourceRow, 0, len(texts))
+	for _, text := range texts {
+		out = append(out, translationSourceRow{id: text, values: []string{text}})
+	}
+	return out
 }
 
 // contentLocaleNames — tên ngôn ngữ đích trong prompt AI
@@ -129,6 +203,21 @@ func (w *contentTranslationWorker) runRound(ctx context.Context) error {
 			pending, err := w.pending(ctx, src, rows, locale)
 			if err != nil {
 				return err
+			}
+			if src.keepForeign {
+				var foreign []pendingTranslation
+				pending, foreign = splitForeign(pending)
+				if len(foreign) > 0 {
+					texts := make([]string, len(foreign))
+					for i, p := range foreign {
+						texts[i] = p.text
+					}
+					n, err := w.saveTranslations(ctx, src.entity, locale, foreign, texts)
+					if err != nil {
+						return err
+					}
+					translated += n
+				}
 			}
 			for start := 0; start < len(pending); start += w.batchSize {
 				batch := pending[start:min(start+w.batchSize, len(pending))]
@@ -240,6 +329,27 @@ func parseContentTranslations(text string, n int) ([]string, error) {
 	return texts, nil
 }
 
+// vietnameseLetters — chữ cái chỉ tiếng Việt có (đ, ă/â/ê/ô/ơ/ư và nguyên âm mang dấu thanh)
+const vietnameseLetters = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"
+
+// hasVietnamese — câu có ít nhất 1 chữ cái tiếng Việt có dấu. Câu tiếng Việt không dấu nào (vd "con", "ba") bị coi là
+// ngoại ngữ và giữ nguyên — hiếm, chấp nhận để không gửi AI những câu chỉ có chữ của ngôn ngữ đang học.
+func hasVietnamese(text string) bool {
+	return strings.ContainsAny(strings.ToLower(text), vietnameseLetters)
+}
+
+// splitForeign tách các câu không có phần tiếng Việt (giữ nguyên văn) khỏi các câu cần AI dịch
+func splitForeign(pending []pendingTranslation) (toAI, foreign []pendingTranslation) {
+	for _, p := range pending {
+		if hasVietnamese(p.text) {
+			toAI = append(toAI, p)
+		} else {
+			foreign = append(foreign, p)
+		}
+	}
+	return toAI, foreign
+}
+
 // translateBatch — 1 lần gọi AI cho 1 lô câu, ghi bản dịch cho mọi ô dùng các câu đó; trả số câu đã dịch
 func (w *contentTranslationWorker) translateBatch(ctx context.Context, entity, locale string, batch []pendingTranslation) (int, error) {
 	resp, err := w.ai.GenerateJSON(ctx, AIJSONRequest{
@@ -253,6 +363,11 @@ func (w *contentTranslationWorker) translateBatch(ctx context.Context, entity, l
 	if err != nil {
 		return 0, err
 	}
+	return w.saveTranslations(ctx, entity, locale, batch, texts)
+}
+
+// saveTranslations ghi bản dịch (theo vị trí, "" = bỏ qua) cho mọi ô dùng các câu đó; trả số câu đã ghi
+func (w *contentTranslationWorker) saveTranslations(ctx context.Context, entity, locale string, batch []pendingTranslation, texts []string) (int, error) {
 	params := db.UpsertContentTranslationsParams{Entity: entity, Locale: locale}
 	n := 0
 	for i, p := range batch {
