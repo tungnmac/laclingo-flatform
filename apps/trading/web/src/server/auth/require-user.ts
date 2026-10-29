@@ -3,12 +3,12 @@ import { cookies } from 'next/headers'
 import { db } from '../db/client'
 import { users, type UserRow } from '../db/schema'
 import { HttpError } from '../http'
-import { phoneOtpConfig } from './phone-otp'
 import { readSession, SESSION_COOKIE } from './session'
 import type { SessionUser } from './types'
+import { verificationEnabled } from './verification'
 
-/** Chưa có số điện thoại đã xác thực — chỉ bắt bổ sung khi OTP đang bật (tắt OTP không được khoá tài khoản cũ khỏi app) */
-export const needsPhone = (u: UserRow) => !u.phoneVerifiedAt && phoneOtpConfig() !== null
+/** Chưa xác thực email lẫn SĐT — chỉ bắt khi còn cách xác thực đang bật (tắt hết không được khoá tài khoản cũ khỏi app) */
+export const needsVerification = (u: UserRow) => !u.phoneVerifiedAt && !u.emailVerifiedAt && verificationEnabled()
 
 export function toSessionUser(u: UserRow): SessionUser {
   return {
@@ -17,7 +17,7 @@ export function toSessionUser(u: UserRow): SessionUser {
     username: u.username,
     display_name: u.displayName,
     role: u.role,
-    needs_profile: !u.username || needsPhone(u),
+    needs_profile: !u.username || !u.phone || needsVerification(u),
   }
 }
 

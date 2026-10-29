@@ -15,4 +15,16 @@ export type PhoneOtpConfig =
   | { provider: 'mock' } // chỉ development/test — mã cố định MOCK_OTP_CODE, không gửi SMS
   | null
 
+/** Các cách xác thực tài khoản đang bật — người dùng chọn 1, qua 1 trong 2 là đủ. `email.mock`: dev không gửi mail thật */
+export interface VerifyConfig {
+  phone: PhoneOtpConfig
+  email: { mock: boolean } | null
+  /** Thời gian chờ trước khi được gửi lại mã (OTP_RESEND_SECONDS) */
+  resendSeconds: number
+}
+
+/** Mã cố định của OTP giả lập (chỉ development/test) — cả SMS lẫn email */
 export const MOCK_OTP_CODE = '123456'
+
+/** Bằng chứng đã xác thực gửi kèm khi đăng ký / bổ sung hồ sơ */
+export type Verification = { method: 'phone'; phone_token: string } | { method: 'email'; challenge: string; code: string }

@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose'
+import { env } from '../env'
 import { HttpError } from '../http'
 import type { PhoneOtpConfig } from './types'
 
@@ -19,8 +20,6 @@ export function phoneOtpConfig(): PhoneOtpConfig {
 const FIREBASE_JWKS = createRemoteJWKSet(
   new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'),
 )
-/** Token phải vừa xác thực OTP xong (ID token Firebase sống 1 giờ — không nhận token cũ) */
-const MAX_OTP_AGE_SECONDS = 10 * 60
 
 /** Số điện thoại (E.164) mà token chứng minh người dùng đang giữ; token sai / hết hạn → 400 PHONE_TOKEN_INVALID */
 export async function verifyPhoneToken(token: string, key: JWTVerifyGetKey = FIREBASE_JWKS): Promise<string> {
@@ -36,10 +35,11 @@ export async function verifyPhoneToken(token: string, key: JWTVerifyGetKey = FIR
       audience: config.projectId,
       algorithms: ['RS256'],
     })
+    // token phải vừa nhập mã xong (ID token Firebase sống 1 giờ — không nhận token cũ)
     const authTime = typeof payload.auth_time === 'number' ? payload.auth_time : 0
     const phone = payload.phone_number
     const provider = (payload.firebase as { sign_in_provider?: unknown } | undefined)?.sign_in_provider
-    if (typeof phone !== 'string' || provider !== 'phone' || !payload.sub || Date.now() / 1000 - authTime > MAX_OTP_AGE_SECONDS)
+    if (typeof phone !== 'string' || provider !== 'phone' || !payload.sub || Date.now() / 1000 - authTime > env.otpTtlSeconds())
       throw new Error('stale')
     return phone
   } catch {

@@ -10,13 +10,21 @@ export interface Counter {
 /**
  * Vượt `limit` lần trong `windowSeconds` → 429 RATE_LIMITED (kèm số giây chờ).
  * Bộ đếm lỗi (Redis chết) → CHO QUA: rate limit là lớp bảo vệ thêm, không được làm sập đăng nhập.
+ * `failClosed`: giới hạn là lớp bảo vệ DUY NHẤT (vd số lần đoán mã OTP 6 số) → bộ đếm lỗi thì CHẶN (503 BUSY).
  */
-export async function rateLimit(counter: Counter, key: string, limit: number, windowSeconds: number): Promise<void> {
+export async function rateLimit(
+  counter: Counter,
+  key: string,
+  limit: number,
+  windowSeconds: number,
+  opts: { failClosed?: boolean } = {},
+): Promise<void> {
   let r: { count: number; ttl: number }
   try {
     r = await counter.incr(`trading:rl:${key}`, windowSeconds)
   } catch (err) {
     console.warn('⚠️ rate limit:', (err as Error).message)
+    if (opts.failClosed) throw new HttpError(503, 'BUSY')
     return
   }
   if (r.count > limit) throw new HttpError(429, 'RATE_LIMITED', { seconds: Math.max(1, r.ttl) })
