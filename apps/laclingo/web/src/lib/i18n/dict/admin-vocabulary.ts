@@ -24,6 +24,8 @@ export interface AdminVocabularyDict {
     childCount: (n: number) => string
     parentLabel: string
     noParentOption: string
+    topicKeyLabel: string
+    topicKeyHint: string
     iconLabel: string
     orderIndexLabel: string
     wordsTitle: string
@@ -97,6 +99,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       childCount: (n) => `${n} chủ đề con`,
       parentLabel: 'Chủ đề cha (để trống = chủ đề cấp cao nhất)',
       noParentOption: '— Không có, đây là chủ đề cấp cao nhất —',
+      topicKeyLabel: 'Khoá chủ đề dùng chung (không bắt buộc)',
+      topicKeyHint:
+        'Chữ thường, số, "_" — vd family. Chủ đề cùng nghĩa ở ngôn ngữ khác đặt cùng khoá thì người học đồng bộ được chủ đề yêu thích khi học ngôn ngữ mới.',
       iconLabel: 'Icon (emoji)',
       orderIndexLabel: 'Thứ tự hiển thị',
       wordsTitle: '📚 Từ vựng',
@@ -168,6 +173,9 @@ export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabulary
       childCount: (n) => `${n} subtopics`,
       parentLabel: 'Parent topic (leave empty = top-level topic)',
       noParentOption: '— None, this is a top-level topic —',
+      topicKeyLabel: 'Shared topic key (optional)',
+      topicKeyHint:
+        'Lowercase letters, digits, "_" — e.g. family. Give the same key to the matching topic in other languages so learners can sync favourite topics when starting a new language.',
       iconLabel: 'Icon (emoji)',
       orderIndexLabel: 'Display order',
       wordsTitle: '📚 Vocabulary',

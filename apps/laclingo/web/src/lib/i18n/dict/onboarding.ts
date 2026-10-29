@@ -36,6 +36,23 @@ export interface OnboardingDict {
     profileSetup: string
     profileSetupHint: string
   }
+  // Luồng "Học ngôn ngữ mới" (/learn/new-language): chọn ngôn ngữ → trình độ → chủ đề (mặc định hoặc đồng bộ)
+  addLanguage: {
+    cta: string
+    title: string
+    steps: { language: string; level: string; topics: string }
+    languageHint: string
+    learning: string
+    allLearning: string
+    needLanguage: string
+    topicSource: string
+    sourceDefault: string
+    sourceSync: (language: string) => string
+    syncedCount: (count: number, language: string) => string
+    syncNone: (language: string) => string
+    syncMissing: (topics: string) => string
+    start: string
+  }
 }
 
 export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
@@ -86,6 +103,22 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       profileSetup: 'Thiết lập lộ trình học',
       profileSetupHint: 'Quốc gia, ngôn ngữ mẹ đẻ, ngôn ngữ đang học, trình độ và chủ đề yêu thích.',
     },
+    addLanguage: {
+      cta: '+ Học ngôn ngữ mới',
+      title: 'Học ngôn ngữ mới',
+      steps: { language: 'Chọn ngôn ngữ', level: 'Trình độ hiện tại', topics: 'Chủ đề muốn học' },
+      languageHint: 'Chọn ngôn ngữ bạn muốn bắt đầu học.',
+      learning: 'Đang học',
+      allLearning: 'Bạn đang học tất cả ngôn ngữ hiện có.',
+      needLanguage: 'Chọn 1 ngôn ngữ để tiếp tục.',
+      topicSource: 'Lấy chủ đề từ',
+      sourceDefault: 'Danh sách mặc định',
+      sourceSync: (language) => `Đồng bộ từ ${language}`,
+      syncedCount: (count, language) => `Đã chọn sẵn ${count} chủ đề tương ứng với những gì bạn chọn/đã học ở ${language}.`,
+      syncNone: (language) => `Chưa có chủ đề nào ở ${language} khớp với ngôn ngữ này — hãy chọn trong danh sách bên dưới.`,
+      syncMissing: (topics) => `Chưa đồng bộ được: ${topics}`,
+      start: 'Bắt đầu học',
+    },
   },
   en: {
     onboarding: {
@@ -133,6 +166,22 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       doneSubtitle: 'The Lac bird has saved your learning path. Let’s start your first lesson!',
       profileSetup: 'Set up learning path',
       profileSetupHint: 'Country, native language, languages you learn, level and favourite topics.',
+    },
+    addLanguage: {
+      cta: '+ Learn a new language',
+      title: 'Learn a new language',
+      steps: { language: 'Pick a language', level: 'Current level', topics: 'Topics to learn' },
+      languageHint: 'Pick the language you want to start learning.',
+      learning: 'Learning',
+      allLearning: 'You are already learning every available language.',
+      needLanguage: 'Pick a language to continue.',
+      topicSource: 'Take topics from',
+      sourceDefault: 'Default list',
+      sourceSync: (language) => `Sync from ${language}`,
+      syncedCount: (count, language) => `Pre-selected ${count} topics matching what you picked or studied in ${language}.`,
+      syncNone: (language) => `None of your ${language} topics exist in this language yet — pick from the list below.`,
+      syncMissing: (topics) => `Could not sync: ${topics}`,
+      start: 'Start learning',
     },
   },
 }

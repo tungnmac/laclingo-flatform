@@ -24,6 +24,8 @@ func (h *OnboardingHandler) RegisterRoutes(router fiber.Router) {
 	router.Put("/users/me/onboarding", h.Save)
 	router.Post("/users/me/onboarding/skip", h.Skip)
 	router.Post("/users/me/avatar", h.UploadAvatar)
+	router.Put("/users/me/languages/:languageId", h.AddLanguage)
+	router.Get("/users/me/languages/:languageId/topic-sync", h.TopicSyncPreview)
 }
 
 // Get godoc
@@ -72,6 +74,47 @@ func (h *OnboardingHandler) Save(c *fiber.Ctx) error {
 // @Router       /users/me/onboarding/skip [post]
 func (h *OnboardingHandler) Skip(c *fiber.Ctx) error {
 	res, err := h.svc.Skip(c.UserContext(), currentUserID(c))
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
+}
+
+// AddLanguage godoc
+// @Summary      Học ngôn ngữ mới: thêm ngôn ngữ (đã có thì đổi trình độ) + ghi đè chủ đề yêu thích của riêng ngôn ngữ đó
+// @Tags         onboarding
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        languageId  path      string                      true  "Ngôn ngữ muốn học"
+// @Param        body        body      service.AddLanguageRequest  true  "Trình độ + chủ đề"
+// @Success      200         {object}  service.OnboardingResponse
+// @Failure      400         {object}  ErrorResponse
+// @Router       /users/me/languages/{languageId} [put]
+func (h *OnboardingHandler) AddLanguage(c *fiber.Ctx) error {
+	var req service.AddLanguageRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.svc.AddLanguage(c.UserContext(), currentUserID(c), c.Params("languageId"), req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
+}
+
+// TopicSyncPreview godoc
+// @Summary      Chủ đề đã chọn / đã học ở ngôn ngữ "from" ứng với chủ đề nào ở ngôn ngữ mới (khớp theo topic_key, rồi theo tên)
+// @Tags         onboarding
+// @Produce      json
+// @Security     BearerAuth
+// @Param        languageId  path      string  true  "Ngôn ngữ mới"
+// @Param        from        query     string  true  "Ngôn ngữ nguồn (đang học)"
+// @Success      200         {object}  service.TopicSyncPreview
+// @Failure      400         {object}  ErrorResponse
+// @Router       /users/me/languages/{languageId}/topic-sync [get]
+func (h *OnboardingHandler) TopicSyncPreview(c *fiber.Ctx) error {
+	res, err := h.svc.TopicSyncPreview(c.UserContext(), currentUserID(c), c.Params("languageId"), c.Query("from"))
 	if err != nil {
 		return err
 	}

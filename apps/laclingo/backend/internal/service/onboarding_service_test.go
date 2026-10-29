@@ -5,6 +5,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"laclingo-backend/internal/repository/db"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func intPtr(v int) *int { return &v }
@@ -64,5 +68,61 @@ func TestOnboardingValidateNormalizes(t *testing.T) {
 	}
 	if len(req.PreferredTopics) != 1 || req.PreferredTopics[0].Topic != "Du lịch" {
 		t.Fatalf("chủ đề trùng chưa gộp: %+v", req.PreferredTopics)
+	}
+}
+
+func TestNormalizeTopics(t *testing.T) {
+	got, err := normalizeTopics([]string{" Gia đình ", "Gia đình", "Du lịch"})
+	if err != nil || len(got) != 2 || got[0] != "Gia đình" || got[1] != "Du lịch" {
+		t.Fatalf("chưa chuẩn hoá/gộp trùng: %v %v", got, err)
+	}
+	for name, in := range map[string][]string{
+		"rỗng":    {" "},
+		"quá dài": {strings.Repeat("a", maxTopicLen+1)},
+		"quá nhiều": func() []string {
+			out := make([]string, maxTopicsPerLanguage+1)
+			for i := range out {
+				out[i] = strings.Repeat("a", i+1)
+			}
+			return out
+		}(),
+	} {
+		if _, err := normalizeTopics(in); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("%s: muốn ErrInvalidInput, được %v", name, err)
+		}
+	}
+}
+
+func TestMatchTopics(t *testing.T) {
+	key := func(v string) pgtype.Text { return pgtype.Text{String: v, Valid: v != ""} }
+	sourceTopics := []db.ListLanguageTopicKeysRow{
+		{Name: "Gia đình & Con người", TopicKey: key("family")},
+		{Name: "Đồ ăn & Thức uống", TopicKey: key("food_drink")},
+		{Name: "Du lịch & Phương tiện", TopicKey: key("travel")},
+		{Name: "Màu sắc"},
+	}
+	targetTopics := []db.ListLanguageTopicKeysRow{
+		{Name: "Gia đình", TopicKey: key("family")},
+		{Name: "Ẩm thực", TopicKey: key("food_drink")},
+		{Name: "Màu sắc"},                                           // chưa gắn khoá → khớp theo tên
+		{Name: "Du lịch & Phương tiện", TopicKey: key("transport")}, // cùng tên nhưng khác khoá → vẫn khớp theo tên
+	}
+	got := matchTopics([]string{"Gia đình & Con người", "Đồ ăn & Thức uống", "Màu sắc", "Du lịch & Phương tiện", "Thể thao"}, sourceTopics, targetTopics)
+	want := []TopicSyncMatch{
+		{From: "Gia đình & Con người", To: "Gia đình"},
+		{From: "Đồ ăn & Thức uống", To: "Ẩm thực"},
+		{From: "Màu sắc", To: "Màu sắc"},
+		{From: "Du lịch & Phương tiện", To: "Du lịch & Phương tiện"},
+	}
+	if len(got.Matched) != len(want) {
+		t.Fatalf("matched = %+v", got.Matched)
+	}
+	for i := range want {
+		if got.Matched[i] != want[i] {
+			t.Fatalf("matched[%d] = %+v, muốn %+v", i, got.Matched[i], want[i])
+		}
+	}
+	if len(got.Missing) != 1 || got.Missing[0] != "Thể thao" {
+		t.Fatalf("missing = %v", got.Missing)
 	}
 }

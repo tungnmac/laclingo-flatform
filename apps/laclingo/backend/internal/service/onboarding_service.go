@@ -27,6 +27,8 @@ type OnboardingRepository interface {
 	MarkUserOnboarded(ctx context.Context, id pgtype.UUID) (db.User, error)
 	ListUserTargetLanguages(ctx context.Context, userID pgtype.UUID) ([]db.ListUserTargetLanguagesRow, error)
 	ListUserPreferredTopics(ctx context.Context, userID pgtype.UUID) ([]db.ListUserPreferredTopicsRow, error)
+	ListUserSourceTopics(ctx context.Context, arg db.ListUserSourceTopicsParams) ([]string, error)
+	ListLanguageTopicKeys(ctx context.Context, languageID string) ([]db.ListLanguageTopicKeysRow, error)
 	CreateUserAvatar(ctx context.Context, arg db.CreateUserAvatarParams) (db.UserAvatar, error)
 	GetUserAvatarByID(ctx context.Context, id pgtype.UUID) (db.UserAvatar, error)
 	BeginTx(ctx context.Context) (pgx.Tx, error)
@@ -85,6 +87,26 @@ type SaveOnboardingRequest struct {
 	TargetLanguages []TargetLanguage `json:"target_languages"`
 	PreferredTopics []PreferredTopic `json:"preferred_topics"`
 	Complete        bool             `json:"complete"`
+}
+
+// AddLanguageRequest — luồng "Học ngôn ngữ mới": trình độ + chủ đề yêu thích của RIÊNG ngôn ngữ đó (ghi đè chủ đề cũ
+// của ngôn ngữ này, không đụng ngôn ngữ khác)
+type AddLanguageRequest struct {
+	Level  string   `json:"level" example:"A1" enums:"A1,A2,B1,B2,C1,C2"`
+	Topics []string `json:"topics" example:"Gia đình"`
+}
+
+// TopicSyncMatch — chủ đề From ở ngôn ngữ nguồn ứng với chủ đề To ở ngôn ngữ mới
+type TopicSyncMatch struct {
+	From string `json:"from" example:"Gia đình & Con người"`
+	To   string `json:"to" example:"Gia đình"`
+}
+
+// TopicSyncPreview — đồng bộ chủ đề (đã chọn hoặc đã học) từ ngôn ngữ nguồn sang ngôn ngữ mới: Matched khớp được
+// (theo topic_key, không có khoá thì theo tên), Missing là chủ đề ngôn ngữ mới chưa có
+type TopicSyncPreview struct {
+	Matched []TopicSyncMatch `json:"matched"`
+	Missing []string         `json:"missing"`
 }
 
 type AvatarUploadResponse struct {
@@ -254,6 +276,135 @@ func (s *OnboardingService) Save(ctx context.Context, userID uuid.UUID, req Save
 		return OnboardingResponse{}, err
 	}
 	return s.Get(ctx, userID)
+}
+
+// normalizeTopics bỏ khoảng trắng 2 đầu + gộp trùng; chủ đề rỗng / quá dài / quá nhiều → ErrInvalidInput
+func normalizeTopics(topics []string) ([]string, error) {
+	seen := make(map[string]bool, len(topics))
+	out := make([]string, 0, len(topics))
+	for _, t := range topics {
+		t = strings.TrimSpace(t)
+		if t == "" || utf8.RuneCountInString(t) > maxTopicLen {
+			return nil, fmt.Errorf("chủ đề yêu thích không hợp lệ: %w", ErrInvalidInput)
+		}
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	if len(out) > maxTopicsPerLanguage {
+		return nil, fmt.Errorf("chọn tối đa %d chủ đề mỗi ngôn ngữ: %w", maxTopicsPerLanguage, ErrInvalidInput)
+	}
+	return out, nil
+}
+
+// AddLanguage thêm 1 ngôn ngữ đang học (đã có thì đổi trình độ) và ghi chủ đề yêu thích của ngôn ngữ đó — chỉ ghi
+// lựa chọn của user, nội dung học vẫn là kho chung theo ngôn ngữ (không sao chép từ vựng / tạo sẵn hàng đợi ôn tập).
+func (s *OnboardingService) AddLanguage(ctx context.Context, userID uuid.UUID, languageID string, req AddLanguageRequest) (OnboardingResponse, error) {
+	languageID = strings.TrimSpace(languageID)
+	level := strings.ToUpper(strings.TrimSpace(req.Level))
+	if languageID == "" || !validCEFR[level] {
+		return OnboardingResponse{}, fmt.Errorf("ngôn ngữ học / trình độ không hợp lệ: %w", ErrInvalidInput)
+	}
+	topics, err := normalizeTopics(req.Topics)
+	if err != nil {
+		return OnboardingResponse{}, err
+	}
+
+	tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return OnboardingResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.repo.WithTx(tx)
+	uid := toPgUUID(userID)
+
+	if _, err := q.LockUserForUpdate(ctx, uid); errors.Is(err, pgx.ErrNoRows) {
+		return OnboardingResponse{}, ErrNotFound
+	} else if err != nil {
+		return OnboardingResponse{}, err
+	}
+	current, err := q.ListUserTargetLanguages(ctx, uid)
+	if err != nil {
+		return OnboardingResponse{}, err
+	}
+	learning := false
+	for _, t := range current {
+		learning = learning || t.LanguageID == languageID
+	}
+	if !learning && len(current) >= maxTargetLanguages {
+		return OnboardingResponse{}, fmt.Errorf("chỉ học tối đa %d ngôn ngữ cùng lúc: %w", maxTargetLanguages, ErrInvalidInput)
+	}
+	err = q.UpsertUserTargetLanguage(ctx, db.UpsertUserTargetLanguageParams{UserID: uid, LanguageID: languageID, Level: level})
+	if isPgError(err, pgForeignKeyViolation) {
+		return OnboardingResponse{}, fmt.Errorf("ngôn ngữ %q không tồn tại: %w", languageID, ErrInvalidInput)
+	}
+	if err != nil {
+		return OnboardingResponse{}, err
+	}
+	if err := q.DeleteUserPreferredTopicsByLanguage(ctx, db.DeleteUserPreferredTopicsByLanguageParams{UserID: uid, LanguageID: languageID}); err != nil {
+		return OnboardingResponse{}, err
+	}
+	for _, t := range topics {
+		if err := q.InsertUserPreferredTopic(ctx, db.InsertUserPreferredTopicParams{UserID: uid, LanguageID: languageID, Topic: t}); err != nil {
+			return OnboardingResponse{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return OnboardingResponse{}, err
+	}
+	return s.Get(ctx, userID)
+}
+
+// TopicSyncPreview — chủ đề user đã chọn / đã học ở ngôn ngữ fromLanguageID ứng với chủ đề nào ở languageID (web
+// chọn sẵn các chủ đề khớp ở bước chọn chủ đề của luồng "Học ngôn ngữ mới")
+func (s *OnboardingService) TopicSyncPreview(ctx context.Context, userID uuid.UUID, languageID, fromLanguageID string) (TopicSyncPreview, error) {
+	if languageID == "" || fromLanguageID == "" || languageID == fromLanguageID {
+		return TopicSyncPreview{}, fmt.Errorf("ngôn ngữ nguồn không hợp lệ: %w", ErrInvalidInput)
+	}
+	source, err := s.repo.ListUserSourceTopics(ctx, db.ListUserSourceTopicsParams{UserID: toPgUUID(userID), LanguageID: fromLanguageID})
+	if err != nil {
+		return TopicSyncPreview{}, err
+	}
+	sourceTopics, err := s.repo.ListLanguageTopicKeys(ctx, fromLanguageID)
+	if err != nil {
+		return TopicSyncPreview{}, err
+	}
+	targetTopics, err := s.repo.ListLanguageTopicKeys(ctx, languageID)
+	if err != nil {
+		return TopicSyncPreview{}, err
+	}
+	return matchTopics(source, sourceTopics, targetTopics), nil
+}
+
+// matchTopics ghép từng chủ đề nguồn với chủ đề ngôn ngữ mới: cùng topic_key trước, không có thì cùng tên
+func matchTopics(source []string, sourceTopics, targetTopics []db.ListLanguageTopicKeysRow) TopicSyncPreview {
+	sourceKey := make(map[string]string, len(sourceTopics))
+	for _, t := range sourceTopics {
+		if t.TopicKey.Valid {
+			sourceKey[t.Name] = t.TopicKey.String
+		}
+	}
+	targetByKey := make(map[string]string, len(targetTopics))
+	targetNames := make(map[string]bool, len(targetTopics))
+	for _, t := range targetTopics {
+		targetNames[t.Name] = true
+		if t.TopicKey.Valid {
+			targetByKey[t.TopicKey.String] = t.Name
+		}
+	}
+	res := TopicSyncPreview{Matched: []TopicSyncMatch{}, Missing: []string{}}
+	for _, name := range source {
+		if to, ok := targetByKey[sourceKey[name]]; ok {
+			res.Matched = append(res.Matched, TopicSyncMatch{From: name, To: to})
+		} else if targetNames[name] {
+			res.Matched = append(res.Matched, TopicSyncMatch{From: name, To: name})
+		} else {
+			res.Missing = append(res.Missing, name)
+		}
+	}
+	return res
 }
 
 // Skip — "Để sau": không hỏi lại onboarding (mở lại được từ Hồ sơ)

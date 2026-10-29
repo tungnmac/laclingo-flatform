@@ -119,15 +119,15 @@ RETURNING *;
 DELETE FROM vocabularies WHERE id = $1;
 
 -- name: CreateVocabularyTopic :one
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name, topic_key)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (language_id, name) DO UPDATE SET icon = EXCLUDED.icon, order_index = EXCLUDED.order_index, parent_name = EXCLUDED.parent_name, topic_key = EXCLUDED.topic_key
 RETURNING *;
 
 -- name: InsertVocabularyTopic :one
 -- Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
-INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name, topic_key)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListVocabularyTopicsByLanguageAdmin :many

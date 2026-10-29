@@ -16,7 +16,8 @@ for f in \
   "$db/seeds/0008_listening_seed.sql" \
   "$db/seeds/0009_vocabulary_example_meaning_seed.sql" \
   "$db/seeds/0010_vocabulary_part_of_speech_seed.sql" \
-  "$db/seeds/0011_speaking_it_interview_seed.sql"; do
+  "$db/seeds/0011_speaking_it_interview_seed.sql" \
+  "$db/seeds/0012_vocabulary_topic_keys_seed.sql"; do
   echo "→ $f"
   docker compose -f docker-compose.prod.yml exec -T postgres psql -q -U laclingo -d laclingo -v ON_ERROR_STOP=1 < "$f"
 done

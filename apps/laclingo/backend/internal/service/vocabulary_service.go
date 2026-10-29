@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"laclingo-backend/internal/repository/db"
@@ -392,6 +393,9 @@ type VocabularyAdminResponse struct {
 	ImageEmoji     string    `json:"image_emoji,omitempty"`
 }
 
+// topicKeyRe — topic_key: chữ thường, số, "_" (vd "food_drink"), tối đa 50 ký tự như cột vocabulary_topics.topic_key
+var topicKeyRe = regexp.MustCompile(`^[a-z0-9_]{1,50}$`)
+
 type VocabularyTopicRequest struct {
 	LanguageID string `json:"language_id" example:"en"`
 	Name       string `json:"name" example:"Công nghệ thông tin"`
@@ -401,6 +405,9 @@ type VocabularyTopicRequest struct {
 	// chủ đề cấp cao nhất. Chủ đề cha phải là chủ đề cấp cao nhất và chưa có
 	// con nào khác lồng trên nó — không lồng quá 2 cấp (xem CreateOrUpdateTopic).
 	ParentName *string `json:"parent_name,omitempty" example:"Công việc & Nghề nghiệp"`
+	// TopicKey — khoá dùng chung giữa các ngôn ngữ (chữ thường, số, "_"); "" = bỏ khoá, không gửi = giữ khoá đang có.
+	// Chủ đề cùng nghĩa ở ngôn ngữ khác đặt cùng khoá thì "Học ngôn ngữ mới" đồng bộ được chủ đề yêu thích sang.
+	TopicKey *string `json:"topic_key,omitempty" example:"family"`
 	// CreateOnly — form "Thêm chủ đề" / nhập hàng loạt: trùng tên thì báo lỗi thay vì cập nhật chủ đề cũ
 	CreateOnly bool `json:"create_only,omitempty"`
 }
@@ -411,10 +418,11 @@ type VocabularyTopicAdminResponse struct {
 	Icon       string  `json:"icon"`
 	OrderIndex int32   `json:"order_index"`
 	ParentName *string `json:"parent_name,omitempty"`
+	TopicKey   string  `json:"topic_key,omitempty"`
 }
 
 func toVocabularyTopicAdminResponse(t db.VocabularyTopic) VocabularyTopicAdminResponse {
-	resp := VocabularyTopicAdminResponse{LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex}
+	resp := VocabularyTopicAdminResponse{LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex, TopicKey: t.TopicKey.String}
 	if t.ParentName.Valid {
 		resp.ParentName = &t.ParentName.String
 	}
@@ -556,6 +564,21 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 	if icon == "" {
 		icon = "📘"
 	}
+	var topicKey pgtype.Text
+	if req.TopicKey != nil {
+		key := strings.ToLower(strings.TrimSpace(*req.TopicKey))
+		if key != "" && !topicKeyRe.MatchString(key) {
+			return VocabularyTopicAdminResponse{}, fmt.Errorf("khoá chủ đề chỉ gồm chữ thường, số, \"_\" (tối đa 50 ký tự): %w", ErrInvalidInput)
+		}
+		topicKey = pgtype.Text{String: key, Valid: key != ""}
+	} else if !req.CreateOnly {
+		// Upsert ghi đè topic_key — client cũ / script không gửi field này thì giữ khoá đang có
+		existing, err := s.repo.GetVocabularyTopic(ctx, db.GetVocabularyTopicParams{LanguageID: req.LanguageID, Name: req.Name})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return VocabularyTopicAdminResponse{}, err
+		}
+		topicKey = existing.TopicKey
+	}
 
 	var parentName pgtype.Text
 	if req.ParentName != nil && *req.ParentName != "" {
@@ -586,13 +609,19 @@ func (s *VocabularyService) CreateOrUpdateTopic(ctx context.Context, req Vocabul
 		parentName = pgtype.Text{String: parent, Valid: true}
 	}
 
-	params := db.CreateVocabularyTopicParams{LanguageID: req.LanguageID, Name: req.Name, Icon: icon, OrderIndex: req.OrderIndex, ParentName: parentName}
+	params := db.CreateVocabularyTopicParams{
+		LanguageID: req.LanguageID, Name: req.Name, Icon: icon, OrderIndex: req.OrderIndex, ParentName: parentName,
+		TopicKey: topicKey,
+	}
 	var t db.VocabularyTopic
 	var err error
 	if req.CreateOnly {
 		t, err = s.repo.InsertVocabularyTopic(ctx, db.InsertVocabularyTopicParams(params))
 	} else {
 		t, err = s.repo.CreateVocabularyTopic(ctx, params)
+	}
+	if isPgErrorConstraint(err, pgUniqueViolation, "uq_vocabulary_topics_key") {
+		return VocabularyTopicAdminResponse{}, newDuplicate("Khoá chủ đề \"%s\" đã gắn cho chủ đề khác trong ngôn ngữ này", topicKey.String)
 	}
 	err = asDuplicate(err, fmt.Sprintf("Chủ đề \"%s\" đã tồn tại trong ngôn ngữ này", strings.TrimSpace(req.Name)))
 	if isPgError(err, pgForeignKeyViolation) {
@@ -622,7 +651,7 @@ func (s *VocabularyService) ListTopicsAdmin(ctx context.Context, languageID, sea
 	for _, t := range rows {
 		total = t.TotalCount
 		results = append(results, toVocabularyTopicAdminResponse(db.VocabularyTopic{
-			LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex, ParentName: t.ParentName,
+			LanguageID: t.LanguageID, Name: t.Name, Icon: t.Icon, OrderIndex: t.OrderIndex, ParentName: t.ParentName, TopicKey: t.TopicKey,
 		}))
 	}
 	return PageResult[VocabularyTopicAdminResponse]{Items: results, Total: total}, nil
