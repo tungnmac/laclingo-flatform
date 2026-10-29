@@ -1,7 +1,7 @@
 DB_URL=postgresql://laclingo_user:laclingo_password@localhost:5432/laclingo_db?sslmode=disable
 N ?= 1
 
-.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-test vn-sync contests-finalize migrate-all seed-all
+.PHONY: install init-backend init-web dev-up dev-down sqlc-gen migrate migrate-down migrate-create seed dev-backend run-backend dev-web run-web build-backend swagger clean trading-install trading-db-create trading-migrate trading-seed trading-dev trading-build trading-start trading-test vn-sync contests-finalize migrate-all seed-all
 
 # ========================
 # SETUP
@@ -149,6 +149,13 @@ trading-seed:
 
 trading-dev:
 	cd apps/trading/web && npm run dev
+
+# Chạy bản production ở local: next start cần thư mục .next nên phải build trước
+trading-build:
+	cd apps/trading/web && npm run build
+
+trading-start: trading-build
+	cd apps/trading/web && npm start
 
 trading-test:
 	cd apps/trading/web && npm test
