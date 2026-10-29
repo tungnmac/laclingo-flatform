@@ -86,7 +86,7 @@ func main() {
 	app.Use(handler.RequestLogger())
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowHeaders: "Origin, Content-Type, Accept, Accept-Language, Authorization",
 	}))
 	app.Use(handler.SecurityHeaders(cfg.AppEnv == "production"))
 	app.Use(handler.RateLimit(cfg.RateLimitPerMinute))
@@ -146,12 +146,18 @@ func main() {
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
-	languageContent := service.NewLanguageContentService(repo, aiClient, notificationService)
+	translator := service.NewContentTranslator(repo)
+	languageContent := service.NewLanguageContentService(repo, aiClient, notificationService, translator)
 	go languageContent.StartSyncWorker(schedulerCtx) // hàng đợi dựng nội dung cho ngôn ngữ mới
+	if aiClient != nil {
+		go service.StartContentTranslationWorker(schedulerCtx, repo, aiClient) // dịch sẵn nội dung học sang ngôn ngữ giao diện
+	} else {
+		log.Println("⚠️  Chưa cấu hình AI — nội dung học chỉ hiện tiếng Việt ở mọi ngôn ngữ giao diện")
+	}
 
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	tokens.SetRefreshTTL(cfg.RefreshTTL)
-	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, languageContent, analyzer, plans, newPaymentService(cfg, repo, notificationService))
+	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, languageContent, analyzer, plans, newPaymentService(cfg, repo, notificationService), translator)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

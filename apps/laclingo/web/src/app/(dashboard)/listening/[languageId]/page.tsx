@@ -8,6 +8,7 @@ import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 /** Chọn chủ đề luyện nghe — mỗi thẻ hiện số bài trong chủ đề đó (giống trang
@@ -17,10 +18,11 @@ export default function ListeningTopicsPage({ params }: { params: { languageId: 
   const { data, error, loading, reload } = useApi(() => listeningService.listTopics(params.languageId), [params.languageId])
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: t.nav.listening, href: '/listening' }, { label: language?.name ?? params.languageId }]} />
+      <Breadcrumbs items={[{ label: t.nav.listening, href: '/listening' }, { label: languageName(params.languageId, language?.name) }]} />
 
       <div className="flex items-center gap-2">
         <span className="text-3xl">{languageFlag(params.languageId)}</span>

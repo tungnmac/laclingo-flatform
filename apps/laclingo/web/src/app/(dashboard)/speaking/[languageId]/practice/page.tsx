@@ -9,6 +9,7 @@ import { courseService } from '@/features/course/course.service'
 import { SpeakingPractice } from '@/features/speaking/components/SpeakingPractice'
 import { speakingService } from '@/features/speaking/speaking.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { SpeakingItem } from '@/types/api'
 
@@ -22,6 +23,7 @@ export default function SpeakingPracticePage({
 }) {
   const topic = searchParams.topic ?? ''
   const t = useTranslation()
+  const languageName = useLanguageName()
   const router = useRouter()
   const { data: language } = useApi(() => courseService.getById(params.languageId), [params.languageId])
   const { data, error, loading, reload } = useApi(() => speakingService.listItems(params.languageId, topic), [params.languageId, topic], !!topic)
@@ -46,7 +48,7 @@ export default function SpeakingPracticePage({
       <Breadcrumbs
         items={[
           { label: t.nav.speaking, href: '/speaking' },
-          { label: language?.name ?? params.languageId, href: `/speaking/${params.languageId}` },
+          { label: languageName(params.languageId, language?.name), href: `/speaking/${params.languageId}` },
           { label: topic, href: topicHref },
           { label: item ? t.speaking.itemOf(index + 1, items.length) : '…' },
         ]}

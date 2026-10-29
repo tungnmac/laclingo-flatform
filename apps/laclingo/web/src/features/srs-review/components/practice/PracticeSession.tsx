@@ -8,8 +8,9 @@ import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeech
 import { useTranslation } from '@/hooks/useTranslation'
 import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useLocale } from '@/store/locale'
 import type { DueVocabulary } from '@/types/api'
-import { tokenize } from '../../practice'
+import { meaningLanguage, tokenize } from '../../practice'
 import { ChoiceExercise } from './ChoiceExercise'
 import { DictationExercise } from './DictationExercise'
 import { WordOrderExercise } from './WordOrderExercise'
@@ -33,16 +34,18 @@ export function PracticeSession({
   onComplete: (mistakes: number) => void
 }) {
   const t = useTranslation()
+  const locale = useLocale((s) => s.locale)
+  const meaningLang = meaningLanguage(vocab.example_meaning, locale)
   const steps = useMemo<Step[]>(() => {
     const list: Step[] = []
     if (vocab.choices.length > 1) list.push('choice')
     // Câu tách ra dưới 2 mảnh thì không có gì để ghép — bỏ bài đó
     const sentenceOk = tokenize(vocab.example, vocab.language_id).length >= 2
     if (sentenceOk) list.push('sentence')
-    if (sentenceOk && tokenize(vocab.example_meaning, 'vi').length >= 2) list.push('meaning')
+    if (sentenceOk && tokenize(vocab.example_meaning, meaningLang).length >= 2) list.push('meaning')
     list.push('dictation')
     return list
-  }, [vocab])
+  }, [vocab, meaningLang])
   const [stepIndex, setStepIndex] = useState(0)
   // Bài xa nhất đã mở (chưa qua) — các bài có index nhỏ hơn đều đã qua
   const [maxStep, setMaxStep] = useState(0)
@@ -171,7 +174,7 @@ export function PracticeSession({
           />
         )}
         {step === 'sentence' && <WordOrderExercise target={vocab.example} tokenLanguage={vocab.language_id} {...exerciseProps} />}
-        {step === 'meaning' && <WordOrderExercise target={vocab.example_meaning} tokenLanguage="vi" {...exerciseProps} />}
+        {step === 'meaning' && <WordOrderExercise target={vocab.example_meaning} tokenLanguage={meaningLang} {...exerciseProps} />}
         {step === 'dictation' && (
           <DictationExercise term={vocab.term} phonetic={vocab.phonetic} languageId={vocab.language_id} {...exerciseProps} />
         )}

@@ -289,11 +289,11 @@ func (q *Queries) IncrementVocabularyPracticeOnly(ctx context.Context, arg Incre
 }
 
 const listMeaningDistractorsForVocabularies = `-- name: ListMeaningDistractorsForVocabularies :many
-SELECT c.id AS vocabulary_id, d.meaning::text AS meaning
+SELECT c.id AS vocabulary_id, d.id AS distractor_id, d.meaning::text AS meaning
 FROM vocabularies c
 CROSS JOIN LATERAL (
-    SELECT x.meaning FROM (
-        SELECT DISTINCT ON (lower(trim(v.meaning))) v.meaning, v.topic IS NOT DISTINCT FROM c.topic AS same_topic
+    SELECT x.id, x.meaning FROM (
+        SELECT DISTINCT ON (lower(trim(v.meaning))) v.id, v.meaning, v.topic IS NOT DISTINCT FROM c.topic AS same_topic
         FROM vocabularies v
         WHERE v.language_id = c.language_id
           AND v.id <> c.id
@@ -308,12 +308,13 @@ WHERE c.id = ANY($1::uuid[])
 
 type ListMeaningDistractorsForVocabulariesRow struct {
 	VocabularyID pgtype.UUID `json:"vocabulary_id"`
+	DistractorID pgtype.UUID `json:"distractor_id"`
 	Meaning      string      `json:"meaning"`
 }
 
 // 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
 // chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
-// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
+// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa. distractor_id — từ chứa nghĩa nhiễu (để dịch nghĩa đó).
 func (q *Queries) ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]ListMeaningDistractorsForVocabulariesRow, error) {
 	rows, err := q.db.Query(ctx, listMeaningDistractorsForVocabularies, vocabularyIds)
 	if err != nil {
@@ -323,7 +324,7 @@ func (q *Queries) ListMeaningDistractorsForVocabularies(ctx context.Context, voc
 	var items []ListMeaningDistractorsForVocabulariesRow
 	for rows.Next() {
 		var i ListMeaningDistractorsForVocabulariesRow
-		if err := rows.Scan(&i.VocabularyID, &i.Meaning); err != nil {
+		if err := rows.Scan(&i.VocabularyID, &i.DistractorID, &i.Meaning); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

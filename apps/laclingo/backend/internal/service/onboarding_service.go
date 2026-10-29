@@ -107,6 +107,8 @@ type TopicSyncMatch struct {
 type TopicSyncPreview struct {
 	Matched []TopicSyncMatch `json:"matched"`
 	Missing []string         `json:"missing"`
+	// Labels — tên hiển thị theo ngôn ngữ giao diện của mọi tên chủ đề ở trên (tên → nhãn); tên vẫn là khoá gửi lên
+	Labels map[string]string `json:"labels"`
 }
 
 type AvatarUploadResponse struct {
@@ -117,11 +119,12 @@ type AvatarUploadResponse struct {
 type OnboardingService struct {
 	repo OnboardingRepository
 	r2   *storage.R2Client
+	tr   *ContentTranslator // nhãn chủ đề theo ngôn ngữ giao diện (xem TopicSyncPreview.Labels)
 	now  func() time.Time
 }
 
-func NewOnboardingService(repo OnboardingRepository, r2 *storage.R2Client) *OnboardingService {
-	return &OnboardingService{repo: repo, r2: r2, now: time.Now}
+func NewOnboardingService(repo OnboardingRepository, r2 *storage.R2Client, tr *ContentTranslator) *OnboardingService {
+	return &OnboardingService{repo: repo, r2: r2, tr: tr, now: time.Now}
 }
 
 func (s *OnboardingService) Get(ctx context.Context, userID uuid.UUID) (OnboardingResponse, error) {
@@ -381,7 +384,13 @@ func (s *OnboardingService) TopicSyncPreview(ctx context.Context, userID uuid.UU
 	if err != nil {
 		return TopicSyncPreview{}, err
 	}
-	return matchTopics(source, sourceTopics, targetTopics), nil
+	res := matchTopics(source, sourceTopics, targetTopics)
+	names := make([]string, 0, 2*len(res.Matched)+len(res.Missing))
+	for _, m := range res.Matched {
+		names = append(names, m.From, m.To)
+	}
+	res.Labels = s.tr.TopicLabels(ctx, append(names, res.Missing...))
+	return res, nil
 }
 
 // matchTopics ghép từng chủ đề nguồn với chủ đề ngôn ngữ mới: cùng topic_key trước, không có thì cùng tên

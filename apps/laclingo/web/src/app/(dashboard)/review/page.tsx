@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { srsService } from '@/features/srs-review/srs.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ function ReviewHub() {
   const searchParams = useQueryParams('language')
   const language = searchParams.language
   const t = useTranslation()
+  const languageName = useLanguageName()
   // Chỉ để hiện số từ đến hạn (offline: số đã lưu) — lỗi thì ẩn badge, không chặn trang. Có
   // language thì đếm riêng ngôn ngữ đó, khớp với nơi "Ôn ngay" sẽ dẫn tới.
   const { data: due } = useApi(() => srsService.getDue(100, language), [language])
@@ -43,7 +45,7 @@ function ReviewHub() {
     <div className="space-y-6">
       <PageHeader
         title={t.review.pageTitle}
-        description={currentLanguage ? t.review.pageDescWithLang(currentLanguage.name) : t.review.pageDescNoLang}
+        description={currentLanguage ? t.review.pageDescWithLang(languageName(currentLanguage.id, currentLanguage.name)) : t.review.pageDescNoLang}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

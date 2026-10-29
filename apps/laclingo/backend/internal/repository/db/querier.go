@@ -360,6 +360,11 @@ type Querier interface {
 	ListClassesAdminPaged(ctx context.Context, arg ListClassesAdminPagedParams) ([]ListClassesAdminPagedRow, error)
 	// Learner — số lớp/ngôn ngữ ít, không cần phân trang (giống Missions admin).
 	ListClassesByLanguage(ctx context.Context, languageID string) ([]Class, error)
+	// Worker: hash câu nguồn của mọi bản dịch đã có của 1 entity ở 1 locale — so với nguồn hiện tại để tìm câu thiếu / cũ
+	ListContentTranslationHashes(ctx context.Context, arg ListContentTranslationHashesParams) ([]ListContentTranslationHashesRow, error)
+	// Bản dịch của 1 nhóm (entity, entity_id, field) cho 1 locale — 3 mảng song song (nhiều unnest trong SELECT ghép theo
+	// vị trí), 1 query cho cả response. Service tự so source_hash với câu tiếng Việt hiện tại.
+	ListContentTranslations(ctx context.Context, arg ListContentTranslationsParams) ([]ListContentTranslationsRow, error)
 	// Tổng kết theo ngày cho lịch tháng + chuỗi ngày: số việc, số việc đã xong. Việc đã chuyển chỉ tính xong khi
 	// bản chuyển sang ngày sau đã xong (chuyển mà không làm không giữ được chuỗi ngày)
 	ListDailyNoteSummaries(ctx context.Context, arg ListDailyNoteSummariesParams) ([]ListDailyNoteSummariesRow, error)
@@ -412,7 +417,7 @@ type Querier interface {
 	ListListeningTopicsByLanguageAdmin(ctx context.Context, arg ListListeningTopicsByLanguageAdminParams) ([]ListListeningTopicsByLanguageAdminRow, error)
 	// 3 nghĩa nhiễu cho mỗi từ (bài chọn nghĩa đúng) trong 1 query: ưu tiên từ cùng
 	// chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
-	// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa.
+	// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa. distractor_id — từ chứa nghĩa nhiễu (để dịch nghĩa đó).
 	ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]ListMeaningDistractorsForVocabulariesRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
@@ -439,6 +444,8 @@ type Querier interface {
 	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
 	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
+	// Nguồn dịch "topic_name": từ điển tên chủ đề tiếng Việt dùng chung mọi ngôn ngữ (tên gắn trên từ + tên khai báo)
+	ListTopicNameTranslationSources(ctx context.Context) ([]string, error)
 	// Từ nguồn để dựng 1 chủ đề ở ngôn ngữ mới: từ user đã học trong chủ đề trước, rồi các từ còn lại. root_id = từ gốc
 	// (từ dựng thì trỏ về gốc của nó); translated = ngôn ngữ đích đã có từ cùng gốc (không cần dựng lại).
 	ListTopicSourceWords(ctx context.Context, arg ListTopicSourceWordsParams) ([]ListTopicSourceWordsRow, error)
@@ -483,6 +490,8 @@ type Querier interface {
 	// learned = số từ trong chủ đề user đã đưa vào hàng đợi SRS.
 	ListVocabularyTopics(ctx context.Context, arg ListVocabularyTopicsParams) ([]ListVocabularyTopicsRow, error)
 	ListVocabularyTopicsByLanguageAdmin(ctx context.Context, arg ListVocabularyTopicsByLanguageAdminParams) ([]ListVocabularyTopicsByLanguageAdminRow, error)
+	// Nguồn dịch "vocabulary": nghĩa + nghĩa câu ví dụ (tiếng Việt) của mọi từ
+	ListVocabularyTranslationSources(ctx context.Context) ([]ListVocabularyTranslationSourcesRow, error)
 	// Khoá note trong transaction để đếm giới hạn 20 việc không bị 2 request cùng lúc vượt qua
 	LockDailyNote(ctx context.Context, id pgtype.UUID) (pgtype.UUID, error)
 	// Khoá việc cha trong transaction: các thao tác việc con / sửa việc cùng lúc chạy lần lượt, trạng thái xong luôn đúng
@@ -634,6 +643,8 @@ type Querier interface {
 	// qua extended query protocol, không cast sẽ lỗi 42P08 "inconsistent types".
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 	UpdateVocabulary(ctx context.Context, arg UpdateVocabularyParams) (Vocabulary, error)
+	// Worker ghi 1 lô bản dịch (mảng song song) của 1 entity ở 1 locale
+	UpsertContentTranslations(ctx context.Context, arg UpsertContentTranslationsParams) error
 	// Atomic: cộng thêm progress_count, trả về dòng sau khi cộng để Go kiểm tra
 	// đã đạt target_count hay chưa (chống race khi 2 request cùng lúc).
 	UpsertMissionProgress(ctx context.Context, arg UpsertMissionProgressParams) (UserMissionProgress, error)

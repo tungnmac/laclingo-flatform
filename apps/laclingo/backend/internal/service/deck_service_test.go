@@ -30,7 +30,7 @@ func (f *fakeDeckRepo) IncrementDeckPracticeCount(_ context.Context, arg db.Incr
 func TestCompletePracticeIncrementsOwnDeck(t *testing.T) {
 	owner, deck := uuid.New(), uuid.New()
 	repo := &fakeDeckRepo{counts: map[uuid.UUID]int32{deck: 2}, owner: owner}
-	svc := NewDeckService(repo, nil)
+	svc := NewDeckService(repo, nil, nil)
 
 	n, err := svc.CompletePractice(context.Background(), owner, deck)
 	if err != nil || n != 3 {
@@ -41,7 +41,7 @@ func TestCompletePracticeIncrementsOwnDeck(t *testing.T) {
 func TestCompletePracticeOtherUsersDeckIsNotFound(t *testing.T) {
 	owner, deck := uuid.New(), uuid.New()
 	repo := &fakeDeckRepo{counts: map[uuid.UUID]int32{deck: 0}, owner: owner}
-	svc := NewDeckService(repo, nil)
+	svc := NewDeckService(repo, nil, nil)
 
 	if _, err := svc.CompletePractice(context.Background(), uuid.New(), deck); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("other user: err = %v, want ErrNotFound", err)

@@ -35,6 +35,18 @@ func RequireAuth(tokens TokenParser) fiber.Handler {
 	}
 }
 
+// ContentLocale đọc ngôn ngữ giao diện từ Accept-Language (web gửi kèm mọi request) và gắn vào UserContext để service
+// dịch nội dung học (nghĩa từ, tên chủ đề...). vi / không hỗ trợ / không gửi → giữ tiếng Việt.
+func ContentLocale() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Vary(fiber.HeaderAcceptLanguage) // response đổi theo ngôn ngữ — cache trung gian không trả nhầm ngôn ngữ
+		if locale := service.ParseContentLocale(c.Get(fiber.HeaderAcceptLanguage)); locale != "" {
+			c.SetUserContext(service.WithContentLocale(c.UserContext(), locale))
+		}
+		return c.Next()
+	}
+}
+
 // currentUserID lấy user ID do RequireAuth gắn vào context
 func currentUserID(c *fiber.Ctx) uuid.UUID {
 	id, _ := c.Locals(userIDKey).(uuid.UUID)

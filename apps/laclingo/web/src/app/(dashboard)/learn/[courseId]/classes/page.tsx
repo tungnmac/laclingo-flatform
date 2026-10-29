@@ -4,10 +4,12 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs'
 import { ClassesSection } from '@/features/class/components/ClassesSection'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ClassesListPage({ params }: { params: { courseId: string } }) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: language } = useApi(() => courseService.getById(params.courseId), [params.courseId])
 
   return (
@@ -15,7 +17,7 @@ export default function ClassesListPage({ params }: { params: { courseId: string
       <Breadcrumbs
         items={[
           { label: t.nav.learn, href: '/learn' },
-          { label: language?.name ?? params.courseId, href: `/learn/${params.courseId}` },
+          { label: languageName(params.courseId, language?.name), href: `/learn/${params.courseId}` },
           { label: t.classes.sectionTitle },
         ]}
       />

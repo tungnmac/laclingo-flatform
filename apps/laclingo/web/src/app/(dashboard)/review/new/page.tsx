@@ -10,6 +10,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { courseService } from '@/features/course/course.service'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useQueryParams } from '@/hooks/useQueryParams'
 import { useTranslation } from '@/hooks/useTranslation'
 
@@ -32,6 +33,7 @@ function NewWordsTopics() {
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const languageName = useLanguageName()
   const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const languageQuery = (language ? `&language=${encodeURIComponent(language)}` : '') + scopeQuery
@@ -47,7 +49,7 @@ function NewWordsTopics() {
     fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
-          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: languageName(language, course?.name), href: `/learn/${language}` },
           { label: t.learn.vocabularyCardTitle },
         ]
       : [{ label: t.nav.review, href: reviewHref }, { label: t.review.newWordsTitle }]
@@ -96,7 +98,7 @@ function NewWordsTopics() {
                       )
                     )}
                   </div>
-                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.name}</h2>
+                  <h2 className="flex-1 text-lg font-semibold text-slate-900 group-hover:text-indigo-700">{topic.label || topic.name}</h2>
                   <div>
                     <div className="mb-1 flex justify-between text-xs text-slate-500">
                       <span>{t.review.learnedLabel}</span>

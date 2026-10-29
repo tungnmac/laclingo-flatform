@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"laclingo-backend/internal/domain"
@@ -48,6 +49,7 @@ type NewVocabulary struct {
 	Example      string    `json:"example"`
 	PartOfSpeech string    `json:"part_of_speech" example:"noun"`
 	Topic        string    `json:"topic" example:"Đồ ăn & Thức uống"`
+	TopicLabel   string    `json:"topic_label" example:"Food & Drinks"` // tên chủ đề theo ngôn ngữ giao diện
 	Level        string    `json:"level" example:"A1"`
 	AudioURL     string    `json:"audio_url"`
 }
@@ -75,15 +77,17 @@ type DueVocabulary struct {
 type SRSService struct {
 	repo     SRSRepository
 	missions *MissionService
-	quota    QuotaProvider // lượt ôn/ngày theo gói (Free giới hạn, Pro không)
+	quota    QuotaProvider      // lượt ôn/ngày theo gói (Free giới hạn, Pro không)
+	tr       *ContentTranslator // dịch nghĩa / tên chủ đề theo ngôn ngữ giao diện
 	now      func() time.Time
 }
 
-func NewSRSService(repo SRSRepository, missions *MissionService, quota QuotaProvider) *SRSService {
+func NewSRSService(repo SRSRepository, missions *MissionService, quota QuotaProvider, tr *ContentTranslator) *SRSService {
 	return &SRSService{
 		repo:     repo,
 		missions: missions,
 		quota:    quota,
+		tr:       tr,
 		now:      time.Now,
 	}
 }
@@ -193,7 +197,8 @@ func (s *SRSService) toDueVocabularies(ctx context.Context, rows []db.GetDueVoca
 	return results, nil
 }
 
-// attachMeaningChoices gắn cho mỗi từ: nghĩa đúng + tối đa 3 nghĩa nhiễu (1 query cho cả danh sách), xáo trộn
+// attachMeaningChoices gắn cho mỗi từ: nghĩa đúng + tối đa 3 nghĩa nhiễu (1 query cho cả danh sách), xáo trộn. Dịch
+// nghĩa / nghĩa câu ví dụ của từ và nghĩa nhiễu trong CÙNG 1 lần (đáp án đúng trong choices phải trùng khớp Meaning).
 func (s *SRSService) attachMeaningChoices(ctx context.Context, rows []db.GetDueVocabulariesForUserRow, results []DueVocabulary) error {
 	if len(rows) == 0 {
 		return nil
@@ -206,17 +211,70 @@ func (s *SRSService) attachMeaningChoices(ctx context.Context, rows []db.GetDueV
 	if err != nil {
 		return err
 	}
+	s.translateChoices(ctx, results, distractors)
+
 	byVocab := make(map[uuid.UUID][]string, len(rows))
 	for _, d := range distractors {
 		id := uuid.UUID(d.VocabularyID.Bytes)
 		byVocab[id] = append(byVocab[id], d.Meaning)
 	}
 	for i := range results {
-		choices := append([]string{results[i].Meaning}, byVocab[results[i].VocabularyID]...)
+		choices := []string{results[i].Meaning}
+		seen := map[string]bool{normalizeChoice(results[i].Meaning): true}
+		for _, m := range byVocab[results[i].VocabularyID] {
+			// 2 nghĩa tiếng Việt khác nhau có thể dịch ra cùng 1 chữ — bỏ để không có 2 đáp án giống hệt nhau
+			if key := normalizeChoice(m); !seen[key] {
+				seen[key] = true
+				choices = append(choices, m)
+			}
+		}
 		rand.Shuffle(len(choices), func(a, b int) { choices[a], choices[b] = choices[b], choices[a] })
 		results[i].Choices = choices
 	}
 	return nil
+}
+
+// translateChoices dịch nghĩa (+ nghĩa câu ví dụ) của các từ và nghĩa nhiễu trong 1 query. Đáp án của 1 từ chỉ dùng bản
+// dịch khi nghĩa đúng lẫn MỌI nghĩa nhiễu đều đã dịch — lẫn 1 đáp án khác ngôn ngữ thì lộ đáp án đúng; khi đó cả bài giữ
+// tiếng Việt tới khi worker dịch xong.
+func (s *SRSService) translateChoices(ctx context.Context, results []DueVocabulary, distractors []db.ListMeaningDistractorsForVocabulariesRow) {
+	if ContentLocale(ctx) == "" {
+		return
+	}
+	meanings := make([]string, len(results))
+	byVocab := make(map[uuid.UUID][]int, len(results))
+	fields := make([]TranslatableField, 0, 2*len(results)+len(distractors))
+	for i := range results {
+		meanings[i] = results[i].Meaning
+		fields = append(fields, vocabularyFields(results[i].VocabularyID, &results[i].Meaning, &results[i].ExampleMeaning)...)
+	}
+	originals := make([]string, len(distractors))
+	for i := range distractors {
+		d := &distractors[i]
+		originals[i] = d.Meaning
+		id := uuid.UUID(d.VocabularyID.Bytes)
+		byVocab[id] = append(byVocab[id], i)
+		fields = append(fields, vocabularyFields(uuid.UUID(d.DistractorID.Bytes), &d.Meaning, nil)...)
+	}
+	s.tr.Apply(ctx, fields)
+	for i := range results {
+		translated := results[i].Meaning != meanings[i]
+		mixed := false
+		for _, j := range byVocab[results[i].VocabularyID] {
+			mixed = mixed || (distractors[j].Meaning != originals[j]) != translated
+		}
+		if mixed {
+			results[i].Meaning = meanings[i]
+			for _, j := range byVocab[results[i].VocabularyID] {
+				distractors[j].Meaning = originals[j]
+			}
+		}
+	}
+}
+
+// normalizeChoice — so trùng đáp án bỏ qua hoa thường / khoảng trắng 2 đầu (như query nghĩa nhiễu)
+func normalizeChoice(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
 }
 
 // qualityFromMistakes quy số lần sai trong bộ bài luyện tập về thang SM-2:
@@ -501,6 +559,13 @@ func (s *SRSService) GetNewVocabularies(ctx context.Context, userID uuid.UUID, l
 			AudioURL:     v.AudioUrl.String,
 		})
 	}
+	fields := make([]TranslatableField, 0, 2*len(results))
+	for i := range results {
+		r := &results[i]
+		fields = append(fields, vocabularyFields(r.VocabularyID, &r.Meaning, nil)...)
+		fields = append(fields, topicLabelField(r.Topic, &r.TopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
 	return results, nil
 }
 
@@ -544,6 +609,7 @@ type ReviewWord struct {
 	Meaning       string    `json:"meaning"`
 	PartOfSpeech  string    `json:"part_of_speech"`
 	Topic         string    `json:"topic"`
+	TopicLabel    string    `json:"topic_label"` // tên chủ đề theo ngôn ngữ giao diện
 	Level         string    `json:"level"`
 	ImageURL      string    `json:"image_url"`
 	ImageEmoji    string    `json:"image_emoji"`
@@ -576,5 +642,12 @@ func (s *SRSService) ListReviewWords(ctx context.Context, userID uuid.UUID, lang
 			SRSStage: r.SrsStage.Int32, IntervalDays: r.IntervalDays.Int32, NextReviewAt: r.NextReviewAt.Time,
 		})
 	}
+	fields := make([]TranslatableField, 0, 2*len(result.Items))
+	for i := range result.Items {
+		w := &result.Items[i]
+		fields = append(fields, vocabularyFields(w.VocabularyID, &w.Meaning, nil)...)
+		fields = append(fields, topicLabelField(w.Topic, &w.TopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
 	return result, nil
 }

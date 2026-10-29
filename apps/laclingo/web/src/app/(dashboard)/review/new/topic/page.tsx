@@ -12,6 +12,7 @@ import { AutoplaySettingsDropdown } from '@/features/vocabulary/components/Autop
 import { WordCard } from '@/features/vocabulary/components/WordCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAutoplayLoop } from '@/hooks/useAutoplayLoop'
 import { useKeypress } from '@/hooks/useKeypress'
@@ -20,6 +21,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { useWordAutoplay } from '@/hooks/useWordAutoplay'
 import { cn } from '@/lib/utils'
 import { useAutoplaySettings } from '@/store/autoplaySettings'
+import { useLocale } from '@/store/locale'
 import type { DeckSummary, VocabularyCard } from '@/types/api'
 
 /** Bộ lọc từ trong chủ đề — "deck:<id>" = chỉ các từ trong 1 list ôn tập cụ thể */
@@ -68,6 +70,8 @@ function TopicWords() {
   const language = searchParams.language
   const fromLearn = searchParams.scope === 'learn'
   const t = useTranslation()
+  const languageName = useLanguageName()
+  const locale = useLocale((s) => s.locale)
   const { data: course } = useApi(() => courseService.getById(language ?? ''), [language], fromLearn && !!language)
   const scopeQuery = fromLearn ? '&scope=learn' : ''
   const reviewHref = language ? `/review?language=${encodeURIComponent(language)}` : '/review'
@@ -123,7 +127,7 @@ function TopicWords() {
       .catch(setError)
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic, language])
+  }, [topic, language, locale]) // đổi ngôn ngữ giao diện → tải lại nghĩa / tên chủ đề theo ngôn ngữ đó
 
   useEffect(load, [load])
 
@@ -233,18 +237,19 @@ function TopicWords() {
   if (loading) return <Spinner label={t.review.loadingWords} />
   if (error) return <ErrorState error={error} onRetry={load} />
 
+  const topicLabel = words[0]?.topic_label || topic // mọi từ cùng chủ đề — nhãn theo ngôn ngữ giao diện
   const breadcrumbItems =
     fromLearn && language
       ? [
           { label: t.nav.learn, href: '/learn' },
-          { label: course?.name ?? language, href: `/learn/${language}` },
+          { label: languageName(language, course?.name), href: `/learn/${language}` },
           { label: t.learn.vocabularyCardTitle, href: topicsHref },
-          { label: topic },
+          { label: topicLabel },
         ]
       : [
           { label: t.nav.review, href: reviewHref },
           { label: t.review.newWordsTitle, href: topicsHref },
-          { label: topic },
+          { label: topicLabel },
         ]
 
   return (
@@ -252,11 +257,11 @@ function TopicWords() {
       <Breadcrumbs items={breadcrumbItems} />
 
       {words.length === 0 ? (
-        <EmptyState icon="📭" title={t.review.emptyTopicNamed(topic)} />
+        <EmptyState icon="📭" title={t.review.emptyTopicNamed(topicLabel)} />
       ) : (
         <>
           <div className="flex items-center justify-between gap-2">
-            <h1 className="text-xl font-bold text-slate-900">{topic}</h1>
+            <h1 className="text-xl font-bold text-slate-900">{topicLabel}</h1>
             {current && <span className="text-sm text-slate-500">{t.review.wordCounter(index + 1, view.length, learned)}</span>}
           </div>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import type { Language } from '@/types/api'
 
 // Gồm cả danh mục ngôn ngữ phổ biến ở "Học ngôn ngữ mới" (backend service/language_catalog.go)
@@ -40,6 +41,7 @@ export function previewPhrase(id: string) {
 }
 
 export function LanguageCard({ language }: { language: Language }) {
+  const languageName = useLanguageName()
   return (
     <Link
       href={`/learn/${language.id}`}
@@ -47,7 +49,7 @@ export function LanguageCard({ language }: { language: Language }) {
     >
       <span className="text-4xl">{languageFlag(language.id)}</span>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-lg font-semibold text-slate-900 group-hover:text-indigo-600">{language.name}</h3>
+        <h3 className="truncate text-lg font-semibold text-slate-900 group-hover:text-indigo-600">{languageName(language.id, language.name)}</h3>
         <p className="text-sm text-slate-500">{language.code}</p>
       </div>
       <span aria-hidden className="text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-500">

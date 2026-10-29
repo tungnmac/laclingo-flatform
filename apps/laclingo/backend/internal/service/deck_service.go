@@ -70,6 +70,7 @@ type DeckWord struct {
 	Meaning       string     `json:"meaning"`
 	PartOfSpeech  string     `json:"part_of_speech"`
 	Topic         string     `json:"topic"`
+	TopicLabel    string     `json:"topic_label"` // tên chủ đề theo ngôn ngữ giao diện
 	Level         string     `json:"level"`
 	ImageURL      string     `json:"image_url"`
 	ImageEmoji    string     `json:"image_emoji"`
@@ -87,10 +88,11 @@ type DeckDetail struct {
 type DeckService struct {
 	repo DeckRepository
 	srs  *SRSService
+	tr   *ContentTranslator // dịch nghĩa / tên chủ đề theo ngôn ngữ giao diện
 }
 
-func NewDeckService(repo DeckRepository, srs *SRSService) *DeckService {
-	return &DeckService{repo: repo, srs: srs}
+func NewDeckService(repo DeckRepository, srs *SRSService, tr *ContentTranslator) *DeckService {
+	return &DeckService{repo: repo, srs: srs, tr: tr}
 }
 
 // ListDecks trả về list của user, mới tạo trước. vocabularyID khác Nil thì
@@ -145,6 +147,13 @@ func (s *DeckService) GetDeck(ctx context.Context, userID, deckID uuid.UUID) (De
 		}
 		detail.Words = append(detail.Words, w)
 	}
+	fields := make([]TranslatableField, 0, 2*len(detail.Words))
+	for i := range detail.Words {
+		w := &detail.Words[i]
+		fields = append(fields, vocabularyFields(w.VocabularyID, &w.Meaning, nil)...)
+		fields = append(fields, topicLabelField(w.Topic, &w.TopicLabel))
+	}
+	s.tr.Apply(ctx, fields)
 	return detail, nil
 }
 

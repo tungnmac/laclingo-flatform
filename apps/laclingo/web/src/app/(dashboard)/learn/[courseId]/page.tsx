@@ -8,15 +8,18 @@ import { Mascot } from '@/components/mascot/Mascot'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { courseService } from '@/features/course/course.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function CoursePage({ params }: { params: { courseId: string } }) {
   const { data: language, error, loading, reload } = useApi(() => courseService.getById(params.courseId), [params.courseId])
   const t = useTranslation()
+  const languageName = useLanguageName()
 
   if (loading) return <Spinner />
   if (error) return <ErrorState error={error} onRetry={reload} />
   if (!language) return null
+  const name = languageName(language.id, language.name)
 
   const cards = [
     {
@@ -58,12 +61,12 @@ export default function CoursePage({ params }: { params: { courseId: string } })
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: t.nav.learn, href: '/learn' }, { label: language.name }]} />
+      <Breadcrumbs items={[{ label: t.nav.learn, href: '/learn' }, { label: name }]} />
 
       <Card className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
         <span className="text-6xl sm:text-7xl">{languageFlag(language.id)}</span>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{language.name}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">{name}</h1>
           <p className="text-slate-500">
             {t.learn.languageCodeLabel}: {language.code}
           </p>
@@ -84,7 +87,7 @@ export default function CoursePage({ params }: { params: { courseId: string } })
         ))}
       </div>
 
-      <Mascot message={t.learn.mascotCourse(language.name)} />
+      <Mascot message={t.learn.mascotCourse(name)} />
     </div>
   )
 }

@@ -71,7 +71,7 @@ export default function SrsWordsPage({ searchParams }: { searchParams: { languag
                   <p className="truncate text-sm text-slate-500">{word.meaning}</p>
                   <p className="text-xs text-slate-400">
                     {t.decks.practiceCount(word.practice_count)}
-                    {word.topic && ` · ${word.topic}`}
+                    {word.topic && ` · ${word.topic_label || word.topic}`}
                   </p>
                 </div>
                 <LevelBadge level={word.level} />

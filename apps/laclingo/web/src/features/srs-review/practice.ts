@@ -4,6 +4,19 @@
 const PUNCTUATION = /[.,!?;:"“”‘’()…。，！？；：、（）《》「」—]/g
 
 /**
+ * Ngôn ngữ của nghĩa câu ví dụ (bài "ghép nghĩa câu"): nội dung đã dịch theo ngôn ngữ giao diện, chưa dịch thì vẫn là
+ * tiếng Việt — đoán theo chữ viết để tách mảnh / đọc đúng giọng (kana → ja, Hán → zh, Hangul → ko); chữ Latin không có
+ * dấu tiếng Việt khi giao diện tiếng Anh → en, còn lại vi.
+ */
+export function meaningLanguage(text: string, uiLocale: string): string {
+  if (/[\u3040-\u30ff]/.test(text)) return 'ja'
+  if (/[\u4e00-\u9fff]/.test(text)) return uiLocale === 'ja' ? 'ja' : 'zh'
+  if (/[\uac00-\ud7af]/.test(text)) return 'ko'
+  if (uiLocale === 'en' && !/[ăâđêôơưàáạảãầấậẩẫằắặẳẵèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/i.test(text)) return 'en'
+  return 'vi'
+}
+
+/**
  * Tách câu thành các mảnh để ghép. Tiếng Trung/Nhật không có dấu cách → dùng
  * Intl.Segmenter tách theo từ (fallback từng ký tự nếu trình duyệt chưa hỗ trợ);
  * các ngôn ngữ khác (kể cả nghĩa tiếng Việt) tách theo dấu cách.

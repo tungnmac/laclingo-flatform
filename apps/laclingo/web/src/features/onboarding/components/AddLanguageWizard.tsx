@@ -10,6 +10,7 @@ import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { vocabularyService } from '@/features/vocabulary/vocabulary.service'
 import { useApi } from '@/hooks/useApi'
+import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,8 @@ const MAX_TOPICS = 20 // = maxTopicsPerLanguage ở backend (chủ đề có s�
 // Nguồn chủ đề: from = ngôn ngữ đồng bộ ('' = mặc định); buildFrom = ngôn ngữ nguồn của các chủ đề sẽ DỰNG cho ngôn ngữ mới
 // (candidates — chủ đề ngôn ngữ mới chưa có); synced = số chủ đề có sẵn đã chọn theo đồng bộ. Giữ ở Wizard để quay lại
 // bước chủ đề vẫn khớp với lựa chọn.
-type Candidate = { name: string; icon?: string }
+// name là khoá gửi lên; label là tên hiển thị theo ngôn ngữ giao diện
+type Candidate = { name: string; label?: string; icon?: string }
 type TopicSource = { from: string; buildFrom: string; candidates: Candidate[]; synced: number | null }
 const DEFAULT_SOURCE: TopicSource = { from: '', buildFrom: '', candidates: [], synced: null }
 
@@ -48,6 +50,7 @@ export function AddLanguageWizard() {
 
 function Wizard({ languages, learning }: { languages: Language[]; learning: TargetLanguage[] }) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   const router = useRouter()
   const [step, setStep] = useState<Step>('language')
   const [languageId, setLanguageId] = useState('')
@@ -63,7 +66,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
 
   const learningIds = new Set(learning.map((l) => l.language_id))
   const choices = languages.filter((l) => !learningIds.has(l.id))
-  const nameOf = (id: string) => languages.find((l) => l.id === id)?.name ?? id.toUpperCase()
+  const nameOf = (id: string) => languageName(id, languages.find((l) => l.id === id)?.name)
 
   const next = () => {
     if (step === 'language' && !languageId) return setErr(t.addLanguage.needLanguage)
@@ -176,6 +179,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
 
 function LanguageStep({ languages, value, onChange }: { languages: Language[]; value: string; onChange: (id: string) => void }) {
   const t = useTranslation()
+  const languageName = useLanguageName()
   if (languages.length === 0) return <p className="text-sm text-slate-500">{t.addLanguage.allLearning}</p>
   return (
     <div>
@@ -195,7 +199,7 @@ function LanguageStep({ languages, value, onChange }: { languages: Language[]; v
             <span className="text-2xl" aria-hidden>
               {languageFlag(lang.id)}
             </span>
-            <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{lang.name}</span>
+            <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{languageName(lang.id, lang.name)}</span>
           </button>
         ))}
       </div>
@@ -274,7 +278,7 @@ function TopicsStep({
         const shown = new Set(available.map((x) => x.name))
         const synced = [...new Set(res.matched.map((m) => m.to))].filter((name) => shown.has(name))
         const picked = synced.slice(0, MAX_TOPICS)
-        onSourceChange({ from, buildFrom: from, candidates: res.missing.map((name) => ({ name })), synced: picked.length })
+        onSourceChange({ from, buildFrom: from, candidates: res.missing.map((name) => ({ name, label: res.labels?.[name] })), synced: picked.length })
         onTopicsChange(picked)
         onBuildChange(res.missing.slice(0, MAX_TOPICS - picked.length))
       } else {
@@ -282,7 +286,7 @@ function TopicsStep({
         const reference = languageId === 'en' ? 'zh' : 'en'
         const list = await vocabularyService.listTopics(reference)
         if (latest.current !== run) return
-        onSourceChange({ from: '', buildFrom: reference, candidates: list.map((x) => ({ name: x.name, icon: x.icon })), synced: null })
+        onSourceChange({ from: '', buildFrom: reference, candidates: list.map((x) => ({ name: x.name, label: x.label, icon: x.icon })), synced: null })
       }
     } catch (e) {
       if (latest.current === run) onError(inlineError(e))
@@ -401,7 +405,7 @@ function TopicChips({
               )}
             >
               {topic.icon && <span aria-hidden>{topic.icon} </span>}
-              {topic.name}
+              {topic.label || topic.name}
             </button>
           )
         })}

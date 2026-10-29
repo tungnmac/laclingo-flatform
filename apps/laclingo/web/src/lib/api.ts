@@ -50,7 +50,10 @@ export function networkError(): ApiError {
 
 /**
  * GET dùng được khi offline: lưu kết quả mới nhất, mất mạng thì trả bản đã lưu. Trừ đăng nhập, quản trị và thanh toán
- * (/billing: ví, đơn hàng, gói — không để lại trên máy, và trạng thái đơn không được trả bản cũ như thể mới)
+ * (/billing: ví, đơn hàng, gói — không để lại trên máy, và trạng thái đơn không được trả bản cũ như thể mới).
+ * Khoá lưu cố ý KHÔNG kèm ngôn ngữ giao diện: mỗi bản lưu là trọn 1 response (nghĩa + đáp án cùng 1 ngôn ngữ, không trộn
+ * trong 1 màn), có mạng thì luôn tải mới theo ngôn ngữ đang chọn; vừa đổi ngôn ngữ mà mất mạng thì hiện bản cũ (có thể
+ * còn ngôn ngữ trước) tốt hơn ô trống. Service worker không lưu response API (chỉ trang HTML + JS/CSS).
  */
 function isOfflineCacheable(path: string, init?: ApiInit) {
   const method = (init?.method ?? 'GET').toUpperCase()
@@ -93,6 +96,9 @@ async function request<T>(path: string, init: ApiInit | undefined, retried: bool
   // tự set cứng application/json sẽ làm hỏng multipart request.
   if (requestInit.body && !(requestInit.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (token && !authRoute) headers.set('Authorization', `Bearer ${token}`)
+  // Ngôn ngữ giao diện → backend dịch nội dung học (nghĩa từ, tên chủ đề...); vi = giữ tiếng Việt. Header CORS-safelisted
+  // (không thêm preflight); luôn gửi để không lấy nhầm Accept-Language mặc định của trình duyệt
+  headers.set('Accept-Language', useLocale.getState().locale)
   const fail = (err: ApiError) => {
     const notice = mutationNotice(requestInit.method, path, false, err.message, notify)
     emitMutationNotice(notice && { ...notice, source: err })

@@ -53,13 +53,14 @@ type SyncLanguageRequest struct {
 
 type LanguageContentService struct {
 	repo     LanguageContentRepository
-	ai       AIClient      // nil = chưa cấu hình AI: job dựng chờ rồi thử lại, chỉ chủ đề đã có sẵn từ là xong ngay
-	notifier Notifier      // báo user khi dựng xong (nil = không báo)
-	wake     chan struct{} // có job mới → đánh thức worker (xem language_sync.go)
+	ai       AIClient           // nil = chưa cấu hình AI: job dựng chờ rồi thử lại, chỉ chủ đề đã có sẵn từ là xong ngay
+	notifier Notifier           // báo user khi dựng xong (nil = không báo)
+	tr       *ContentTranslator // tên chủ đề của job theo ngôn ngữ giao diện
+	wake     chan struct{}      // có job mới → đánh thức worker (xem language_sync.go)
 }
 
-func NewLanguageContentService(repo LanguageContentRepository, ai AIClient, notifier Notifier) *LanguageContentService {
-	return &LanguageContentService{repo: repo, ai: ai, notifier: notifier, wake: make(chan struct{}, 1)}
+func NewLanguageContentService(repo LanguageContentRepository, ai AIClient, notifier Notifier, tr *ContentTranslator) *LanguageContentService {
+	return &LanguageContentService{repo: repo, ai: ai, notifier: notifier, tr: tr, wake: make(chan struct{}, 1)}
 }
 
 func (s *LanguageContentService) language(ctx context.Context, id string) (db.Language, error) {
