@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { setAccountList, signedInAccounts } from '@/server/auth/account-switch'
+import { rememberSession, setAccountList, signedInAccounts } from '@/server/auth/account-switch'
 import { ACCOUNTS_COOKIE, parseAccountTokens } from '@/server/auth/accounts'
 import { readSession, SESSION_COOKIE } from '@/server/auth/session'
 import type { SessionUser } from '@/server/auth/types'
@@ -23,6 +23,6 @@ export const GET = handleRoute(async () => {
   const list = await signedInAccounts()
   const res = NextResponse.json({ accounts: list.map((a) => ({ ...a.user, active: a.user.id === current?.userId })) } satisfies AccountsDto)
   const stored = parseAccountTokens(jar.get(ACCOUNTS_COOKIE)?.value)
-  if (stored.some((t) => !list.some((a) => a.token === t))) setAccountList(res, list)
+  if (stored.some((t) => !list.some((a) => a.token === t))) setAccountList(res, list, await rememberSession())
   return res
 })

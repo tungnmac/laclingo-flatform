@@ -1,7 +1,7 @@
 import { SignJWT } from 'jose'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { jwtSecret } from '../env'
-import { readSession, signSession, verifySession } from './session'
+import { readSession, SESSION_TTL_SECONDS, sessionCookieOptions, signSession, verifySession } from './session'
 
 describe('session', () => {
   it('round-trips the user id and token version', async () => {
@@ -18,6 +18,10 @@ describe('session', () => {
     expect(await verifySession(undefined)).toBeNull()
     expect(await verifySession(token.slice(0, -2) + 'xx')).toBeNull()
     expect(await verifySession('garbage')).toBeNull()
+  })
+  it('only sets maxAge when the session should be remembered', () => {
+    expect(sessionCookieOptions().maxAge).toBe(SESSION_TTL_SECONDS)
+    expect(sessionCookieOptions(false)).not.toHaveProperty('maxAge')
   })
 })
 

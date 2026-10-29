@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { freshToken, setSessions, signedInAccounts } from '@/server/auth/account-switch'
+import { freshToken, rememberSession, setSessions, signedInAccounts } from '@/server/auth/account-switch'
 import { readSession, SESSION_COOKIE } from '@/server/auth/session'
 import { db } from '@/server/db/client'
 import { users } from '@/server/db/schema'
@@ -26,6 +26,6 @@ export async function POST(req: Request) {
   const remaining = all || !current ? [] : (await signedInAccounts().catch(() => [])).filter((a) => a.user.id !== current.userId)
   const next = remaining[0] ?? null
   const res = NextResponse.json({ next: next?.user ?? null })
-  setSessions(res, next ? { token: await freshToken(next), userId: next.user.id } : null, remaining)
+  setSessions(res, next ? { token: await freshToken(next), userId: next.user.id } : null, remaining, await rememberSession())
   return res
 }

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { hashPassword } from '@/server/auth/password'
-import { setSessions, signedInAccounts } from '@/server/auth/account-switch'
+import { rememberSession, setSessions, signedInAccounts } from '@/server/auth/account-switch'
 import { toSessionUser } from '@/server/auth/require-user'
 import { signSession } from '@/server/auth/session'
 import { registerSchema } from '@/server/auth/validation'
@@ -34,6 +34,7 @@ export const POST = handleRoute(async (req: Request) => {
   // chỉ giữ các tài khoản cũ khi người dùng chủ động "Thêm tài khoản"; đăng nhập thường thay thế như trước
   // (tránh trường hợp máy dùng chung: B đăng nhập rồi đăng xuất lại bị chuyển vào tài khoản A)
   const keep = adding ? await signedInAccounts().catch(() => []) : []
-  setSessions(res, { token: await signSession(user.id, user.tokenVersion), userId: user.id }, keep)
+  const persist = adding ? await rememberSession() : true
+  setSessions(res, { token: await signSession(user.id, user.tokenVersion), userId: user.id }, keep, persist)
   return res
 })
