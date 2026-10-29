@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"laclingo-backend/internal/repository/db"
@@ -16,13 +18,24 @@ import (
 const deriveSystemPrompt = `You build vocabulary flashcards for LacLingo, an app where Vietnamese learners study foreign languages.
 You get words from one topic in a source language, each with its Vietnamese meaning. For every item, give the single most common everyday word or short phrase in the target language with that same meaning, as used in the topic.
 - id: copy the item's id.
-- term: the word in the target language, in its usual native script and dictionary form (German nouns keep der/die/das).
+- term: only the word in the target language, in its usual native script and dictionary form (German nouns keep der/die/das) — never add a reading, romanization or translation in parentheses.
 - phonetic: pronunciation guide — for Latin-script languages the IPA without slashes; otherwise the standard romanization (Japanese: kana reading then romaji, e.g. "かぞく (kazoku)"; Korean: Revised Romanization; Chinese: pinyin with tone marks).
 - meaning: short natural Vietnamese meaning as shown on a flashcard — no explanations.
 - part_of_speech: one of the allowed codes for the term.
 - example: one short natural sentence in the target language (max 15 words) using the term, simple enough for a beginner.
 - example_meaning: a natural Vietnamese translation of the example.
 Return exactly one entry per input item.`
+
+// trailingRomanizationRe — AI đôi khi vẫn ghi kèm phiên âm Latin trong ngoặc sau từ (vd "おじ (oji)") dù prompt dặn không
+var trailingRomanizationRe = regexp.MustCompile(`\s*[(（][\p{Latin}\s'’.·-]+[)）]\s*$`)
+
+// cleanDerivedTerm bỏ phần phiên âm Latin trong ngoặc ở cuối từ (giữ nguyên nếu bỏ đi thì không còn gì)
+func cleanDerivedTerm(term string) string {
+	if cleaned := strings.TrimSpace(trailingRomanizationRe.ReplaceAllString(term, "")); cleaned != "" {
+		return cleaned
+	}
+	return term
+}
 
 var deriveFields = []string{"id", "term", "phonetic", "meaning", "part_of_speech", "example", "example_meaning"}
 
@@ -75,7 +88,7 @@ func parseDerivedEntries(text string, n int) ([]derivedEntry, error) {
 		if err != nil || i < 0 || i >= n {
 			continue
 		}
-		e.Term, e.Meaning = strings.TrimSpace(e.Term), strings.TrimSpace(e.Meaning)
+		e.Term, e.Meaning = cleanDerivedTerm(strings.TrimSpace(e.Term)), strings.TrimSpace(e.Meaning)
 		if e.Term == "" || e.Meaning == "" || utf8.RuneCountInString(e.Term) > maxSuggestTermLen {
 			continue
 		}
@@ -90,13 +103,33 @@ func parseDerivedEntries(text string, n int) ([]derivedEntry, error) {
 	return entries, nil
 }
 
-// askDeriveAI — 1 lần gọi AI cho cả chủ đề (tối đa maxDerivedWordsPerTopic từ)
+// deriveRetryDelay — chờ trước lần gọi lại (nhà cung cấp AI hay trả 5xx "quá tải" thoáng qua). Chỉ thử lại khi lần đầu
+// lỗi nhanh (< deriveRetryWithin): *.onrender.com đi qua Cloudflare, request quá ~100s bị cắt
+var (
+	deriveRetryDelay  = 3 * time.Second
+	deriveRetryWithin = 30 * time.Second
+)
+
+// askDeriveAI — 1 lần gọi AI cho cả chủ đề (tối đa maxDerivedWordsPerTopic từ); lỗi nhanh thì thử lại 1 lần
 func askDeriveAI(ctx context.Context, ai AIClient, source, target db.Language, topic string, words []db.ListTopicSourceWordsRow) ([]derivedEntry, error) {
-	text, err := ai.GenerateJSON(ctx, AIJSONRequest{
-		System: deriveSystemPrompt, User: deriveUserPrompt(source, target, topic, words), Schema: deriveSchema, MaxTokens: 8192,
-	})
-	if err != nil {
-		return nil, err
+	req := AIJSONRequest{System: deriveSystemPrompt, User: deriveUserPrompt(source, target, topic, words), Schema: deriveSchema, MaxTokens: 8192}
+	var err error
+	start := time.Now()
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, err
+			case <-time.After(deriveRetryDelay):
+			}
+		}
+		var text string
+		if text, err = ai.GenerateJSON(ctx, req); err == nil {
+			return parseDerivedEntries(text, len(words))
+		}
+		if ctx.Err() != nil || time.Since(start) > deriveRetryWithin {
+			return nil, err
+		}
 	}
-	return parseDerivedEntries(text, len(words))
+	return nil, err
 }
