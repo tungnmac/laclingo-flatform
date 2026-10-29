@@ -1275,7 +1275,7 @@ export const en: Messages = {
     OTP_INVALID: 'Incorrect code',
     OTP_EXPIRED: 'The code has expired — please resend it',
     OTP_TOO_MANY: 'Too many attempts — please try again later',
-    OTP_SEND_FAILED: 'Could not send the code — please try again',
+    OTP_SEND_FAILED: 'Could not send the code ({code}) — please try again',
     INVALID_MARKET: 'Invalid market',
     MARKET_UNSUPPORTED: 'Market “{market}” is not supported yet',
     SYMBOL_REQUIRED: 'Symbol is required',

@@ -16,20 +16,23 @@ async function loadFirebase(config: Extract<PhoneOtpConfig, { provider: 'firebas
   return { auth, mod }
 }
 
-/** Lỗi Firebase → mã lỗi trong từ điển (errors.*) để hiển thị theo ngôn ngữ đang chọn */
+const OTP_ERRORS: Record<string, string> = {
+  'auth/invalid-verification-code': 'OTP_INVALID',
+  'auth/code-expired': 'OTP_EXPIRED',
+  'auth/invalid-phone-number': 'INVALID_PHONE',
+  'auth/too-many-requests': 'OTP_TOO_MANY',
+  'auth/quota-exceeded': 'OTP_TOO_MANY',
+}
+
+/**
+ * Lỗi Firebase → mã lỗi trong từ điển (errors.*). Lỗi còn lại thường do cấu hình Firebase (sai API key / domain chưa
+ * được phép / chưa bật Phone / chưa bật billing…) → hiện kèm mã gốc của Firebase để biết sửa ở đâu.
+ */
 function otpError(err: unknown): ApiError {
-  const code = (err as { code?: string } | null)?.code ?? ''
-  const mapped =
-    code === 'auth/invalid-verification-code'
-      ? 'OTP_INVALID'
-      : code === 'auth/code-expired'
-        ? 'OTP_EXPIRED'
-        : code === 'auth/invalid-phone-number'
-          ? 'INVALID_PHONE'
-          : code === 'auth/too-many-requests' || code === 'auth/quota-exceeded'
-            ? 'OTP_TOO_MANY'
-            : 'OTP_SEND_FAILED'
-  return new ApiError(code || 'otp error', 0, mapped)
+  const code = (err as { code?: string } | null)?.code || 'unknown'
+  const mapped = OTP_ERRORS[code]
+  if (!mapped) console.error('❌ Firebase phone auth:', err)
+  return new ApiError(code, 0, mapped ?? 'OTP_SEND_FAILED', mapped ? undefined : { code })
 }
 
 /**
