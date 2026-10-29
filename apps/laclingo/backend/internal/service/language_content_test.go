@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -63,5 +64,42 @@ func TestLanguageCatalogMergesExisting(t *testing.T) {
 	}
 	if ids["zh"] != 1 || ids["ja"] != 1 || ids["vi"] != 0 {
 		t.Fatalf("trùng / thiếu ngôn ngữ: %v", ids)
+	}
+}
+
+func TestCleanDerivedTerm(t *testing.T) {
+	cases := map[string]string{
+		"おじ (oji)":             "おじ",
+		"両親（ryōshin）":          "両親",
+		"가족 (gajok)":           "가족",
+		"der Hund":             "der Hund",
+		"(oji)":                "(oji)",
+		"ゲーム機 (PlayStation 5)": "ゲーム機 (PlayStation 5)", // có số → không phải phiên âm, giữ nguyên
+		"สวัสดี (sawasdee)":    "สวัสดี",
+	}
+	for in, want := range cases {
+		if got := cleanDerivedTerm(in); got != want {
+			t.Errorf("cleanDerivedTerm(%q) = %q, muốn %q", in, got, want)
+		}
+	}
+}
+
+type flakyAI struct{ calls int }
+
+func (f *flakyAI) GenerateJSON(context.Context, AIJSONRequest) (string, error) {
+	f.calls++
+	if f.calls == 1 {
+		return "", &aiError{reason: "dịch vụ AI đang quá tải, thử lại sau", cause: errors.New("503")}
+	}
+	return `{"items":[{"id":"0","term":"はは (haha)","phonetic":"はは (haha)","meaning":"mẹ","part_of_speech":"noun","example":"","example_meaning":""}]}`, nil
+}
+
+func TestAskDeriveAIRetriesOnce(t *testing.T) {
+	deriveRetryDelay = 0
+	ai := &flakyAI{}
+	got, err := askDeriveAI(context.Background(), ai, db.Language{ID: "en"}, db.Language{ID: "ja"}, "Gia đình",
+		[]db.ListTopicSourceWordsRow{{Term: "mother", Meaning: "mẹ"}})
+	if err != nil || ai.calls != 2 || got[0].Term != "はは" {
+		t.Fatalf("calls=%d err=%v got=%+v", ai.calls, err, got)
 	}
 }
