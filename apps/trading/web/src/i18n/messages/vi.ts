@@ -1275,7 +1275,7 @@ export const vi = {
     OTP_INVALID: 'Mã OTP không đúng',
     OTP_EXPIRED: 'Mã OTP đã hết hạn — vui lòng gửi lại mã',
     OTP_TOO_MANY: 'Gửi mã quá nhiều lần — vui lòng thử lại sau',
-    OTP_SEND_FAILED: 'Không gửi được mã OTP — vui lòng thử lại',
+    OTP_SEND_FAILED: 'Không gửi được mã OTP ({code}) — vui lòng thử lại',
     INVALID_MARKET: 'Thị trường không hợp lệ',
     MARKET_UNSUPPORTED: 'Thị trường “{market}” chưa được hỗ trợ',
     SYMBOL_REQUIRED: 'Thiếu mã giao dịch',
