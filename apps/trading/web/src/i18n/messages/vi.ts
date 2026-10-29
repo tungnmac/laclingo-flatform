@@ -1265,6 +1265,7 @@ export const vi = {
     INVALID_CREDENTIALS: 'Email/tên đăng nhập hoặc mật khẩu không đúng',
     USERNAME_TAKEN: 'Tên đăng nhập đã được sử dụng',
     PHONE_TAKEN: 'Số điện thoại đã được dùng cho tài khoản khác',
+    PROFILE_INCOMPLETE: 'Vui lòng bổ sung tên đăng nhập và số điện thoại để tiếp tục',
     INVALID_USERNAME: 'Tên đăng nhập 3–30 ký tự, chỉ gồm chữ không dấu, số, dấu chấm và gạch dưới',
     INVALID_PHONE: 'Số điện thoại không hợp lệ',
     IDENTIFIER_REQUIRED: 'Nhập email hoặc tên đăng nhập',

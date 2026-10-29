@@ -1265,6 +1265,7 @@ export const en: Messages = {
     INVALID_CREDENTIALS: 'Incorrect email/username or password',
     USERNAME_TAKEN: 'Username is already taken',
     PHONE_TAKEN: 'This phone number is already used by another account',
+    PROFILE_INCOMPLETE: 'Please add a username and phone number to continue',
     INVALID_USERNAME: 'Username must be 3–30 letters, digits, dots or underscores',
     INVALID_PHONE: 'Invalid phone number',
     IDENTIFIER_REQUIRED: 'Enter your email or username',

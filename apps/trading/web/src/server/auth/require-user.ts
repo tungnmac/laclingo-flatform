@@ -29,9 +29,14 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   return user && user.tokenVersion === session.tokenVersion ? toSessionUser(user) : null
 }
 
-export async function requireUser(): Promise<SessionUser> {
+/**
+ * Tài khoản chưa bổ sung tên đăng nhập / số điện thoại → 403 PROFILE_INCOMPLETE ở MỌI API (không chỉ trang).
+ * `allowIncompleteProfile` chỉ dành cho API phục vụ việc bổ sung (/api/auth/profile, /api/auth/me).
+ */
+export async function requireUser(opts: { allowIncompleteProfile?: boolean } = {}): Promise<SessionUser> {
   const user = await getCurrentUser()
   if (!user) throw new HttpError(401, 'UNAUTHORIZED')
+  if (user.needs_profile && !opts.allowIncompleteProfile) throw new HttpError(403, 'PROFILE_INCOMPLETE')
   return user
 }
 

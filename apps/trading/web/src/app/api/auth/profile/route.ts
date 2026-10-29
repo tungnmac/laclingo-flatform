@@ -10,7 +10,7 @@ import { handleRoute, HttpError, isUniqueViolation, readJson } from '@/server/ht
 
 /** Tài khoản tạo trước khi có tên đăng nhập / số điện thoại: bổ sung phần còn thiếu (số điện thoại phải qua OTP) */
 export const POST = handleRoute(async (req: Request) => {
-  const me = await requireUser()
+  const me = await requireUser({ allowIncompleteProfile: true })
   const body = completeProfileSchema.parse(await readJson(req))
   const [row] = await db.select().from(users).where(eq(users.id, me.id)).limit(1)
   if (!row) throw new HttpError(401, 'UNAUTHORIZED')
