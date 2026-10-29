@@ -21,6 +21,8 @@ const (
 	// Chống spam chat: mỗi người tối đa 1 tin / chatMinInterval (tin gửi dồn bị bỏ, báo lỗi cho người gửi)
 	chatMinInterval = 800 * time.Millisecond
 	chatSaveTimeout = 3 * time.Second
+	// Dịch câu hỏi chạy trong room loop — DB chậm thì thôi dịch (câu hỏi gốc), không để cả phòng đứng chờ
+	translateTimeout = 2 * time.Second
 )
 
 // allowedReactions là whitelist cố định — không broadcast nguyên văn emoji
@@ -53,6 +55,7 @@ type Room struct {
 
 	status      string
 	questions   []db.ListGameRoomQuestionsRow
+	localized   map[string][]db.ListGameRoomQuestionsRow // locale → câu hỏi đã dịch (xem questionFor); chấm vẫn theo questions
 	questionIdx int
 	timePerQ    time.Duration
 
@@ -283,8 +286,12 @@ func (r *Room) handleStartGame(cmd roomCommand) {
 	}
 
 	r.questions = questions
+	r.localized = make(map[string][]db.ListGameRoomQuestionsRow)
 	r.timePerQ = time.Duration(startedRoom.TimePerQuestionSeconds) * time.Second
 	r.status = "in_progress"
+	for _, c := range r.clients { // dịch sẵn cho mọi ngôn ngữ đang có trong phòng trước câu đầu
+		r.questionFor(c.locale, 0)
+	}
 	r.broadcast(serverMsgGameStarted, gameStartedPayload{
 		TotalQuestions:         len(r.questions),
 		TimePerQuestionSeconds: int(startedRoom.TimePerQuestionSeconds),
@@ -298,22 +305,46 @@ func (r *Room) startQuestion(idx int) {
 		return
 	}
 	r.questionIdx = idx
-	r.questionStartedAt = time.Now()
 	for _, p := range r.participants {
 		p.answeredCurrentQ = false
 	}
 
-	q := r.questions[idx]
-	options := decodeOptions(q.Options)
-
-	r.broadcast(serverMsgQuestion, questionPayload{
-		Index:            idx,
-		Total:            len(r.questions),
-		Question:         q.Question,
-		Options:          options,
-		TimeLimitSeconds: int(r.timePerQ / time.Second),
-	})
+	// Gửi riêng từng người theo ngôn ngữ giao diện của họ (cùng chỉ số câu / lựa chọn — chấm theo chỉ số như nhau)
+	for _, c := range r.clients {
+		q := r.questionFor(c.locale, idx)
+		c.sendJSON(serverMsgQuestion, questionPayload{
+			Index:            idx,
+			Total:            len(r.questions),
+			Question:         q.Question,
+			Options:          decodeOptions(q.Options),
+			TimeLimitSeconds: int(r.timePerQ / time.Second),
+		})
+	}
+	// Tính giờ sau khi gửi xong — lỡ phải dịch cho người mới vào giữa ván thì không trừ thời gian trả lời của ai
+	r.questionStartedAt = time.Now()
 	r.resetQuestionTimer(r.timePerQ)
+}
+
+// questionFor — câu hỏi idx theo ngôn ngữ giao diện của 1 người chơi; dịch cả bộ câu hỏi của phòng 1 lần / ngôn ngữ
+// (1 query) rồi giữ lại cho các câu sau. Tiếng Việt / không có bộ dịch → câu hỏi gốc.
+func (r *Room) questionFor(locale string, idx int) db.ListGameRoomQuestionsRow {
+	if locale == "" || r.hub.tr == nil {
+		return r.questions[idx]
+	}
+	qs, ok := r.localized[locale]
+	if !ok {
+		ctx, cancel := context.WithTimeout(context.Background(), translateTimeout)
+		qs = r.hub.tr.TranslateChallengeQuestions(ctx, locale, r.questions)
+		if ctx.Err() != nil {
+			log.Printf("⚠️ game: dịch câu hỏi room=%s locale=%s quá %s — giữ câu hỏi gốc cả ván", r.id, locale, translateTimeout)
+		}
+		cancel()
+		if len(qs) != len(r.questions) { // phòng hờ bộ dịch trả sai — không để lệch chỉ số câu
+			qs = r.questions
+		}
+		r.localized[locale] = qs
+	}
+	return qs[idx]
 }
 
 func (r *Room) handleSubmitAnswer(cmd roomCommand) {

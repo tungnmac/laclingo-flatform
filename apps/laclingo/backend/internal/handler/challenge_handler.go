@@ -209,7 +209,9 @@ func (h *ChallengeHandler) HandleWS(conn *websocket.Conn) {
 	}
 
 	gameRoom := h.hub.GetOrCreateRoom(roomID, room.HostUserID)
-	client := game.NewClient(conn, gameRoom, userID)
+	// Ngôn ngữ giao diện qua query ?locale= (browser không set được Accept-Language tuỳ ý trên WS handshake — header tự
+	// động là ngôn ngữ trình duyệt, không phải giao diện) — câu hỏi gửi cho người này theo ngôn ngữ đó; thiếu = tiếng Việt
+	client := game.NewClient(conn, gameRoom, userID, service.ParseContentLocale(conn.Query("locale")))
 	if !gameRoom.Join(client) {
 		_ = conn.Close()
 		return

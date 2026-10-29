@@ -167,3 +167,33 @@ func (s *ChallengeQuestionService) BulkImportQuestions(ctx context.Context, item
 		return err
 	})
 }
+
+// ===== Dịch câu hỏi phòng thách đấu theo ngôn ngữ giao diện từng người chơi (xem content_translation.go) =====
+
+// TranslateChallengeQuestions trả bản sao câu hỏi của 1 phòng với câu hỏi + lựa chọn dịch sang locale (game.QuestionTranslator
+// — phòng gọi 1 lần / ngôn ngữ, mỗi người chơi nhận câu hỏi theo ngôn ngữ giao diện của mình). Mỗi câu dịch cả câu hoặc giữ
+// tiếng Việt cả câu (choiceTranslation). Thứ tự + số lựa chọn giữ nguyên nên chấm theo correct_index (chỉ số lựa chọn) đúng
+// cho mọi người chơi dù khác ngôn ngữ. Giải thích không gửi cho người chơi → không dịch; locale "" → bản sao nguyên văn.
+func (t *ContentTranslator) TranslateChallengeQuestions(ctx context.Context, locale string, questions []db.ListGameRoomQuestionsRow) []db.ListGameRoomQuestionsRow {
+	out := make([]db.ListGameRoomQuestionsRow, len(questions))
+	copy(out, questions)
+	if t == nil || locale == "" {
+		return out
+	}
+	ctx = WithContentLocale(ctx, locale)
+	var fields []TranslatableField
+	choices := make([]choiceTranslation, len(out))
+	options := make([]json.RawMessage, len(out))
+	explanations, answers := make([]string, len(out)), make([]string, len(out)) // để trống: không hiển thị / chấm theo chỉ số
+	for i := range out {
+		options[i] = out[i].Options
+		fields, choices[i] = addChoiceFields(fields, translationEntityChallengeQuestion, uuid.UUID(out[i].ID.Bytes).String(),
+			&out[i].Question, &explanations[i], &answers[i], &options[i])
+	}
+	hits := t.Apply(ctx, fields)
+	for i := range choices {
+		choices[i].apply(fields, hits)
+		out[i].Options = options[i]
+	}
+	return out
+}

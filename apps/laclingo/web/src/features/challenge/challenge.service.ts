@@ -28,8 +28,11 @@ export const challengeService = {
     }),
 }
 
-/** Xây URL WebSocket cho phòng — token qua query vì browser không set được header trên WS handshake. */
-export function buildChallengeWsUrl(roomId: string, token: string) {
+/**
+ * Xây URL WebSocket cho phòng — token + ngôn ngữ giao diện qua query vì browser không set được header trên WS handshake.
+ * Server gửi câu hỏi cho người chơi theo ngôn ngữ này (mỗi người 1 ngôn ngữ, chấm theo chỉ số lựa chọn như nhau).
+ */
+export function buildChallengeWsUrl(roomId: string, token: string, locale: string) {
   const base = API_URL.replace(/^http/, 'ws')
-  return `${base}/challenges/rooms/${encodeURIComponent(roomId)}/ws?token=${encodeURIComponent(token)}`
+  return `${base}/challenges/rooms/${encodeURIComponent(roomId)}/ws?token=${encodeURIComponent(token)}&locale=${encodeURIComponent(locale)}`
 }

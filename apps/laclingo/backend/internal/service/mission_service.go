@@ -97,7 +97,11 @@ type MissionService struct {
 	now      func() time.Time
 	daily    DailyRecorder
 	streak   StreakRecorder
+	tr       *ContentTranslator // dịch tên / mô tả nhiệm vụ theo ngôn ngữ giao diện (chỉ danh sách của học viên)
 }
+
+// SetTranslator nối bộ dịch nội dung vào ListMyMissions (gọi 1 lần lúc khởi động; không gọi = giữ tiếng Việt)
+func (s *MissionService) SetTranslator(tr *ContentTranslator) { s.tr = tr }
 
 // StreakRecorder — cập nhật chuỗi ngày học mỗi lần học viên học (PlanService)
 type StreakRecorder interface {
@@ -286,6 +290,14 @@ func (s *MissionService) ListMyMissions(ctx context.Context, userID uuid.UUID) (
 			Completed:     r.CompletedAt.Valid,
 		})
 	}
+	fields := make([]TranslatableField, 0, 2*len(results))
+	for i := range results {
+		id := results[i].ID.String()
+		fields = append(fields,
+			TranslatableField{Entity: translationEntityMission, ID: id, Field: translationFieldTitle, Value: &results[i].Title},
+			TranslatableField{Entity: translationEntityMission, ID: id, Field: translationFieldDescription, Value: &results[i].Description})
+	}
+	s.tr.Apply(ctx, fields)
 	return results, nil
 }
 

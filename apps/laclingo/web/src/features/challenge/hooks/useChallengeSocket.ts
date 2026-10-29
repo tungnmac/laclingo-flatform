@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { ensureFreshToken } from '@/lib/api'
+import { useLocale } from '@/store/locale'
 import { useSession } from '@/store/session'
 import type {
   ChallengeLeaderboardEntry,
@@ -177,7 +178,8 @@ export function useChallengeSocket(roomId: string, onParticipantChange?: () => v
     })
 
     function connect(token: string) {
-      const ws = new WebSocket(buildChallengeWsUrl(roomId, token))
+      // Ngôn ngữ giao diện lúc kết nối — đổi ngôn ngữ giữa ván không kết nối lại (mất câu đang chơi), áp dụng từ lần vào phòng sau
+      const ws = new WebSocket(buildChallengeWsUrl(roomId, token, useLocale.getState().locale))
       wsRef.current = ws
 
       ws.onopen = () => dispatch({ type: 'ws_open' })

@@ -38,6 +38,8 @@ type ContentTranslationRepository interface {
 	ListListeningQuestionTranslationSources(ctx context.Context) ([]db.ListListeningQuestionTranslationSourcesRow, error)
 	ListSpeakingTopicTranslationSources(ctx context.Context) ([]db.ListSpeakingTopicTranslationSourcesRow, error)
 	ListSpeakingItemTranslationSources(ctx context.Context) ([]db.ListSpeakingItemTranslationSourcesRow, error)
+	ListMissionTranslationSources(ctx context.Context) ([]db.ListMissionTranslationSourcesRow, error)
+	ListChallengeQuestionTranslationSources(ctx context.Context) ([]db.ListChallengeQuestionTranslationSourcesRow, error)
 }
 
 // translationSourceRow — 1 dòng nguồn: values xếp đúng thứ tự fields của nguồn
@@ -189,6 +191,34 @@ var contentTranslationSources = []translationSource{
 			out := make([]translationSourceRow, 0, len(rows))
 			for _, r := range rows {
 				out = append(out, translationSourceRow{id: r.ID, values: []string{r.PromptMeaning}})
+			}
+			return out, err
+		},
+	},
+	{
+		// Nhiệm vụ admin soạn có thể bằng tiếng Anh (vd seed "Daily Learner") → giữ nguyên văn
+		entity:      translationEntityMission,
+		fields:      []string{translationFieldTitle, translationFieldDescription},
+		keepForeign: true,
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListMissionTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, translationSourceRow{id: r.ID, values: []string{r.Title, r.Description}})
+			}
+			return out, err
+		},
+	},
+	{
+		// Câu hỏi thách đấu thường viết bằng ngôn ngữ đang học (vd "She ___ to school.") → giữ nguyên văn
+		entity:      translationEntityChallengeQuestion,
+		fields:      []string{translationFieldQuestion},
+		keepForeign: true,
+		list: func(ctx context.Context, repo ContentTranslationRepository) ([]translationSourceRow, error) {
+			rows, err := repo.ListChallengeQuestionTranslationSources(ctx)
+			out := make([]translationSourceRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, translationSourceRow{id: r.ID, values: []string{r.Question}})
 			}
 			return out, err
 		},

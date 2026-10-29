@@ -9,6 +9,38 @@ import (
 	"context"
 )
 
+const listChallengeQuestionTranslationSources = `-- name: ListChallengeQuestionTranslationSources :many
+SELECT id::text AS id, question
+FROM challenge_questions
+`
+
+type ListChallengeQuestionTranslationSourcesRow struct {
+	ID       string `json:"id"`
+	Question string `json:"question"`
+}
+
+// Nguồn dịch "challenge_question": câu hỏi thách đấu (lựa chọn dịch qua từ điển grammar_answer; giải thích không gửi cho
+// người chơi — không dịch)
+func (q *Queries) ListChallengeQuestionTranslationSources(ctx context.Context) ([]ListChallengeQuestionTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listChallengeQuestionTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChallengeQuestionTranslationSourcesRow
+	for rows.Next() {
+		var i ListChallengeQuestionTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Question); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClassTranslationSources = `-- name: ListClassTranslationSources :many
 SELECT id::text AS id, title, COALESCE(description, '')::text AS description
 FROM classes
@@ -147,14 +179,16 @@ SELECT a.text::text AS text FROM (
     SELECT correct_answer FROM listening_questions
     UNION
     SELECT jsonb_array_elements_text(options) FROM listening_questions WHERE jsonb_typeof(options) = 'array'
+    UNION
+    SELECT jsonb_array_elements_text(options) FROM challenge_questions WHERE jsonb_typeof(options) = 'array'
 ) a
 WHERE a.text <> '' AND length(a.text) <= 1000
 `
 
-// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp và câu hỏi luyện
-// nghe (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng Việt — cùng 1 câu luôn ra cùng
-// 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới hạn index) → bỏ, bài đó giữ
-// tiếng Việt.
+// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, câu hỏi luyện
+// nghe và lựa chọn câu hỏi thách đấu (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng
+// Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới
+// hạn index) → bỏ, bài đó giữ tiếng Việt.
 func (q *Queries) ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error) {
 	rows, err := q.db.Query(ctx, listGrammarAnswerTranslationSources)
 	if err != nil {
@@ -324,6 +358,38 @@ func (q *Queries) ListListeningQuestionTranslationSources(ctx context.Context) (
 	for rows.Next() {
 		var i ListListeningQuestionTranslationSourcesRow
 		if err := rows.Scan(&i.ID, &i.Question, &i.Explanation); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMissionTranslationSources = `-- name: ListMissionTranslationSources :many
+SELECT id::text AS id, title, COALESCE(description, '')::text AS description
+FROM missions
+`
+
+type ListMissionTranslationSourcesRow struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// Nguồn dịch "mission": tên + mô tả nhiệm vụ (admin soạn, học viên xem ở /missions)
+func (q *Queries) ListMissionTranslationSources(ctx context.Context) ([]ListMissionTranslationSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listMissionTranslationSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMissionTranslationSourcesRow
+	for rows.Next() {
+		var i ListMissionTranslationSourcesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Description); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

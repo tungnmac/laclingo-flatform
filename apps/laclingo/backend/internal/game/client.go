@@ -21,11 +21,12 @@ type Client struct {
 	conn   *websocket.Conn
 	room   *Room
 	userID uuid.UUID
+	locale string // ngôn ngữ giao diện lúc kết nối ("" = tiếng Việt) — câu hỏi gửi riêng theo ngôn ngữ này
 	send   chan []byte
 }
 
-func NewClient(conn *websocket.Conn, room *Room, userID uuid.UUID) *Client {
-	return &Client{conn: conn, room: room, userID: userID, send: make(chan []byte, sendBufferSize)}
+func NewClient(conn *websocket.Conn, room *Room, userID uuid.UUID, locale string) *Client {
+	return &Client{conn: conn, room: room, userID: userID, locale: locale, send: make(chan []byte, sendBufferSize)}
 }
 
 // ReadPump đọc message từ client, parse và đẩy vào room loop. Block tới khi

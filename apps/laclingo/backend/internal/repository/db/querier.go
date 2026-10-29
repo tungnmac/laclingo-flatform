@@ -345,6 +345,9 @@ type Querier interface {
 	ListBlogPostsPaged(ctx context.Context, arg ListBlogPostsPagedParams) ([]ListBlogPostsPagedRow, error)
 	// Việc dở của 1 ngày có thể chuyển: chưa xong, chưa chuyển, không phải việc lặp lại
 	ListCarryableTasks(ctx context.Context, arg ListCarryableTasksParams) ([]DailyNoteTask, error)
+	// Nguồn dịch "challenge_question": câu hỏi thách đấu (lựa chọn dịch qua từ điển grammar_answer; giải thích không gửi cho
+	// người chơi — không dịch)
+	ListChallengeQuestionTranslationSources(ctx context.Context) ([]ListChallengeQuestionTranslationSourcesRow, error)
 	ListChallengeQuestionsByLanguage(ctx context.Context, arg ListChallengeQuestionsByLanguageParams) ([]ListChallengeQuestionsByLanguageRow, error)
 	// Giáo án đầy đủ của 1 lớp, kèm thông tin bài học — dùng cho cả admin (sửa
 	// giáo án) và learner detail (learner query riêng có thêm completion, xem dưới).
@@ -387,10 +390,10 @@ type Querier interface {
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGemTransactions(ctx context.Context, arg ListGemTransactionsParams) ([]GemTransaction, error)
-	// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp và câu hỏi luyện
-	// nghe (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng Việt — cùng 1 câu luôn ra cùng
-	// 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới hạn index) → bỏ, bài đó giữ
-	// tiếng Việt.
+	// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, câu hỏi luyện
+	// nghe và lựa chọn câu hỏi thách đấu (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng
+	// Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới
+	// hạn index) → bỏ, bài đó giữ tiếng Việt.
 	ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error)
 	// Nguồn dịch "grammar_exercise": câu hỏi + giải thích (đáp án / lựa chọn dịch riêng theo nguyên văn, xem grammar_answer)
 	ListGrammarExerciseTranslationSources(ctx context.Context) ([]ListGrammarExerciseTranslationSourcesRow, error)
@@ -437,6 +440,8 @@ type Querier interface {
 	// chủ đề (khó hơn), loại nghĩa trùng đáp án (bỏ qua hoa thường/khoảng trắng)
 	// để không có 2 đáp án đúng, DISTINCT để không lặp nghĩa. distractor_id — từ chứa nghĩa nhiễu (để dịch nghĩa đó).
 	ListMeaningDistractorsForVocabularies(ctx context.Context, vocabularyIds []pgtype.UUID) ([]ListMeaningDistractorsForVocabulariesRow, error)
+	// Nguồn dịch "mission": tên + mô tả nhiệm vụ (admin soạn, học viên xem ở /missions)
+	ListMissionTranslationSources(ctx context.Context) ([]ListMissionTranslationSourcesRow, error)
 	// period_key tính theo CÙNG quy tắc với Go (mission_service.periodKey) —
 	// daily=YYYY-MM-DD, weekly=IYYY-"W"IW (ISO week), monthly=YYYY-MM, event=mission id.
 	ListMissionsWithProgress(ctx context.Context, userID pgtype.UUID) ([]ListMissionsWithProgressRow, error)

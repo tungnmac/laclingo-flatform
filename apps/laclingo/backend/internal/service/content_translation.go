@@ -36,6 +36,9 @@ const (
 	translationEntitySpeakingTopic     = "speaking_topic"     // id = "<language_id>/<name>" (khoá chính của speaking_topics)
 	translationEntitySpeakingItem      = "speaking_item"      // id = speaking_items.id
 
+	translationEntityMission           = "mission"            // id = missions.id
+	translationEntityChallengeQuestion = "challenge_question" // id = challenge_questions.id (lựa chọn: grammar_answer)
+
 	translationFieldMeaning        = "meaning"
 	translationFieldExampleMeaning = "example_meaning"
 	translationFieldLabel          = "label"
