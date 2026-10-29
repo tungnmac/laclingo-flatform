@@ -43,6 +43,25 @@ describe('withFallback', () => {
     expect(primary.getQuotes).toHaveBeenCalledTimes(2)
   })
 
+  it('rethrows request errors (400 delisted symbol) without switching everyone to the backup', async () => {
+    const primary = fake(async (symbols) => {
+      if (symbols.includes('DELISTED')) throw Object.assign(new Error('Binance HTTP 400'), { status: 400 })
+      return [quote('BTCUSDT', 1)]
+    })
+    const backup = fake(async () => [quote('BTCUSDT', 2)])
+    const p = withFallback(primary, backup)
+    await expect(p.getQuotes(['DELISTED'])).rejects.toThrow('400')
+    expect((await p.getQuotes(['BTCUSDT']))[0].price).toBe(1) // nguồn chính vẫn được dùng ngay
+    expect(backup.getQuotes).not.toHaveBeenCalled()
+  })
+
+  it('treats 451 (blocked region) as a source failure', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const primary = fake(async () => Promise.reject(Object.assign(new Error('Binance HTTP 451'), { status: 451 })))
+    const p = withFallback(primary, fake(async () => [quote('BTCUSDT', 2)]))
+    expect((await p.getQuotes(['BTCUSDT']))[0].price).toBe(2)
+  })
+
   it('propagates the backup error when both fail', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const p = withFallback(fake(async () => Promise.reject(new Error('a'))), fake(async () => Promise.reject(new Error('b'))))

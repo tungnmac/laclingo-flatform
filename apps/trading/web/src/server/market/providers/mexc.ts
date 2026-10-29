@@ -13,6 +13,8 @@ const MEXC_INTERVAL: Record<Interval, string> = { '1m': '1m', '5m': '5m', '1h': 
 const INTERVAL_MS: Record<Interval, number> = { '1m': 60_000, '5m': 300_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000 }
 /** Mỗi request trả tối đa 500 nến (xin nhiều hơn vẫn chỉ được 500) */
 const MAX_PER_REQUEST = 500
+/** Số trang rỗng liên tiếp tối đa khi lấy nến từ 1 mốc — quá thì dừng (tránh hàng trăm request tuần tự) */
+const MAX_EMPTY_PAGES = 3
 
 const notNull = <T>(v: T | null): v is T => v !== null
 
@@ -42,9 +44,14 @@ export function createMexcProvider(opts: { baseUrl?: string; fetchFn?: typeof fe
     }
   }
 
+  // 1 mã lỗi tạm thời (429/5xx) không làm hỏng cả batch — chỉ ném lỗi khi không lấy được mã nào
   async function getQuotes(symbols: string[]): Promise<Quote[]> {
-    const quotes = (await Promise.all(symbols.map(getQuote))).filter(notNull)
-    if (symbols.length > 0 && quotes.length === 0) throw new Error('MEXC: không có mã nào')
+    const results = await Promise.allSettled(symbols.map(getQuote))
+    const quotes = results.flatMap((r) => (r.status === 'fulfilled' && r.value ? [r.value] : []))
+    if (symbols.length > 0 && quotes.length === 0) {
+      const failed = results.find((r) => r.status === 'rejected')
+      throw failed ? failed.reason : new Error('MEXC: không có mã nào')
+    }
     return quotes
   }
 
@@ -61,12 +68,20 @@ export function createMexcProvider(opts: { baseUrl?: string; fetchFn?: typeof fe
     const step = INTERVAL_MS[interval]
     const out: Candle[] = []
     let start = startTimeMs
+    let emptyPages = 0
     while (out.length < limit && start <= Date.now()) {
       const n = Math.min(MAX_PER_REQUEST, limit - out.length)
       const page = await klines(symbol, interval, start, n)
       out.push(...page)
-      if (page.length === 0) start += n * step // khoảng trống (chưa niêm yết / ngừng giao dịch) → nhảy qua
-      else start = page[page.length - 1].time * 1000 + step
+      if (page.length > 0) {
+        emptyPages = 0
+        start = page[page.length - 1].time * 1000 + step
+      } else {
+        // Khoảng trống (bảo trì / chưa niêm yết) → nhảy qua, nhưng không dò mãi: mốc luyện tập có thể lùi tới vài năm
+        // trước ngày MEXC niêm yết mã (Binance trả luôn từ ngày niêm yết, MEXC thì không) → trả ít nến, nơi gọi tự xử lý
+        if (++emptyPages > MAX_EMPTY_PAGES) break
+        start += n * step
+      }
     }
     return out.slice(0, limit)
   }

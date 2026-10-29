@@ -35,6 +35,22 @@ describe('mexc provider', () => {
     await expect(createMexcProvider({ baseUrl: 'http://m', fetchFn: none }).getQuotes(['TONUSDT'])).rejects.toThrow()
   })
 
+  it('keeps the symbols that succeeded when one symbol hits a transient error', async () => {
+    const fetchFn = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes('ETHUSDT') ? json({}, 429) : json(ticker),
+    )
+    const quotes = await createMexcProvider({ baseUrl: 'http://m', fetchFn }).getQuotes(['BTCUSDT', 'ETHUSDT'])
+    expect(quotes.map((q) => q.symbol)).toEqual(['BTCUSDT'])
+  })
+
+  it('stops after a few empty pages instead of crawling years of missing history', async () => {
+    const fetchFn = vi.fn(async (_url: string | URL | Request) => json([]))
+    const start = Date.now() - 3 * 365 * 86_400_000
+    const candles = await createMexcProvider({ baseUrl: 'http://m', fetchFn }).getCandlesSince('NEWUSDT', '1h', start, 200)
+    expect(candles).toEqual([])
+    expect(fetchFn).toHaveBeenCalledTimes(4) // 1 + MAX_EMPTY_PAGES
+  })
+
   it('maps 1h to 60m and always sends endTime with startTime', async () => {
     const hour = 1_800_000_000_000 // đúng mốc giờ
     vi.useFakeTimers({ now: hour + 1_234 })
