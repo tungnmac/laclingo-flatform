@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { findConflict } from '@/server/auth/identity'
-import { verifyPhoneToken } from '@/server/auth/phone-otp'
-import { needsPhone, requireUser, toSessionUser } from '@/server/auth/require-user'
+import { needsVerification, requireUser, toSessionUser } from '@/server/auth/require-user'
 import { completeProfileSchema } from '@/server/auth/validation'
+import { checkVerification } from '@/server/auth/verification'
 import { db } from '@/server/db/client'
 import { users } from '@/server/db/schema'
 import { handleRoute, HttpError, isUniqueViolation, readJson } from '@/server/http'
 
-/** Tài khoản tạo trước khi có tên đăng nhập / số điện thoại: bổ sung phần còn thiếu (số điện thoại phải qua OTP) */
+/** Tài khoản tạo trước khi có tên đăng nhập / số điện thoại: bổ sung phần còn thiếu + xác thực qua email hoặc SĐT */
 export const POST = handleRoute(async (req: Request) => {
   const me = await requireUser({ allowIncompleteProfile: true })
   const body = completeProfileSchema.parse(await readJson(req))
@@ -20,17 +20,19 @@ export const POST = handleRoute(async (req: Request) => {
     if (!body.username) throw new HttpError(400, 'INVALID_USERNAME')
     patch.username = body.username
   }
-  if (needsPhone(row)) {
-    if (!body.phone || !body.phone_token) throw new HttpError(400, 'INVALID_PHONE')
-    if ((await verifyPhoneToken(body.phone_token)) !== body.phone) throw new HttpError(400, 'PHONE_MISMATCH')
+  if (!row.phone) {
+    if (!body.phone) throw new HttpError(400, 'INVALID_PHONE')
     patch.phone = body.phone
-    patch.phoneVerifiedAt = new Date()
   }
-  if (Object.keys(patch).length === 0) return NextResponse.json(toSessionUser(row))
-
   const fields = { username: patch.username ?? undefined, phone: patch.phone ?? undefined }
   const conflict = await findConflict(fields)
   if (conflict) throw new HttpError(409, conflict)
+  if (needsVerification(row)) {
+    if (!body.verification) throw new HttpError(400, 'VERIFICATION_REQUIRED')
+    Object.assign(patch, await checkVerification(body.verification, { email: row.email, phone: patch.phone ?? row.phone! }))
+  }
+  if (Object.keys(patch).length === 0) return NextResponse.json(toSessionUser(row))
+
   try {
     const [updated] = await db.update(users).set(patch).where(eq(users.id, row.id)).returning()
     return NextResponse.json(toSessionUser(updated))

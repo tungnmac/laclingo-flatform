@@ -3,30 +3,37 @@
 import { useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
 import { api, ApiError } from '@/lib/api'
+import { useOtp } from '@/lib/otp-client'
 import { normalizePhone } from '@/lib/phone'
-import { usePhoneOtp } from '@/lib/phone-otp-client'
-import type { PhoneOtpConfig } from '@/server/auth/types'
+import type { Verification, VerifyConfig } from '@/server/auth/types'
 import { FormError, inputClass, SubmitButton } from './AuthForm'
-import { PhoneOtpStep } from './PhoneOtpStep'
+import { enabledMethods, OtpCodeStep, VerifyMethodPicker, type VerifyMethod } from './OtpCodeStep'
 
 const labelClass = 'block text-sm font-medium text-slate-700'
 
-/** Tài khoản cũ: bổ sung tên đăng nhập và/hoặc số điện thoại (xác thực OTP) trước khi dùng tiếp */
+/** Tài khoản cũ: bổ sung tên đăng nhập / số điện thoại còn thiếu và xác thực qua email hoặc SĐT trước khi dùng tiếp */
 export function CompleteProfileForm({
+  email,
+  phone: savedPhone,
   needUsername,
-  needPhone,
-  otp,
+  needVerify,
+  verify,
 }: {
+  email: string
+  phone: string | null
   needUsername: boolean
-  needPhone: boolean
-  otp: PhoneOtpConfig
+  needVerify: boolean
+  verify: VerifyConfig
 }) {
   const { t } = useT()
-  const { recaptcha, send, confirm } = usePhoneOtp(otp)
+  const { recaptcha, send, confirm } = useOtp(verify)
+  const methods = enabledMethods(verify)
+  const [method, setMethod] = useState<VerifyMethod>(methods[0] ?? 'email')
   const [draft, setDraft] = useState<{ username?: string; phone?: string } | null>(null)
   const [step, setStep] = useState<'info' | 'otp'>('info')
   const [error, setError] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
+  const needPhone = !savedPhone
 
   const run = async (fn: () => Promise<unknown>): Promise<boolean> => {
     setLoading(true)
@@ -42,10 +49,12 @@ export function CompleteProfileForm({
     }
   }
 
-  const save = async (body: { username?: string; phone?: string; phone_token?: string }) => {
+  const save = async (body: { username?: string; phone?: string; verification?: Verification }) => {
     await api('/api/auth/profile', { method: 'POST', body: JSON.stringify(body) })
     window.location.assign('/')
   }
+
+  const target = (d: { phone?: string }) => (method === 'email' ? email : (d.phone ?? savedPhone ?? ''))
 
   const submitInfo = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -53,11 +62,12 @@ export function CompleteProfileForm({
     const username = needUsername ? String(form.get('username') ?? '').trim().toLowerCase() : undefined
     const phone = needPhone ? normalizePhone(String(form.get('phone') ?? '')) : undefined
     if (phone === null) return setError(new ApiError('invalid phone', 0, 'INVALID_PHONE'))
+    const d = { username, phone }
     void run(async () => {
-      await api('/api/auth/availability', { method: 'POST', body: JSON.stringify({ username, phone }) })
-      if (!phone) return save({ username })
-      await send(phone)
-      setDraft({ username, phone })
+      if (username || phone) await api('/api/auth/availability', { method: 'POST', body: JSON.stringify(d) })
+      if (!needVerify) return save(d)
+      await send(method, target(d))
+      setDraft(d)
       setStep('otp')
     })
   }
@@ -92,18 +102,20 @@ export function CompleteProfileForm({
             <span className="mt-1 block text-xs font-normal text-slate-500">{t('auth.phoneHint')}</span>
           </label>
         )}
+        {needVerify && <VerifyMethodPicker methods={methods} value={method} onChange={setMethod} />}
         {step === 'info' && <FormError error={error} />}
-        <SubmitButton loading={loading}>{t(needPhone ? 'auth.sendOtp' : 'common.save')}</SubmitButton>
+        <SubmitButton loading={loading}>{t(needVerify ? 'auth.sendOtp' : 'common.save')}</SubmitButton>
       </form>
-      {step === 'otp' && draft?.phone && (
-        <PhoneOtpStep
-          phone={draft.phone}
-          mock={otp?.provider === 'mock'}
+      {step === 'otp' && draft && (
+        <OtpCodeStep
+          target={target(draft)}
+          mock={method === 'email' ? !!verify.email?.mock : verify.phone?.provider === 'mock'}
           error={error}
           loading={loading}
+          resendSeconds={verify.resendSeconds}
           submitLabel={t('auth.completeSubmit')}
-          onSubmit={(code) => void run(async () => save({ ...draft, phone_token: await confirm(code) }))}
-          onResend={() => run(() => send(draft.phone!))}
+          onSubmit={(code) => void run(async () => save({ ...draft, verification: await confirm(code) }))}
+          onResend={() => run(() => send(method, target(draft)))}
           onBack={() => {
             setError(null)
             setStep('info')

@@ -9,6 +9,15 @@ export const env = {
   /** Không đặt key: dev dùng token `demo` của EODHD (chỉ AAPL/AMZN/TSLA…), production → null (tắt số liệu) */
   eodhdApiKey: () => process.env.EODHD_API_KEY || (process.env.NODE_ENV === 'production' ? null : 'demo'),
   eodhdBaseUrl: () => process.env.EODHD_BASE_URL || 'https://eodhd.com',
+  /** Chờ bao lâu mới được gửi lại mã OTP (email + SMS), giây — mặc định 60, giới hạn 10…3600 */
+  otpResendSeconds: () => clampSeconds(process.env.OTP_RESEND_SECONDS, 60, 10, 3600),
+  /** Mã OTP email còn hiệu lực bao lâu / token SMS được nhận trong bao lâu sau khi nhập mã, giây — mặc định 600, giới hạn 60…3600 */
+  otpTtlSeconds: () => clampSeconds(process.env.OTP_TTL_SECONDS, 600, 60, 3600),
+}
+
+function clampSeconds(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Math.round(Number(raw))
+  return raw && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
 }
 
 /**

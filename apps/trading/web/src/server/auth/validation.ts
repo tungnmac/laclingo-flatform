@@ -16,6 +16,20 @@ export const phone = z
 /** ID token Firebase sau khi nhập đúng OTP (hoặc token giả lập ở dev) */
 const phoneToken = z.string('PHONE_TOKEN_INVALID').min(1, 'PHONE_TOKEN_INVALID').max(4096, 'PHONE_TOKEN_INVALID')
 
+/** Xác thực qua SĐT (token Firebase) HOẶC email (challenge + mã 6 số) — qua 1 trong 2 là đủ */
+export const verification = z.discriminatedUnion(
+  'method',
+  [
+    z.object({ method: z.literal('phone'), phone_token: phoneToken }),
+    z.object({
+      method: z.literal('email'),
+      challenge: z.string('OTP_EXPIRED').min(1, 'OTP_EXPIRED').max(2048, 'OTP_EXPIRED'),
+      code: z.string('OTP_INVALID').trim().regex(/^\d{6}$/, 'OTP_INVALID'),
+    }),
+  ],
+  'VERIFICATION_REQUIRED',
+)
+
 /** bcrypt chỉ dùng 72 BYTE đầu — mật khẩu tiếng Việt có dấu tốn 2–3 byte/ký tự nên đếm byte, không đếm ký tự */
 const fitsBcrypt = (s: string) => new TextEncoder().encode(s).length <= 72
 
@@ -23,7 +37,7 @@ export const registerSchema = z.object({
   email,
   username,
   phone,
-  phone_token: phoneToken,
+  verification,
   password: z.string('PASSWORD_TOO_SHORT').min(8, 'PASSWORD_TOO_SHORT').refine(fitsBcrypt, 'PASSWORD_TOO_LONG'),
   display_name: z.string('NAME_REQUIRED').trim().min(1, 'NAME_REQUIRED').max(100, 'NAME_TOO_LONG'),
 })
@@ -55,5 +69,7 @@ export const availabilitySchema = z.object({
 export const completeProfileSchema = z.object({
   username: username.optional(),
   phone: phone.optional(),
-  phone_token: phoneToken.optional(),
+  verification: verification.optional(),
 })
+
+export const emailOtpSchema = z.object({ email })

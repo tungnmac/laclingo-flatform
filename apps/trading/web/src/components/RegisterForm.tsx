@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { useT } from '@/i18n/I18nProvider'
 import { api, ApiError } from '@/lib/api'
+import { useOtp } from '@/lib/otp-client'
 import { normalizePhone } from '@/lib/phone'
-import { usePhoneOtp } from '@/lib/phone-otp-client'
 import { safeNextPath } from '@/lib/safe-next'
-import type { PhoneOtpConfig } from '@/server/auth/types'
+import type { VerifyConfig } from '@/server/auth/types'
 import { FormError, inputClass, PasswordField, SubmitButton } from './AuthForm'
-import { PhoneOtpStep } from './PhoneOtpStep'
+import { enabledMethods, OtpCodeStep, VerifyMethodPicker, type VerifyMethod } from './OtpCodeStep'
 
 const labelClass = 'block text-sm font-medium text-slate-700'
 
@@ -22,12 +22,14 @@ interface Draft {
 }
 
 /**
- * Đăng ký 2 bước: (1) điền thông tin → kiểm trùng → gửi OTP về số điện thoại; (2) nhập OTP → tạo tài khoản.
- * Tài khoản chỉ được tạo khi số điện thoại đã xác thực (mỗi số 1 tài khoản).
+ * Đăng ký 2 bước: (1) điền thông tin + chọn xác thực qua email hoặc SĐT → kiểm trùng → gửi OTP; (2) nhập OTP → tạo tài khoản.
+ * Email / tên đăng nhập / số điện thoại đều không được trùng tài khoản khác.
  */
-export function RegisterForm({ next, otp }: { next?: string; otp: PhoneOtpConfig }) {
+export function RegisterForm({ next, verify }: { next?: string; verify: VerifyConfig }) {
   const { t } = useT()
-  const { recaptcha, send, confirm } = usePhoneOtp(otp)
+  const { recaptcha, send, confirm } = useOtp(verify)
+  const methods = enabledMethods(verify)
+  const [method, setMethod] = useState<VerifyMethod>(methods[0] ?? 'email')
   const [draft, setDraft] = useState<Draft | null>(null)
   const [step, setStep] = useState<'info' | 'otp'>('info')
   const [error, setError] = useState<unknown>(null)
@@ -47,22 +49,25 @@ export function RegisterForm({ next, otp }: { next?: string; otp: PhoneOtpConfig
     }
   }
 
+  const target = (d: Draft) => (method === 'email' ? d.email : d.phone)
+
   const submitInfo = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (methods.length === 0) return setError(new ApiError('otp disabled', 503, 'OTP_NOT_CONFIGURED'))
     const form = new FormData(e.currentTarget)
     const phone = normalizePhone(String(form.get('phone') ?? ''))
     if (!phone) return setError(new ApiError('invalid phone', 0, 'INVALID_PHONE'))
     const d: Draft = {
-      email: String(form.get('email') ?? '').trim(),
+      email: String(form.get('email') ?? '').trim().toLowerCase(),
       username: String(form.get('username') ?? '').trim().toLowerCase(),
       display_name: String(form.get('display_name') ?? ''),
       password: String(form.get('password') ?? ''),
       phone,
     }
     void run(async () => {
-      // kiểm trùng trước — mỗi SMS đều tốn phí
+      // kiểm trùng trước khi gửi mã
       await api('/api/auth/availability', { method: 'POST', body: JSON.stringify({ email: d.email, username: d.username, phone: d.phone }) })
-      await send(d.phone)
+      await send(method, target(d))
       setDraft(d)
       setStep('otp')
     })
@@ -71,8 +76,8 @@ export function RegisterForm({ next, otp }: { next?: string; otp: PhoneOtpConfig
   const submitCode = (code: string) =>
     void run(async () => {
       if (!draft) return
-      const phone_token = await confirm(code)
-      await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ ...draft, phone_token }) })
+      const verification = await confirm(code)
+      await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ ...draft, verification }) })
       window.location.assign(safeNextPath(next))
     })
 
@@ -111,18 +116,20 @@ export function RegisterForm({ next, otp }: { next?: string; otp: PhoneOtpConfig
           <span className="mt-1 block text-xs font-normal text-slate-500">{t('auth.phoneHint')}</span>
         </label>
         <PasswordField autoComplete="new-password" />
+        <VerifyMethodPicker methods={methods} value={method} onChange={setMethod} />
         {step === 'info' && <FormError error={error} />}
         <SubmitButton loading={loading}>{t('auth.sendOtp')}</SubmitButton>
       </form>
       {step === 'otp' && draft && (
-        <PhoneOtpStep
-          phone={draft.phone}
-          mock={otp?.provider === 'mock'}
+        <OtpCodeStep
+          target={target(draft)}
+          mock={method === 'email' ? !!verify.email?.mock : verify.phone?.provider === 'mock'}
           error={error}
           loading={loading}
+          resendSeconds={verify.resendSeconds}
           submitLabel={t('auth.submitRegister')}
           onSubmit={submitCode}
-          onResend={() => run(() => send(draft.phone))}
+          onResend={() => run(() => send(method, target(draft)))}
           onBack={() => {
             setError(null)
             setStep('info')
