@@ -25,9 +25,21 @@ const (
 	translationEntityVocabulary = "vocabulary" // id = vocabularies.id
 	translationEntityTopicName  = "topic_name" // id = chính tên chủ đề tiếng Việt (từ điển dùng chung mọi ngôn ngữ)
 
+	translationEntityGrammarTopic    = "grammar_topic"    // id = grammar_topics.id
+	translationEntityGrammarLesson   = "grammar_lesson"   // id = grammar_lessons.id (lớp học dùng lại tên bài)
+	translationEntityGrammarExercise = "grammar_exercise" // id = grammar_exercises.id
+	translationEntityGrammarAnswer   = "grammar_answer"   // id = chính câu tiếng Việt của đáp án / lựa chọn (từ điển)
+	translationEntityClass           = "class"            // id = classes.id
+
 	translationFieldMeaning        = "meaning"
 	translationFieldExampleMeaning = "example_meaning"
 	translationFieldLabel          = "label"
+	translationFieldTitle          = "title"
+	translationFieldDescription    = "description"
+	translationFieldQuestion       = "question"
+	translationFieldExplanation    = "explanation"
+	translationFieldText           = "text"
+	translationFieldContentPrefix  = "content." // ô trong JSON content: "content.<khoá>", xem grammarLessonContentKeys
 )
 
 type contentLocaleKey struct{}
@@ -103,11 +115,13 @@ func NewContentTranslator(repo ContentTranslationReader) *ContentTranslator {
 type translationKey struct{ entity, id, field string }
 
 // Apply thay các ô bằng bản dịch theo ngôn ngữ trong ctx — 1 query cho cả lô. Bản dịch cũ (câu gốc đã sửa) / chưa
-// dịch / lỗi DB thì giữ tiếng Việt: dịch là phần phụ, không được làm hỏng response.
-func (t *ContentTranslator) Apply(ctx context.Context, fields []TranslatableField) {
+// dịch / lỗi DB thì giữ tiếng Việt: dịch là phần phụ, không được làm hỏng response. Trả về ô nào đã dùng bản dịch (theo
+// vị trí) — bản dịch có thể trùng nguyên văn câu gốc (vd lựa chọn chỉ có chữ Hán) nên không so giá trị để biết được.
+func (t *ContentTranslator) Apply(ctx context.Context, fields []TranslatableField) []bool {
+	hits := make([]bool, len(fields))
 	locale := ContentLocale(ctx)
 	if t == nil || locale == "" || len(fields) == 0 {
-		return
+		return hits
 	}
 	params := db.ListContentTranslationsParams{Locale: locale}
 	seen := make(map[translationKey]bool, len(fields))
@@ -122,25 +136,27 @@ func (t *ContentTranslator) Apply(ctx context.Context, fields []TranslatableFiel
 		params.Fields = append(params.Fields, f.Field)
 	}
 	if len(params.Entities) == 0 {
-		return
+		return hits
 	}
 	rows, err := t.repo.ListContentTranslations(ctx, params)
 	if err != nil {
 		if ctx.Err() == nil {
 			log.Printf("❌ content translation: đọc bản dịch %s: %v", locale, err)
 		}
-		return
+		return hits
 	}
 	found := make(map[translationKey]db.ListContentTranslationsRow, len(rows))
 	for _, r := range rows {
 		found[translationKey{r.Entity, r.EntityID, r.Field}] = r
 	}
-	for _, f := range fields {
+	for i, f := range fields {
 		r, ok := found[translationKey{f.Entity, f.ID, f.Field}]
 		if ok && *f.Value != "" && r.SourceHash == sourceHash(*f.Value) {
 			*f.Value = r.Text
+			hits[i] = true
 		}
 	}
+	return hits
 }
 
 // TopicLabels — nhãn hiển thị (đã dịch) cho 1 nhóm tên chủ đề, map tên → nhãn (mọi tên đều có mặt)

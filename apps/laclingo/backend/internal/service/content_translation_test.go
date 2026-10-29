@@ -39,6 +39,9 @@ type fakeTranslationRepo struct {
 	reads     int
 	vocab     []db.ListVocabularyTranslationSourcesRow
 	topics    []string
+	lessons   []db.ListGrammarLessonTranslationSourcesRow
+	exercises []db.ListGrammarExerciseTranslationSourcesRow
+	answers   []string
 	upserts   int
 	readErr   error
 	lastQuery db.ListContentTranslationsParams
@@ -99,6 +102,26 @@ func (f *fakeTranslationRepo) ListVocabularyTranslationSources(context.Context) 
 
 func (f *fakeTranslationRepo) ListTopicNameTranslationSources(context.Context) ([]string, error) {
 	return f.topics, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarTopicTranslationSources(context.Context) ([]db.ListGrammarTopicTranslationSourcesRow, error) {
+	return nil, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarLessonTranslationSources(context.Context) ([]db.ListGrammarLessonTranslationSourcesRow, error) {
+	return f.lessons, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarExerciseTranslationSources(context.Context) ([]db.ListGrammarExerciseTranslationSourcesRow, error) {
+	return f.exercises, nil
+}
+
+func (f *fakeTranslationRepo) ListGrammarAnswerTranslationSources(context.Context) ([]string, error) {
+	return f.answers, nil
+}
+
+func (f *fakeTranslationRepo) ListClassTranslationSources(context.Context) ([]db.ListClassTranslationSourcesRow, error) {
+	return nil, nil
 }
 
 func TestContentTranslatorApply(t *testing.T) {

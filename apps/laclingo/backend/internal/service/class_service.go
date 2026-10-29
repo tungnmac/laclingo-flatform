@@ -36,10 +36,19 @@ type ClassRepository interface {
 
 type ClassService struct {
 	repo ClassRepository
+	tr   *ContentTranslator // dịch tên / mô tả lớp và tên bài trong giáo án theo ngôn ngữ giao diện (chỉ học viên)
 }
 
-func NewClassService(repo ClassRepository) *ClassService {
-	return &ClassService{repo: repo}
+func NewClassService(repo ClassRepository, tr *ContentTranslator) *ClassService {
+	return &ClassService{repo: repo, tr: tr}
+}
+
+// classFields — tên + mô tả 1 lớp
+func classFields(id uuid.UUID, title, description *string) []TranslatableField {
+	return []TranslatableField{
+		{Entity: translationEntityClass, ID: id.String(), Field: translationFieldTitle, Value: title},
+		{Entity: translationEntityClass, ID: id.String(), Field: translationFieldDescription, Value: description},
+	}
 }
 
 // ClassRequest — body tạo/sửa lớp (admin)
@@ -185,6 +194,11 @@ func (s *ClassService) ListByLanguage(ctx context.Context, userID uuid.UUID, lan
 			LessonCount: lessonCount, Enrolled: isEnrolled, ProgressPercent: progressPercent,
 		})
 	}
+	fields := make([]TranslatableField, 0, 2*len(results))
+	for i := range results {
+		fields = append(fields, classFields(results[i].ID, &results[i].Title, &results[i].Description)...)
+	}
+	s.tr.Apply(ctx, fields)
 	return results, nil
 }
 
@@ -235,10 +249,16 @@ func (s *ClassService) GetDetail(ctx context.Context, userID, classID uuid.UUID)
 		progressPercent = percent(done, len(lessons))
 	}
 
-	return ClassDetail{
+	detail := ClassDetail{
 		ID: classID, Title: class.Title, Description: class.Description.String, Level: class.Level,
 		Enrolled: isEnrolled, ProgressPercent: progressPercent, Lessons: lessons,
-	}, nil
+	}
+	fields := classFields(classID, &detail.Title, &detail.Description)
+	for i := range detail.Lessons {
+		fields = append(fields, grammarLessonTitleField(detail.Lessons[i].LessonID, &detail.Lessons[i].Title)) // dùng lại bản dịch tên bài ngữ pháp
+	}
+	s.tr.Apply(ctx, fields)
+	return detail, nil
 }
 
 // Enroll ghi danh userID vào 1 lớp — idempotent (ghi danh lại không lỗi).
