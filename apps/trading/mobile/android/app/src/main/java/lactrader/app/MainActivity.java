@@ -21,17 +21,16 @@ public class MainActivity extends BridgeActivity {
                     moveTaskToBack(true);
                     return;
                 }
-                // Trang ngay trước là trang báo mất kết nối (file local, Capacitor tự mở khi nạp web lỗi) → nhảy qua nó
-                // về trang web gần nhất; còn lại để WebView tự lùi (goBack bỏ qua đúng các mục lịch sử nó coi là thừa)
-                String localUrl = getBridge().getLocalUrl();
+                // Trang ngay trước là trang báo mất kết nối (Capacitor tự mở khi nạp web lỗi) → nhảy qua nó về trang web
+                // gần nhất; còn lại để WebView tự lùi (goBack bỏ qua đúng các mục lịch sử nó coi là thừa)
                 WebBackForwardList history = webView.copyBackForwardList();
                 int current = history.getCurrentIndex();
-                if (!history.getItemAtIndex(current - 1).getUrl().startsWith(localUrl)) {
+                if (!isErrorPage(history.getItemAtIndex(current - 1).getUrl())) {
                     webView.goBack();
                     return;
                 }
                 for (int i = current - 2; i >= 0; i--) {
-                    if (!history.getItemAtIndex(i).getUrl().startsWith(localUrl)) {
+                    if (!isErrorPage(history.getItemAtIndex(i).getUrl())) {
                         webView.goBackOrForward(i - current);
                         return;
                     }
@@ -39,5 +38,11 @@ public class MainActivity extends BridgeActivity {
                 moveTaskToBack(true);
             }
         });
+    }
+
+    /** Trang lỗi nằm CÙNG host với web (server.url + "/" + errorPath, Capacitor phục vụ file local tại đó) */
+    private boolean isErrorPage(String url) {
+        String errorUrl = getBridge().getErrorUrl();
+        return errorUrl != null && url != null && url.split("[?#]", 2)[0].equals(errorUrl);
     }
 }
