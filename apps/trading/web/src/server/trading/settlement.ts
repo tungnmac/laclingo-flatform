@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { orders, positions, tradingAccounts, type AccountRow } from '../db/schema'
 import { getProvider } from '../market/registry'
+import { notify, type NotificationData } from '../notifications/notification-service'
 import type { Tx } from './account-service'
 import { D, toDb, type Decimal } from './decimal'
 import { settleSymbol, type MinuteCandle } from './engine'
@@ -105,6 +106,7 @@ export async function settleAccount(tx: Tx, account: AccountRow, pre: Settlement
   let wallet = walletFrom(account, posRows)
   let delayed = false
   let changed = false
+  const notes: { data: NotificationData; at: Date }[] = [] // lệnh khớp / thanh lý lúc người dùng không mở app
 
   for (const symbol of symbols) {
     const symbolOrders = pendingRows.filter((o) => o.symbol === symbol)
@@ -141,8 +143,11 @@ export async function settleAccount(tx: Tx, account: AccountRow, pre: Settlement
           .set({ status: 'filled', filledAt: at, fillPrice: toDb(e.price), fee: toDb(e.fee), qty: toDb(e.qty), reserved: toDb(D(0)) })
           .where(eq(orders.id, e.orderId))
         await insertTrade(tx, { accountId: account.id, orderId: e.orderId, symbol, side: e.side, qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, closedQty: e.closedQty, kind: 'order', executedAt: at })
+        const type = symbolOrders.find((o) => o.id === e.orderId)?.type ?? 'limit'
+        notes.push({ at, data: { kind: 'order_filled', symbol, side: e.side, type, qty: e.qty.toString(), price: e.price.toString(), realized_pnl: e.realizedPnl.toString() } })
       } else if (e.kind === 'liquidation') {
         await insertTrade(tx, { accountId: account.id, orderId: null, symbol, side: 'buy', qty: e.qty, price: e.price, fee: e.fee, realizedPnl: e.realizedPnl, closedQty: e.closedQty, kind: 'liquidation', executedAt: at })
+        notes.push({ at, data: { kind: 'liquidation', symbol, qty: e.qty.toString(), price: e.price.toString(), realized_pnl: e.realizedPnl.toString() } })
       } else {
         await tx.update(orders).set({ status: 'cancelled', reserved: toDb(D(0)) }).where(eq(orders.id, e.orderId))
       }
@@ -163,6 +168,7 @@ export async function settleAccount(tx: Tx, account: AccountRow, pre: Settlement
 
   if (!changed) return { account, delayed }
   await saveCash(tx, account.id, wallet.cash)
+  await notify(tx, notes.map((n) => ({ userId: account.userId, data: n.data, createdAt: n.at })))
   const [fresh] = await tx.select().from(tradingAccounts).where(eq(tradingAccounts.id, account.id))
   return { account: fresh, delayed }
 }

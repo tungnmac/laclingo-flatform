@@ -1134,6 +1134,17 @@ export const vi = {
     continueAs: 'Tiếp tục với tài khoản đã đăng nhập',
     orSignIn: 'Hoặc đăng nhập tài khoản khác:',
   },
+  notifications: {
+    title: 'Thông báo',
+    open: 'Mở thông báo',
+    openUnread: 'Mở thông báo ({n} chưa đọc)',
+    empty: 'Chưa có thông báo nào',
+    orderFilled: 'Lệnh {type} {side} {qty} {base} đã khớp giá {price}',
+    liquidation: 'Vị thế Short {qty} {base} đã bị thanh lý giá {price}',
+    pnl: ' · Lãi/lỗ {pnl} USDT',
+    contestRanked: 'Giải "{title}" đã có kết quả: bạn đạt hạng {rank}/{total}',
+    contestUnranked: 'Giải "{title}" đã có kết quả: bạn chưa đủ điều kiện xếp hạng',
+  },
   pro: {
     needsRefund: 'Đã nhận thanh toán nhưng tài khoản của bạn đang có Pro không thời hạn nên đơn này cần hoàn tiền — bộ phận hỗ trợ sẽ liên hệ với bạn.',
     buyTitle: 'Nâng cấp Pro',
