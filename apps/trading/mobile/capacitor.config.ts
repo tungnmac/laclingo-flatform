@@ -31,8 +31,9 @@ const config: CapacitorConfig = {
   },
   backgroundColor: '#f8fafc',
   plugins: {
-    // @capacitor/app chỉ để đọc phiên bản app (kiểm tra cập nhật sau này) — giữ nút Back Android mặc định (WebView lùi
-    // trang / thoát app), không để plugin tự bắt nút Back
+    // @capacitor/app chỉ để đọc phiên bản app (kiểm tra cập nhật sau này). Nút Back do MainActivity xử lý (lùi trang
+    // trong WebView, trang đầu → đưa app xuống nền) — tắt bộ xử lý của plugin (không có listener JS thì ở trang đầu nó
+    // bỏ qua nút Back)
     App: {
       disableBackButtonHandler: true,
     },

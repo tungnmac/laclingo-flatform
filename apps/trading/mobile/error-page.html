@@ -29,7 +29,7 @@
   </main>
   <script>
     window.TRADELAB_URL = "";
-    function retry() { if (window.TRADELAB_URL) location.href = window.TRADELAB_URL }
+    function retry() { if (window.TRADELAB_URL) location.replace(window.TRADELAB_URL) }
     window.addEventListener('online', retry)
   </script>
 </body>
