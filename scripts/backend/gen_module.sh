@@ -12,7 +12,7 @@ MODULE_NAME=$1
 MODULE_LOWER=$(echo "$MODULE_NAME" | tr '[:upper:]' '[:lower:]')
 MODULE_CAPITAL="$(tr '[:lower:]' '[:upper:]' <<< ${MODULE_LOWER:0:1})${MODULE_LOWER:1}"
 
-BASE_DIR="apps/backend/internal"
+BASE_DIR="apps/laclingo/backend/internal"
 
 echo "🚀 Đang tạo cấu trúc code boilerplate cho module: '${MODULE_NAME}'..."
 
@@ -23,7 +23,7 @@ mkdir -p "$BASE_DIR/service"
 mkdir -p "$BASE_DIR/repository"
 
 # ==========================================
-# 2. FILE CONFIG (apps/backend/internal/config/config.go)
+# 2. FILE CONFIG (apps/laclingo/backend/internal/config/config.go)
 # ==========================================
 CONFIG_FILE="$BASE_DIR/config/config.go"
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -68,7 +68,7 @@ EOF
 fi
 
 # ==========================================
-# 3. FILE SERVICE / SRS INTERFACE (apps/backend/internal/service/${MODULE_LOWER}_service.go)
+# 3. FILE SERVICE / SRS INTERFACE (apps/laclingo/backend/internal/service/${MODULE_LOWER}_service.go)
 # ==========================================
 SERVICE_FILE="$BASE_DIR/service/${MODULE_LOWER}_service.go"
 cat << EOF > "$SERVICE_FILE"
@@ -107,7 +107,7 @@ EOF
 echo "  ✅ Created $SERVICE_FILE"
 
 # ==========================================
-# 4. FILE HANDLER (apps/backend/internal/handler/${MODULE_LOWER}_handler.go)
+# 4. FILE HANDLER (apps/laclingo/backend/internal/handler/${MODULE_LOWER}_handler.go)
 # ==========================================
 HANDLER_FILE="$BASE_DIR/handler/${MODULE_LOWER}_handler.go"
 cat << EOF > "$HANDLER_FILE"
@@ -170,7 +170,7 @@ EOF
 echo "  ✅ Created $HANDLER_FILE"
 
 # ==========================================
-# 5. FILE REPOSITORY / POSTGRES (apps/backend/internal/repository/postgres.go)
+# 5. FILE REPOSITORY / POSTGRES (apps/laclingo/backend/internal/repository/postgres.go)
 # ==========================================
 POSTGRES_FILE="$BASE_DIR/repository/postgres.go"
 if [ ! -f "$POSTGRES_FILE" ]; then

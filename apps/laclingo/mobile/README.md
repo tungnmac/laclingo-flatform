@@ -19,7 +19,7 @@ chỉ build lại app khi đổi phần native (plugin, icon, quyền...).
 ## Chạy thử
 
 ```bash
-cd apps/mobile
+cd apps/laclingo/mobile
 npm install
 
 # Máy dev: web chạy ở :3000, điện thoại cùng Wi-Fi → dùng IP LAN của máy (không dùng localhost)
@@ -50,7 +50,7 @@ Mất upload keystore là không gửi được bản cập nhật lên Google P
 
 ## Ôn tập offline
 
-Service worker của web (`apps/web/public/sw.js`) lưu sẵn trang ôn tập, dữ liệu thẻ nằm trong IndexedDB — mất mạng vẫn
+Service worker của web (`apps/laclingo/web/public/sw.js`) lưu sẵn trang ôn tập, dữ liệu thẻ nằm trong IndexedDB — mất mạng vẫn
 mở app và ôn được, kết quả tự đồng bộ khi có mạng lại.
 
 - **Android:** chạy sẵn (Capacitor chuyển request của service worker qua WebView).
@@ -74,7 +74,7 @@ Thiếu các file dưới đây app vẫn chạy, chỉ không nhận được t
    - Xcode → target App → Signing & Capabilities → thêm **Push Notifications** và **Background Modes**
      (tích Remote notifications — `Info.plist` đã khai báo sẵn).
 4. **Backend:** Firebase Console → Project settings → Service accounts → Generate new private key → lưu file JSON
-   ngoài repo, rồi đặt `FCM_SERVICE_ACCOUNT_FILE=<đường dẫn file>` trong `apps/backend/.env`.
+   ngoài repo, rồi đặt `FCM_SERVICE_ACCOUNT_FILE=<đường dẫn file>` trong `apps/laclingo/backend/.env`.
 
 `google-services.json`, `GoogleService-Info.plist` và file service account đều không commit (đã có trong
 `.gitignore`); file service account là khoá bí mật — giữ kín.

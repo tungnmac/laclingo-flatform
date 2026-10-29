@@ -10,13 +10,13 @@ N ?= 1
 # Khởi tạo & kéo thư viện cho Backend (Go)
 init-backend:
 	@echo "📦 Đang khởi tạo và kéo Go modules cho Backend..."
-	@cd apps/backend && go mod tidy
+	@cd apps/laclingo/backend && go mod tidy
 	@echo "✅ Backend Go modules đã sẵn sàng!"
 
 # Khởi tạo & cài đặt npm packages cho Web (Next.js)
 init-web:
 	@echo "📦 Đang cài đặt npm packages cho Frontend Web..."
-	@cd apps/web && npm install
+	@cd apps/laclingo/web && npm install
 	@echo "✅ Frontend Web dependencies đã sẵn sàng!"
 
 # Cài đặt toàn bộ dependencies cho dự án
@@ -93,20 +93,20 @@ promote-admin:
 
 # Chạy backend với hot reload (Air)
 dev-backend:
-	cd apps/backend && air
+	cd apps/laclingo/backend && air
 
 # Chạy backend bình thường (không hot reload)
 run-backend:
-	cd apps/backend && go run ./cmd/server
+	cd apps/laclingo/backend && go run ./cmd/server
 
 # Build backend
 build-backend: swagger
-	cd apps/backend && go build -o bin/server ./cmd/server
+	cd apps/laclingo/backend && go build -o bin/server ./cmd/server
 
 # Sinh tài liệu Swagger từ annotation trong code
 swagger:
 	@command -v swag >/dev/null 2>&1 || go install github.com/swaggo/swag/cmd/swag@latest
-	cd apps/backend && swag init -g cmd/server/main.go -o docs --parseInternal
+	cd apps/laclingo/backend && swag init -g cmd/server/main.go -o docs --parseInternal
 
 # ========================
 # FRONTEND
@@ -114,7 +114,7 @@ swagger:
 
 # Chạy web với hot reload (Next.js)
 dev-web:
-	cd apps/web && npm run dev
+	cd apps/laclingo/web && npm run dev
 
 # Alias cho dev-web
 run-web: dev-web
@@ -124,15 +124,15 @@ run-web: dev-web
 # ========================
 
 clean:
-	rm -rf apps/backend/bin/ apps/backend/tmp/ apps/backend/build-errors.log
-	rm -rf apps/web/.next
+	rm -rf apps/laclingo/backend/bin/ apps/laclingo/backend/tmp/ apps/laclingo/backend/build-errors.log
+	rm -rf apps/laclingo/web/.next
 	@echo "🧹 Đã dọn build artifacts!"
 
 # ========================
-# TRADING WEB (apps/trading-web)
+# TRADING WEB (apps/trading/web)
 # ========================
 trading-install:
-	cd apps/trading-web && npm install
+	cd apps/trading/web && npm install
 
 # DB đã khởi tạo từ trước thì script init không chạy lại — tạo trading_db thủ công (idempotent)
 trading-db-create:
@@ -140,28 +140,28 @@ trading-db-create:
 		|| docker exec laclingo_postgres psql -U laclingo_user -d postgres -c "CREATE DATABASE trading_db"
 
 trading-migrate:
-	cd apps/trading-web && npm run db:migrate
+	cd apps/trading/web && npm run db:migrate
 
-# Seed của trading-web nằm trong chính project (apps/trading-web/scripts) — Makefile chỉ gọi.
+# Seed của trading-web nằm trong chính project (apps/trading/web/scripts) — Makefile chỉ gọi.
 # seed:all = danh mục mã → bài học → doanh nghiệp → thư viện (đều idempotent, không ghi đè chỉnh sửa admin)
 trading-seed:
-	cd apps/trading-web && npm run seed:all
+	cd apps/trading/web && npm run seed:all
 
 trading-dev:
-	cd apps/trading-web && npm run dev
+	cd apps/trading/web && npm run dev
 
 trading-test:
-	cd apps/trading-web && npm test
+	cd apps/trading/web && npm test
 
 # Chốt kết quả giải đấu đã kết thúc — chạy định kỳ (cron mỗi 10 phút)
 contests-finalize:
-	cd apps/trading-web && npm run contests:finalize
+	cd apps/trading/web && npm run contests:finalize
 
 # Đồng bộ dữ liệu cổ phiếu VN vào trading_db. VD: make vn-sync job=symbols | indexes | prices | index-prices | profiles | financials | all
 # Thêm tham số: make vn-sync job=prices args="--symbols FPT,VNM"  ·  chỉ VN30: args="--vn30"
 vn-sync:
 	@test -n "$(job)" || (echo "❌ Thiếu job. VD: make vn-sync job=symbols" && exit 1)
-	cd apps/trading-web && npm run vn:sync -- $(job) $(args)
+	cd apps/trading/web && npm run vn:sync -- $(job) $(args)
 
 # ========================
 # TẤT CẢ (app chính + trading-web) — mỗi app giữ migration/seed của riêng mình

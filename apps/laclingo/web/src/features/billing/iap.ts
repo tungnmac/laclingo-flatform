@@ -5,7 +5,7 @@ import type { CatalogItem, CatalogResponse, IAPResult } from '@/types/api'
 import { billingService } from './billing.service'
 
 // Mua trong app iOS/Android (chính sách store: hàng số trong app phải qua Apple In-App Purchase / Google Play
-// Billing, không dẫn sang VNPay/Stripe). Plugin @capgo/native-purchases cài ở app native (apps/mobile), web gọi qua
+// Billing, không dẫn sang VNPay/Stripe). Plugin @capgo/native-purchases cài ở app native (apps/laclingo/mobile), web gọi qua
 // bridge. Luồng: store thanh toán → gửi bằng chứng lên backend xác thực + giao hàng → mới hoàn tất giao dịch
 // (iOS finishTransaction, Android consume gói gems; Android gói Pro do server acknowledge).
 

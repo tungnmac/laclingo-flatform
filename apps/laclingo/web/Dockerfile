@@ -1,6 +1,6 @@
 # Web Next.js — output "standalone" (chỉ copy file cần chạy), chạy bằng node user không phải root.
 # NEXT_PUBLIC_* được nhúng lúc build → đổi domain API phải build lại image.
-# Build: docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api/v1 -t laclingo-web apps/web
+# Build: docker build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api/v1 -t laclingo-web apps/laclingo/web
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./

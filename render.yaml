@@ -9,13 +9,13 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    rootDir: apps/backend
+    rootDir: apps/laclingo/backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
-        - apps/backend/**
+        - apps/laclingo/backend/**
     envVars:
       - key: APP_ENV
         value: production
@@ -36,12 +36,12 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    rootDir: apps/web
+    rootDir: apps/laclingo/web
     dockerfilePath: ./Dockerfile
     autoDeployTrigger: checksPass
     buildFilter:
       paths:
-        - apps/web/**
+        - apps/laclingo/web/**
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://laclingo-platform.onrender.com/api/v1

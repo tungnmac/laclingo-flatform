@@ -1,4 +1,4 @@
-apps/web/
+apps/laclingo/web/
 ├── public/
 │   ├── audio/                 # Sound effects (correct.mp3, wrong.mp3)
 │   ├── images/                # Logos, LacLingo Mascot (Chim Lạc)
