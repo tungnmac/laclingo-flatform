@@ -2,7 +2,9 @@ package handler
 
 import (
 	"io"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -106,5 +108,61 @@ func TestSecurityHeaders(t *testing.T) {
 		if resp.Header.Get("Cross-Origin-Resource-Policy") != "" {
 			t.Error("không được chặn web domain khác nạp ảnh / audio từ API")
 		}
+	}
+}
+
+func TestRateLimitIPv6Prefix(t *testing.T) {
+	SetClientIPHeader("CF-Connecting-IP")
+	t.Cleanup(func() { SetClientIPHeader("") })
+	app := fiber.New()
+	app.Use(RateLimit(2))
+	app.Get("/", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+	get := func(ip string) *http.Response {
+		req := httptest.NewRequest(fiber.MethodGet, "/", nil)
+		req.Header.Set("CF-Connecting-IP", ip)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+	// Cùng dải /64, đổi địa chỉ vẫn chung 1 bộ đếm
+	get("2001:db8:1:2::1")
+	get("2001:db8:1:2::abcd")
+	resp := get("2001:db8:1:2:ffff::9")
+	if resp.StatusCode != fiber.StatusTooManyRequests {
+		t.Fatalf("đổi địa chỉ trong cùng /64 phải bị giới hạn, nhận %d", resp.StatusCode)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(b), `"code":"rate_limited"`) {
+		t.Errorf("429 giới hạn chung phải có code rate_limited: %s", b)
+	}
+	if got := get("2001:db8:1:3::1").StatusCode; got != fiber.StatusOK {
+		t.Errorf("dải /64 khác đếm riêng, nhận %d", got)
+	}
+}
+
+func TestClientIPHeaderWithTrustedProxies(t *testing.T) {
+	app := fiber.New()
+	app.Get("/", func(c *fiber.Ctx) error { return c.SendString(clientIP(c)) })
+	ip := func() string {
+		req := httptest.NewRequest(fiber.MethodGet, "/", nil)
+		req.Header.Set("CF-Connecting-IP", "6.6.6.6")
+		resp, _ := app.Test(req, -1)
+		b, _ := io.ReadAll(resp.Body)
+		return string(b)
+	}
+	SetClientIPHeader("CF-Connecting-IP")
+	t.Cleanup(func() { SetClientIPHeader(""); _ = SetTrustedProxies(nil) })
+
+	// Kết nối (0.0.0.0) không phải proxy tin cậy → không tin header client tự gửi
+	_ = SetTrustedProxies([]string{"10.0.0.0/8"})
+	if got := ip(); got != "0.0.0.0" {
+		t.Errorf("kết nối không qua proxy tin cậy: không được tin header, nhận %q", got)
+	}
+	// Kết nối từ proxy tin cậy → tin header
+	_ = SetTrustedProxies([]string{"0.0.0.0"})
+	if got := ip(); got != "6.6.6.6" {
+		t.Errorf("qua proxy tin cậy: phải lấy header, nhận %q", got)
 	}
 }

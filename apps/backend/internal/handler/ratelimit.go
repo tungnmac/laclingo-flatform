@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -48,7 +49,18 @@ func tooManyRequests(msg string) fiber.Handler {
 }
 
 func keyByIP(prefix string) func(*fiber.Ctx) string {
-	return func(c *fiber.Ctx) string { return prefix + ":" + clientIP(c) }
+	return func(c *fiber.Ctx) string { return prefix + ":" + limiterIP(c) }
+}
+
+// limiterIP — IP dùng làm key giới hạn: IPv6 gom theo dải /64 (1 đường mạng / VPS có cả dải /64, đổi địa chỉ để lách
+// giới hạn và làm phình bộ đếm). Log / VNPay vẫn dùng IP đầy đủ (clientIP).
+func limiterIP(c *fiber.Ctx) string {
+	ip := clientIP(c)
+	addr, err := netip.ParseAddr(ip)
+	if err != nil || !addr.Is6() {
+		return ip
+	}
+	return netip.PrefixFrom(addr, 64).Masked().String()
 }
 
 // loginIdentifier — email / username trong body đăng nhập, chuẩn hoá như AuthService.Login rồi băm (key luôn ngắn:
@@ -64,7 +76,7 @@ func loginIdentifier(c *fiber.Ctx) string {
 
 // keyByIPAndIdentifier — 1 IP dò mật khẩu 1 tài khoản (ngưỡng chặt)
 func keyByIPAndIdentifier(c *fiber.Ctx) string {
-	return "login-ip-id:" + clientIP(c) + ":" + loginIdentifier(c)
+	return "login-ip-id:" + limiterIP(c) + ":" + loginIdentifier(c)
 }
 
 // keyByIdentifier — 1 tài khoản bị dò từ nhiều IP (ngưỡng rộng: kẻ xấu không dễ khoá tài khoản của người khác)

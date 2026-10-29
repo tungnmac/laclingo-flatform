@@ -130,7 +130,9 @@ func Load() (*Config, error) {
 		}
 		refreshTTL = d
 	}
-	rateLimit := 600
+	// Đủ rộng cho nhiều người chung 1 IP (lớp học, NAT nhà mạng) — chỉ để chặn 1 máy dồn request; dò mật khẩu đã có
+	// giới hạn riêng
+	rateLimit := 2000
 	if v := os.Getenv("RATE_LIMIT_PER_MINUTE"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 {
@@ -145,6 +147,8 @@ func Load() (*Config, error) {
 		}
 	}
 
+	clientIPHeader := strings.TrimSpace(os.Getenv("CLIENT_IP_HEADER"))
+
 	return &Config{
 		Port:           port,
 		DatabaseURL:    dbURL,
@@ -154,7 +158,7 @@ func Load() (*Config, error) {
 		RefreshTTL:     refreshTTL,
 		TrustedProxies: trustedProxies,
 
-		ClientIPHeader:     strings.TrimSpace(os.Getenv("CLIENT_IP_HEADER")),
+		ClientIPHeader:     clientIPHeader,
 		RateLimitPerMinute: rateLimit,
 
 		R2AccountID:       os.Getenv("R2_ACCOUNT_ID"),

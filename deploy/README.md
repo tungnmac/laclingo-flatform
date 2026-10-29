@@ -98,4 +98,7 @@ docker compose -f docker-compose.prod.yml up -d             # migrate chỉ ch�
 - **Giới hạn đăng nhập theo IP** đã cấu hình sẵn `TRUSTED_PROXIES` = IP nội bộ cố định của Caddy (`172.28.0.10`). Nếu đặt thêm CDN /
   load balancer phía trước Caddy: khai báo dải IP của nó ở `trusted_proxies` của Caddy (Caddyfile) **và** thêm vào
   `TRUSTED_PROXIES` (trong `docker-compose.prod.yml`) — thiếu một trong hai thì mọi người dùng chung 1 IP.
+- **Không đặt `CLIENT_IP_HEADER`** trong `deploy/.env`: biến này chỉ dành cho Render (luôn qua Cloudflare, header
+  `CF-Connecting-IP` do Cloudflare ghi đè). Sau Caddy, client tự gửi được header đó để giả IP — đặt cùng
+  `TRUSTED_PROXIES` thì backend chỉ tin header khi request đến từ proxy tin cậy (Caddy không xoá header client gửi).
 - Bộ đếm giới hạn đăng nhập nằm trong bộ nhớ của backend — chạy 1 instance backend như cấu hình này là đúng.
