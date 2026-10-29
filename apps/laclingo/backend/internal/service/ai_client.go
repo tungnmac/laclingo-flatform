@@ -50,6 +50,18 @@ type aiError struct {
 func (e *aiError) Error() string { return e.reason + ": " + e.cause.Error() }
 func (e *aiError) Unwrap() error { return e.cause }
 
+// Lý do khi nhà cung cấp AI từ chối vì vượt tần suất / hết hạn mức — gọi tiếp ngay cũng vô ích (xem isAIRateLimited)
+const (
+	claudeRateLimitedReason = "vượt giới hạn tần suất gọi AI, thử lại sau ít phút"
+	geminiQuotaReason       = "đã dùng hết hạn mức miễn phí của Gemini (theo phút/ngày), thử lại sau"
+)
+
+// isAIRateLimited — lỗi AI do vượt tần suất / hết hạn mức (HTTP 429)
+func isAIRateLimited(err error) bool {
+	reason := aiErrorReason(err)
+	return reason == claudeRateLimitedReason || reason == geminiQuotaReason
+}
+
 // aiErrorReason — lý do hiển thị của 1 lỗi từ AIClient
 func aiErrorReason(err error) string {
 	var ae *aiError
@@ -129,7 +141,7 @@ func claudeErrorReason(err error) string {
 	case apiErr.StatusCode == http.StatusUnauthorized || apiErr.StatusCode == http.StatusForbidden:
 		return "ANTHROPIC_API_KEY không hợp lệ hoặc đã bị thu hồi"
 	case apiErr.StatusCode == http.StatusTooManyRequests:
-		return "vượt giới hạn tần suất gọi AI, thử lại sau ít phút"
+		return claudeRateLimitedReason
 	case apiErr.StatusCode == http.StatusNotFound:
 		return "model AI trong VOCAB_SUGGEST_MODEL không tồn tại"
 	case apiErr.StatusCode >= 500:
@@ -283,7 +295,7 @@ func geminiErrorReason(code int, status, message string) string {
 	case code == http.StatusForbidden:
 		return "GEMINI_API_KEY không có quyền dùng Gemini API (bật Generative Language API cho project)"
 	case code == http.StatusTooManyRequests || status == "RESOURCE_EXHAUSTED":
-		return "đã dùng hết hạn mức miễn phí của Gemini (theo phút/ngày), thử lại sau"
+		return geminiQuotaReason
 	case code == http.StatusNotFound:
 		return "model AI trong GEMINI_MODEL không tồn tại"
 	case code >= 500:
