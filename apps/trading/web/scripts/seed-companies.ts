@@ -5,13 +5,7 @@ import { DRAFTS_US } from './companies/drafts-us'
 import { DRAFTS_VN } from './companies/drafts-vn'
 import { COMPANIES } from './companies/list'
 
-try {
-  process.loadEnvFile('.env')
-} catch {
-  // không có .env → dùng biến môi trường sẵn có
-}
-
-async function main() {
+export async function seedCompanies(): Promise<string> {
   // import động SAU khi nạp .env — client đọc DATABASE_URL lúc import
   const { db } = await import('../src/server/db/client')
   const { companies, companyAnalyses } = await import('../src/server/db/schema')
@@ -50,11 +44,5 @@ async function main() {
     }
   }
 
-  console.log(`✅ Seed companies: ${addedCompanies} companies, ${addedDrafts} draft analyses added (unpublished)`)
-  process.exit(0)
+  return `✅ Seed companies: ${addedCompanies} companies, ${addedDrafts} draft analyses added (unpublished)`
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

@@ -14,7 +14,11 @@ function isRequestError(err: unknown): boolean {
  * 400 mã không hợp lệ), KHÔNG tính là nguồn hỏng — ném lại lỗi, không chuyển nguồn cho mọi người.
  * Lỗi liên tục (vd Binance chặn IP máy chủ) → bỏ qua nguồn chính PRIMARY_COOLDOWN_MS để không tốn 1 request hỏng mỗi lần.
  */
-export function withFallback(primary: MarketDataProvider, backup: MarketDataProvider, now = () => Date.now()): MarketDataProvider {
+export function withFallback(
+  primary: MarketDataProvider,
+  backup: MarketDataProvider,
+  now = () => Date.now(),
+): MarketDataProvider & { usingBackup: () => boolean } {
   let skipPrimaryUntil = 0
 
   async function call<T>(op: (p: MarketDataProvider) => Promise<T>): Promise<T> {
@@ -35,5 +39,7 @@ export function withFallback(primary: MarketDataProvider, backup: MarketDataProv
     getQuotes: (symbols) => call((p) => p.getQuotes(symbols)),
     getCandles: (symbol, interval, limit) => call((p) => p.getCandles(symbol, interval, limit)),
     getCandlesSince: (symbol, interval, startTimeMs, limit) => call((p) => p.getCandlesSince(symbol, interval, startTimeMs, limit)),
+    /** Đang trong thời gian bỏ qua nguồn chính (trang Quản trị → Nguồn dữ liệu) */
+    usingBackup: () => now() < skipPrimaryUntil,
   }
 }

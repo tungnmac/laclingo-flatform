@@ -24,6 +24,22 @@ function connected(): Redis {
   return c
 }
 
+/** Kiểm tra kết nối (trang Quản trị → Nguồn dữ liệu) */
+export const redisPing = async (): Promise<string> => connected().ping()
+
+/** Xoá theo mẫu key bằng SCAN (không chặn Redis như KEYS) — trả số key đã xoá */
+export async function redisDeleteMatching(pattern: string): Promise<number> {
+  const c = connected()
+  let cursor = '0'
+  let deleted = 0
+  do {
+    const [next, keys] = await c.scan(cursor, 'MATCH', pattern, 'COUNT', 500)
+    cursor = next
+    if (keys.length) deleted += await c.del(...keys)
+  } while (cursor !== '0')
+  return deleted
+}
+
 export const redisStore: CacheStore = {
   get: async (key) => connected().get(key),
   mget: async (keys) => (keys.length ? connected().mget(...keys) : []),

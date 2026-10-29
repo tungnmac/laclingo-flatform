@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   phone: varchar('phone', { length: 16 }).unique(), // E.164 (+84…) — mỗi số chỉ 1 tài khoản
   phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }), // đã xác thực OTP qua SMS
   emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }), // đã xác thực OTP qua email
+  adminVerifiedAt: timestamp('admin_verified_at', { withTimezone: true }), // admin kích hoạt thủ công (thay cho OTP)
+  disabledAt: timestamp('disabled_at', { withTimezone: true }), // admin khoá — không đăng nhập được, mọi phiên bị thu hồi
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   displayName: varchar('display_name', { length: 100 }).notNull(),
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'admin'
@@ -792,6 +794,13 @@ export const notifications = pgTable(
   },
   (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)],
 )
+
+/** Cấu hình admin chỉnh trên web (không cần deploy lại) — mỗi key 1 dòng, value theo kiểu của key đó */
+export const appSettings = pgTable('app_settings', {
+  key: varchar('key', { length: 50 }).primaryKey(), // vd 'mobile_app'
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export type UserRow = typeof users.$inferSelect
 export type InstrumentRow = typeof instruments.$inferSelect

@@ -169,6 +169,13 @@
       "when": 1793268839544,
       "tag": "0023_users_email_verified",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793292157588,
+      "tag": "0024_admin_tools",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,9 @@ export const ADMIN_GROUP: NavItem = {
     { href: '/admin/subscriptions', labelKey: 'nav.adminSubscriptions', icon: '⭐' },
     { href: '/admin/contests', labelKey: 'nav.adminContests', icon: '🥇' },
     { href: '/admin/orgs', labelKey: 'nav.adminOrgs', icon: '🏫' },
+    { href: '/admin/users', labelKey: 'nav.adminUsers', icon: '👤' },
+    { href: '/admin/sources', labelKey: 'nav.adminSources', icon: '📡' },
+    { href: '/admin/tools', labelKey: 'nav.adminTools', icon: '🧰' },
   ],
 }
 

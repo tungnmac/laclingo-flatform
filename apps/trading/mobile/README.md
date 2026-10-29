@@ -47,4 +47,6 @@ Mất upload keystore là không gửi được bản cập nhật lên Google P
 
 ## Phát hành bản mới
 
-Tăng `versionName` (dạng `1.2.3`) và `versionCode` trong `android/app/build.gradle`.
+Tăng `versionName` (dạng `1.2.3`) và `versionCode` trong `android/app/build.gradle`, rồi **chạy lại `npx cap sync`** trước khi build:
+phiên bản gửi lên web qua User-Agent (`TradeLabApp/1.2.3`) được ghi vào app lúc sync — quên sync thì app mới vẫn báo phiên bản
+cũ, và nếu admin đặt "Bản tối thiểu" (Quản trị → Công cụ) cao hơn thì mọi người bị chặn.

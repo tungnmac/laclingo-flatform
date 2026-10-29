@@ -7,8 +7,11 @@ import { readSession, SESSION_COOKIE } from './session'
 import type { SessionUser } from './types'
 import { verificationEnabled } from './verification'
 
-/** Chưa xác thực email lẫn SĐT — chỉ bắt khi còn cách xác thực đang bật (tắt hết không được khoá tài khoản cũ khỏi app) */
-export const needsVerification = (u: UserRow) => !u.phoneVerifiedAt && !u.emailVerifiedAt && verificationEnabled()
+/**
+ * Chưa xác thực email lẫn SĐT (và admin chưa kích hoạt thủ công) — chỉ bắt khi còn cách xác thực đang bật
+ * (tắt hết không được khoá tài khoản cũ khỏi app)
+ */
+export const needsVerification = (u: UserRow) => !u.phoneVerifiedAt && !u.emailVerifiedAt && !u.adminVerifiedAt && verificationEnabled()
 
 export function toSessionUser(u: UserRow): SessionUser {
   return {
@@ -25,8 +28,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const session = await readSession((await cookies()).get(SESSION_COOKIE)?.value)
   if (!session) return null
   const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1)
-  // token ký trước lần logout gần nhất → không còn hiệu lực
-  return user && user.tokenVersion === session.tokenVersion ? toSessionUser(user) : null
+  // token ký trước lần logout gần nhất → không còn hiệu lực; tài khoản bị admin khoá → coi như chưa đăng nhập
+  return user && user.tokenVersion === session.tokenVersion && !user.disabledAt ? toSessionUser(user) : null
 }
 
 /**

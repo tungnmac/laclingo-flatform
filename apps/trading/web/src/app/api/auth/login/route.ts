@@ -28,6 +28,7 @@ export const POST = handleRoute(async (req: Request) => {
     .limit(1)
   const ok = await verifyPassword(body.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
   if (!user || !ok) throw new HttpError(401, 'INVALID_CREDENTIALS')
+  if (user.disabledAt) throw new HttpError(403, 'ACCOUNT_DISABLED') // chỉ báo sau khi đúng mật khẩu — không lộ tài khoản bị khoá
   await resetRateLimit(redisCounter, `login:id:${body.identifier}`) // chỉ các lần SAI liên tiếp mới khoá tài khoản
 
   // Thêm vào danh sách tài khoản đã đăng nhập (chuyển qua lại không cần nhập lại mật khẩu)
