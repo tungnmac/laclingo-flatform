@@ -63,6 +63,7 @@ export interface OnboardingDict {
     waiting: string
     failed: (language: string, count: number) => string
     ready: (language: string) => string
+    autoClose: (seconds: number) => string
     retry: string
     open: string
     dismiss: string
@@ -143,6 +144,7 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       waiting: 'Dịch vụ AI đang bận — sẽ tự thử lại, bạn cứ học tiếp.',
       failed: (language, count) => `${count} chủ đề ${language} chưa dựng được.`,
       ready: (language) => `Nội dung ${language} đã sẵn sàng.`,
+      autoClose: (seconds) => `Tự đóng sau ${seconds}s`,
       retry: 'Thử lại',
       open: 'Vào học',
       dismiss: 'Đóng',
@@ -221,6 +223,7 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       waiting: 'The AI service is busy — it will retry automatically, keep learning.',
       failed: (language, count) => `${count} ${language} topics could not be built.`,
       ready: (language) => `${language} content is ready.`,
+      autoClose: (seconds) => `Closing in ${seconds}s`,
       retry: 'Retry',
       open: 'Start learning',
       dismiss: 'Dismiss',

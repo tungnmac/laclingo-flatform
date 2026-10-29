@@ -6,11 +6,27 @@ import { useCallback, useEffect, useState } from 'react'
 import { courseService } from '@/features/course/course.service'
 import { languageFlag } from '@/features/course/components/LanguageCard'
 import { useTranslation } from '@/hooks/useTranslation'
+import { cn } from '@/lib/utils'
 import type { LanguageSyncJob } from '@/types/api'
 import { onboardingService } from '../onboarding.service'
 
 const POLL_MS = 5_000
 const READY_FOR_MS = 10 * 60_000 // ngôn ngữ dựng xong trong chừng này thì hiện "đã sẵn sàng"
+const AUTO_CLOSE_MS = 30_000 // banner "đã sẵn sàng" tự đóng sau chừng này (đếm ngược)
+// localStorage: banner "đã sẵn sàng" đã đóng — tab khác / mở lại app không hiện lại (giữ 20 mục gần nhất)
+const CLOSED_KEY = 'laclingo-sync-ready-closed'
+const MAX_CLOSED = 20
+
+// Mỗi lần dựng xong 1 đợt có khoá riêng (ngôn ngữ + lúc xong): đợt dựng sau của cùng ngôn ngữ vẫn hiện lại
+const readyKey = (p: Progress) => `${p.languageId}:${p.lastUpdate}`
+
+function loadClosed(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
 
 type Progress = { languageId: string; total: number; finished: number; built: number; failed: number; open: number; waiting: boolean; lastUpdate: number }
 
@@ -41,6 +57,9 @@ export function LanguageSyncBanner() {
   const [jobs, setJobs] = useState<LanguageSyncJob[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [dismissed, setDismissed] = useState<string[]>([])
+  const [closedReady, setClosedReady] = useState<string[]>(loadClosed)
+  const [readySince, setReadySince] = useState<Record<string, number>>({}) // readyKey → lúc bắt đầu đếm ngược
+  const [now, setNow] = useState(() => Date.now())
 
   const load = useCallback(() => {
     onboardingService
@@ -80,22 +99,70 @@ export function LanguageSyncBanner() {
       .catch(() => {})
   }
 
+  // "Đã sẵn sàng": dựng xong hết, không chủ đề lỗi, có chủ đề dựng được — hiện kèm đếm ngược rồi tự đóng
+  const isReady = (p: Progress) => p.open === 0 && p.failed === 0 && p.built > 0 && now - p.lastUpdate < READY_FOR_MS
+  const readyKeys = progress
+    .filter((p) => isReady(p) && !dismissed.includes(p.languageId) && !closedReady.includes(readyKey(p)))
+    .map(readyKey)
+  const readyKeysId = readyKeys.join('|')
+
+  const closeReady = useCallback((key: string) => {
+    setClosedReady((c) => {
+      const next = [...new Set([...c, key])].slice(-MAX_CLOSED)
+      try {
+        localStorage.setItem(CLOSED_KEY, JSON.stringify(next))
+      } catch {
+        // không lưu được (chế độ riêng tư...) → chỉ đóng trong phiên này
+      }
+      return next
+    })
+  }, [])
+
+  // Bắt đầu đếm ngược cho banner vừa chuyển sang "đã sẵn sàng"; đồng hồ 1 giây chỉ chạy khi còn banner đang đếm
+  useEffect(() => {
+    if (!readyKeysId) return
+    const started = Date.now()
+    setReadySince((r) => {
+      const next = { ...r }
+      for (const key of readyKeysId.split('|')) next[key] ??= started
+      return next
+    })
+    setNow(started)
+    const timer = setInterval(() => setNow(Date.now()), 1_000)
+    return () => clearInterval(timer)
+  }, [readyKeysId])
+
+  const secondsLeft = (p: Progress) => Math.ceil(((readySince[readyKey(p)] ?? now) + AUTO_CLOSE_MS - now) / 1000)
+  useEffect(() => {
+    for (const p of progress) if (readyKeys.includes(readyKey(p)) && secondsLeft(p) <= 0) closeReady(readyKey(p))
+  })
+
   const rows = progress.filter(
-    (p) => !dismissed.includes(p.languageId) && (p.open > 0 || p.failed > 0 || (p.built > 0 && Date.now() - p.lastUpdate < READY_FOR_MS)),
+    (p) => !dismissed.includes(p.languageId) && (p.open > 0 || p.failed > 0 || readyKeys.includes(readyKey(p))),
   )
   if (rows.length === 0) return null
   return (
     <div className="mb-4 space-y-2">
-      {rows.map((p) => (
-        <div key={p.languageId} className="rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900 ring-1 ring-indigo-100" role="status">
+      {rows.map((p) => {
+        const ready = readyKeys.includes(readyKey(p))
+        return (
+        <div
+          key={p.languageId}
+          className={cn(
+            'rounded-xl px-4 py-3 text-sm ring-1',
+            ready ? 'bg-emerald-50 text-emerald-900 ring-emerald-200' : 'bg-indigo-50 text-indigo-900 ring-indigo-100',
+          )}
+          role="status"
+        >
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span aria-hidden>{languageFlag(p.languageId)}</span>
+            <span aria-hidden>{ready ? '✅' : languageFlag(p.languageId)}</span>
             <span className="min-w-0 flex-1">
               {p.open > 0
                 ? t.languageSync.building(nameOf(p.languageId), p.finished, p.total)
                 : p.failed > 0
                   ? t.languageSync.failed(nameOf(p.languageId), p.failed)
                   : t.languageSync.ready(nameOf(p.languageId))}
+              {ready && <span className="ml-1 text-xs text-emerald-700/80">{t.languageSync.autoClose(Math.max(0, secondsLeft(p)))}</span>}
             </span>
             {p.open === 0 && p.failed > 0 && (
               <button type="button" onClick={() => retry(p.languageId)} className="font-semibold text-indigo-700 hover:underline">
@@ -103,15 +170,19 @@ export function LanguageSyncBanner() {
               </button>
             )}
             {p.open === 0 && p.built > 0 && (
-              <Link href={`/learn/${p.languageId}`} className="font-semibold text-indigo-700 hover:underline">
+              <Link
+                href={`/learn/${p.languageId}`}
+                onClick={() => ready && closeReady(readyKey(p))}
+                className={cn('font-semibold hover:underline', ready ? 'text-emerald-700' : 'text-indigo-700')}
+              >
                 {t.languageSync.open}
               </Link>
             )}
             {p.open === 0 && (
               <button
                 type="button"
-                onClick={() => setDismissed((d) => [...d, p.languageId])}
-                className="text-indigo-400 hover:text-indigo-700"
+                onClick={() => (ready ? closeReady(readyKey(p)) : setDismissed((d) => [...d, p.languageId]))}
+                className={ready ? 'text-emerald-400 hover:text-emerald-700' : 'text-indigo-400 hover:text-indigo-700'}
                 aria-label={t.languageSync.dismiss}
               >
                 ✕
@@ -127,7 +198,8 @@ export function LanguageSyncBanner() {
             </>
           )}
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
