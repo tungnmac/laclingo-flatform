@@ -146,7 +146,8 @@ func main() {
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
-	languageContent := service.NewLanguageContentService(repo, aiClient)
+	languageContent := service.NewLanguageContentService(repo, aiClient, notificationService)
+	go languageContent.StartSyncWorker(schedulerCtx) // hàng đợi dựng nội dung cho ngôn ngữ mới
 
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	tokens.SetRefreshTTL(cfg.RefreshTTL)

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"errors"
-
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -29,37 +27,64 @@ func (h *OnboardingHandler) RegisterRoutes(router fiber.Router) {
 	router.Post("/users/me/avatar", h.UploadAvatar)
 	router.Put("/users/me/languages/:languageId", h.AddLanguage)
 	router.Get("/users/me/languages/:languageId/topic-sync", h.TopicSyncPreview)
-	router.Post("/users/me/languages/:languageId/prepare", h.PrepareLanguage)
+	router.Post("/users/me/languages/:languageId/sync", h.SyncLanguage)
+	router.Post("/users/me/languages/:languageId/sync/retry", h.RetrySync)
+	router.Get("/users/me/language-sync", h.SyncJobs)
 }
 
-// PrepareLanguage godoc
-// @Summary      Dựng nội dung còn thiếu cho ngôn ngữ mới từ các chủ đề của ngôn ngữ nguồn (từ đã học trước, dùng chung cho mọi user)
+// SyncLanguage godoc
+// @Summary      Đưa chủ đề (tên ở ngôn ngữ nguồn) vào hàng đợi dựng nội dung cho ngôn ngữ mới — worker dựng dần, user học bình thường
 // @Tags         onboarding
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        languageId  path      string                          true  "Ngôn ngữ mới"
-// @Param        body        body      service.PrepareLanguageRequest  true  "Ngôn ngữ nguồn + chủ đề (tên ở ngôn ngữ nguồn)"
-// @Success      200         {object}  service.PrepareLanguageResponse
+// @Param        languageId  path      string                       true  "Ngôn ngữ mới"
+// @Param        body        body      service.SyncLanguageRequest  true  "Ngôn ngữ nguồn + chủ đề"
+// @Success      202         {array}   service.LanguageSyncJob
 // @Failure      400         {object}  ErrorResponse
-// @Failure      502         {object}  ErrorResponse
-// @Failure      503         {object}  ErrorResponse
-// @Router       /users/me/languages/{languageId}/prepare [post]
-func (h *OnboardingHandler) PrepareLanguage(c *fiber.Ctx) error {
-	var req service.PrepareLanguageRequest
+// @Router       /users/me/languages/{languageId}/sync [post]
+func (h *OnboardingHandler) SyncLanguage(c *fiber.Ctx) error {
+	var req service.SyncLanguageRequest
 	if err := c.BodyParser(&req); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
 	}
-	res, err := h.content.Prepare(c.UserContext(), currentUserID(c), c.Params("languageId"), req)
-	switch {
-	case errors.Is(err, service.ErrAINotConfigured):
-		return fiber.NewError(fiber.StatusServiceUnavailable, "chưa dựng được nội dung cho ngôn ngữ này: "+err.Error())
-	case errors.Is(err, service.ErrLanguageContentAIFailed):
-		return fiber.NewError(fiber.StatusBadGateway, err.Error())
-	case err != nil:
+	jobs, err := h.content.EnqueueSync(c.UserContext(), currentUserID(c), c.Params("languageId"), req)
+	if err != nil {
 		return err
 	}
-	return c.JSON(res)
+	return c.Status(fiber.StatusAccepted).JSON(jobs)
+}
+
+// RetrySync godoc
+// @Summary      Chạy lại các chủ đề dựng lỗi của 1 ngôn ngữ
+// @Tags         onboarding
+// @Produce      json
+// @Security     BearerAuth
+// @Param        languageId  path      string  true  "Ngôn ngữ mới"
+// @Success      200         {array}   service.LanguageSyncJob
+// @Router       /users/me/languages/{languageId}/sync/retry [post]
+func (h *OnboardingHandler) RetrySync(c *fiber.Ctx) error {
+	jobs, err := h.content.RetrySync(c.UserContext(), currentUserID(c), c.Params("languageId"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(jobs)
+}
+
+// SyncJobs godoc
+// @Summary      Tiến độ dựng nội dung: chủ đề đang chờ / đang dựng + xong / lỗi trong 24 giờ qua
+// @Tags         onboarding
+// @Produce      json
+// @Security     BearerAuth
+// @Param        language  query     string  false  "Lọc theo ngôn ngữ (trống = mọi ngôn ngữ)"
+// @Success      200       {array}   service.LanguageSyncJob
+// @Router       /users/me/language-sync [get]
+func (h *OnboardingHandler) SyncJobs(c *fiber.Ctx) error {
+	jobs, err := h.content.SyncJobs(c.UserContext(), currentUserID(c), c.Query("language"))
+	if err != nil {
+		return err
+	}
+	return c.JSON(jobs)
 }
 
 // Get godoc

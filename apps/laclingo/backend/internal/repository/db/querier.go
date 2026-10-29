@@ -19,6 +19,8 @@ type Querier interface {
 	AddGems(ctx context.Context, arg AddGemsParams) (int32, error)
 	// Mua Streak Freeze — giữ tối đa max_hold cái (vượt → 0 dòng)
 	AddStreakFreezes(ctx context.Context, arg AddStreakFreezesParams) (int64, error)
+	// Job xong → thêm chủ đề vào chủ đề yêu thích của ngôn ngữ đó (giữ tối đa 20 / ngôn ngữ như onboarding)
+	AddUserPreferredTopic(ctx context.Context, arg AddUserPreferredTopicParams) error
 	// level truyền từ Go (leveling.LevelForExp) sau khi đã cộng exp — tránh phải
 	// tính lại công thức level trong SQL.
 	AddUserRewards(ctx context.Context, arg AddUserRewardsParams) (User, error)
@@ -54,11 +56,15 @@ type Querier interface {
 	ClaimDueReminders(ctx context.Context) ([]ClaimDueRemindersRow, error)
 	// Nhận 1 món (đúng 1 lần — 2 lần bấm cùng lúc chỉ 1 lần thành công)
 	ClaimGemReward(ctx context.Context, arg ClaimGemRewardParams) (GemReward, error)
+	// Worker lấy 1 job tới hạn (SKIP LOCKED — nhiều instance không lấy trùng); job "running" quá 10 phút (instance chết
+	// giữa chừng) coi như chờ lại
+	ClaimLanguageSyncJob(ctx context.Context) (LanguageSyncJob, error)
 	// Xoá bản đã chuyển sang hôm nay → việc gốc trở lại "chưa chuyển" (chuyển lại được)
 	ClearDailyTaskCarried(ctx context.Context, id pgtype.UUID) error
 	// Ghi nhận user đã làm ĐÚNG 1 bài tập — gọi từ SubmitExercise khi correct=true.
 	// PK kép (user_id, exercise_id) nên idempotent, không cần kiểm tra tồn tại trước.
 	CompleteExercise(ctx context.Context, arg CompleteExerciseParams) error
+	CompleteLanguageSyncJob(ctx context.Context, arg CompleteLanguageSyncJobParams) error
 	CountBlogCommentDislikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
 	CountBlogCommentLikes(ctx context.Context, commentID pgtype.UUID) (int32, error)
 	CountBlogPostDislikes(ctx context.Context, postID pgtype.UUID) (int32, error)
@@ -70,6 +76,7 @@ type Querier interface {
 	CountDailyTaskTemplates(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số quà 1 nguồn từ mốc thời gian (giới hạn quà thắng thử thách mỗi ngày)
 	CountGemRewardsSince(ctx context.Context, arg CountGemRewardsSinceParams) (int32, error)
+	CountOpenLanguageSyncJobs(ctx context.Context, arg CountOpenLanguageSyncJobsParams) (int64, error)
 	// Số người khác nhau đang báo cáo 1 nội dung — đủ ngưỡng thì tự ẩn chờ admin xem xét. Chống phối hợp ẩn bừa:
 	// chỉ tính tài khoản tạo hơn 1 ngày, và nội dung admin đã từng kết luận "không vi phạm" thì không tự ẩn nữa.
 	CountOpenReporters(ctx context.Context, arg CountOpenReportersParams) (int32, error)
@@ -79,6 +86,7 @@ type Querier interface {
 	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
 	CountTopicWords(ctx context.Context, arg CountTopicWordsParams) (int64, error)
 	CountUnreadNotifications(ctx context.Context, userID pgtype.UUID) (int32, error)
+	CountUserOpenLanguageSyncJobs(ctx context.Context, userID pgtype.UUID) (int64, error)
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
 	// ===== Thông báo chung (admin) =====
@@ -180,10 +188,13 @@ type Querier interface {
 	EndStoreSubscriptionIfDue(ctx context.Context, arg EndStoreSubscriptionIfDueParams) error
 	// Stripe subscription đã kết thúc (huỷ hết kỳ / thanh toán thất bại hẳn)
 	EndSubscriptionByProviderSub(ctx context.Context, providerSubscriptionID pgtype.Text) error
+	// Thêm chủ đề vào hàng đợi; đã có: job lỗi thì chạy lại từ đầu, job đang chờ / đang chạy / đã xong giữ nguyên
+	EnqueueLanguageSyncJob(ctx context.Context, arg EnqueueLanguageSyncJobParams) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
 	// Ân hạn (grace period) khi store chưa trừ được tiền kỳ mới: giữ Pro tới hết ân hạn
 	ExtendStoreSubscription(ctx context.Context, arg ExtendStoreSubscriptionParams) error
+	FailLanguageSyncJob(ctx context.Context, arg FailLanguageSyncJobParams) error
 	// Gửi tới mọi tài khoản đang active (1 dòng thông báo / user).
 	FanOutAnnouncement(ctx context.Context, id pgtype.UUID) (int64, error)
 	FavoriteVocabulary(ctx context.Context, arg FavoriteVocabularyParams) error
@@ -382,6 +393,8 @@ type Querier interface {
 	// Toàn bộ chủ đề của 1 ngôn ngữ kèm topic_key (NULL = chưa gắn khoá): có dòng metadata ở vocabulary_topics hoặc chỉ
 	// xuất hiện qua vocabularies.topic
 	ListLanguageTopicKeys(ctx context.Context, languageID string) ([]ListLanguageTopicKeysRow, error)
+	// Chỉ ngôn ngữ đã có từ vựng — ngôn ngữ "Học ngôn ngữ mới" vừa tạo mà nội dung còn đang dựng (hoặc dựng lỗi) không hiện
+	// thành khoá học rỗng (vẫn mở được bằng GetLanguageByID)
 	ListLanguages(ctx context.Context) ([]Language, error)
 	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
 	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
@@ -433,6 +446,8 @@ type Querier interface {
 	ListUserAvatarKeys(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
+	// Tiến độ: job đang chờ / đang chạy, và job xong / lỗi trong 24 giờ qua (language_id NULL = mọi ngôn ngữ)
+	ListUserLanguageSyncJobs(ctx context.Context, arg ListUserLanguageSyncJobsParams) ([]LanguageSyncJob, error)
 	ListUserPreferredTopics(ctx context.Context, userID pgtype.UUID) ([]ListUserPreferredTopicsRow, error)
 	// Chủ đề user đã chọn (yêu thích) hoặc đã học (có từ trong hàng đợi SRS) ở 1 ngôn ngữ — nguồn đồng bộ sang ngôn ngữ mới
 	ListUserSourceTopics(ctx context.Context, arg ListUserSourceTopicsParams) ([]string, error)
@@ -520,10 +535,12 @@ type Querier interface {
 	// Thao tác lỗi sau khi đã trừ lượt → trả lại
 	RefundFeatureQuota(ctx context.Context, arg RefundFeatureQuotaParams) error
 	RemoveVocabularyFromDeck(ctx context.Context, arg RemoveVocabularyFromDeckParams) (int64, error)
+	RescheduleLanguageSyncJob(ctx context.Context, arg RescheduleLanguageSyncJobParams) error
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
 	// Admin xử lý 1 nội dung: đóng mọi báo cáo đang mở của nó (RESOLVED = đã xử lý, DISMISSED = không vi phạm)
 	ResolveContentReports(ctx context.Context, arg ResolveContentReportsParams) (int64, error)
+	RetryFailedLanguageSyncJobs(ctx context.Context, arg RetryFailedLanguageSyncJobsParams) (int64, error)
 	// Store hoàn tiền / thu hồi — đánh dấu 1 lần (đã thu hồi → không trả dòng)
 	RevokeIAPPurchase(ctx context.Context, arg RevokeIAPPurchaseParams) (IapPurchase, error)
 	// Token đã đổi bị dùng lại (bị đánh cắp) → thu hồi mọi token của lần đăng nhập đó

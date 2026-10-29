@@ -1,5 +1,13 @@
 import { apiFetch } from '@/lib/api'
-import type { AddLanguageRequest, OnboardingData, PrepareLanguageRequest, SaveOnboardingRequest, TopicSyncPreview, User } from '@/types/api'
+import type {
+  AddLanguageRequest,
+  LanguageSyncJob,
+  OnboardingData,
+  SaveOnboardingRequest,
+  SyncLanguageRequest,
+  TopicSyncPreview,
+  User,
+} from '@/types/api'
 
 export const onboardingService = {
   get: () => apiFetch<OnboardingData>('/users/me/onboarding'),
@@ -10,11 +18,12 @@ export const onboardingService = {
     apiFetch<OnboardingData>(`/users/me/languages/${encodeURIComponent(languageId)}`, { method: 'PUT', body: JSON.stringify(body) }),
   topicSync: (languageId: string, from: string) =>
     apiFetch<TopicSyncPreview>(`/users/me/languages/${encodeURIComponent(languageId)}/topic-sync?from=${encodeURIComponent(from)}`),
-  prepare: (languageId: string, body: PrepareLanguageRequest) =>
-    apiFetch<{ topics: string[]; skipped: string[] }>(`/users/me/languages/${encodeURIComponent(languageId)}/prepare`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+  // Hàng đợi dựng nội dung cho ngôn ngữ mới — backend dựng dần ở chế độ nền, tiến độ qua syncJobs
+  sync: (languageId: string, body: SyncLanguageRequest) =>
+    apiFetch<LanguageSyncJob[]>(`/users/me/languages/${encodeURIComponent(languageId)}/sync`, { method: 'POST', body: JSON.stringify(body) }),
+  retrySync: (languageId: string) =>
+    apiFetch<LanguageSyncJob[]>(`/users/me/languages/${encodeURIComponent(languageId)}/sync/retry`, { method: 'POST' }),
+  syncJobs: () => apiFetch<LanguageSyncJob[]>('/users/me/language-sync'),
   // Trả url tương đối "/users/avatars/<id>" — lưu thẳng vào avatar_url (Avatar tự ghép địa chỉ API)
   uploadAvatar: (file: File) => {
     const form = new FormData()

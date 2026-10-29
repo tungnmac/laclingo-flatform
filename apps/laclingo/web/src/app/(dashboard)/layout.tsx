@@ -18,6 +18,7 @@ import { useAchievementAlerts } from '@/features/notification/useAchievementAler
 import { initStoreTransactions } from '@/features/billing/iap'
 import { browserTimezone } from '@/features/reminder/push'
 import { reminderService } from '@/features/reminder/reminder.service'
+import { LanguageSyncBanner } from '@/features/onboarding/components/LanguageSyncBanner'
 import { useOfflineReviewSync } from '@/features/srs-review/offline'
 import { userService } from '@/features/user/user.service'
 import { useHydrated } from '@/hooks/useHydrated'
@@ -95,6 +96,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <TopBar user={user} />
             <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-10">
               <OfflineBanner />
+              <LanguageSyncBanner />
               {children}
             </main>
           </div>

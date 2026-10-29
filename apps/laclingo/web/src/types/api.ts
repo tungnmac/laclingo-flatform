@@ -64,11 +64,25 @@ export interface TopicSyncPreview {
   missing: string[] // ngôn ngữ mới chưa có chủ đề tương ứng
 }
 
-// POST /users/me/languages/{id}/prepare — dựng các chủ đề (tên ở ngôn ngữ nguồn from) mà ngôn ngữ mới chưa có; trả tên
-// chủ đề tương ứng ở ngôn ngữ mới (nội dung dùng chung cho mọi user)
-export interface PrepareLanguageRequest {
+// POST /users/me/languages/{id}/sync — đưa chủ đề (tên ở ngôn ngữ nguồn from) vào hàng đợi dựng nội dung cho ngôn ngữ mới;
+// backend dựng dần ở chế độ nền (nội dung dùng chung cho mọi user)
+export interface SyncLanguageRequest {
   from: string
   topics: string[]
+}
+
+// 1 chủ đề trong hàng đợi dựng — GET /users/me/language-sync (đang chờ / đang dựng + xong / lỗi trong 24 giờ qua)
+export interface LanguageSyncJob {
+  id: string
+  language_id: string
+  source_language_id: string
+  topic: string // tên ở ngôn ngữ nguồn
+  status: 'pending' | 'running' | 'done' | 'failed'
+  attempts: number
+  error?: string // lỗi lần gần nhất (chờ thử lại hoặc đã lỗi hẳn)
+  result_topic?: string // tên chủ đề ở ngôn ngữ mới khi xong
+  run_after: string
+  updated_at: string
 }
 
 export interface Language {

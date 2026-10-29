@@ -55,7 +55,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   const [topics, setTopics] = useState<string[]>([]) // chủ đề có sẵn của ngôn ngữ mới
   const [build, setBuild] = useState<string[]>([]) // chủ đề nguồn sẽ dựng (tên ở source.buildFrom)
   const [source, setSource] = useState<TopicSource>(DEFAULT_SOURCE)
-  const [busy, setBusy] = useState<{ done: number; total: number } | 'saving' | null>(null)
+  const [busy, setBusy] = useState(false)
   const [sourceLoading, setSourceLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [hasTopics, setHasTopics] = useState<boolean | null>(null) // ngôn ngữ mới đã có chủ đề chưa (null = chưa tải)
@@ -74,24 +74,17 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   const finish = async () => {
     if (!hasTopics && build.length === 0) return setErr(t.addLanguage.needTopic)
     setErr(null)
+    setBusy(true)
     try {
-      // Dựng lần lượt từng chủ đề (mỗi request 1 lần gọi AI) — tránh request quá dài bị proxy cắt, hiện được tiến độ
-      const names = [...topics]
-      for (const [i, topic] of build.entries()) {
-        setBusy({ done: i + 1, total: build.length })
-        const res = await onboardingService.prepare(languageId, { from: source.buildFrom, topics: [topic] })
-        names.push(...res.topics.filter((name) => !names.includes(name)))
-      }
-      if (names.length === 0 && !hasTopics) {
-        setBusy(null)
-        return setErr(t.addLanguage.buildFailed)
-      }
-      setBusy('saving')
-      await onboardingService.addLanguage(languageId, { level, topics: names })
+      // Lưu ngôn ngữ + chủ đề có sẵn trước (lỗi, vd quá số ngôn ngữ, thì không đưa gì vào hàng đợi); chủ đề cần dựng → hàng
+      // đợi (backend dựng dần ở chế độ nền, banner đầu trang hiện tiến độ, xong thì tự thêm vào chủ đề yêu thích) — vào học
+      // ngay không chờ
+      await onboardingService.addLanguage(languageId, { level, topics })
+      if (build.length > 0) await onboardingService.sync(languageId, { from: source.buildFrom, topics: build })
       router.push(`/learn/${languageId}`)
     } catch (e) {
       setErr(inlineError(e))
-      setBusy(null)
+      setBusy(false)
     }
   }
 
@@ -150,7 +143,6 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
           />
         )}
 
-        {busy && busy !== 'saving' && <p className="mt-4 text-sm text-indigo-700">{t.addLanguage.preparing(busy.done, busy.total)}</p>}
         {err && (
           <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
             {err}
@@ -159,7 +151,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
 
         <div className="mt-6 flex items-center justify-between gap-3">
           {index > 0 ? (
-            <Button variant="ghost" onClick={() => (setErr(null), setStep(STEPS[index - 1]))} disabled={!!busy}>
+            <Button variant="ghost" onClick={() => (setErr(null), setStep(STEPS[index - 1]))} disabled={busy}>
               {t.onboarding.back}
             </Button>
           ) : (
@@ -168,7 +160,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
             </Link>
           )}
           {step === 'topics' ? (
-            <Button onClick={finish} disabled={!!busy || hasTopics === null || sourceLoading}>
+            <Button onClick={finish} disabled={busy || hasTopics === null || sourceLoading}>
               {busy ? t.onboarding.saving : t.addLanguage.start}
             </Button>
           ) : (

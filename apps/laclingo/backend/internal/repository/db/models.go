@@ -354,6 +354,22 @@ type Language struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type LanguageSyncJob struct {
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	LanguageID       string             `json:"language_id"`
+	SourceLanguageID string             `json:"source_language_id"`
+	Topic            string             `json:"topic"`
+	Status           string             `json:"status"`
+	Attempts         int32              `json:"attempts"`
+	LastError        pgtype.Text        `json:"last_error"`
+	ResultTopic      pgtype.Text        `json:"result_topic"`
+	RunAfter         pgtype.Timestamptz `json:"run_after"`
+	LockedAt         pgtype.Timestamptz `json:"locked_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ListeningPassage struct {
 	ID         pgtype.UUID        `json:"id"`
 	LanguageID string             `json:"language_id"`
