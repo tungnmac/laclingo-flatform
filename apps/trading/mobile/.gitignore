@@ -1,0 +1,3 @@
+# Trang lỗi native — sinh từ error-page.html mỗi lần `cap sync` (kèm URL web theo CAP_SERVER_URL)
+www/index.html
+node_modules/

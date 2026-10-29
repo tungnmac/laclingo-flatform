@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#059669">
+  <title>TradeLab - Mất kết nối</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
+      box-sizing: border-box; background: #f8fafc; color: #0f172a; text-align: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 360px; }
+    .logo { width: 88px; height: 88px; }
+    h1 { font-size: 20px; margin: 20px 0 8px; }
+    p { margin: 0 0 24px; color: #64748b; line-height: 1.5; }
+    button { border: 0; border-radius: 12px; padding: 12px 24px; background: #059669; color: #fff; font-size: 16px;
+      font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- Template trang lỗi của app native (server.errorPath) — capacitor.config.ts sinh www/index.html từ file này mỗi lần
+       cap sync, ghi URL web (CAP_SERVER_URL) vào window.TRADELAB_URL. Capacitor chỉ phục vụ đúng file đó khi server.url
+       trỏ ra web ngoài (file khác trong www/ không nạp được) → logo nhúng thẳng, không tách file -->
+  <main>
+    <svg class="logo" role="img" aria-label="TradeLab" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" rx="56" fill="#059669"/><g fill="#fff"><rect x="62" y="96" width="8" height="96" rx="4"/><rect x="50" y="116" width="32" height="52" rx="6"/><rect x="124" y="68" width="8" height="104" rx="4"/><rect x="112" y="84" width="32" height="64" rx="6"/><rect x="186" y="44" width="8" height="96" rx="4"/><rect x="174" y="56" width="32" height="60" rx="6"/></g></svg>
+    <h1>Bạn đang offline</h1>
+    <p>TradeLab cần kết nối mạng để tải dữ liệu thị trường. Kiểm tra Wi-Fi hoặc dữ liệu di động rồi thử lại nhé.</p>
+    <button type="button" onclick="retry()">Thử lại</button>
+  </main>
+  <script>
+    window.TRADELAB_URL = "";
+    function retry() { if (window.TRADELAB_URL) location.href = window.TRADELAB_URL }
+    window.addEventListener('online', retry)
+  </script>
+</body>
+</html>
