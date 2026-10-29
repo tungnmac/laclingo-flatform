@@ -42,6 +42,10 @@ type fakeTranslationRepo struct {
 	lessons   []db.ListGrammarLessonTranslationSourcesRow
 	exercises []db.ListGrammarExerciseTranslationSourcesRow
 	answers   []string
+	passages  []db.ListListeningPassageTranslationSourcesRow
+	questions []db.ListListeningQuestionTranslationSourcesRow
+	spTopics  []db.ListSpeakingTopicTranslationSourcesRow
+	spItems   []db.ListSpeakingItemTranslationSourcesRow
 	upserts   int
 	readErr   error
 	lastQuery db.ListContentTranslationsParams
@@ -122,6 +126,22 @@ func (f *fakeTranslationRepo) ListGrammarAnswerTranslationSources(context.Contex
 
 func (f *fakeTranslationRepo) ListClassTranslationSources(context.Context) ([]db.ListClassTranslationSourcesRow, error) {
 	return nil, nil
+}
+
+func (f *fakeTranslationRepo) ListListeningPassageTranslationSources(context.Context) ([]db.ListListeningPassageTranslationSourcesRow, error) {
+	return f.passages, nil
+}
+
+func (f *fakeTranslationRepo) ListListeningQuestionTranslationSources(context.Context) ([]db.ListListeningQuestionTranslationSourcesRow, error) {
+	return f.questions, nil
+}
+
+func (f *fakeTranslationRepo) ListSpeakingTopicTranslationSources(context.Context) ([]db.ListSpeakingTopicTranslationSourcesRow, error) {
+	return f.spTopics, nil
+}
+
+func (f *fakeTranslationRepo) ListSpeakingItemTranslationSources(context.Context) ([]db.ListSpeakingItemTranslationSourcesRow, error) {
+	return f.spItems, nil
 }
 
 func TestContentTranslatorApply(t *testing.T) {
@@ -283,7 +303,7 @@ func TestContentTranslationWorkerRound(t *testing.T) {
 }
 
 func TestContentTranslationWorkerSkipsFailedBatch(t *testing.T) {
-	repo := &fakeTranslationRepo{topics: []string{"A", "B", "C"}}
+	repo := &fakeTranslationRepo{topics: []string{"Ă", "Â", "Ê"}}
 	ai := &fakeTranslateAI{failAt: 2}
 	w := newTestWorker(repo, ai, 1)
 	if err := w.runRound(context.Background()); err != nil {
@@ -301,7 +321,7 @@ func TestContentTranslationWorkerSkipsFailedBatch(t *testing.T) {
 }
 
 func TestContentTranslationWorkerStopsWhenAIDown(t *testing.T) {
-	repo := &fakeTranslationRepo{topics: []string{"A", "B", "C", "D", "E"}}
+	repo := &fakeTranslationRepo{topics: []string{"Ă", "Â", "Ê", "Ô", "Ơ"}}
 	ai := &fakeTranslateAI{failFrom: 1}
 	w := newTestWorker(repo, ai, 1)
 	if err := w.runRound(context.Background()); err == nil {

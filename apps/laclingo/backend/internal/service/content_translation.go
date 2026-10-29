@@ -31,6 +31,11 @@ const (
 	translationEntityGrammarAnswer   = "grammar_answer"   // id = chính câu tiếng Việt của đáp án / lựa chọn (từ điển)
 	translationEntityClass           = "class"            // id = classes.id
 
+	translationEntityListeningPassage  = "listening_passage"  // id = listening_passages.id
+	translationEntityListeningQuestion = "listening_question" // id = listening_questions.id (đáp án / lựa chọn: grammar_answer)
+	translationEntitySpeakingTopic     = "speaking_topic"     // id = "<language_id>/<name>" (khoá chính của speaking_topics)
+	translationEntitySpeakingItem      = "speaking_item"      // id = speaking_items.id
+
 	translationFieldMeaning        = "meaning"
 	translationFieldExampleMeaning = "example_meaning"
 	translationFieldLabel          = "label"
@@ -39,6 +44,7 @@ const (
 	translationFieldQuestion       = "question"
 	translationFieldExplanation    = "explanation"
 	translationFieldText           = "text"
+	translationFieldPromptMeaning  = "prompt_meaning"
 	translationFieldContentPrefix  = "content." // ô trong JSON content: "content.<khoá>", xem grammarLessonContentKeys
 )
 

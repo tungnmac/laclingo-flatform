@@ -24,9 +24,10 @@ SELECT * FROM listening_passages
 WHERE id = $1;
 
 -- name: ListListeningQuestionsByPassage :many
--- KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
--- bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
-SELECT id, passage_id, question, options, order_index
+-- correct_answer / explanation chỉ để service quyết định câu hỏi có hiện bản dịch không (dịch cả câu hoặc không) —
+-- KHÔNG trả cho learner: câu hỏi hiển thị trước khi nộp bài không được lộ đáp án (khác với grammar_exercises cũ, vốn
+-- đã lộ sẵn ở FE).
+SELECT id, passage_id, question, options, correct_answer, explanation, order_index
 FROM listening_questions
 WHERE passage_id = $1
 ORDER BY order_index;

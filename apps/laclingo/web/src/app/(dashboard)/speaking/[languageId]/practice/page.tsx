@@ -49,7 +49,7 @@ export default function SpeakingPracticePage({
         items={[
           { label: t.nav.speaking, href: '/speaking' },
           { label: languageName(params.languageId, language?.name), href: `/speaking/${params.languageId}` },
-          { label: topic, href: topicHref },
+          { label: item?.topic_label || topic, href: topicHref },
           { label: item ? t.speaking.itemOf(index + 1, items.length) : '…' },
         ]}
       />

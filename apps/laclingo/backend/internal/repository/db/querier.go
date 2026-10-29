@@ -387,9 +387,10 @@ type Querier interface {
 	ListGameParticipants(ctx context.Context, roomID pgtype.UUID) ([]ListGameParticipantsRow, error)
 	ListGameRoomQuestions(ctx context.Context, roomID pgtype.UUID) ([]ListGameRoomQuestionsRow, error)
 	ListGemTransactions(ctx context.Context, arg ListGemTransactionsParams) ([]GemTransaction, error)
-	// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp, khoá = chính câu
-	// tiếng Việt — cùng 1 câu luôn ra cùng 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá
-	// được (giới hạn index) → bỏ, bài đó giữ tiếng Việt.
+	// Nguồn dịch "grammar_answer": từ điển đáp án đúng + mọi lựa chọn (mảng chuỗi) của bài tập ngữ pháp và câu hỏi luyện
+	// nghe (tên entity giữ nguyên vì đã có bản dịch lưu theo tên này), khoá = chính câu tiếng Việt — cùng 1 câu luôn ra cùng
+	// 1 bản dịch nên lựa chọn hiển thị khớp đáp án đúng. Câu quá dài không làm khoá được (giới hạn index) → bỏ, bài đó giữ
+	// tiếng Việt.
 	ListGrammarAnswerTranslationSources(ctx context.Context) ([]string, error)
 	// Nguồn dịch "grammar_exercise": câu hỏi + giải thích (đáp án / lựa chọn dịch riêng theo nguyên văn, xem grammar_answer)
 	ListGrammarExerciseTranslationSources(ctx context.Context) ([]ListGrammarExerciseTranslationSourcesRow, error)
@@ -413,15 +414,20 @@ type Querier interface {
 	// Chỉ ngôn ngữ đã có từ vựng — ngôn ngữ "Học ngôn ngữ mới" vừa tạo mà nội dung còn đang dựng (hoặc dựng lỗi) không hiện
 	// thành khoá học rỗng (vẫn mở được bằng GetLanguageByID)
 	ListLanguages(ctx context.Context) ([]Language, error)
+	// Nguồn dịch "listening_passage": tên bài nghe (script là bài nghe bằng ngôn ngữ đang học — không dịch)
+	ListListeningPassageTranslationSources(ctx context.Context) ([]ListListeningPassageTranslationSourcesRow, error)
 	// Khác ListListeningPassagesByLanguage: CÓ script đầy đủ + phân trang/search —
 	// chỉ admin dùng (query kia vẫn giữ nguyên cho learner, không phân trang).
 	ListListeningPassagesAdminPaged(ctx context.Context, arg ListListeningPassagesAdminPagedParams) ([]ListListeningPassagesAdminPagedRow, error)
 	// topic để NULL thì lấy mọi chủ đề (trang chọn ngôn ngữ cũ); truyền topic thì
 	// chỉ lấy bài của đúng chủ đề đó (trang chọn chủ đề mới, xem ListTopics).
 	ListListeningPassagesByLanguage(ctx context.Context, arg ListListeningPassagesByLanguageParams) ([]ListListeningPassagesByLanguageRow, error)
-	// KHÔNG select correct_answer — câu hỏi hiển thị cho learner trước khi nộp
-	// bài không được lộ đáp án (khác với grammar_exercises cũ, vốn đã lộ sẵn ở FE).
-	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListListeningQuestionsByPassageRow, error)
+	// Nguồn dịch "listening_question": câu hỏi + giải thích (đáp án / lựa chọn dịch qua từ điển grammar_answer)
+	ListListeningQuestionTranslationSources(ctx context.Context) ([]ListListeningQuestionTranslationSourcesRow, error)
+	// correct_answer / explanation chỉ để service quyết định câu hỏi có hiện bản dịch không (dịch cả câu hoặc không) —
+	// KHÔNG trả cho learner: câu hỏi hiển thị trước khi nộp bài không được lộ đáp án (khác với grammar_exercises cũ, vốn
+	// đã lộ sẵn ở FE).
+	ListListeningQuestionsByPassage(ctx context.Context, passageID pgtype.UUID) ([]ListeningQuestion, error)
 	// Khác ListListeningQuestionsByPassage: CÓ correct_answer — chỉ admin dùng để sửa.
 	ListListeningQuestionsByPassageAdmin(ctx context.Context, arg ListListeningQuestionsByPassageAdminParams) ([]ListListeningQuestionsByPassageAdminRow, error)
 	// Chủ đề lấy từ listening_passages.topic; icon/thứ tự từ listening_topics nếu có.
@@ -451,12 +457,17 @@ type Querier interface {
 	// lại tới lúc ôn (đã đến hạn lên đầu). language_id NULL = mọi ngôn ngữ.
 	// total_count tính trên toàn bộ kết quả trước LIMIT/OFFSET để FE phân trang.
 	ListReviewVocabulariesForUser(ctx context.Context, arg ListReviewVocabulariesForUserParams) ([]ListReviewVocabulariesForUserRow, error)
+	// Nguồn dịch "speaking_item": nghĩa của câu luyện (prompt / câu mẫu / từ khoá là ngôn ngữ đang học — không dịch)
+	ListSpeakingItemTranslationSources(ctx context.Context) ([]ListSpeakingItemTranslationSourcesRow, error)
 	ListSpeakingItemsAdmin(ctx context.Context, arg ListSpeakingItemsAdminParams) ([]ListSpeakingItemsAdminRow, error)
 	ListSpeakingItemsByTopic(ctx context.Context, arg ListSpeakingItemsByTopicParams) ([]ListSpeakingItemsByTopicRow, error)
+	// Nguồn dịch "speaking_topic": mô tả chủ đề luyện nói, id = "<language_id>/<name>" (tên chủ đề dịch qua topic_name)
+	ListSpeakingTopicTranslationSources(ctx context.Context) ([]ListSpeakingTopicTranslationSourcesRow, error)
 	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
 	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
-	// Nguồn dịch "topic_name": từ điển tên chủ đề tiếng Việt dùng chung mọi ngôn ngữ (tên gắn trên từ + tên khai báo)
+	// Nguồn dịch "topic_name": từ điển tên chủ đề tiếng Việt dùng chung mọi ngôn ngữ (tên gắn trên từ / bài nghe + tên
+	// khai báo của từ vựng, luyện nghe, luyện nói)
 	ListTopicNameTranslationSources(ctx context.Context) ([]string, error)
 	// Từ nguồn để dựng 1 chủ đề ở ngôn ngữ mới: từ user đã học trong chủ đề trước, rồi các từ còn lại. root_id = từ gốc
 	// (từ dựng thì trỏ về gốc của nó); translated = ngôn ngữ đích đã có từ cùng gốc (không cần dựng lại).
