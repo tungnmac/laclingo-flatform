@@ -19,6 +19,15 @@ export const grammarService = {
 
   getLesson: (code: string) => apiFetch<GrammarLessonDetail>(`/grammar/lessons/${encodeURIComponent(code)}`),
 
+  // Ghi kết quả 1 bài tập (đúng → tiến độ giáo án lớp học + nhiệm vụ "làm bài ngữ pháp"; sai → vẫn tính là đang học).
+  // Web chấm tại chỗ để phản hồi ngay; gọi này chỉ để backend ghi nhận nên không hiện thông báo.
+  submitExercise: (id: string, answer: string) =>
+    apiFetch<{ correct: boolean }>(`/grammar/exercises/${encodeURIComponent(id)}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ answer }),
+      notify: false,
+    }),
+
   // Admin
   createTopic: (body: GrammarTopicRequest) =>
     apiFetch<GrammarTopicAdmin>('/admin/grammar/topics', { method: 'POST', body: JSON.stringify(body) }),

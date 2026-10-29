@@ -6,12 +6,14 @@ import { inputClass } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import type { GrammarExercise } from '@/types/api'
+import { grammarService } from '../grammar.service'
 
 function isCorrectAnswer(answer: string, exercise: GrammarExercise) {
   return answer.trim().toLowerCase() === exercise.correct_answer.trim().toLowerCase()
 }
 
-/** Một bài tập: chọn đáp án (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK), chấm tại chỗ */
+/** Một bài tập: chọn đáp án (MULTIPLE_CHOICE) hoặc điền từ (FILL_BLANK), chấm tại chỗ + gửi kết quả cho backend ghi tiến
+ * độ lớp học / nhiệm vụ */
 export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; index: number }) {
   const [answer, setAnswer] = useState('')
   const [checked, setChecked] = useState(false)
@@ -20,7 +22,10 @@ export function ExerciseCard({ exercise, index }: { exercise: GrammarExercise; i
 
   const onCheck = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (answer.trim()) setChecked(true)
+    if (!answer.trim()) return
+    setChecked(true)
+    // Ghi nhận ở backend (tiến độ giáo án, nhiệm vụ) — lỗi mạng không ảnh hưởng phần chấm tại chỗ
+    grammarService.submitExercise(exercise.id, answer.trim()).catch(() => {})
   }
 
   return (
