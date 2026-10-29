@@ -175,3 +175,48 @@ LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = sq
 WHERE t.language_id = sqlc.arg('language_id') AND t.parent_name = sqlc.arg('parent_name')
 GROUP BY t.name, t.icon, t.order_index
 ORDER BY t.order_index, t.name;
+
+-- name: ListTopicSourceWords :many
+-- Từ nguồn để dựng 1 chủ đề ở ngôn ngữ mới: từ user đã học trong chủ đề trước, rồi các từ còn lại. root_id = từ gốc
+-- (từ dựng thì trỏ về gốc của nó); translated = ngôn ngữ đích đã có từ cùng gốc (không cần dựng lại).
+SELECT
+    v.id,
+    COALESCE(v.source_vocabulary_id, v.id)::uuid AS root_id,
+    v.term,
+    v.meaning,
+    v.part_of_speech,
+    v.level,
+    v.image_emoji,
+    EXISTS (
+        SELECT 1 FROM vocabularies d
+        WHERE d.language_id = sqlc.arg('target_language_id')
+          AND (d.id = COALESCE(v.source_vocabulary_id, v.id) OR d.source_vocabulary_id = COALESCE(v.source_vocabulary_id, v.id))
+    ) AS translated
+FROM vocabularies v
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')
+WHERE v.language_id = sqlc.arg('language_id') AND v.topic = sqlc.arg('topic')
+ORDER BY (r.id IS NULL), v.level, v.term
+LIMIT sqlc.arg('max_words');
+
+-- name: InsertDerivedVocabulary :execrows
+-- Trùng từ (cùng term) hoặc gốc đã dựng rồi (2 user dựng cùng lúc) thì bỏ qua — 0 dòng: xem LinkVocabularySource
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, image_emoji, source_vocabulary_id)
+VALUES (sqlc.arg('language_id'), sqlc.arg('term'), sqlc.narg('phonetic'), sqlc.arg('meaning'), sqlc.narg('example'), sqlc.narg('example_meaning'),
+        sqlc.narg('part_of_speech'), sqlc.arg('topic'), sqlc.arg('level'), sqlc.narg('image_emoji'), sqlc.arg('source_vocabulary_id'))
+ON CONFLICT DO NOTHING;
+
+-- name: LinkVocabularySource :exec
+-- Từ dựng trùng term với từ đã có ở ngôn ngữ đích (vd nhập tay ở chủ đề khác): gắn từ đó với gốc để lần sau coi là đã
+-- dựng, không hỏi AI lại (chỉ khi từ đó chưa gắn gốc và ngôn ngữ đích chưa có từ nào cùng gốc)
+UPDATE vocabularies v SET source_vocabulary_id = sqlc.arg('root_id')
+WHERE v.language_id = sqlc.arg('language_id') AND v.term = sqlc.arg('term') AND v.source_vocabulary_id IS NULL AND v.id <> sqlc.arg('root_id')
+  AND NOT EXISTS (SELECT 1 FROM vocabularies x WHERE x.language_id = sqlc.arg('language_id') AND x.source_vocabulary_id = sqlc.arg('root_id'));
+
+-- name: InsertDerivedVocabularyTopic :exec
+-- Chủ đề mới ở ngôn ngữ đích mang tên/icon/khoá của chủ đề nguồn; đã có (trùng tên hoặc khoá) thì bỏ qua
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, topic_key)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT DO NOTHING;
+
+-- name: CountTopicWords :one
+SELECT COUNT(*) FROM vocabularies WHERE language_id = $1 AND topic = $2;

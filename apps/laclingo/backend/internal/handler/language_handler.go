@@ -19,7 +19,22 @@ func NewLanguageHandler(svc *service.LanguageService) *LanguageHandler {
 func (h *LanguageHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/languages")
 	api.Get("", h.List)
+	api.Get("/catalog", h.Catalog) // trước /:id
 	api.Get("/:id", h.GetByID)
+}
+
+// Catalog godoc
+// @Summary      Ngôn ngữ chọn được ở "Học ngôn ngữ mới" — đã có trong kho + danh mục ngôn ngữ phổ biến (chưa có thì tạo khi chọn)
+// @Tags         languages
+// @Produce      json
+// @Success      200  {array}   service.CatalogLanguage
+// @Router       /languages/catalog [get]
+func (h *LanguageHandler) Catalog(c *fiber.Ctx) error {
+	result, err := h.svc.Catalog(c.UserContext())
+	if err != nil {
+		return err
+	}
+	return c.JSON(result)
 }
 
 // GetByID godoc

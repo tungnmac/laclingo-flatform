@@ -13,22 +13,27 @@ import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { CefrLevel, Language, TargetLanguage } from '@/types/api'
+import type { CefrLevel, Language, TargetLanguage, VocabularyTopic } from '@/types/api'
 import { onboardingService } from '../onboarding.service'
 import { LevelPicker } from './OnboardingWizard'
 
 const STEPS = ['language', 'level', 'topics'] as const
 type Step = (typeof STEPS)[number]
 
-// Nguồn chủ đề đang chọn ('' = danh sách mặc định) + kết quả đồng bộ — giữ ở Wizard để quay lại bước chủ đề vẫn khớp
-// với các chủ đề đang chọn
-type TopicSource = { from: string; synced: { count: number; skipped: string[] } | null }
-const DEFAULT_SOURCE: TopicSource = { from: '', synced: null }
+const MAX_TOPICS = 20 // = maxTopicsPerLanguage ở backend (chủ đề có sẵn + chủ đề dựng)
 
-/** Học ngôn ngữ mới: chọn ngôn ngữ → trình độ → chủ đề (danh sách mặc định của ngôn ngữ đó, hoặc đồng bộ từ ngôn ngữ đang
- * học). Chỉ lưu lựa chọn của user — nội dung học vẫn là kho chung của ngôn ngữ, không sao chép dữ liệu. */
+// Nguồn chủ đề: from = ngôn ngữ đồng bộ ('' = mặc định); buildFrom = ngôn ngữ nguồn của các chủ đề sẽ DỰNG cho ngôn ngữ mới
+// (candidates — chủ đề ngôn ngữ mới chưa có); synced = số chủ đề có sẵn đã chọn theo đồng bộ. Giữ ở Wizard để quay lại
+// bước chủ đề vẫn khớp với lựa chọn.
+type Candidate = { name: string; icon?: string }
+type TopicSource = { from: string; buildFrom: string; candidates: Candidate[]; synced: number | null }
+const DEFAULT_SOURCE: TopicSource = { from: '', buildFrom: '', candidates: [], synced: null }
+
+/** Học ngôn ngữ mới: chọn ngôn ngữ (đã có trong kho hoặc danh mục ngôn ngữ phổ biến, trừ ngôn ngữ đang học) → trình độ →
+ * chủ đề. Chủ đề ngôn ngữ mới đã có thì chọn luôn; chưa có thì dựng từ chủ đề nguồn (ngôn ngữ đang học hoặc danh sách
+ * mặc định) — nội dung dựng 1 lần, dùng chung cho mọi user (backend LanguageContentService). */
 export function AddLanguageWizard() {
-  const languages = useApi(() => courseService.list(), [])
+  const languages = useApi(() => courseService.catalog(), [])
   const onboarding = useApi(() => onboardingService.get(), [])
   if (languages.loading || onboarding.loading) return <Spinner />
   if (!languages.data || !onboarding.data) {
@@ -47,13 +52,17 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   const [step, setStep] = useState<Step>('language')
   const [languageId, setLanguageId] = useState('')
   const [level, setLevel] = useState<CefrLevel>('A1')
-  const [topics, setTopics] = useState<string[]>([])
+  const [topics, setTopics] = useState<string[]>([]) // chủ đề có sẵn của ngôn ngữ mới
+  const [build, setBuild] = useState<string[]>([]) // chủ đề nguồn sẽ dựng (tên ở source.buildFrom)
   const [source, setSource] = useState<TopicSource>(DEFAULT_SOURCE)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<{ done: number; total: number } | 'saving' | null>(null)
+  const [sourceLoading, setSourceLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [hasTopics, setHasTopics] = useState<boolean | null>(null) // ngôn ngữ mới đã có chủ đề chưa (null = chưa tải)
   const index = STEPS.indexOf(step)
 
   const learningIds = new Set(learning.map((l) => l.language_id))
+  const choices = languages.filter((l) => !learningIds.has(l.id))
   const nameOf = (id: string) => languages.find((l) => l.id === id)?.name ?? id.toUpperCase()
 
   const next = () => {
@@ -63,14 +72,26 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   }
 
   const finish = async () => {
-    setBusy(true)
+    if (!hasTopics && build.length === 0) return setErr(t.addLanguage.needTopic)
     setErr(null)
     try {
-      await onboardingService.addLanguage(languageId, { level, topics })
+      // Dựng lần lượt từng chủ đề (mỗi request 1 lần gọi AI) — tránh request quá dài bị proxy cắt, hiện được tiến độ
+      const names = [...topics]
+      for (const [i, topic] of build.entries()) {
+        setBusy({ done: i + 1, total: build.length })
+        const res = await onboardingService.prepare(languageId, { from: source.buildFrom, topics: [topic] })
+        names.push(...res.topics.filter((name) => !names.includes(name)))
+      }
+      if (names.length === 0 && !hasTopics) {
+        setBusy(null)
+        return setErr(t.addLanguage.buildFailed)
+      }
+      setBusy('saving')
+      await onboardingService.addLanguage(languageId, { level, topics: names })
       router.push(`/learn/${languageId}`)
     } catch (e) {
       setErr(inlineError(e))
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -89,14 +110,15 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
       <Card className="p-5 sm:p-6">
         {step === 'language' && (
           <LanguageStep
-            languages={languages}
-            learningIds={learningIds}
+            languages={choices}
             value={languageId}
             onChange={(id) => {
-              // Đổi ngôn ngữ thì bỏ chủ đề + nguồn đồng bộ của ngôn ngữ trước
+              // Đổi ngôn ngữ thì bỏ chủ đề + nguồn của ngôn ngữ trước
               if (id !== languageId) {
                 setTopics([])
+                setBuild([])
                 setSource(DEFAULT_SOURCE)
+                setHasTopics(null)
               }
               setLanguageId(id)
             }}
@@ -111,18 +133,24 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
           </div>
         )}
         {step === 'topics' && (
-          <TopicsStep
+          <TopicsLoader
+            onLoaded={setHasTopics}
             languageId={languageId}
             sources={learning.map((l) => l.language_id).filter((id) => id !== languageId)}
-            nameOf={nameOf}
-            topics={topics}
-            onChange={setTopics}
+              nameOf={nameOf}
+              topics={topics}
+              onTopicsChange={setTopics}
+              build={build}
+              onBuildChange={setBuild}
             source={source}
             onSourceChange={setSource}
+            loading={sourceLoading}
+            onLoadingChange={setSourceLoading}
             onError={setErr}
           />
         )}
 
+        {busy && busy !== 'saving' && <p className="mt-4 text-sm text-indigo-700">{t.addLanguage.preparing(busy.done, busy.total)}</p>}
         {err && (
           <p role="alert" className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
             {err}
@@ -131,7 +159,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
 
         <div className="mt-6 flex items-center justify-between gap-3">
           {index > 0 ? (
-            <Button variant="ghost" onClick={() => (setErr(null), setStep(STEPS[index - 1]))} disabled={busy}>
+            <Button variant="ghost" onClick={() => (setErr(null), setStep(STEPS[index - 1]))} disabled={!!busy}>
               {t.onboarding.back}
             </Button>
           ) : (
@@ -140,11 +168,13 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
             </Link>
           )}
           {step === 'topics' ? (
-            <Button onClick={finish} disabled={busy}>
+            <Button onClick={finish} disabled={!!busy || hasTopics === null || sourceLoading}>
               {busy ? t.onboarding.saving : t.addLanguage.start}
             </Button>
           ) : (
-            <Button onClick={next}>{t.onboarding.next}</Button>
+            <Button onClick={next} disabled={step === 'language' && choices.length === 0}>
+              {t.onboarding.next}
+            </Button>
           )}
         </div>
       </Card>
@@ -152,109 +182,140 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   )
 }
 
-function LanguageStep({
-  languages,
-  learningIds,
-  value,
-  onChange,
-}: {
-  languages: Language[]
-  learningIds: Set<string>
-  value: string
-  onChange: (id: string) => void
-}) {
+function LanguageStep({ languages, value, onChange }: { languages: Language[]; value: string; onChange: (id: string) => void }) {
   const t = useTranslation()
-  if (languages.every((l) => learningIds.has(l.id))) return <p className="text-sm text-slate-500">{t.addLanguage.allLearning}</p>
+  if (languages.length === 0) return <p className="text-sm text-slate-500">{t.addLanguage.allLearning}</p>
   return (
     <div>
       <p className="text-sm text-slate-500">{t.addLanguage.languageHint}</p>
-      <div className="mt-4 space-y-3">
-        {languages.map((lang) => {
-          const learning = learningIds.has(lang.id)
-          const selected = value === lang.id
-          return (
-            <button
-              key={lang.id}
-              type="button"
-              onClick={() => onChange(lang.id)}
-              disabled={learning}
-              aria-pressed={selected}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 transition disabled:cursor-not-allowed disabled:opacity-60',
-                selected ? 'bg-indigo-50/60 ring-2 ring-indigo-600' : 'ring-slate-200 hover:ring-slate-300',
-              )}
-            >
-              <span className="text-2xl" aria-hidden>
-                {languageFlag(lang.id)}
-              </span>
-              <span className="flex-1 font-semibold text-slate-800">{lang.name}</span>
-              {learning && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{t.addLanguage.learning}</span>}
-            </button>
-          )
-        })}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {languages.map((lang) => (
+          <button
+            key={lang.id}
+            type="button"
+            onClick={() => onChange(lang.id)}
+            aria-pressed={value === lang.id}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left ring-1 transition',
+              value === lang.id ? 'bg-indigo-50/60 ring-2 ring-indigo-600' : 'ring-slate-200 hover:ring-slate-300',
+            )}
+          >
+            <span className="text-2xl" aria-hidden>
+              {languageFlag(lang.id)}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{lang.name}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
 }
 
-function TopicsStep({
-  languageId,
-  sources,
-  nameOf,
-  topics,
-  onChange,
-  source,
-  onSourceChange,
-  onError,
-}: {
+type TopicsStepProps = {
   languageId: string
+  available: VocabularyTopic[]
   sources: string[]
   nameOf: (id: string) => string
   topics: string[]
-  onChange: (topics: string[]) => void
+  onTopicsChange: (topics: string[]) => void
+  build: string[]
+  onBuildChange: (build: string[]) => void
   source: TopicSource
   onSourceChange: (source: TopicSource) => void
+  loading: boolean
+  onLoadingChange: (loading: boolean) => void
   onError: (msg: string | null) => void
-}) {
+}
+
+/** Tải chủ đề của ngôn ngữ mới mỗi lần vào bước chủ đề (ngôn ngữ có thể vừa đổi) rồi mới hiện TopicsStep */
+function TopicsLoader({ onLoaded, ...props }: Omit<TopicsStepProps, 'available'> & { onLoaded: (hasTopics: boolean) => void }) {
+  const { data, error, loading, reload } = useApi(() => vocabularyService.listTopics(props.languageId), [props.languageId])
+  useEffect(() => {
+    if (data) onLoaded(data.length > 0)
+  }, [data, onLoaded])
+  if (loading) return <Spinner />
+  if (!data) return <ErrorState error={error ?? new Error()} onRetry={reload} />
+  return <TopicsStep {...props} available={data} />
+}
+
+function TopicsStep({
+  languageId,
+  available,
+  sources,
+  nameOf,
+  topics,
+  onTopicsChange,
+  build,
+  onBuildChange,
+  source,
+  onSourceChange,
+  loading,
+  onLoadingChange: setLoading,
+  onError,
+}: TopicsStepProps) {
   const t = useTranslation()
-  const { data: available, error, loading, reload } = useApi(() => vocabularyService.listTopics(languageId), [languageId])
-  const [syncing, setSyncing] = useState(false)
-  // Mỗi lần bấm nguồn tăng 1; rời bước (unmount) cũng tăng → kết quả đồng bộ về trễ không ghi đè lựa chọn mới
+  // Mỗi lần bấm nguồn tăng 1; rời bước (unmount) cũng tăng → kết quả về trễ không ghi đè lựa chọn mới
   const latest = useRef(0)
-  useEffect(() => () => void latest.current++, [])
+  useEffect(
+    () => () => {
+      latest.current++
+      setLoading(false)
+    },
+    [setLoading],
+  )
 
   const pickSource = async (from: string) => {
     const run = ++latest.current
-    onSourceChange({ from, synced: null })
+    // Đổi nguồn = chọn lại từ đầu theo nguồn mới
+    onSourceChange({ ...DEFAULT_SOURCE, from })
+    onTopicsChange([])
+    onBuildChange([])
     onError(null)
-    if (!from) return setSyncing(false)
-    setSyncing(true)
+    // Mặc định + ngôn ngữ mới đã có chủ đề: chọn trong danh sách có sẵn, không cần dựng
+    if (!from && available.length > 0) return setLoading(false)
+    setLoading(true)
     try {
-      const res = await onboardingService.topicSync(languageId, from)
-      if (latest.current !== run) return
-      // Chỉ chọn sẵn chủ đề đang hiện trong danh sách (chủ đề cấp cao nhất) để user thấy và bỏ chọn được; khớp vào chủ
-      // đề con thì báo là chưa đồng bộ được cùng các chủ đề ngôn ngữ này chưa có
-      const shown = new Set(available?.map((x) => x.name))
-      const matched = [...new Set(res.matched.map((m) => m.to))]
-      const synced = matched.filter((name) => shown.has(name))
-      onSourceChange({ from, synced: { count: synced.length, skipped: [...res.missing, ...matched.filter((name) => !shown.has(name))] } })
-      onChange(synced)
+      if (from) {
+        // Đồng bộ: chủ đề khớp → chọn sẵn trong danh sách có sẵn; chủ đề ngôn ngữ mới chưa có → chọn sẵn để dựng
+        const res = await onboardingService.topicSync(languageId, from)
+        if (latest.current !== run) return
+        const shown = new Set(available.map((x) => x.name))
+        const synced = [...new Set(res.matched.map((m) => m.to))].filter((name) => shown.has(name))
+        const picked = synced.slice(0, MAX_TOPICS)
+        onSourceChange({ from, buildFrom: from, candidates: res.missing.map((name) => ({ name })), synced: picked.length })
+        onTopicsChange(picked)
+        onBuildChange(res.missing.slice(0, MAX_TOPICS - picked.length))
+      } else {
+        // Mặc định + ngôn ngữ mới chưa có nội dung: danh sách chủ đề mặc định (kho tiếng Anh) để dựng
+        const reference = languageId === 'en' ? 'zh' : 'en'
+        const list = await vocabularyService.listTopics(reference)
+        if (latest.current !== run) return
+        onSourceChange({ from: '', buildFrom: reference, candidates: list.map((x) => ({ name: x.name, icon: x.icon })), synced: null })
+      }
     } catch (e) {
       if (latest.current === run) onError(inlineError(e))
     } finally {
-      if (latest.current === run) setSyncing(false)
+      if (latest.current === run) setLoading(false)
     }
   }
 
-  const toggle = (name: string) => onChange(topics.includes(name) ? topics.filter((x) => x !== name) : [...topics, name])
+  // Ngôn ngữ mới chưa có nội dung: nạp sẵn danh sách mặc định để dựng
+  useEffect(() => {
+    if (available.length === 0 && !source.from && !source.buildFrom) pickSource('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy lần đầu vào bước chủ đề
+  }, [])
 
-  if (loading) return <Spinner />
-  if (!available) return <ErrorState error={error ?? new Error()} onRetry={reload} />
-  if (available.length === 0) return <p className="text-sm text-slate-400">{t.onboarding.noTopics}</p>
+  // Chủ đề có sẵn + chủ đề dựng tối đa MAX_TOPICS
+  const toggle = (list: string[], name: string, set: (list: string[]) => void) => {
+    if (list.includes(name)) return set(list.filter((x) => x !== name))
+    if (topics.length + build.length >= MAX_TOPICS) return onError(t.addLanguage.maxTopics(MAX_TOPICS))
+    onError(null)
+    set([...list, name])
+  }
 
   return (
     <div>
-      <p className="text-sm text-slate-500">{t.onboarding.topicsHint}</p>
+      <p className="text-sm text-slate-500">{available.length > 0 ? t.onboarding.topicsHint : t.addLanguage.noContentYet}</p>
       {sources.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 text-xs font-medium text-slate-500">{t.addLanguage.topicSource}</p>
@@ -265,7 +326,7 @@ function TopicsStep({
                 type="button"
                 onClick={() => pickSource(from)}
                 aria-pressed={source.from === from}
-                disabled={syncing}
+                disabled={loading}
                 className={cn(
                   'rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition disabled:opacity-60',
                   source.from === from ? 'bg-indigo-50 text-indigo-700 ring-indigo-300' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300',
@@ -282,32 +343,69 @@ function TopicsStep({
               </button>
             ))}
           </div>
-          {syncing && <Spinner />}
-          {source.synced && (
-            <div className="mt-3 space-y-1 text-xs text-slate-500">
-              <p>
-                {source.synced.count > 0
-                  ? t.addLanguage.syncedCount(source.synced.count, nameOf(source.from))
-                  : t.addLanguage.syncNone(nameOf(source.from))}
-              </p>
-              {source.synced.skipped.length > 0 && <p>{t.addLanguage.syncMissing(source.synced.skipped.join(', '))}</p>}
-            </div>
+          {source.synced !== null && available.length > 0 && (
+            <p className="mt-3 text-xs text-slate-500">
+              {source.synced > 0 ? t.addLanguage.syncedCount(source.synced, nameOf(source.from)) : t.addLanguage.syncNone(nameOf(source.from))}
+            </p>
           )}
         </div>
       )}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {available.map((topic) => {
-          const selected = topics.includes(topic.name)
+      {loading && <Spinner />}
+
+      {available.length > 0 && (
+        <TopicChips
+          title={t.addLanguage.existingTopics}
+          items={available}
+          selected={topics}
+          disabled={loading}
+          onToggle={(name) => toggle(topics, name, onTopicsChange)}
+        />
+      )}
+      {source.candidates.length > 0 && (
+        <>
+          <TopicChips
+            title={t.addLanguage.buildFrom(nameOf(source.buildFrom))}
+            items={source.candidates}
+            selected={build}
+            disabled={loading}
+            onToggle={(name) => toggle(build, name, onBuildChange)}
+          />
+          <p className="mt-2 text-xs text-slate-400">{t.addLanguage.buildHint}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function TopicChips({
+  title,
+  items,
+  selected,
+  disabled,
+  onToggle,
+}: {
+  title: string
+  items: Candidate[]
+  selected: string[]
+  disabled: boolean
+  onToggle: (name: string) => void
+}) {
+  return (
+    <section className="mt-5">
+      <h3 className="mb-2 text-xs font-medium text-slate-500">{title}</h3>
+      <div className="flex flex-wrap gap-2">
+        {items.map((topic) => {
+          const isSelected = selected.includes(topic.name)
           return (
             <button
               key={topic.name}
               type="button"
-              onClick={() => toggle(topic.name)}
-              aria-pressed={selected}
-              disabled={syncing}
+              onClick={() => onToggle(topic.name)}
+              aria-pressed={isSelected}
+              disabled={disabled}
               className={cn(
                 'rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition disabled:opacity-60',
-                selected ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300',
+                isSelected ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300',
               )}
             >
               {topic.icon && <span aria-hidden>{topic.icon} </span>}
@@ -316,6 +414,6 @@ function TopicsStep({
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }

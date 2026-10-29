@@ -42,7 +42,6 @@ export interface OnboardingDict {
     title: string
     steps: { language: string; level: string; topics: string }
     languageHint: string
-    learning: string
     allLearning: string
     needLanguage: string
     topicSource: string
@@ -50,7 +49,14 @@ export interface OnboardingDict {
     sourceSync: (language: string) => string
     syncedCount: (count: number, language: string) => string
     syncNone: (language: string) => string
-    syncMissing: (topics: string) => string
+    existingTopics: string
+    buildFrom: (language: string) => string
+    buildHint: string
+    noContentYet: string
+    needTopic: string
+    preparing: (done: number, total: number) => string
+    buildFailed: string
+    maxTopics: (max: number) => string
     start: string
   }
 }
@@ -107,8 +113,7 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       cta: '+ Học ngôn ngữ mới',
       title: 'Học ngôn ngữ mới',
       steps: { language: 'Chọn ngôn ngữ', level: 'Trình độ hiện tại', topics: 'Chủ đề muốn học' },
-      languageHint: 'Chọn ngôn ngữ bạn muốn bắt đầu học.',
-      learning: 'Đang học',
+      languageHint: 'Chọn ngôn ngữ bạn muốn bắt đầu học (ngoài các ngôn ngữ bạn đang học).',
       allLearning: 'Bạn đang học tất cả ngôn ngữ hiện có.',
       needLanguage: 'Chọn 1 ngôn ngữ để tiếp tục.',
       topicSource: 'Lấy chủ đề từ',
@@ -116,7 +121,14 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       sourceSync: (language) => `Đồng bộ từ ${language}`,
       syncedCount: (count, language) => `Đã chọn sẵn ${count} chủ đề tương ứng với những gì bạn chọn/đã học ở ${language}.`,
       syncNone: (language) => `Chưa có chủ đề nào ở ${language} khớp với ngôn ngữ này — hãy chọn trong danh sách bên dưới.`,
-      syncMissing: (topics) => `Chưa đồng bộ được: ${topics}`,
+      existingTopics: 'Chủ đề có sẵn',
+      buildFrom: (language) => `Dựng từ chủ đề ${language}`,
+      buildHint: 'Từ vựng được dựng từ chủ đề nguồn (ưu tiên những từ bạn đã học) và dùng chung cho mọi người học.',
+      noContentYet: 'Ngôn ngữ này chưa có nội dung — chọn chủ đề để dựng từ vựng.',
+      needTopic: 'Chọn ít nhất 1 chủ đề để dựng nội dung.',
+      preparing: (done, total) => `Đang chuẩn bị nội dung… chủ đề ${done}/${total} (mỗi chủ đề có thể mất tới 1 phút)`,
+      buildFailed: 'Chưa dựng được chủ đề nào cho ngôn ngữ này — hãy chọn chủ đề khác.',
+      maxTopics: (max) => `Chọn tối đa ${max} chủ đề.`,
       start: 'Bắt đầu học',
     },
   },
@@ -171,8 +183,7 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       cta: '+ Learn a new language',
       title: 'Learn a new language',
       steps: { language: 'Pick a language', level: 'Current level', topics: 'Topics to learn' },
-      languageHint: 'Pick the language you want to start learning.',
-      learning: 'Learning',
+      languageHint: 'Pick the language you want to start learning (besides the ones you already learn).',
       allLearning: 'You are already learning every available language.',
       needLanguage: 'Pick a language to continue.',
       topicSource: 'Take topics from',
@@ -180,7 +191,14 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
       sourceSync: (language) => `Sync from ${language}`,
       syncedCount: (count, language) => `Pre-selected ${count} topics matching what you picked or studied in ${language}.`,
       syncNone: (language) => `None of your ${language} topics exist in this language yet — pick from the list below.`,
-      syncMissing: (topics) => `Could not sync: ${topics}`,
+      existingTopics: 'Available topics',
+      buildFrom: (language) => `Build from ${language} topics`,
+      buildHint: 'Words are built from the source topics (words you studied first) and shared by all learners.',
+      noContentYet: 'This language has no content yet — pick topics to build its vocabulary.',
+      needTopic: 'Pick at least 1 topic to build content.',
+      preparing: (done, total) => `Preparing content… topic ${done}/${total} (each may take up to a minute)`,
+      buildFailed: 'Could not build any topic for this language — pick other topics.',
+      maxTopics: (max) => `Pick at most ${max} topics.`,
       start: 'Start learning',
     },
   },

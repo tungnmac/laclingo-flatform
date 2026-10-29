@@ -64,6 +64,13 @@ export interface TopicSyncPreview {
   missing: string[] // ngôn ngữ mới chưa có chủ đề tương ứng
 }
 
+// POST /users/me/languages/{id}/prepare — dựng các chủ đề (tên ở ngôn ngữ nguồn from) mà ngôn ngữ mới chưa có; trả tên
+// chủ đề tương ứng ở ngôn ngữ mới (nội dung dùng chung cho mọi user)
+export interface PrepareLanguageRequest {
+  from: string
+  topics: string[]
+}
+
 export interface Language {
   id: string
   name: string

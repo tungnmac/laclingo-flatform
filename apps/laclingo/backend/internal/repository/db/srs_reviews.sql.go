@@ -335,7 +335,7 @@ func (q *Queries) ListMeaningDistractorsForVocabularies(ctx context.Context, voc
 }
 
 const listNewVocabulariesForUser = `-- name: ListNewVocabulariesForUser :many
-SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.example_meaning, v.part_of_speech, v.topic, v.level, v.audio_url, v.image_url, v.image_emoji, v.created_at
+SELECT v.id, v.language_id, v.term, v.phonetic, v.meaning, v.example, v.example_meaning, v.part_of_speech, v.topic, v.level, v.audio_url, v.image_url, v.image_emoji, v.created_at, v.source_vocabulary_id
 FROM vocabularies v
 WHERE v.language_id = $1
   AND NOT EXISTS (
@@ -376,6 +376,7 @@ func (q *Queries) ListNewVocabulariesForUser(ctx context.Context, arg ListNewVoc
 			&i.ImageUrl,
 			&i.ImageEmoji,
 			&i.CreatedAt,
+			&i.SourceVocabularyID,
 		); err != nil {
 			return nil, err
 		}

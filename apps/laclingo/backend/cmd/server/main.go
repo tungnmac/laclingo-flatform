@@ -131,10 +131,11 @@ func main() {
 	aiClient := newAIClient(cfg)
 	suggester := service.NewVocabularySuggester(aiClient)
 	analyzer := service.NewSentenceAnalyzer(repo, aiClient, plans)
+	languageContent := service.NewLanguageContentService(repo, aiClient)
 
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	tokens.SetRefreshTTL(cfg.RefreshTTL)
-	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, analyzer, plans, newPaymentService(cfg, repo, notificationService))
+	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, languageContent, analyzer, plans, newPaymentService(cfg, repo, notificationService))
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {

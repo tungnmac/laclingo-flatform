@@ -26,6 +26,23 @@ func (q *Queries) GetLanguageByID(ctx context.Context, id string) (Language, err
 	return i, err
 }
 
+const insertLanguageIfMissing = `-- name: InsertLanguageIfMissing :exec
+INSERT INTO languages (id, name, code) VALUES ($1, $2, $3)
+ON CONFLICT (id) DO NOTHING
+`
+
+type InsertLanguageIfMissingParams struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
+// "Học ngôn ngữ mới": ngôn ngữ trong danh mục (service/language_catalog.go) chưa có dòng thì tạo khi user chọn
+func (q *Queries) InsertLanguageIfMissing(ctx context.Context, arg InsertLanguageIfMissingParams) error {
+	_, err := q.db.Exec(ctx, insertLanguageIfMissing, arg.ID, arg.Name, arg.Code)
+	return err
+}
+
 const listLanguages = `-- name: ListLanguages :many
 SELECT id, name, code, created_at FROM languages
 ORDER BY name

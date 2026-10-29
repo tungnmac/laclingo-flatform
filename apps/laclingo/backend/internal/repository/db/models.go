@@ -664,20 +664,21 @@ type UserVocabularyReview struct {
 }
 
 type Vocabulary struct {
-	ID             pgtype.UUID        `json:"id"`
-	LanguageID     string             `json:"language_id"`
-	Term           string             `json:"term"`
-	Phonetic       pgtype.Text        `json:"phonetic"`
-	Meaning        string             `json:"meaning"`
-	Example        pgtype.Text        `json:"example"`
-	ExampleMeaning pgtype.Text        `json:"example_meaning"`
-	PartOfSpeech   pgtype.Text        `json:"part_of_speech"`
-	Topic          pgtype.Text        `json:"topic"`
-	Level          pgtype.Text        `json:"level"`
-	AudioUrl       pgtype.Text        `json:"audio_url"`
-	ImageUrl       pgtype.Text        `json:"image_url"`
-	ImageEmoji     pgtype.Text        `json:"image_emoji"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	LanguageID         string             `json:"language_id"`
+	Term               string             `json:"term"`
+	Phonetic           pgtype.Text        `json:"phonetic"`
+	Meaning            string             `json:"meaning"`
+	Example            pgtype.Text        `json:"example"`
+	ExampleMeaning     pgtype.Text        `json:"example_meaning"`
+	PartOfSpeech       pgtype.Text        `json:"part_of_speech"`
+	Topic              pgtype.Text        `json:"topic"`
+	Level              pgtype.Text        `json:"level"`
+	AudioUrl           pgtype.Text        `json:"audio_url"`
+	ImageUrl           pgtype.Text        `json:"image_url"`
+	ImageEmoji         pgtype.Text        `json:"image_emoji"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	SourceVocabularyID pgtype.UUID        `json:"source_vocabulary_id"`
 }
 
 type VocabularyExercise struct {

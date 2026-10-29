@@ -77,6 +77,7 @@ type Querier interface {
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
 	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
+	CountTopicWords(ctx context.Context, arg CountTopicWordsParams) (int64, error)
 	CountUnreadNotifications(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountVocabularyLikes(ctx context.Context, vocabularyID pgtype.UUID) (int32, error)
 	CountVocabularyTopicChildren(ctx context.Context, arg CountVocabularyTopicChildrenParams) (int64, error)
@@ -274,6 +275,10 @@ type Querier interface {
 	IncrementVocabularyPracticeOnly(ctx context.Context, arg IncrementVocabularyPracticeOnlyParams) (UserVocabularyReview, error)
 	// Tạo note của ngày; đã có (vd 2 request cùng lúc) → không trả dòng nào (pgx.ErrNoRows)
 	InsertDailyNote(ctx context.Context, arg InsertDailyNoteParams) (DailyNote, error)
+	// Trùng từ (cùng term) hoặc gốc đã dựng rồi (2 user dựng cùng lúc) thì bỏ qua — 0 dòng: xem LinkVocabularySource
+	InsertDerivedVocabulary(ctx context.Context, arg InsertDerivedVocabularyParams) (int64, error)
+	// Chủ đề mới ở ngôn ngữ đích mang tên/icon/khoá của chủ đề nguồn; đã có (trùng tên hoặc khoá) thì bỏ qua
+	InsertDerivedVocabularyTopic(ctx context.Context, arg InsertDerivedVocabularyTopicParams) error
 	// ID do phòng chơi tạo trước (broadcast ngay, lưu sau — không bắt cả phòng chờ DB)
 	InsertGameChatMessage(ctx context.Context, arg InsertGameChatMessageParams) error
 	InsertGameRoomQuestion(ctx context.Context, arg InsertGameRoomQuestionParams) error
@@ -281,6 +286,8 @@ type Querier interface {
 	// Mua trong app iOS/Android (Apple In-App Purchase, Google Play Billing)
 	// Giao dịch mới → trả dòng vừa tạo; đã có (gửi lại / khôi phục) → không trả dòng (pgx.ErrNoRows), không giao lại
 	InsertIAPPurchase(ctx context.Context, arg InsertIAPPurchaseParams) (IapPurchase, error)
+	// "Học ngôn ngữ mới": ngôn ngữ trong danh mục (service/language_catalog.go) chưa có dòng thì tạo khi user chọn
+	InsertLanguageIfMissing(ctx context.Context, arg InsertLanguageIfMissingParams) error
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertListeningTopic(ctx context.Context, arg InsertListeningTopicParams) (ListeningTopic, error)
 	// Chỉ tạo mới — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
@@ -301,6 +308,9 @@ type Querier interface {
 	LikeBlogComment(ctx context.Context, arg LikeBlogCommentParams) (int64, error)
 	LikeBlogPost(ctx context.Context, arg LikeBlogPostParams) error
 	LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error
+	// Từ dựng trùng term với từ đã có ở ngôn ngữ đích (vd nhập tay ở chủ đề khác): gắn từ đó với gốc để lần sau coi là đã
+	// dựng, không hỏi AI lại (chỉ khi từ đó chưa gắn gốc và ngôn ngữ đích chưa có từ nào cùng gốc)
+	LinkVocabularySource(ctx context.Context, arg LinkVocabularySourceParams) error
 	// Nhiệm vụ event chỉ tính khi NOW() đang trong khoảng starts_at..ends_at.
 	ListActiveMissionsByAction(ctx context.Context, actionType string) ([]Mission, error)
 	// Dành cho admin — thấy cả nhiệm vụ đã tắt (is_active=false) để còn bật lại.
@@ -416,6 +426,9 @@ type Querier interface {
 	// Chủ đề có ít nhất 1 câu luyện; practiced = số câu user đã luyện, avg_best = điểm cao nhất trung bình
 	ListSpeakingTopics(ctx context.Context, arg ListSpeakingTopicsParams) ([]ListSpeakingTopicsRow, error)
 	ListSpeakingTopicsAdmin(ctx context.Context, languageID string) ([]ListSpeakingTopicsAdminRow, error)
+	// Từ nguồn để dựng 1 chủ đề ở ngôn ngữ mới: từ user đã học trong chủ đề trước, rồi các từ còn lại. root_id = từ gốc
+	// (từ dựng thì trỏ về gốc của nó); translated = ngôn ngữ đích đã có từ cùng gốc (không cần dựng lại).
+	ListTopicSourceWords(ctx context.Context, arg ListTopicSourceWordsParams) ([]ListTopicSourceWordsRow, error)
 	// Xoá tài khoản: gom key ảnh đại diện trên R2 để xoá file (dòng user_avatars tự xoá theo cascade)
 	ListUserAvatarKeys(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)

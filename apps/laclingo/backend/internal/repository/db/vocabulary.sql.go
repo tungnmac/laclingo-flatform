@@ -11,6 +11,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countTopicWords = `-- name: CountTopicWords :one
+SELECT COUNT(*) FROM vocabularies WHERE language_id = $1 AND topic = $2
+`
+
+type CountTopicWordsParams struct {
+	LanguageID string      `json:"language_id"`
+	Topic      pgtype.Text `json:"topic"`
+}
+
+func (q *Queries) CountTopicWords(ctx context.Context, arg CountTopicWordsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTopicWords, arg.LanguageID, arg.Topic)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countVocabularyLikes = `-- name: CountVocabularyLikes :one
 SELECT COUNT(*)::int FROM vocabulary_likes WHERE vocabulary_id = $1
 `
@@ -42,7 +58,7 @@ const createVocabulary = `-- name: CreateVocabulary :one
 
 INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, topic, level, audio_url, image_url, image_emoji, example_meaning, part_of_speech)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at
+RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at, source_vocabulary_id
 `
 
 type CreateVocabularyParams struct {
@@ -92,6 +108,7 @@ func (q *Queries) CreateVocabulary(ctx context.Context, arg CreateVocabularyPara
 		&i.ImageUrl,
 		&i.ImageEmoji,
 		&i.CreatedAt,
+		&i.SourceVocabularyID,
 	)
 	return i, err
 }
@@ -223,6 +240,74 @@ func (q *Queries) GetVocabularyTopicOwnStats(ctx context.Context, arg GetVocabul
 	return i, err
 }
 
+const insertDerivedVocabulary = `-- name: InsertDerivedVocabulary :execrows
+INSERT INTO vocabularies (language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, image_emoji, source_vocabulary_id)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11)
+ON CONFLICT DO NOTHING
+`
+
+type InsertDerivedVocabularyParams struct {
+	LanguageID         string      `json:"language_id"`
+	Term               string      `json:"term"`
+	Phonetic           pgtype.Text `json:"phonetic"`
+	Meaning            string      `json:"meaning"`
+	Example            pgtype.Text `json:"example"`
+	ExampleMeaning     pgtype.Text `json:"example_meaning"`
+	PartOfSpeech       pgtype.Text `json:"part_of_speech"`
+	Topic              pgtype.Text `json:"topic"`
+	Level              pgtype.Text `json:"level"`
+	ImageEmoji         pgtype.Text `json:"image_emoji"`
+	SourceVocabularyID pgtype.UUID `json:"source_vocabulary_id"`
+}
+
+// Trùng từ (cùng term) hoặc gốc đã dựng rồi (2 user dựng cùng lúc) thì bỏ qua — 0 dòng: xem LinkVocabularySource
+func (q *Queries) InsertDerivedVocabulary(ctx context.Context, arg InsertDerivedVocabularyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertDerivedVocabulary,
+		arg.LanguageID,
+		arg.Term,
+		arg.Phonetic,
+		arg.Meaning,
+		arg.Example,
+		arg.ExampleMeaning,
+		arg.PartOfSpeech,
+		arg.Topic,
+		arg.Level,
+		arg.ImageEmoji,
+		arg.SourceVocabularyID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertDerivedVocabularyTopic = `-- name: InsertDerivedVocabularyTopic :exec
+INSERT INTO vocabulary_topics (language_id, name, icon, order_index, topic_key)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT DO NOTHING
+`
+
+type InsertDerivedVocabularyTopicParams struct {
+	LanguageID string      `json:"language_id"`
+	Name       string      `json:"name"`
+	Icon       string      `json:"icon"`
+	OrderIndex int32       `json:"order_index"`
+	TopicKey   pgtype.Text `json:"topic_key"`
+}
+
+// Chủ đề mới ở ngôn ngữ đích mang tên/icon/khoá của chủ đề nguồn; đã có (trùng tên hoặc khoá) thì bỏ qua
+func (q *Queries) InsertDerivedVocabularyTopic(ctx context.Context, arg InsertDerivedVocabularyTopicParams) error {
+	_, err := q.db.Exec(ctx, insertDerivedVocabularyTopic,
+		arg.LanguageID,
+		arg.Name,
+		arg.Icon,
+		arg.OrderIndex,
+		arg.TopicKey,
+	)
+	return err
+}
+
 const insertVocabularyTopic = `-- name: InsertVocabularyTopic :one
 INSERT INTO vocabulary_topics (language_id, name, icon, order_index, parent_name, topic_key)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -272,6 +357,25 @@ type LikeVocabularyParams struct {
 
 func (q *Queries) LikeVocabulary(ctx context.Context, arg LikeVocabularyParams) error {
 	_, err := q.db.Exec(ctx, likeVocabulary, arg.UserID, arg.VocabularyID)
+	return err
+}
+
+const linkVocabularySource = `-- name: LinkVocabularySource :exec
+UPDATE vocabularies v SET source_vocabulary_id = $1
+WHERE v.language_id = $2 AND v.term = $3 AND v.source_vocabulary_id IS NULL AND v.id <> $1
+  AND NOT EXISTS (SELECT 1 FROM vocabularies x WHERE x.language_id = $2 AND x.source_vocabulary_id = $1)
+`
+
+type LinkVocabularySourceParams struct {
+	RootID     pgtype.UUID `json:"root_id"`
+	LanguageID string      `json:"language_id"`
+	Term       string      `json:"term"`
+}
+
+// Từ dựng trùng term với từ đã có ở ngôn ngữ đích (vd nhập tay ở chủ đề khác): gắn từ đó với gốc để lần sau coi là đã
+// dựng, không hỏi AI lại (chỉ khi từ đó chưa gắn gốc và ngôn ngữ đích chưa có từ nào cùng gốc)
+func (q *Queries) LinkVocabularySource(ctx context.Context, arg LinkVocabularySourceParams) error {
+	_, err := q.db.Exec(ctx, linkVocabularySource, arg.RootID, arg.LanguageID, arg.Term)
 	return err
 }
 
@@ -371,8 +475,85 @@ func (q *Queries) ListFavoriteVocabularies(ctx context.Context, arg ListFavorite
 	return items, nil
 }
 
+const listTopicSourceWords = `-- name: ListTopicSourceWords :many
+SELECT
+    v.id,
+    COALESCE(v.source_vocabulary_id, v.id)::uuid AS root_id,
+    v.term,
+    v.meaning,
+    v.part_of_speech,
+    v.level,
+    v.image_emoji,
+    EXISTS (
+        SELECT 1 FROM vocabularies d
+        WHERE d.language_id = $1
+          AND (d.id = COALESCE(v.source_vocabulary_id, v.id) OR d.source_vocabulary_id = COALESCE(v.source_vocabulary_id, v.id))
+    ) AS translated
+FROM vocabularies v
+LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = $2
+WHERE v.language_id = $3 AND v.topic = $4
+ORDER BY (r.id IS NULL), v.level, v.term
+LIMIT $5
+`
+
+type ListTopicSourceWordsParams struct {
+	TargetLanguageID string      `json:"target_language_id"`
+	UserID           pgtype.UUID `json:"user_id"`
+	LanguageID       string      `json:"language_id"`
+	Topic            pgtype.Text `json:"topic"`
+	MaxWords         int32       `json:"max_words"`
+}
+
+type ListTopicSourceWordsRow struct {
+	ID           pgtype.UUID `json:"id"`
+	RootID       pgtype.UUID `json:"root_id"`
+	Term         string      `json:"term"`
+	Meaning      string      `json:"meaning"`
+	PartOfSpeech pgtype.Text `json:"part_of_speech"`
+	Level        pgtype.Text `json:"level"`
+	ImageEmoji   pgtype.Text `json:"image_emoji"`
+	Translated   bool        `json:"translated"`
+}
+
+// Từ nguồn để dựng 1 chủ đề ở ngôn ngữ mới: từ user đã học trong chủ đề trước, rồi các từ còn lại. root_id = từ gốc
+// (từ dựng thì trỏ về gốc của nó); translated = ngôn ngữ đích đã có từ cùng gốc (không cần dựng lại).
+func (q *Queries) ListTopicSourceWords(ctx context.Context, arg ListTopicSourceWordsParams) ([]ListTopicSourceWordsRow, error) {
+	rows, err := q.db.Query(ctx, listTopicSourceWords,
+		arg.TargetLanguageID,
+		arg.UserID,
+		arg.LanguageID,
+		arg.Topic,
+		arg.MaxWords,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTopicSourceWordsRow
+	for rows.Next() {
+		var i ListTopicSourceWordsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.RootID,
+			&i.Term,
+			&i.Meaning,
+			&i.PartOfSpeech,
+			&i.Level,
+			&i.ImageEmoji,
+			&i.Translated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVocabulariesByLanguageAdmin = `-- name: ListVocabulariesByLanguageAdmin :many
-SELECT id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at, COUNT(*) OVER() AS total_count FROM vocabularies
+SELECT id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at, source_vocabulary_id, COUNT(*) OVER() AS total_count FROM vocabularies
 WHERE language_id = $1
   AND ($2::text IS NULL OR term ILIKE '%' || $2::text || '%' OR meaning ILIKE '%' || $2::text || '%')
   AND ($3::text IS NULL OR topic = $3::text)
@@ -391,21 +572,22 @@ type ListVocabulariesByLanguageAdminParams struct {
 }
 
 type ListVocabulariesByLanguageAdminRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	LanguageID     string             `json:"language_id"`
-	Term           string             `json:"term"`
-	Phonetic       pgtype.Text        `json:"phonetic"`
-	Meaning        string             `json:"meaning"`
-	Example        pgtype.Text        `json:"example"`
-	ExampleMeaning pgtype.Text        `json:"example_meaning"`
-	PartOfSpeech   pgtype.Text        `json:"part_of_speech"`
-	Topic          pgtype.Text        `json:"topic"`
-	Level          pgtype.Text        `json:"level"`
-	AudioUrl       pgtype.Text        `json:"audio_url"`
-	ImageUrl       pgtype.Text        `json:"image_url"`
-	ImageEmoji     pgtype.Text        `json:"image_emoji"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	TotalCount     int64              `json:"total_count"`
+	ID                 pgtype.UUID        `json:"id"`
+	LanguageID         string             `json:"language_id"`
+	Term               string             `json:"term"`
+	Phonetic           pgtype.Text        `json:"phonetic"`
+	Meaning            string             `json:"meaning"`
+	Example            pgtype.Text        `json:"example"`
+	ExampleMeaning     pgtype.Text        `json:"example_meaning"`
+	PartOfSpeech       pgtype.Text        `json:"part_of_speech"`
+	Topic              pgtype.Text        `json:"topic"`
+	Level              pgtype.Text        `json:"level"`
+	AudioUrl           pgtype.Text        `json:"audio_url"`
+	ImageUrl           pgtype.Text        `json:"image_url"`
+	ImageEmoji         pgtype.Text        `json:"image_emoji"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	SourceVocabularyID pgtype.UUID        `json:"source_vocabulary_id"`
+	TotalCount         int64              `json:"total_count"`
 }
 
 // total_count (COUNT(*) OVER()) tính trên toàn bộ kết quả KHỚP filter, trước
@@ -441,6 +623,7 @@ func (q *Queries) ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListV
 			&i.ImageUrl,
 			&i.ImageEmoji,
 			&i.CreatedAt,
+			&i.SourceVocabularyID,
 			&i.TotalCount,
 		); err != nil {
 			return nil, err
@@ -780,7 +963,7 @@ UPDATE vocabularies
 SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7,
     audio_url = $8, image_url = $9, image_emoji = $10, example_meaning = $11, part_of_speech = $12
 WHERE id = $1
-RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at
+RETURNING id, language_id, term, phonetic, meaning, example, example_meaning, part_of_speech, topic, level, audio_url, image_url, image_emoji, created_at, source_vocabulary_id
 `
 
 type UpdateVocabularyParams struct {
@@ -829,6 +1012,7 @@ func (q *Queries) UpdateVocabulary(ctx context.Context, arg UpdateVocabularyPara
 		&i.ImageUrl,
 		&i.ImageEmoji,
 		&i.CreatedAt,
+		&i.SourceVocabularyID,
 	)
 	return i, err
 }

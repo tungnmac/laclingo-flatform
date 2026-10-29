@@ -22,7 +22,7 @@ type ErrorResponse struct {
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
 // MissionService) — luôn khác nil.
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, languageContent *service.LanguageContentService, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService) {
 	api := app.Group("/api/v1")
 
 	// Public
@@ -42,7 +42,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	blogHandler.RegisterPublicRoutes(api)
 	vocabularyHandler := NewVocabularyHandler(service.NewVocabularyService(repo, r2))
 	vocabularyHandler.RegisterPublicRoutes(api)
-	onboardingHandler := NewOnboardingHandler(service.NewOnboardingService(repo, r2))
+	onboardingHandler := NewOnboardingHandler(service.NewOnboardingService(repo, r2), languageContent)
 	onboardingHandler.RegisterPublicRoutes(api)
 
 	challengeHandler := NewChallengeHandler(service.NewChallengeService(repo), hub)
