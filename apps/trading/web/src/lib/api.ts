@@ -29,6 +29,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string; params?: TranslateParams; error?: string } | null
+    // tài khoản cũ chưa bổ sung tên đăng nhập / số điện thoại → mọi API bị chặn, chuyển sang trang bổ sung
+    if (res.status === 403 && body?.code === 'PROFILE_INCOMPLETE' && typeof window !== 'undefined') window.location.href = '/complete-profile'
     throw new ApiError(body?.error ?? `HTTP ${res.status}`, res.status, body?.code ?? 'INTERNAL', body?.params)
   }
   return (res.status === 204 ? undefined : await res.json()) as T

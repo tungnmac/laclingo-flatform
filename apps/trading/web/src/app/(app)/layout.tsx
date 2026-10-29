@@ -7,6 +7,7 @@ import { getPlan } from '@/server/billing/subscription-service'
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser() // cookie hợp lệ nhưng user đã bị xoá → về đăng nhập
   if (!user) redirect('/login')
+  if (user.needs_profile) redirect('/complete-profile') // tài khoản cũ: bắt bổ sung tên đăng nhập + số điện thoại (OTP)
   return (
     <div className="min-h-screen">
       {/* lỗi đọc gói không làm hỏng cả trang — huy hiệu về Free (API Pro vẫn tự kiểm tra quyền) */}
