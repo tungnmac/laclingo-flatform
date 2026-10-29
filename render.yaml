@@ -78,6 +78,13 @@ services:
       # *.onrender.com luôn đi qua Cloudflare → IP thật của người dùng ở header này (giới hạn đăng nhập / đăng ký)
       - key: CLIENT_IP_HEADER
         value: CF-Connecting-IP
+      # Firebase Phone Auth — OTP số điện thoại khi đăng ký (thiếu → production tắt đăng ký)
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
       - key: APP_URL # URL công khai, vd https://lactrader.onrender.com (cổng thanh toán trả người dùng về đây)
         sync: false
       - key: EODHD_API_KEY # để trống → tắt số liệu doanh nghiệp quốc tế

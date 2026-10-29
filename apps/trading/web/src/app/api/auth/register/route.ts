@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
+import { findConflict } from '@/server/auth/identity'
 import { hashPassword } from '@/server/auth/password'
+import { verifyPhoneToken } from '@/server/auth/phone-otp'
 import { rememberSession, setSessions, signedInAccounts } from '@/server/auth/account-switch'
 import { toSessionUser } from '@/server/auth/require-user'
 import { signSession } from '@/server/auth/session'
@@ -16,17 +17,26 @@ export const POST = handleRoute(async (req: Request) => {
   const raw = await readJson(req)
   const body = registerSchema.parse(raw)
   const adding = (raw as { add?: unknown } | null)?.add === true
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, body.email)).limit(1)
-  if (existing) throw new HttpError(409, 'EMAIL_TAKEN')
+  // Tài khoản chỉ được tạo sau khi đã nhập đúng OTP gửi về chính số điện thoại đăng ký
+  if ((await verifyPhoneToken(body.phone_token)) !== body.phone) throw new HttpError(400, 'PHONE_MISMATCH')
+  const fields = { email: body.email, username: body.username, phone: body.phone }
+  const conflict = await findConflict(fields)
+  if (conflict) throw new HttpError(409, conflict)
 
   let user
   try {
     ;[user] = await db
       .insert(users)
-      .values({ email: body.email, passwordHash: await hashPassword(body.password), displayName: body.display_name })
+      .values({
+        ...fields,
+        phoneVerifiedAt: new Date(),
+        passwordHash: await hashPassword(body.password),
+        displayName: body.display_name,
+      })
       .returning()
   } catch (err) {
-    if (isUniqueViolation(err)) throw new HttpError(409, 'EMAIL_TAKEN') // 2 request đăng ký cùng lúc
+    // 2 request đăng ký cùng lúc
+    if (isUniqueViolation(err)) throw new HttpError(409, (await findConflict(fields)) ?? 'EMAIL_TAKEN')
     throw err
   }
 

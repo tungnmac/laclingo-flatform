@@ -4,6 +4,10 @@ import { bigint, boolean, check, date, index, integer, jsonb, numeric, pgTable, 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(), // luôn lưu chữ thường
+  // Tài khoản tạo trước khi có 2 cột này = null → bắt bổ sung sau khi đăng nhập (trang /complete-profile)
+  username: varchar('username', { length: 30 }).unique(), // luôn lưu chữ thường
+  phone: varchar('phone', { length: 16 }).unique(), // E.164 (+84…) — mỗi số chỉ 1 tài khoản
+  phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }), // đã xác thực OTP
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   displayName: varchar('display_name', { length: 100 }).notNull(),
   role: varchar('role', { length: 20 }).notNull().default('user'), // 'user' | 'admin'

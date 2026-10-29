@@ -18,13 +18,17 @@ export const POST = handleRoute(async (req: Request) => {
   // mặc định ghi nhớ (cookie 7 ngày) — remember: false → cookie phiên trình duyệt.
   // "Thêm tài khoản" dùng chung 1 cookie danh sách nên giữ lựa chọn hiện có, không đổi theo tài khoản mới.
   const remember = adding ? await rememberSession() : (raw as { remember?: unknown } | null)?.remember !== false
-  // Chống dò mật khẩu: theo IP (nhiều tài khoản) và theo email (1 tài khoản từ nhiều IP)
+  // Chống dò mật khẩu: theo IP (nhiều tài khoản) và theo email / tên đăng nhập (1 tài khoản từ nhiều IP)
   await rateLimit(redisCounter, `login:ip:${clientIp(req)}`, 30, 60)
-  await rateLimit(redisCounter, `login:email:${body.email}`, 10, 15 * 60)
-  const [user] = await db.select().from(users).where(eq(users.email, body.email)).limit(1)
+  await rateLimit(redisCounter, `login:id:${body.identifier}`, 10, 15 * 60)
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(body.byEmail ? eq(users.email, body.identifier) : eq(users.username, body.identifier))
+    .limit(1)
   const ok = await verifyPassword(body.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH)
   if (!user || !ok) throw new HttpError(401, 'INVALID_CREDENTIALS')
-  await resetRateLimit(redisCounter, `login:email:${body.email}`) // chỉ các lần SAI liên tiếp mới khoá email
+  await resetRateLimit(redisCounter, `login:id:${body.identifier}`) // chỉ các lần SAI liên tiếp mới khoá tài khoản
 
   // Thêm vào danh sách tài khoản đã đăng nhập (chuyển qua lại không cần nhập lại mật khẩu)
   const res = NextResponse.json(toSessionUser(user))

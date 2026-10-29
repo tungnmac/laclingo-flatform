@@ -7,7 +7,7 @@ export default async function LoginPage(props: { searchParams: Promise<{ next?: 
   return (
     <>
       {searchParams.add !== '1' && <SavedAccounts next={searchParams.next} />}
-      <AuthForm mode="login" next={searchParams.next} adding={searchParams.add === '1'} />
+      <AuthForm next={searchParams.next} adding={searchParams.add === '1'} />
     </>
   )
 }

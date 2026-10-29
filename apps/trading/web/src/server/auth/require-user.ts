@@ -3,11 +3,22 @@ import { cookies } from 'next/headers'
 import { db } from '../db/client'
 import { users, type UserRow } from '../db/schema'
 import { HttpError } from '../http'
+import { phoneOtpConfig } from './phone-otp'
 import { readSession, SESSION_COOKIE } from './session'
 import type { SessionUser } from './types'
 
+/** Chưa có số điện thoại đã xác thực — chỉ bắt bổ sung khi OTP đang bật (tắt OTP không được khoá tài khoản cũ khỏi app) */
+export const needsPhone = (u: UserRow) => !u.phoneVerifiedAt && phoneOtpConfig() !== null
+
 export function toSessionUser(u: UserRow): SessionUser {
-  return { id: u.id, email: u.email, display_name: u.displayName, role: u.role }
+  return {
+    id: u.id,
+    email: u.email,
+    username: u.username,
+    display_name: u.displayName,
+    role: u.role,
+    needs_profile: !u.username || needsPhone(u),
+  }
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
