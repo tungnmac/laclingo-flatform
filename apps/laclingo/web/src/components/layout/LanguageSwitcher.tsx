@@ -16,7 +16,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
       value={locale}
       onChange={(e) => setLocale(e.target.value)}
       aria-label="Switch ngôn ngữ giao diện"
-      className={`rounded-lg border-0 bg-slate-100 py-1.5 pl-2 pr-7 text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-inset focus:ring-indigo-600 ${className ?? ''}`}
+      className={`rounded-lg border-0 py-1.5 pl-2 pr-7 text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-inset focus:ring-indigo-600 ${className ?? ''}`}
     >
       {locales.map((opt) => (
         <option key={opt.value} value={opt.value}>

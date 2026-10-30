@@ -22,7 +22,7 @@ export default function HomePage() {
           <span className="max-[379px]:sr-only">LacLingo</span>
         </span>
         <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-          <LanguageSwitcher className="w-auto max-w-[9.5rem]" />
+          <LanguageSwitcher className="w-auto max-w-[9.5rem] bg-white/70 ring-1 ring-inset ring-indigo-200" />
           <Link href="/login" className="whitespace-nowrap text-sm font-semibold text-slate-700 hover:text-indigo-600">
             {t.home.login}
           </Link>
