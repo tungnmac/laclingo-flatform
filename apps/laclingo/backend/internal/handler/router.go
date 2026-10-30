@@ -35,6 +35,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	authHandler := NewAuthHandler(service.NewAuthService(repo, tokens, payments, files))
 	authHandler.RegisterRoutes(api)
 	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
+	RegisterLocaleRoutes(api)
 	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions, translator))
 	grammarHandler.RegisterRoutes(api)
 	listeningHandler := NewListeningHandler(service.NewListeningService(repo, missions, r2, translator))

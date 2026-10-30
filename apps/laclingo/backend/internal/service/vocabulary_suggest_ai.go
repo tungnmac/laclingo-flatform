@@ -22,8 +22,6 @@ type aiSuggestion struct {
 	ImageEmoji     string `json:"image_emoji"`
 }
 
-var suggestLanguageNames = map[string]string{"en": "English", "zh": "Chinese (Mandarin, simplified characters)"}
-
 const suggestSystemPrompt = `You fill in vocabulary entries for LacLingo, an app where Vietnamese learners study foreign languages.
 Given a word or short phrase in the target language, return the entry for its most common everyday sense (use the dictionary senses, when given, to pick it).
 When a topic is given, use the sense the word has in that topic instead (e.g. "bus" in a computing topic is a data bus, not a vehicle), and make the example sentence fit the topic.
@@ -42,10 +40,7 @@ var (
 
 // suggestUserPrompt — nội dung câu hỏi gửi AI (giống nhau cho mọi nhà cung cấp)
 func suggestUserPrompt(languageID, term, topic string, senses []string) string {
-	lang, ok := suggestLanguageNames[languageID]
-	if !ok {
-		lang = languageID
-	}
+	lang := languageEnglishName(languageID, languageID) // tên tiếng Anh trong languageMetas; ngôn ngữ lạ → mã
 	var b strings.Builder
 	fmt.Fprintf(&b, "Target language: %s\nLevel scale (lowest to highest): %s\nWord: %s\n",
 		lang, strings.Join(LevelScale(languageID), ", "), term)

@@ -43,12 +43,18 @@ func TestDeriveUserPromptNamesLanguages(t *testing.T) {
 	}
 }
 
-type catalogRepo struct{ langs []db.Language }
+type catalogRepo struct {
+	langs  []db.Language
+	topics []db.ListLanguageTopicCountsRow
+}
 
 func (r catalogRepo) GetLanguageByID(context.Context, string) (db.Language, error) {
 	return db.Language{}, nil
 }
 func (r catalogRepo) ListLanguages(context.Context) ([]db.Language, error) { return r.langs, nil }
+func (r catalogRepo) ListLanguageTopicCounts(context.Context) ([]db.ListLanguageTopicCountsRow, error) {
+	return r.topics, nil
+}
 
 func TestLanguageCatalogMergesExisting(t *testing.T) {
 	s := NewLanguageService(catalogRepo{langs: []db.Language{{ID: "zh", Name: "中文 (Tiếng Trung)", Code: "zh-CN"}, {ID: "xx", Name: "Admin thêm", Code: "xx"}}})

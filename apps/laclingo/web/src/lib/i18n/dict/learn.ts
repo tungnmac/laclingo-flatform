@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "learn" (chọn ngôn ngữ + trang khoá học) và "grammar" (bài học +
 // bài tập ngữ pháp, dùng chung bởi learn/[courseId]/grammar/[lessonCode] và
@@ -39,7 +39,7 @@ export interface LearnDict {
   }
 }
 
-export const learnTranslations: Record<Locale, LearnDict> = {
+export const learnTranslations: Record<BuiltinLocale, LearnDict> = {
   vi: {
     learn: {
       pageTitle: 'Chọn ngôn ngữ',

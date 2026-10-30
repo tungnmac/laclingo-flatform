@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "reminders" (học viên — thẻ "Nhắc học" ở trang Hồ sơ) và
 // "adminReminders" (admin — lịch nhắc mặc định). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -44,7 +44,7 @@ export interface RemindersDict {
   }
 }
 
-export const remindersTranslations: Partial<Record<Locale, RemindersDict>> = {
+export const remindersTranslations: Partial<Record<BuiltinLocale, RemindersDict>> = {
   vi: {
     reminders: {
       title: '🔔 Nhắc học',

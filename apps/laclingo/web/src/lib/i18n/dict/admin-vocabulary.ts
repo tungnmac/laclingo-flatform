@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminVocabulary" — CRUD từ vựng + chủ đề từ vựng. Chỉ vi+en.
 export interface AdminVocabularyDict {
@@ -73,7 +73,7 @@ export interface AdminVocabularyDict {
   }
 }
 
-export const adminVocabularyTranslations: Partial<Record<Locale, AdminVocabularyDict>> = {
+export const adminVocabularyTranslations: Partial<Record<BuiltinLocale, AdminVocabularyDict>> = {
   vi: {
     adminVocabulary: {
       pageTitle: 'Từ vựng',

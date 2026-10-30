@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminUsers" — trang danh sách + chi tiết học viên. Chỉ vi+en.
 export interface AdminUsersDict {
@@ -25,7 +25,7 @@ export interface AdminUsersDict {
   }
 }
 
-export const adminUsersTranslations: Partial<Record<Locale, AdminUsersDict>> = {
+export const adminUsersTranslations: Partial<Record<BuiltinLocale, AdminUsersDict>> = {
   vi: {
     adminUsers: {
       pageTitle: 'Học viên',

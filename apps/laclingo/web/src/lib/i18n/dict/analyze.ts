@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { SentenceErrorType } from '@/types/api'
 
 // Namespace "analyze" — trang Phân tích câu (AI). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -35,7 +35,7 @@ export interface AnalyzeDict {
   }
 }
 
-export const analyzeTranslations: Partial<Record<Locale, AnalyzeDict>> = {
+export const analyzeTranslations: Partial<Record<BuiltinLocale, AnalyzeDict>> = {
   vi: {
     analyze: {
       pageTitle: 'Phân tích câu',

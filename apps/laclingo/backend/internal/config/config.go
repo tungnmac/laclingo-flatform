@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -85,6 +87,42 @@ type Config struct {
 	// IAPAllowSandbox: nhận giao dịch thử nghiệm (Apple Sandbox / TestFlight, tài khoản test Google). Mặc định bật — Apple
 	// duyệt app bằng sandbox trên server thật; tắt (IAP_ALLOW_SANDBOX=false) nếu không muốn bản thử cấp Pro/gems thật.
 	IAPAllowSandbox bool
+
+	// UILocales — ngôn ngữ giao diện (UI_LOCALES, vd "vi,en,zh,ja,ko,fr"): web hiện trong ô chọn ngôn ngữ (GET /locales),
+	// worker AI dịch nội dung học sang mọi ngôn ngữ trong đây trừ tiếng Việt (nguồn, luôn có và đứng đầu)
+	UILocales []string
+}
+
+// SourceLocale — ngôn ngữ gốc của nội dung học (nghĩa từ, tên chủ đề...): luôn có trong UILocales, không dịch
+const SourceLocale = "vi"
+
+// DefaultUILocales — UI_LOCALES khi không đặt
+const DefaultUILocales = "vi,en,zh,ja,ko"
+
+// uiLocalePattern — mã BCP-47 rút gọn: ngôn ngữ 2–3 chữ + tuỳ chọn vùng (vd "pt-br"); tối đa 5 ký tự vì cột
+// content_translations.locale là VARCHAR(5)
+var uiLocalePattern = regexp.MustCompile(`^[a-z]{2,3}(-[a-z0-9]{2,3})?$`)
+
+// ParseUILocales đọc danh sách ngôn ngữ giao diện (phân tách bằng dấu phẩy): chuẩn hoá chữ thường / "_" → "-", bỏ trùng,
+// tiếng Việt luôn đứng đầu (thêm nếu thiếu). Mã sai dạng / dài quá 5 ký tự → lỗi (khởi động thất bại, không âm thầm bỏ).
+func ParseUILocales(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		raw = DefaultUILocales
+	}
+	out := []string{SourceLocale}
+	for _, part := range strings.Split(raw, ",") {
+		code := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(part)), "_", "-")
+		if code == "" {
+			continue
+		}
+		if len(code) > 5 || !uiLocalePattern.MatchString(code) {
+			return nil, fmt.Errorf("UI_LOCALES có mã không hợp lệ %q (dạng BCP-47 rút gọn, vd en, zh, pt-br; tối đa 5 ký tự)", part)
+		}
+		if !slices.Contains(out, code) {
+			out = append(out, code)
+		}
+	}
+	return out, nil
 }
 
 func Load() (*Config, error) {
@@ -152,6 +190,11 @@ func Load() (*Config, error) {
 
 	clientIPHeader := strings.TrimSpace(os.Getenv("CLIENT_IP_HEADER"))
 
+	uiLocales, err := ParseUILocales(os.Getenv("UI_LOCALES"))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		Port:           port,
 		DatabaseURL:    dbURL,
@@ -197,6 +240,8 @@ func Load() (*Config, error) {
 		GooglePlayAPIBase:            strings.TrimSpace(os.Getenv("GOOGLE_PLAY_API_BASE")),
 		IAPAllowSandbox:              strings.TrimSpace(os.Getenv("IAP_ALLOW_SANDBOX")) != "false",
 		AppAPIURL:                    envOr("APP_API_URL", "http://localhost:"+port+"/api/v1"),
+
+		UILocales: uiLocales,
 	}, nil
 }
 

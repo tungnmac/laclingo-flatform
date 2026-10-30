@@ -43,6 +43,39 @@ func (q *Queries) InsertLanguageIfMissing(ctx context.Context, arg InsertLanguag
 	return err
 }
 
+const listLanguageTopicCounts = `-- name: ListLanguageTopicCounts :many
+SELECT language_id, COUNT(DISTINCT topic)::int AS topic_count
+FROM vocabularies
+WHERE topic IS NOT NULL AND topic <> ''
+GROUP BY language_id
+`
+
+type ListLanguageTopicCountsRow struct {
+	LanguageID string `json:"language_id"`
+	TopicCount int32  `json:"topic_count"`
+}
+
+// Số chủ đề từ vựng của từng ngôn ngữ — web chọn kho nhiều chủ đề nhất làm danh sách chủ đề mặc định khi dựng ngôn ngữ mới
+func (q *Queries) ListLanguageTopicCounts(ctx context.Context) ([]ListLanguageTopicCountsRow, error) {
+	rows, err := q.db.Query(ctx, listLanguageTopicCounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLanguageTopicCountsRow
+	for rows.Next() {
+		var i ListLanguageTopicCountsRow
+		if err := rows.Scan(&i.LanguageID, &i.TopicCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLanguages = `-- name: ListLanguages :many
 SELECT id, name, code, created_at FROM languages l
 WHERE EXISTS (SELECT 1 FROM vocabularies v WHERE v.language_id = l.id)

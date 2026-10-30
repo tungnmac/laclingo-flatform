@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { DailyTaskKind } from '@/types/api'
 
 // Namespace "daily" — trang Nhật ký học (riêng tư của học viên). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -59,7 +59,7 @@ export interface DailyDict {
   }
 }
 
-export const dailyTranslations: Partial<Record<Locale, DailyDict>> = {
+export const dailyTranslations: Partial<Record<BuiltinLocale, DailyDict>> = {
   vi: {
     daily: {
       pageTitle: 'Nhật ký học',

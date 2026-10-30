@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { ReportReason } from '@/types/api'
 
 // Namespace "moderation" — báo cáo nội dung vi phạm, chặn người dùng, hàng chờ báo cáo (admin). Chỉ vi+en.
@@ -50,7 +50,7 @@ export interface ModerationDict {
   }
 }
 
-export const moderationTranslations: Partial<Record<Locale, ModerationDict>> = {
+export const moderationTranslations: Partial<Record<BuiltinLocale, ModerationDict>> = {
   vi: {
     moderation: {
       report: 'Báo cáo',

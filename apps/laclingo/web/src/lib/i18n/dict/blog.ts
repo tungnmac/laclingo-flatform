@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "blog" (học viên — diễn đàn chia sẻ bài viết) và "adminBlog"
 // (quản trị hậu kiểm). Chỉ vi+en.
@@ -72,7 +72,7 @@ export interface BlogDict {
   }
 }
 
-export const blogTranslations: Partial<Record<Locale, BlogDict>> = {
+export const blogTranslations: Partial<Record<BuiltinLocale, BlogDict>> = {
   vi: {
     blog: {
       pageTitle: '📝 Blog',

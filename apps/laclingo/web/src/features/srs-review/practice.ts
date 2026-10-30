@@ -3,16 +3,20 @@
 /** Ký tự dấu câu bỏ khỏi mảnh ghép — học viên chỉ cần ghép đúng thứ tự từ */
 const PUNCTUATION = /[.,!?;:"“”‘’()…。，！？；：、（）《》「」—]/g
 
+// Ngôn ngữ giao diện viết bằng chữ Hán / kana / Hangul — nghĩa đã dịch luôn nhận ra qua chữ viết ở trên
+const CJK_LOCALES = new Set(['zh', 'ja', 'ko'])
+
 /**
  * Ngôn ngữ của nghĩa câu ví dụ (bài "ghép nghĩa câu"): nội dung đã dịch theo ngôn ngữ giao diện, chưa dịch thì vẫn là
- * tiếng Việt — đoán theo chữ viết để tách mảnh / đọc đúng giọng (kana → ja, Hán → zh, Hangul → ko); chữ Latin không có
- * dấu tiếng Việt khi giao diện tiếng Anh → en, còn lại vi.
+ * tiếng Việt — đoán theo chữ viết để tách mảnh / đọc đúng giọng (kana → ja, Hán → zh, Hangul → ko); câu không có dấu
+ * tiếng Việt khi giao diện là ngôn ngữ khác (en, fr... — mọi ngôn ngữ backend cấu hình) → ngôn ngữ giao diện, còn lại vi.
  */
 export function meaningLanguage(text: string, uiLocale: string): string {
   if (/[\u3040-\u30ff]/.test(text)) return 'ja'
   if (/[\u4e00-\u9fff]/.test(text)) return uiLocale === 'ja' ? 'ja' : 'zh'
   if (/[\uac00-\ud7af]/.test(text)) return 'ko'
-  if (uiLocale === 'en' && !/[ăâđêôơưàáạảãầấậẩẫằắặẳẵèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/i.test(text)) return 'en'
+  const base = uiLocale.split('-')[0]
+  if (base !== 'vi' && !CJK_LOCALES.has(base) && !/[ăâđêôơưàáạảãầấậẩẫằắặẳẵèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]/i.test(text)) return base
   return 'vi'
 }
 

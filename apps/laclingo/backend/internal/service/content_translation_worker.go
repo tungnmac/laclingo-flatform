@@ -237,12 +237,21 @@ func dictionarySourceRows(texts []string) []translationSourceRow {
 	return out
 }
 
-// contentLocaleNames — tên ngôn ngữ đích trong prompt AI
+// contentLocaleNames — tên ngôn ngữ đích trong prompt AI khác tên chung trong languageMetas (ngôn ngữ khác: contentLocaleName)
 var contentLocaleNames = map[string]string{
-	"en": "English",
 	"zh": "Simplified Chinese",
-	"ja": "Japanese",
-	"ko": "Korean",
+}
+
+// contentLocaleName — tên ngôn ngữ đích trong prompt AI: tên riêng ở contentLocaleNames → tên tiếng Anh trong
+// languageMetas (khớp nguyên mã — "zh-tw" không được coi là "zh" giản thể) → chính mã BCP-47 (AI vẫn hiểu)
+func contentLocaleName(locale string) string {
+	if name, ok := contentLocaleNames[locale]; ok {
+		return name
+	}
+	if m, ok := languageMetas[locale]; ok {
+		return m.englishName
+	}
+	return "the language with BCP-47 tag " + locale
 }
 
 type contentTranslationWorker struct {
@@ -254,13 +263,11 @@ type contentTranslationWorker struct {
 	callGap   time.Duration // nghỉ giữa 2 lần gọi AI (0 = không nghỉ, dùng trong test)
 }
 
-// StartContentTranslationWorker chạy tới khi ctx huỷ: dịch 1 lượt ngay khi khởi động rồi mỗi 10 phút. Chỉ gọi khi đã
-// cấu hình AI.
+// StartContentTranslationWorker chạy tới khi ctx huỷ: dịch 1 lượt ngay khi khởi động rồi mỗi 10 phút, sang mọi ngôn ngữ
+// giao diện đang cấu hình (UI_LOCALES trừ tiếng Việt — thêm ngôn ngữ thì lượt đầu sau khởi động dịch cả kho sang đó). Chỉ
+// gọi khi đã cấu hình AI.
 func StartContentTranslationWorker(ctx context.Context, repo ContentTranslationRepository, ai AIClient) {
-	w := &contentTranslationWorker{
-		repo: repo, ai: ai, sources: contentTranslationSources, locales: contentLocales,
-		batchSize: contentTranslationBatchSize, callGap: contentTranslationCallGap,
-	}
+	w := newContentTranslationWorker(repo, ai)
 	ticker := time.NewTicker(contentTranslationInterval)
 	defer ticker.Stop()
 	for {
@@ -272,6 +279,13 @@ func StartContentTranslationWorker(ctx context.Context, repo ContentTranslationR
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+func newContentTranslationWorker(repo ContentTranslationRepository, ai AIClient) *contentTranslationWorker {
+	return &contentTranslationWorker{
+		repo: repo, ai: ai, sources: contentTranslationSources, locales: contentLocales(),
+		batchSize: contentTranslationBatchSize, callGap: contentTranslationCallGap,
 	}
 }
 
@@ -419,7 +433,7 @@ var contentTranslationSchema = map[string]any{
 
 func contentTranslationUserPrompt(locale string, batch []pendingTranslation) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Target language: %s\nItems (JSON, id → Vietnamese text):\n", contentLocaleNames[locale])
+	fmt.Fprintf(&b, "Target language: %s\nItems (JSON, id → Vietnamese text):\n", contentLocaleName(locale))
 	items := make(map[string]string, len(batch))
 	for i, p := range batch {
 		items[strconv.Itoa(i)] = p.text

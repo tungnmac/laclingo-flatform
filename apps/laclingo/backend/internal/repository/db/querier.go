@@ -415,6 +415,8 @@ type Querier interface {
 	// để không đổi hành vi hiện có của learner.
 	ListGrammarTopicsAdminPaged(ctx context.Context, arg ListGrammarTopicsAdminPagedParams) ([]ListGrammarTopicsAdminPagedRow, error)
 	ListGrammarTopicsByLanguage(ctx context.Context, languageID string) ([]GrammarTopic, error)
+	// Số chủ đề từ vựng của từng ngôn ngữ — web chọn kho nhiều chủ đề nhất làm danh sách chủ đề mặc định khi dựng ngôn ngữ mới
+	ListLanguageTopicCounts(ctx context.Context) ([]ListLanguageTopicCountsRow, error)
 	// Toàn bộ chủ đề của 1 ngôn ngữ kèm topic_key (NULL = chưa gắn khoá): có dòng metadata ở vocabulary_topics hoặc chỉ
 	// xuất hiện qua vocabularies.topic
 	ListLanguageTopicKeys(ctx context.Context, languageID string) ([]ListLanguageTopicKeysRow, error)

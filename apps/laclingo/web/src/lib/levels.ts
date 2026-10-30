@@ -1,6 +1,8 @@
 // Thang trình độ theo ngôn ngữ — bản sao của service/level_scale.go ở backend (nguồn chuẩn; API trả level_scale trong
-// /languages*, dùng bản này khi chưa có dữ liệu ngôn ngữ, vd trang admin). Mã lưu nguyên văn: ja → N5..N1 (JLPT),
-// zh → HSK1..HSK6, ko → TOPIK1..TOPIK6, còn lại → CEFR A1..C2. Xếp từ thấp lên cao.
+// /languages*, đã tải thì dùng bản đó qua lib/languageMeta; bản này chỉ dùng khi chưa tải được lần nào, vd trang admin).
+// Mã lưu nguyên văn: ja → N5..N1 (JLPT), zh → HSK1..HSK6, ko → TOPIK1..TOPIK6, còn lại → CEFR A1..C2. Xếp từ thấp lên cao.
+
+import { knownLevelScale } from '@/lib/languageMeta'
 
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
@@ -13,7 +15,7 @@ const LEVEL_SCALES: Record<string, string[]> = {
 /** Các mã trình độ của ngôn ngữ (thấp → cao); có level_scale từ API thì dùng luôn */
 export function levelScale(languageId: string, fromApi?: string[]): string[] {
   if (fromApi && fromApi.length > 0) return fromApi
-  return LEVEL_SCALES[languageId.split('-')[0].toLowerCase()] ?? CEFR_LEVELS
+  return knownLevelScale(languageId) ?? LEVEL_SCALES[languageId.split('-')[0].toLowerCase()] ?? CEFR_LEVELS
 }
 
 /** Thứ bậc chung 1..6 của 1 mã bất kỳ thang (0 = mã lạ) — tô màu huy hiệu trình độ */

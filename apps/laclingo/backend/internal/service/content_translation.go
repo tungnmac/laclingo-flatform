@@ -13,12 +13,10 @@ import (
 )
 
 // Dịch nội dung học theo ngôn ngữ giao diện: nội dung gốc (nghĩa từ, tên chủ đề...) là tiếng Việt; bản dịch sang
-// en/zh/ja/ko do worker AI dịch sẵn vào content_translations (content_translation_worker.go). Web gửi ngôn ngữ giao
-// diện qua Accept-Language → middleware gắn vào ctx (WithContentLocale) → service phủ bản dịch lên response học viên
-// bằng ContentTranslator.Apply. Admin luôn thấy tiếng Việt (sửa nguồn).
-
-// contentLocales — ngôn ngữ giao diện có bản dịch nội dung (tiếng Việt là nguồn, không dịch)
-var contentLocales = []string{"en", "zh", "ja", "ko"}
+// các ngôn ngữ giao diện khác (UI_LOCALES, xem ui_locales.go) do worker AI dịch sẵn vào content_translations
+// (content_translation_worker.go). Web gửi ngôn ngữ giao diện qua Accept-Language → middleware gắn vào ctx
+// (WithContentLocale) → service phủ bản dịch lên response học viên bằng ContentTranslator.Apply. Admin luôn thấy tiếng
+// Việt (sửa nguồn).
 
 // Entity / field của content_translations
 const (
@@ -65,17 +63,19 @@ func ContentLocale(ctx context.Context) string {
 }
 
 // ParseContentLocale lấy ngôn ngữ đầu tiên của header Accept-Language (vd "en-US,en;q=0.9" → "en"); chỉ nhận ngôn ngữ
-// có bản dịch — vi / không rõ / rỗng trả "" (giữ tiếng Việt)
+// có bản dịch (UI_LOCALES trừ tiếng Việt) — khớp nguyên mã trước (vd "pt-BR" khi cấu hình "pt-br"), không có thì khớp
+// phần ngôn ngữ ("en-US" → "en"). vi / không cấu hình / không rõ / rỗng trả "" (giữ tiếng Việt)
 func ParseContentLocale(header string) string {
 	first, _, _ := strings.Cut(header, ",")
 	first, _, _ = strings.Cut(first, ";")
-	first = strings.ToLower(strings.TrimSpace(first))
-	if i := strings.IndexAny(first, "-_"); i >= 0 {
-		first = first[:i]
-	}
-	for _, l := range contentLocales {
-		if first == l {
-			return l
+	first = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(first)), "_", "-")
+	base, _, _ := strings.Cut(first, "-")
+	locales := contentLocales()
+	for _, want := range []string{first, base} {
+		for _, l := range locales {
+			if want == l {
+				return l
+			}
 		}
 	}
 	return ""

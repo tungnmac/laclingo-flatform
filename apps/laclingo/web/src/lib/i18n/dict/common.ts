@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "common" — chuỗi nhỏ dùng rải rác nhiều nơi (tooltip, aria-label)
 // không thuộc riêng 1 trang/feature nào. Chỉ vi+en.
@@ -13,7 +13,7 @@ export interface CommonDict {
   }
 }
 
-export const commonTranslations: Partial<Record<Locale, CommonDict>> = {
+export const commonTranslations: Partial<Record<BuiltinLocale, CommonDict>> = {
   vi: {
     common: {
       streakTooltip: (days) => `Chuỗi ${days} ngày học liên tiếp`,

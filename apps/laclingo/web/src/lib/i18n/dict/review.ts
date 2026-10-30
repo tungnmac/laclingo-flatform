@@ -1,5 +1,5 @@
 import type { PartOfSpeech } from '@/features/vocabulary/partOfSpeech'
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "review" (hub ôn tập + học từ mới + chủ đề/mục con + yêu thích +
 // phiên ôn SRS) và "vocabCard" (WordCard/Flashcard/QualityButtons/ProgressHeader
@@ -120,7 +120,7 @@ export interface ReviewDict {
 }
 
 // Chỉ vi+en — zh/ja/ko fallback về en tại nơi merge (xem translations.ts), bổ sung sau.
-export const reviewTranslations: Partial<Record<Locale, ReviewDict>> = {
+export const reviewTranslations: Partial<Record<BuiltinLocale, ReviewDict>> = {
   vi: {
     review: {
       pageTitle: 'Ôn tập',

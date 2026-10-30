@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "practice" — bộ bài luyện tập khi ôn tập 1 từ (chọn nghĩa, ghép câu,
 // ghép nghĩa câu, nghe-viết). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -33,7 +33,7 @@ export interface PracticeDict {
   }
 }
 
-export const practiceTranslations: Partial<Record<Locale, PracticeDict>> = {
+export const practiceTranslations: Partial<Record<BuiltinLocale, PracticeDict>> = {
   vi: {
     practice: {
       stepOf: (step, total) => `Bài ${step}/${total}`,
