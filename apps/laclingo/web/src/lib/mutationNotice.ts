@@ -24,6 +24,7 @@ export type NotifyOption = false | 'error'
  */
 const RULES: [RegExp, NotifyMode][] = [
   [/^\/auth\//, 'none'], // form đăng nhập/đăng ký tự báo lỗi
+  [/^\/users\/me\/(password|logout-all)$/, 'none'], // thẻ Đổi mật khẩu / Đăng xuất mọi thiết bị tự báo
   [/^\/srs\/(practice|reviews|learn)$/, 'none'], // nộp từng từ khi luyện / học từ mới
   [/^\/decks\/[^/]+\/practice-complete$/, 'none'], // hiện ngay trên màn kết thúc lượt ôn
   [/^\/notifications\/(read-all|[^/]+\/read)$/, 'none'], // đánh dấu đã đọc

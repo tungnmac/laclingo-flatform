@@ -271,6 +271,11 @@ export interface AuthResponse {
 }
 
 // Field nào không gửi thì backend giữ nguyên
+export interface ChangePasswordRequest {
+  current_password: string
+  new_password: string
+}
+
 export interface UpdateProfileRequest {
   full_name?: string
   avatar_url?: string

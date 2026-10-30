@@ -14,6 +14,15 @@ export interface SettingsDict {
     securityDesc: string
     logoutAllBtn: string
     logoutAllConfirm: string
+    passwordTitle: string
+    passwordDesc: string
+    currentPassword: string
+    newPassword: string
+    confirmPassword: string
+    passwordSubmit: string
+    passwordChanged: string
+    passwordMismatch: string
+    passwordTooShort: (n: number) => string
   }
 }
 
@@ -30,6 +39,15 @@ export const settingsTranslations: Partial<Record<BuiltinLocale, SettingsDict>> 
       securityDesc: 'Nghi tài khoản bị người khác dùng, hoặc mất / bán thiết bị? Đăng xuất khỏi mọi thiết bị — máy khác mất quyền truy cập trong vòng 1 giờ, máy này đăng nhập lại bằng mật khẩu.',
       logoutAllBtn: 'Đăng xuất mọi thiết bị',
       logoutAllConfirm: 'Đăng xuất tài khoản này khỏi mọi thiết bị, kể cả máy này?',
+      passwordTitle: '🔑 Đổi mật khẩu',
+      passwordDesc: 'Đổi xong, mọi thiết bị khác bị đăng xuất — máy này vẫn giữ đăng nhập.',
+      currentPassword: 'Mật khẩu hiện tại',
+      newPassword: 'Mật khẩu mới',
+      confirmPassword: 'Nhập lại mật khẩu mới',
+      passwordSubmit: 'Đổi mật khẩu',
+      passwordChanged: 'Đã đổi mật khẩu',
+      passwordMismatch: 'Mật khẩu nhập lại không khớp',
+      passwordTooShort: (n) => `Mật khẩu mới tối thiểu ${n} ký tự`,
     },
   },
   en: {
@@ -44,6 +62,15 @@ export const settingsTranslations: Partial<Record<BuiltinLocale, SettingsDict>> 
       securityDesc: 'Think someone else is using your account, or lost / sold a device? Sign out everywhere — other devices lose access within 1 hour, this one signs in again with your password.',
       logoutAllBtn: 'Sign out of all devices',
       logoutAllConfirm: 'Sign this account out of every device, including this one?',
+      passwordTitle: '🔑 Change password',
+      passwordDesc: 'Other devices are signed out once you change it — this device stays signed in.',
+      currentPassword: 'Current password',
+      newPassword: 'New password',
+      confirmPassword: 'Confirm new password',
+      passwordSubmit: 'Change password',
+      passwordChanged: 'Password changed',
+      passwordMismatch: 'Passwords do not match',
+      passwordTooShort: (n) => `New password must be at least ${n} characters`,
     },
   },
   zh: {
@@ -58,6 +85,15 @@ export const settingsTranslations: Partial<Record<BuiltinLocale, SettingsDict>> 
       securityDesc: '怀疑账户被他人使用，或设备丢失/转卖？退出所有设备——其他设备将在 1 小时内失去访问权限，本机需用密码重新登录。',
       logoutAllBtn: '退出所有设备',
       logoutAllConfirm: '要在所有设备（包括本机）上退出此账户吗？',
+      passwordTitle: '🔑 修改密码',
+      passwordDesc: '修改后其他设备将被退出登录——本机保持登录。',
+      currentPassword: '当前密码',
+      newPassword: '新密码',
+      confirmPassword: '再次输入新密码',
+      passwordSubmit: '修改密码',
+      passwordChanged: '密码已修改',
+      passwordMismatch: '两次输入的密码不一致',
+      passwordTooShort: (n) => `新密码至少需要 ${n} 个字符`,
     },
   },
   ja: {
@@ -72,6 +108,15 @@ export const settingsTranslations: Partial<Record<BuiltinLocale, SettingsDict>> 
       securityDesc: 'アカウントが他人に使われている、または端末を紛失・譲渡した場合は、すべての端末からログアウトしてください。他の端末は 1 時間以内にアクセスできなくなり、この端末はパスワードで再ログインします。',
       logoutAllBtn: 'すべての端末からログアウト',
       logoutAllConfirm: 'この端末を含むすべての端末からこのアカウントをログアウトしますか？',
+      passwordTitle: '🔑 パスワード変更',
+      passwordDesc: '変更すると他の端末はログアウトされます — この端末はログインしたままです。',
+      currentPassword: '現在のパスワード',
+      newPassword: '新しいパスワード',
+      confirmPassword: '新しいパスワード（確認）',
+      passwordSubmit: 'パスワードを変更',
+      passwordChanged: 'パスワードを変更しました',
+      passwordMismatch: 'パスワードが一致しません',
+      passwordTooShort: (n) => `新しいパスワードは${n}文字以上必要です`,
     },
   },
   ko: {
@@ -86,6 +131,15 @@ export const settingsTranslations: Partial<Record<BuiltinLocale, SettingsDict>> 
       securityDesc: '다른 사람이 계정을 쓰는 것 같거나 기기를 잃어버리거나 팔았나요? 모든 기기에서 로그아웃하세요 — 다른 기기는 1시간 안에 접근이 막히고, 이 기기는 비밀번호로 다시 로그인합니다.',
       logoutAllBtn: '모든 기기에서 로그아웃',
       logoutAllConfirm: '이 기기를 포함한 모든 기기에서 이 계정을 로그아웃할까요?',
+      passwordTitle: '🔑 비밀번호 변경',
+      passwordDesc: '변경하면 다른 기기는 모두 로그아웃되고, 이 기기는 로그인 상태가 유지됩니다.',
+      currentPassword: '현재 비밀번호',
+      newPassword: '새 비밀번호',
+      confirmPassword: '새 비밀번호 확인',
+      passwordSubmit: '비밀번호 변경',
+      passwordChanged: '비밀번호를 변경했어요',
+      passwordMismatch: '비밀번호가 일치하지 않아요',
+      passwordTooShort: (n) => `새 비밀번호는 최소 ${n}자 이상이어야 해요`,
     },
   },
 }

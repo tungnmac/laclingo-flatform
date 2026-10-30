@@ -43,6 +43,32 @@ func (h *AuthHandler) RegisterProtectedRoutes(router fiber.Router) {
 	router.Delete("/users/me", append(failureLimiter(5, 15*time.Minute, keyByUser("delete-account"), msgTooManyLogins), h.DeleteAccount)...)
 	// Không đặt dưới /auth/: web coi /auth/* là route công khai (không gửi Authorization) — xem web/src/lib/api.ts
 	router.Post("/users/me/logout-all", h.LogoutAll)
+	// Sai mật khẩu hiện tại: tối đa 5 lần / 15 phút / tài khoản — token bị lộ cũng không dò được mật khẩu qua đây
+	router.Post("/users/me/password", append(failureLimiter(5, 15*time.Minute, keyByUser("change-password"), msgTooManyLogins), h.ChangePassword)...)
+}
+
+// ChangePassword godoc
+// @Summary      Đổi mật khẩu
+// @Description  Cần mật khẩu hiện tại. Thu hồi mọi phiên đăng nhập (mọi thiết bị) và trả phiên mới cho thiết bị đang đổi.
+// @Tags         users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      service.ChangePasswordRequest  true  "Mật khẩu hiện tại + mật khẩu mới"
+// @Success      200   {object}  service.AuthResponse
+// @Failure      400   {object}  ErrorResponse
+// @Failure      429   {object}  ErrorResponse
+// @Router       /users/me/password [post]
+func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
+	var req service.ChangePasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "body không hợp lệ")
+	}
+	res, err := h.svc.ChangePassword(c.UserContext(), currentUserID(c), req)
+	if err != nil {
+		return err
+	}
+	return c.JSON(res)
 }
 
 // LogoutAll godoc

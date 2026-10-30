@@ -55,6 +55,7 @@ type AuthRepository interface {
 	RevokeRefreshFamily(ctx context.Context, familyID pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
+	UpdateUserPassword(ctx context.Context, arg db.UpdateUserPasswordParams) error
 	DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
@@ -293,6 +294,44 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 // token đang dùng ở máy khác tự hết hạn trong JWT_TTL
 func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
 	return s.repo.RevokeUserRefreshTokens(ctx, toPgUUID(userID))
+}
+
+// ChangePasswordRequest — đổi mật khẩu khi đang đăng nhập (phải nhập đúng mật khẩu hiện tại)
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" example:"matkhau123"`
+	NewPassword     string `json:"new_password" minLength:"8" maxLength:"72" example:"matkhaumoi456"`
+}
+
+// ChangePassword đổi mật khẩu rồi thu hồi MỌI phiên đăng nhập (kẻ đang giữ phiên bị lộ mất quyền làm mới) và cấp phiên
+// mới cho thiết bị đang đổi — người dùng không phải đăng nhập lại ở máy này
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, req ChangePasswordRequest) (AuthResponse, error) {
+	user, err := s.repo.GetUserByID(ctx, toPgUUID(userID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AuthResponse{}, ErrNotFound
+	}
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)) != nil {
+		return AuthResponse{}, fmt.Errorf("mật khẩu hiện tại không đúng: %w", ErrInvalidInput)
+	}
+	if n := len(req.NewPassword); n < minPasswordLen || n > maxPasswordLen {
+		return AuthResponse{}, fmt.Errorf("mật khẩu mới phải từ %d đến %d ký tự: %w", minPasswordLen, maxPasswordLen, ErrInvalidInput)
+	}
+	if req.NewPassword == req.CurrentPassword {
+		return AuthResponse{}, fmt.Errorf("mật khẩu mới phải khác mật khẩu hiện tại: %w", ErrInvalidInput)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return AuthResponse{}, err
+	}
+	if err := s.repo.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: user.ID, PasswordHash: string(hash)}); err != nil {
+		return AuthResponse{}, err
+	}
+	if err := s.repo.RevokeUserRefreshTokens(ctx, user.ID); err != nil {
+		return AuthResponse{}, err
+	}
+	return s.issue(ctx, user, uuid.New())
 }
 
 // DeleteAccount — học viên tự xoá vĩnh viễn tài khoản và dữ liệu của mình. Owner không tự xoá được (hệ thống

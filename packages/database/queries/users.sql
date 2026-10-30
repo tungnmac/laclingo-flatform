@@ -126,3 +126,7 @@ DELETE FROM users WHERE id = $1;
 -- name: ListUserBlogImageKeys :many
 -- Xoá tài khoản: ảnh blog đã tải lên R2 — xoá object sau khi xoá tài khoản (dòng DB xoá theo cascade)
 SELECT image_key FROM blog_post_images WHERE author_id = $1;
+
+-- name: UpdateUserPassword :exec
+-- Đổi mật khẩu (đã kiểm mật khẩu cũ ở service) — kèm thu hồi mọi phiên đăng nhập (RevokeUserRefreshTokens)
+UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1;

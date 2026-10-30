@@ -19,7 +19,9 @@ type moduleUserRepo struct {
 	user db.User
 }
 
-func (r moduleUserRepo) GetUserByID(context.Context, pgtype.UUID) (db.User, error) { return r.user, nil }
+func (r moduleUserRepo) GetUserByID(context.Context, pgtype.UUID) (db.User, error) {
+	return r.user, nil
+}
 
 func TestRequireModuleBlocksDeactivatedAdmin(t *testing.T) {
 	id := uuid.New()
