@@ -164,7 +164,7 @@ export function Sidebar({ user }: { user: User }) {
             <span aria-hidden>{currentLocale?.flag ?? '🌐'}</span>
           </button>
         ) : (
-          <LanguageSwitcher className="mb-3" />
+          <LanguageSwitcher className="mb-3 w-full" />
         )}
         <button
           type="button"
@@ -300,7 +300,7 @@ function MobileMenu({ user }: { user: User }) {
               ))}
             </nav>
             <div className="border-t border-slate-200 p-3">
-              <LanguageSwitcher className="mb-3" />
+              <LanguageSwitcher className="mb-3 w-full" />
               <button
                 type="button"
                 onClick={signOutCurrent}

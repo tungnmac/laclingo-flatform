@@ -17,11 +17,13 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 pb-4 pt-[calc(1rem+var(--safe-top))] sm:px-6">
         <span className="flex items-center gap-2 text-xl font-bold text-indigo-600 sm:text-2xl">
-          <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" /> LacLingo
+          <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" />
+          {/* Màn rất hẹp (<380px): chỉ còn logo để switch ngôn ngữ + nút đăng nhập không đè lên tên */}
+          <span className="max-[379px]:sr-only">LacLingo</span>
         </span>
-        <div className="flex items-center gap-4">
-          <LanguageSwitcher className="w-32" />
-          <Link href="/login" className="text-sm font-semibold text-slate-700 hover:text-indigo-600">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+          <LanguageSwitcher className="w-auto max-w-[9.5rem]" />
+          <Link href="/login" className="whitespace-nowrap text-sm font-semibold text-slate-700 hover:text-indigo-600">
             {t.home.login}
           </Link>
         </div>
