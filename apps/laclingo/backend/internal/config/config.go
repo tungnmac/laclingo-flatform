@@ -53,6 +53,12 @@ type Config struct {
 	// tới app iOS/Android (Capacitor). Trống = app không nhận được thông báo đẩy, web push không ảnh hưởng.
 	FCMServiceAccountFile string
 
+	// Email (Brevo) — gửi link quên mật khẩu. BREVO_API_KEY + EMAIL_FROM (địa chỉ gửi đã xác thực trong Brevo); trống thì
+	// tính năng quên mật khẩu tắt (API trả 503)
+	BrevoAPIKey   string
+	EmailFrom     string
+	EmailFromName string
+
 	// AI cho nút "Gợi ý tự động" khi admin thêm từ (nghĩa tiếng Việt, câu ví dụ, từ loại...).
 	// AIProvider: "claude" | "gemini"; trống = tự chọn theo key đang có (ưu tiên Claude).
 	// Không có key nào thì chỉ gợi ý phiên âm/audio từ Free Dictionary API.
@@ -218,6 +224,10 @@ func Load() (*Config, error) {
 		VAPIDSubject:    os.Getenv("VAPID_SUBJECT"),
 
 		FCMServiceAccountFile: os.Getenv("FCM_SERVICE_ACCOUNT_FILE"),
+
+		BrevoAPIKey:   os.Getenv("BREVO_API_KEY"),
+		EmailFrom:     os.Getenv("EMAIL_FROM"),
+		EmailFromName: envOr("EMAIL_FROM_NAME", "LacLingo"),
 
 		AIProvider:      strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER"))),
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),

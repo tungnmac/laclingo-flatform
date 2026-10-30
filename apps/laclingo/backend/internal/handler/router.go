@@ -22,7 +22,7 @@ type ErrorResponse struct {
 // thể nil (R2 chưa cấu hình) — tính năng upload audio tắt, còn lại không ảnh hưởng.
 // reminders/notifications do main tạo (dùng chung với bộ lập lịch nhắc học và
 // MissionService) — luôn khác nil. translator dịch nội dung học theo ngôn ngữ giao diện (dùng chung với languageContent).
-func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, languageContent *service.LanguageContentService, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService, translator *service.ContentTranslator) {
+func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens *auth.TokenManager, hub *game.Hub, missions *service.MissionService, r2 *storage.R2Client, reminders *service.ReminderService, notifications *service.NotificationService, suggester *service.VocabularySuggester, languageContent *service.LanguageContentService, analyzer *service.SentenceAnalyzer, plans *service.PlanService, payments *service.PaymentService, translator *service.ContentTranslator, passwordReset *service.PasswordResetService) {
 	// Trước mọi route: ngôn ngữ giao diện (Accept-Language) → ctx, service dịch nội dung học theo đó
 	app.Use(ContentLocale())
 	api := app.Group("/api/v1")
@@ -34,6 +34,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	}
 	authHandler := NewAuthHandler(service.NewAuthService(repo, tokens, payments, files))
 	authHandler.RegisterRoutes(api)
+	NewPasswordResetHandler(passwordReset).RegisterRoutes(api)
 	languageHandler := NewLanguageHandler(service.NewLanguageService(repo))
 	languageHandler.RegisterRoutes(api)
 	RegisterLocaleRoutes(api)

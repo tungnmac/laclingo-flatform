@@ -441,6 +441,15 @@ type Notification struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type PasswordReset struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type PaymentOrder struct {
 	ID                     pgtype.UUID        `json:"id"`
 	UserID                 pgtype.UUID        `json:"user_id"`

@@ -22,6 +22,12 @@ export default function LoginPage({ searchParams }: { searchParams: { add?: stri
 
       <AuthForm mode="login" defaultIdentifier={searchParams.relogin} prefillRemembered={!searchParams.add} />
 
+      <p className="mt-4 text-center text-sm">
+        <Link href="/forgot-password" className="text-slate-500 hover:text-indigo-600 hover:underline">
+          {t.passwordReset.forgotLink}
+        </Link>
+      </p>
+
       <p className="mt-6 text-center text-sm text-slate-500">
         {t.auth.noAccount}{' '}
         <Link href="/register" className="font-semibold text-indigo-600 hover:underline">
