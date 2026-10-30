@@ -22,6 +22,7 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
+import { LanguageOptions } from '@/features/course/components/LanguageOptions'
 
 // Datalist "chủ đề" ở filter cần thấy hết chủ đề, không bị cắt bởi phân trang
 // của tab Chủ đề — tách riêng 1 call page_size lớn (giống trang Từ vựng).
@@ -63,8 +64,7 @@ export default function AdminListeningPage() {
       <label className="mb-4 block text-sm font-medium text-slate-700">
         {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
+          <LanguageOptions />
         </select>
       </label>
 
