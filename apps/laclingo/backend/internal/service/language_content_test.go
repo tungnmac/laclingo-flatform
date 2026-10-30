@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"laclingo-backend/internal/repository/db"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func TestParseDerivedEntries(t *testing.T) {
@@ -46,12 +49,16 @@ func TestDeriveUserPromptNamesLanguages(t *testing.T) {
 type catalogRepo struct {
 	langs  []db.Language
 	topics []db.ListLanguageTopicCountsRow
+	mine   []string // ngôn ngữ học viên đang học
 }
 
 func (r catalogRepo) GetLanguageByID(context.Context, string) (db.Language, error) {
 	return db.Language{}, nil
 }
 func (r catalogRepo) ListLanguages(context.Context) ([]db.Language, error) { return r.langs, nil }
+func (r catalogRepo) ListUserLearningLanguageIDs(context.Context, pgtype.UUID) ([]string, error) {
+	return r.mine, nil
+}
 func (r catalogRepo) ListLanguageTopicCounts(context.Context) ([]db.ListLanguageTopicCountsRow, error) {
 	return r.topics, nil
 }
@@ -117,5 +124,25 @@ func TestSyncBackoff(t *testing.T) {
 		if got := syncBackoff(attempts); got != d {
 			t.Errorf("syncBackoff(%d) = %v, muốn %v", attempts, got, d)
 		}
+	}
+}
+
+// Mỗi tài khoản chỉ thấy ngôn ngữ mình đang học — ngôn ngữ người khác thêm vào hệ thống không hiện ra
+func TestLanguageMine(t *testing.T) {
+	repo := catalogRepo{
+		langs: []db.Language{{ID: "en", Name: "English"}, {ID: "ja", Name: "Japanese"}, {ID: "ko", Name: "Korean"}, {ID: "ru", Name: "Russian"}},
+		mine:  []string{"ru", "en"},
+	}
+	got, err := NewLanguageService(repo).Mine(context.Background(), uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != "en" || got[1].ID != "ru" {
+		t.Fatalf("chỉ được en, ru theo thứ tự danh sách chung: %+v", got)
+	}
+
+	repo.mine = nil
+	if got, _ := NewLanguageService(repo).Mine(context.Background(), uuid.New()); len(got) != 0 {
+		t.Fatalf("chưa học ngôn ngữ nào thì danh sách rỗng: %+v", got)
 	}
 }

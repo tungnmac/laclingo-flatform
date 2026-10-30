@@ -171,6 +171,36 @@ func (q *Queries) ListUserAvatarKeys(ctx context.Context, userID pgtype.UUID) ([
 	return items, nil
 }
 
+const listUserLearningLanguageIDs = `-- name: ListUserLearningLanguageIDs :many
+SELECT t.language_id::varchar AS language_id FROM user_target_languages t WHERE t.user_id = $1
+UNION
+SELECT DISTINCT v.language_id::varchar FROM user_vocabulary_reviews r
+JOIN vocabularies v ON v.id = r.vocabulary_id
+WHERE r.user_id = $1
+`
+
+// Ngôn ngữ học viên đang học: đã chọn (onboarding / "Học ngôn ngữ mới") hoặc đã có từ trong hàng đợi ôn (học từ trước khi
+// có onboarding) — trang Học / Luyện nghe / Luyện nói chỉ hiện các ngôn ngữ này, không phải mọi ngôn ngữ trong hệ thống
+func (q *Queries) ListUserLearningLanguageIDs(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUserLearningLanguageIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var language_id string
+		if err := rows.Scan(&language_id); err != nil {
+			return nil, err
+		}
+		items = append(items, language_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserPreferredTopics = `-- name: ListUserPreferredTopics :many
 SELECT language_id, topic FROM user_preferred_topics
 WHERE user_id = $1

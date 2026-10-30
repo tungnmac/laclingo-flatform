@@ -294,7 +294,7 @@ async function step<T>(load: () => Promise<T>): Promise<T | null> {
 /** Mọi dữ liệu các trang offline cần — chạy lần lượt (không dồn request) */
 async function prefetchAll() {
   const decks = ((await step(() => deckService.list())) ?? []).slice(0, MAX_PREFETCH_DECKS)
-  const languages = (await step(() => courseService.list())) ?? []
+  const languages = (await step(() => courseService.mine())) ?? []
   // Giao diện: trang khoá học từng ngôn ngữ + chi tiết từng list (service worker tải lần lượt)
   cachePages([
     ...languages.map((l) => `/learn/${encodeURIComponent(l.id)}`),

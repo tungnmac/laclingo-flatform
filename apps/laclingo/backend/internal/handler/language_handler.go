@@ -23,6 +23,27 @@ func (h *LanguageHandler) RegisterRoutes(router fiber.Router) {
 	api.Get("/:id", h.GetByID)
 }
 
+// RegisterProtectedRoutes — route cần đăng nhập (group đã có RequireAuth)
+func (h *LanguageHandler) RegisterProtectedRoutes(router fiber.Router) {
+	router.Get("/users/me/languages", h.Mine)
+}
+
+// Mine godoc
+// @Summary      Ngôn ngữ học viên đang học (trang Học / Luyện nghe / Luyện nói)
+// @Tags         languages
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   service.LanguageResponse
+// @Failure      401  {object}  ErrorResponse
+// @Router       /users/me/languages [get]
+func (h *LanguageHandler) Mine(c *fiber.Ctx) error {
+	results, err := h.svc.Mine(c.UserContext(), currentUserID(c))
+	if err != nil {
+		return err
+	}
+	return c.JSON(results)
+}
+
 // Catalog godoc
 // @Summary      Ngôn ngữ chọn được ở "Học ngôn ngữ mới" — đã có trong kho + danh mục ngôn ngữ phổ biến (chưa có thì tạo khi chọn)
 // @Tags         languages
