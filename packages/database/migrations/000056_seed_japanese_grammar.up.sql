@@ -24,7 +24,7 @@ INSERT INTO grammar_lessons (id, topic_id, code, title, level, order_index, cont
 VALUES
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380101', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_wa_desu', 'Câu Với は … です — "A Là B"', 'A1', 1,
+    'ja_wa_desu', 'Câu Với は … です — "A Là B"', 'N5', 1,
     '{
       "summary": "は (đọc là wa) đánh dấu chủ đề của câu; です đứng cuối câu, tương đương \"là\" lịch sự. Phủ định dùng じゃありません (ではありません), câu hỏi thêm か ở cuối.",
       "formulas": [
@@ -37,7 +37,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380102', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_no_possession', 'Trợ Từ の — Sở Hữu, Bổ Nghĩa Cho Danh Từ', 'A1', 2,
+    'ja_no_possession', 'Trợ Từ の — Sở Hữu, Bổ Nghĩa Cho Danh Từ', 'N5', 2,
     '{
       "summary": "の nối hai danh từ: N1 の N2 nghĩa là \"N2 của N1\" hoặc \"N2 về N1\". Thứ tự ngược với tiếng Việt: danh từ bổ nghĩa đứng trước.",
       "formulas": [
@@ -50,7 +50,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380103', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_kore_sore_are', 'これ / それ / あれ — Cái Này, Cái Đó, Cái Kia', 'A1', 3,
+    'ja_kore_sore_are', 'これ / それ / あれ — Cái Này, Cái Đó, Cái Kia', 'N5', 3,
     '{
       "summary": "これ chỉ vật gần người nói, それ gần người nghe, あれ xa cả hai. Khi đứng ngay trước danh từ thì dùng この / その / あの.",
       "formulas": [
@@ -63,7 +63,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380104', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_masu_form', 'Động Từ Thể ます — Hiện Tại Và Quá Khứ', 'A1', 4,
+    'ja_masu_form', 'Động Từ Thể ます — Hiện Tại Và Quá Khứ', 'N5', 4,
     '{
       "summary": "Thể lịch sự của động từ: ～ます (khẳng định, hiện tại hoặc tương lai), ～ません (phủ định), ～ました (quá khứ), ～ませんでした (phủ định quá khứ).",
       "formulas": [
@@ -76,7 +76,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380105', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_particle_wo', 'Trợ Từ を — Đánh Dấu Tân Ngữ', 'A1', 5,
+    'ja_particle_wo', 'Trợ Từ を — Đánh Dấu Tân Ngữ', 'N5', 5,
     '{
       "summary": "を (đọc là o) đứng sau tân ngữ trực tiếp của động từ: ăn cái gì, uống cái gì, đọc cái gì...",
       "formulas": [
@@ -89,7 +89,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380106', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_particle_ni_de', 'Trợ Từ に Và で — Thời Gian, Nơi Chốn, Phương Tiện', 'A1', 6,
+    'ja_particle_ni_de', 'Trợ Từ に Và で — Thời Gian, Nơi Chốn, Phương Tiện', 'N5', 6,
     '{
       "summary": "に đánh dấu thời điểm cụ thể (7じに) và nơi đến; で đánh dấu nơi diễn ra hành động và phương tiện, cách thức (バスで).",
       "formulas": [
@@ -102,7 +102,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380107', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_adjectives', 'Tính Từ い Và Tính Từ な', 'A1', 7,
+    'ja_adjectives', 'Tính Từ い Và Tính Từ な', 'N5', 7,
     '{
       "summary": "Tính từ đuôi い (たかい, おいしい) phủ định bằng ～くないです. Tính từ な (しずか, きれい) phủ định bằng ～じゃありません và cần な khi đứng trước danh từ (しずかな へや).",
       "formulas": [
@@ -115,7 +115,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380108', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_arimasu_imasu', 'あります Và います — Có, Ở', 'A1', 8,
+    'ja_arimasu_imasu', 'あります Và います — Có, Ở', 'N5', 8,
     '{
       "summary": "Diễn tả sự tồn tại: あります dùng cho đồ vật, cây cối; います dùng cho người và động vật. Nơi chốn đánh dấu bằng に, vật / người tồn tại đánh dấu bằng が.",
       "formulas": [
@@ -128,7 +128,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380109', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_te_kudasai', '～てください — Nhờ, Yêu Cầu Lịch Sự', 'A2', 9,
+    'ja_te_kudasai', '～てください — Nhờ, Yêu Cầu Lịch Sự', 'N4', 9,
     '{
       "summary": "Động từ chia thể て + ください để nhờ ai làm gì một cách lịch sự. Muốn bảo \"xin đừng...\" thì dùng thể ない + でください.",
       "formulas": [
@@ -141,7 +141,7 @@ VALUES
 ),
 (
     'e2eebc99-9c0b-4ef8-bb6d-6bb9bd380110', 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a31',
-    'ja_tai', '～たい — Muốn Làm Gì', 'A2', 10,
+    'ja_tai', '～たい — Muốn Làm Gì', 'N4', 10,
     '{
       "summary": "Bỏ ます rồi thêm たい để nói mong muốn của bản thân: のみます → のみたい. たい chia như tính từ い: phủ định là ～たくないです.",
       "formulas": [

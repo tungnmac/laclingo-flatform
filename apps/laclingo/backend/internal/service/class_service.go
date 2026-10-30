@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -277,6 +278,9 @@ func (s *ClassService) Create(ctx context.Context, req ClassRequest) (ClassAdmin
 	if req.Title == "" || req.LanguageID == "" {
 		return ClassAdminResponse{}, ErrInvalidInput
 	}
+	if err := normalizeLevel(req.LanguageID, &req.Level); err != nil {
+		return ClassAdminResponse{}, err
+	}
 	c, err := s.repo.CreateClass(ctx, db.CreateClassParams{
 		LanguageID: req.LanguageID, Title: req.Title,
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
@@ -292,6 +296,18 @@ func (s *ClassService) Create(ctx context.Context, req ClassRequest) (ClassAdmin
 func (s *ClassService) Update(ctx context.Context, id uuid.UUID, req ClassRequest) (ClassAdminResponse, error) {
 	if req.Title == "" {
 		return ClassAdminResponse{}, ErrInvalidInput
+	}
+	if req.Level = strings.TrimSpace(req.Level); req.Level != "" { // trình độ theo thang của ngôn ngữ của lớp (không đổi language_id)
+		current, err := s.repo.GetClassByID(ctx, toPgUUID(id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ClassAdminResponse{}, ErrNotFound
+		}
+		if err != nil {
+			return ClassAdminResponse{}, err
+		}
+		if err := normalizeLevel(current.LanguageID, &req.Level); err != nil {
+			return ClassAdminResponse{}, err
+		}
 	}
 	c, err := s.repo.UpdateClass(ctx, db.UpdateClassParams{
 		ID: toPgUUID(id), Title: req.Title,

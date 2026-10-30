@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS vocabularies (
     example_meaning TEXT,
     part_of_speech VARCHAR(10) CHECK (part_of_speech IN ('noun', 'verb', 'adj', 'adv', 'pron', 'prep', 'conj', 'interj', 'det', 'num', 'phrase')),
     topic VARCHAR(50),
-    level VARCHAR(5) DEFAULT 'A1',
+    level VARCHAR(10) DEFAULT 'A1', -- mã theo thang của ngôn ngữ (000057): CEFR / N5..N1 / HSK1..6 / TOPIK1..6
     audio_url TEXT,
     image_url TEXT,
     image_emoji VARCHAR(16),
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS classes (
     language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
     title VARCHAR(200) NOT NULL,
     description TEXT,
-    level VARCHAR(5) NOT NULL DEFAULT 'A1',
+    level VARCHAR(10) NOT NULL DEFAULT 'A1',
     order_index INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -389,7 +389,7 @@ CREATE TABLE IF NOT EXISTS listening_passages (
     title VARCHAR(200) NOT NULL,
     script TEXT NOT NULL,
     topic VARCHAR(100),
-    level VARCHAR(5) DEFAULT 'A1',
+    level VARCHAR(10) DEFAULT 'A1',
     order_index INT DEFAULT 0,
     -- Object key trong bucket R2 (KHÔNG phải URL public) — backend tự tạo
     -- presigned URL khi trả về cho FE, xem internal/storage/r2.go.
@@ -625,7 +625,7 @@ CREATE TABLE IF NOT EXISTS speaking_items (
     -- answer: câu trả lời mẫu (gợi ý) + ý/từ khoá nên nhắc tới ("REST|RESTful" = 1 trong các cách nói)
     sample_answer TEXT NOT NULL DEFAULT '',
     keywords TEXT[] NOT NULL DEFAULT '{}',
-    level VARCHAR(5) NOT NULL DEFAULT 'B1',
+    level VARCHAR(10) NOT NULL DEFAULT 'B1',
     order_index INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -954,11 +954,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_year SMALLINT CHECK (birth_year
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(300);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded_at TIMESTAMPTZ;
 
--- Ngôn ngữ user đang học + trình độ bắt đầu (CEFR, tự chọn)
+-- Ngôn ngữ user đang học + trình độ bắt đầu (tự chọn, theo thang của ngôn ngữ — 000057; đúng thang do backend kiểm)
 CREATE TABLE IF NOT EXISTS user_target_languages (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     language_id VARCHAR(10) NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-    level VARCHAR(2) NOT NULL DEFAULT 'A1' CHECK (level IN ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')),
+    level VARCHAR(10) NOT NULL DEFAULT 'A1' CONSTRAINT user_target_languages_level_check CHECK (level IN (
+        'A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'N5', 'N4', 'N3', 'N2', 'N1',
+        'HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'TOPIK1', 'TOPIK2', 'TOPIK3', 'TOPIK4', 'TOPIK5', 'TOPIK6')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (user_id, language_id)
 );
@@ -1016,3 +1018,14 @@ CREATE TABLE IF NOT EXISTS content_translations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (entity, entity_id, field, locale)
 );
+
+-- 000057 — thang trình độ theo ngôn ngữ: thứ bậc chung 1..6 của mọi mã (sắp xếp theo trình độ, quy đổi giữa các thang;
+-- giữ khớp levelRank ở backend). NULL = mã lạ.
+CREATE OR REPLACE FUNCTION level_rank(lvl TEXT) RETURNS INT
+    LANGUAGE sql IMMUTABLE PARALLEL SAFE
+    AS $$ SELECT CASE lvl
+        WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B1' THEN 3 WHEN 'B2' THEN 4 WHEN 'C1' THEN 5 WHEN 'C2' THEN 6
+        WHEN 'N5' THEN 1 WHEN 'N4' THEN 2 WHEN 'N3' THEN 3 WHEN 'N2' THEN 4 WHEN 'N1' THEN 5
+        WHEN 'HSK1' THEN 1 WHEN 'HSK2' THEN 2 WHEN 'HSK3' THEN 3 WHEN 'HSK4' THEN 4 WHEN 'HSK5' THEN 5 WHEN 'HSK6' THEN 6
+        WHEN 'TOPIK1' THEN 1 WHEN 'TOPIK2' THEN 2 WHEN 'TOPIK3' THEN 3 WHEN 'TOPIK4' THEN 4 WHEN 'TOPIK5' THEN 5 WHEN 'TOPIK6' THEN 6
+    END $$;

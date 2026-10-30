@@ -1,5 +1,5 @@
 import type { Locale } from '@/store/locale'
-import type { CefrLevel } from '@/types/api'
+import type { LevelCode } from '@/types/api'
 
 // Namespace "onboarding" — các bước thiết lập lần đầu đăng nhập (/onboarding). Chỉ vi+en.
 export interface OnboardingDict {
@@ -27,7 +27,8 @@ export interface OnboardingDict {
     removeAvatar: string
     languagesHint: string
     levelLabel: string
-    levels: Record<CefrLevel, { name: string; desc: string }>
+    // Tên + mô tả mọi mã của mọi thang (CEFR, JLPT, HSK, TOPIK) — ô chọn trình độ hiện theo thang của ngôn ngữ
+    levels: Record<LevelCode, { name: string; desc: string }>
     needLanguage: string
     topicsHint: string
     noTopics: string
@@ -109,6 +110,23 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
         B2: { name: 'B2 · Trung cao cấp', desc: 'Trò chuyện khá trôi chảy' },
         C1: { name: 'C1 · Cao cấp', desc: 'Dùng linh hoạt trong công việc, học tập' },
         C2: { name: 'C2 · Thành thạo', desc: 'Gần như người bản xứ' },
+        N5: { name: 'N5 · Nhập môn', desc: 'Đọc được kana, câu rất đơn giản' },
+        N4: { name: 'N4 · Sơ cấp', desc: 'Hiểu hội thoại cơ bản hằng ngày' },
+        N3: { name: 'N3 · Trung cấp', desc: 'Hiểu các tình huống quen thuộc trong đời sống' },
+        N2: { name: 'N2 · Trung cao cấp', desc: 'Đọc báo, giao tiếp trong công việc' },
+        N1: { name: 'N1 · Cao cấp', desc: 'Hiểu tiếng Nhật trong nhiều tình huống phức tạp' },
+        HSK1: { name: 'HSK1 · Nhập môn', desc: 'Khoảng 150 từ, câu rất đơn giản' },
+        HSK2: { name: 'HSK2 · Sơ cấp', desc: 'Khoảng 300 từ, giao tiếp đơn giản hằng ngày' },
+        HSK3: { name: 'HSK3 · Trung cấp', desc: 'Khoảng 600 từ, xoay xở được việc thường ngày' },
+        HSK4: { name: 'HSK4 · Trung cao cấp', desc: 'Khoảng 1.200 từ, trao đổi nhiều chủ đề' },
+        HSK5: { name: 'HSK5 · Cao cấp', desc: 'Khoảng 2.500 từ, đọc báo, xem phim' },
+        HSK6: { name: 'HSK6 · Thành thạo', desc: 'Khoảng 5.000 từ, diễn đạt trôi chảy' },
+        TOPIK1: { name: 'TOPIK1 · Sơ cấp 1', desc: 'Chào hỏi, giới thiệu bản thân' },
+        TOPIK2: { name: 'TOPIK2 · Sơ cấp 2', desc: 'Giao tiếp đơn giản ở nơi công cộng' },
+        TOPIK3: { name: 'TOPIK3 · Trung cấp 1', desc: 'Sinh hoạt hằng ngày không khó khăn' },
+        TOPIK4: { name: 'TOPIK4 · Trung cấp 2', desc: 'Hiểu tin tức, chủ đề xã hội quen thuộc' },
+        TOPIK5: { name: 'TOPIK5 · Cao cấp 1', desc: 'Dùng được trong công việc, học thuật' },
+        TOPIK6: { name: 'TOPIK6 · Cao cấp 2', desc: 'Gần như người bản xứ' },
       },
       needLanguage: 'Chọn ít nhất 1 ngôn ngữ để tiếp tục.',
       topicsHint: 'Chọn chủ đề bạn thích — LacLingo ưu tiên gợi ý các chủ đề này.',
@@ -188,6 +206,23 @@ export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
         B2: { name: 'B2 · Upper intermediate', desc: 'Converse fairly fluently' },
         C1: { name: 'C1 · Advanced', desc: 'Use it flexibly at work or school' },
         C2: { name: 'C2 · Proficient', desc: 'Near-native' },
+        N5: { name: 'N5 · Beginner', desc: 'Read kana and very simple sentences' },
+        N4: { name: 'N4 · Elementary', desc: 'Understand basic everyday conversations' },
+        N3: { name: 'N3 · Intermediate', desc: 'Handle familiar everyday situations' },
+        N2: { name: 'N2 · Upper intermediate', desc: 'Read newspapers, communicate at work' },
+        N1: { name: 'N1 · Advanced', desc: 'Understand Japanese in complex situations' },
+        HSK1: { name: 'HSK1 · Beginner', desc: 'About 150 words, very simple sentences' },
+        HSK2: { name: 'HSK2 · Elementary', desc: 'About 300 words, simple daily exchanges' },
+        HSK3: { name: 'HSK3 · Intermediate', desc: 'About 600 words, manage daily tasks' },
+        HSK4: { name: 'HSK4 · Upper intermediate', desc: 'About 1,200 words, discuss many topics' },
+        HSK5: { name: 'HSK5 · Advanced', desc: 'About 2,500 words, read news, watch films' },
+        HSK6: { name: 'HSK6 · Proficient', desc: 'About 5,000 words, express yourself fluently' },
+        TOPIK1: { name: 'TOPIK1 · Beginner 1', desc: 'Greetings, introduce yourself' },
+        TOPIK2: { name: 'TOPIK2 · Beginner 2', desc: 'Simple communication in public places' },
+        TOPIK3: { name: 'TOPIK3 · Intermediate 1', desc: 'Get by in daily life without trouble' },
+        TOPIK4: { name: 'TOPIK4 · Intermediate 2', desc: 'Follow news and familiar social topics' },
+        TOPIK5: { name: 'TOPIK5 · Advanced 1', desc: 'Use it at work or in academic settings' },
+        TOPIK6: { name: 'TOPIK6 · Advanced 2', desc: 'Near-native' },
       },
       needLanguage: 'Pick at least 1 language to continue.',
       topicsHint: 'Pick topics you enjoy — LacLingo will suggest them first.',

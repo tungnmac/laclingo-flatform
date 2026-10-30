@@ -248,6 +248,18 @@ func (q *Queries) GetGrammarLessonByID(ctx context.Context, id pgtype.UUID) (Gra
 	return i, err
 }
 
+const getGrammarLessonLanguageID = `-- name: GetGrammarLessonLanguageID :one
+SELECT t.language_id FROM grammar_lessons l JOIN grammar_topics t ON t.id = l.topic_id WHERE l.id = $1
+`
+
+// Ngôn ngữ của bài học (qua chủ đề) — kiểm trình độ theo thang của ngôn ngữ khi admin sửa bài
+func (q *Queries) GetGrammarLessonLanguageID(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getGrammarLessonLanguageID, id)
+	var language_id string
+	err := row.Scan(&language_id)
+	return language_id, err
+}
+
 const getGrammarTopicByID = `-- name: GetGrammarTopicByID :one
 SELECT id, language_id, code, title, description, order_index, created_at FROM grammar_topics WHERE id = $1
 `

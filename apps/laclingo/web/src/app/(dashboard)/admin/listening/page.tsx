@@ -12,13 +12,14 @@ import { Card } from '@/components/ui/Card'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
-import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { listeningService } from '@/features/listening/listening.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { ListeningPassageAdmin, ListeningPassageRequest, ListeningTopicAdmin, ListeningTopicRequest } from '@/types/api'
 
@@ -79,7 +80,7 @@ export default function AdminListeningPage() {
       {tab === 'topics' && (
         <TopicsSection languageId={languageId} allTopics={allTopicsApi.data?.items ?? []} onChanged={allTopicsApi.reload} />
       )}
-      {tab === 'passages' && <PassagesSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
+      {tab === 'passages' && <PassagesSection key={languageId} languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
@@ -390,7 +391,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
       title: String(form.get('title') ?? '').trim(),
       script: String(form.get('script') ?? '').trim(),
       topic: String(form.get('topic') ?? '').trim() || undefined,
-      level: String(form.get('level') ?? 'A1'),
+      level: String(form.get('level') ?? ''),
       order_index: Number(form.get('order_index')),
     }
 
@@ -454,7 +455,7 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
           {t.adminListening.levelFilterLabel}
           <select value={level} onChange={(e) => setLevel(e.target.value)} className={cn(inputClass, 'max-w-[8rem]')}>
             <option value="">{t.adminCommon.allLabel}</option>
-            {CEFR_LEVELS.map((lvl) => (
+            {levelScale(languageId).map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
               </option>
@@ -484,7 +485,14 @@ function PassagesSection({ languageId, topics }: { languageId: string; topics: L
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminListening.levelFilterLabel}
-                <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
+                <select name="level" defaultValue={editing ? (editing.level ?? '') : levelScale(languageId)[0]} className={inputClass}>
+                  <option value="">—</option>
+                  {levelOptions(languageId, editing?.level).map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      {lvl}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminListening.orderLabel}

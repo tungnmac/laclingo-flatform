@@ -188,6 +188,18 @@ func (q *Queries) FavoriteVocabulary(ctx context.Context, arg FavoriteVocabulary
 	return err
 }
 
+const getVocabularyLanguageID = `-- name: GetVocabularyLanguageID :one
+SELECT language_id FROM vocabularies WHERE id = $1
+`
+
+// Ngôn ngữ của từ — kiểm trình độ theo thang của ngôn ngữ khi admin sửa từ
+func (q *Queries) GetVocabularyLanguageID(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getVocabularyLanguageID, id)
+	var language_id string
+	err := row.Scan(&language_id)
+	return language_id, err
+}
+
 const getVocabularyTopic = `-- name: GetVocabularyTopic :one
 SELECT language_id, name, icon, order_index, parent_name, topic_key FROM vocabulary_topics WHERE language_id = $1 AND name = $2
 `
@@ -492,7 +504,7 @@ SELECT
 FROM vocabularies v
 LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = $2
 WHERE v.language_id = $3 AND v.topic = $4
-ORDER BY (r.id IS NULL), v.level, v.term
+ORDER BY (r.id IS NULL), level_rank(v.level), v.term
 LIMIT $5
 `
 
@@ -662,7 +674,7 @@ FROM vocabularies v
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
 WHERE v.language_id = $2
   AND v.topic = $3
-ORDER BY v.level, v.term
+ORDER BY level_rank(v.level), v.term
 `
 
 type ListVocabulariesByTopicParams struct {
@@ -693,6 +705,7 @@ type ListVocabulariesByTopicRow struct {
 }
 
 // Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
+// Theo thứ bậc trình độ, không theo chuỗi ("N5" < "N1" bị ngược)
 func (q *Queries) ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error) {
 	rows, err := q.db.Query(ctx, listVocabulariesByTopic, arg.UserID, arg.LanguageID, arg.Topic)
 	if err != nil {

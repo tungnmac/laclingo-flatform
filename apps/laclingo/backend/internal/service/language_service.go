@@ -22,14 +22,17 @@ type LanguageResponse struct {
 	Name      string    `json:"name" example:"English"`
 	Code      string    `json:"code" example:"en-US"`
 	CreatedAt time.Time `json:"created_at"`
+	// LevelScale — thang trình độ của ngôn ngữ, thấp → cao (vd ja: N5..N1) — web vẽ ô chọn trình độ theo đây
+	LevelScale []string `json:"level_scale" example:"A1,A2,B1,B2,C1,C2"`
 }
 
 func toLanguageResponse(l db.Language) LanguageResponse {
 	return LanguageResponse{
-		ID:        l.ID,
-		Name:      l.Name,
-		Code:      l.Code,
-		CreatedAt: l.CreatedAt.Time,
+		ID:         l.ID,
+		Name:       l.Name,
+		Code:       l.Code,
+		CreatedAt:  l.CreatedAt.Time,
+		LevelScale: LevelScale(l.ID),
 	}
 }
 

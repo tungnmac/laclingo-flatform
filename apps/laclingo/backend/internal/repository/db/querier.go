@@ -236,6 +236,8 @@ type Querier interface {
 	GetGrammarExerciseByID(ctx context.Context, id pgtype.UUID) (GrammarExercise, error)
 	GetGrammarLessonByCode(ctx context.Context, code string) (GrammarLesson, error)
 	GetGrammarLessonByID(ctx context.Context, id pgtype.UUID) (GrammarLesson, error)
+	// Ngôn ngữ của bài học (qua chủ đề) — kiểm trình độ theo thang của ngôn ngữ khi admin sửa bài
+	GetGrammarLessonLanguageID(ctx context.Context, id pgtype.UUID) (string, error)
 	GetGrammarTopicByID(ctx context.Context, id pgtype.UUID) (GrammarTopic, error)
 	// Người dùng đã nhận giao dịch đầu tiên của chuỗi này (1 gói store chỉ gắn với 1 tài khoản LacLingo)
 	GetIAPOwner(ctx context.Context, arg GetIAPOwnerParams) (pgtype.UUID, error)
@@ -268,6 +270,8 @@ type Querier interface {
 	// Daily note (Nhật ký học) — RIÊNG TƯ: mọi query đều lọc theo user_id của chính học viên (không có query admin).
 	// Múi giờ để tính "hôm nay": cài đặt nhắc học của user → mặc định admin → giờ Việt Nam
 	GetUserTimezone(ctx context.Context, userID pgtype.UUID) (string, error)
+	// Ngôn ngữ của từ — kiểm trình độ theo thang của ngôn ngữ khi admin sửa từ
+	GetVocabularyLanguageID(ctx context.Context, id pgtype.UUID) (string, error)
 	GetVocabularyReview(ctx context.Context, arg GetVocabularyReviewParams) (UserVocabularyReview, error)
 	GetVocabularyTopic(ctx context.Context, arg GetVocabularyTopicParams) (VocabularyTopic, error)
 	// Tổng số từ gắn TRỰC TIẾP vào 1 chủ đề (không gộp con) — dùng làm "card Từ
@@ -507,6 +511,7 @@ type Querier interface {
 	// khi LIMIT/OFFSET — FE dùng để vẽ phân trang mà không cần query COUNT riêng.
 	ListVocabulariesByLanguageAdmin(ctx context.Context, arg ListVocabulariesByLanguageAdminParams) ([]ListVocabulariesByLanguageAdminRow, error)
 	// Cột phải giữ y hệt ListFavoriteVocabularies — service convert qua lại 2 kiểu Row.
+	// Theo thứ bậc trình độ, không theo chuỗi ("N5" < "N1" bị ngược)
 	ListVocabulariesByTopic(ctx context.Context, arg ListVocabulariesByTopicParams) ([]ListVocabulariesByTopicRow, error)
 	// Chủ đề con của 1 chủ đề cha (learner drill-down, GET /vocab/topics/children)
 	// — total/learned chỉ tính từ gắn trực tiếp vào từng chủ đề con.

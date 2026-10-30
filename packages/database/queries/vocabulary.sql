@@ -41,7 +41,8 @@ FROM vocabularies v
 LEFT JOIN vocabulary_topics t ON t.language_id = v.language_id AND t.name = v.topic
 WHERE v.language_id = sqlc.arg('language_id')
   AND v.topic = sqlc.arg('topic')
-ORDER BY v.level, v.term;
+-- Theo thứ bậc trình độ, không theo chuỗi ("N5" < "N1" bị ngược)
+ORDER BY level_rank(v.level), v.term;
 
 -- name: ListFavoriteVocabularies :many
 -- language_id để NULL thì lấy yêu thích ở mọi ngôn ngữ.
@@ -114,6 +115,10 @@ SET term = $2, phonetic = $3, meaning = $4, example = $5, topic = $6, level = $7
     audio_url = $8, image_url = $9, image_emoji = $10, example_meaning = $11, part_of_speech = $12
 WHERE id = $1
 RETURNING *;
+
+-- name: GetVocabularyLanguageID :one
+-- Ngôn ngữ của từ — kiểm trình độ theo thang của ngôn ngữ khi admin sửa từ
+SELECT language_id FROM vocabularies WHERE id = $1;
 
 -- name: DeleteVocabulary :exec
 DELETE FROM vocabularies WHERE id = $1;
@@ -195,7 +200,7 @@ SELECT
 FROM vocabularies v
 LEFT JOIN user_vocabulary_reviews r ON r.vocabulary_id = v.id AND r.user_id = sqlc.arg('user_id')
 WHERE v.language_id = sqlc.arg('language_id') AND v.topic = sqlc.arg('topic')
-ORDER BY (r.id IS NULL), v.level, v.term
+ORDER BY (r.id IS NULL), level_rank(v.level), v.term
 LIMIT sqlc.arg('max_words');
 
 -- name: InsertDerivedVocabulary :execrows

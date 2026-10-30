@@ -9,11 +9,12 @@ import { useToast } from '@/components/ui/ToastProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { classService } from '@/features/class/class.service'
-import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { grammarService } from '@/features/grammar/grammar.service'
 import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
+import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { ClassAdmin, ClassRequest } from '@/types/api'
 
@@ -67,7 +68,7 @@ export default function AdminClassesPage() {
       language_id: languageId,
       title: String(form.get('title') ?? '').trim(),
       description: String(form.get('description') ?? '').trim() || undefined,
-      level: String(form.get('level') ?? 'A1'),
+      level: String(form.get('level') ?? ''),
       order_index: Number(form.get('order_index')),
     }
     setSaving(true)
@@ -134,8 +135,8 @@ export default function AdminClassesPage() {
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminClasses.levelLabel}
-                <select name="level" defaultValue={editing?.level ?? 'A1'} className={inputClass}>
-                  {CEFR_LEVELS.map((lvl) => (
+                <select name="level" defaultValue={editing?.level || levelScale(languageId)[0]} className={inputClass}>
+                  {levelOptions(languageId, editing?.level).map((lvl) => (
                     <option key={lvl} value={lvl}>
                       {lvl}
                     </option>

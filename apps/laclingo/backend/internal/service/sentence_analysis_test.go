@@ -163,7 +163,8 @@ func TestAnalyzeSentenceQuotaAndErrors(t *testing.T) {
 }
 
 func TestToGeminiSchema(t *testing.T) {
-	g := toGeminiSchema(sentenceAnalysisSchema)
+	schema := sentenceAnalysisSchema("en")
+	g := toGeminiSchema(schema)
 	if g["type"] != "OBJECT" || g["additionalProperties"] != nil || g["propertyOrdering"] == nil {
 		t.Fatalf("root: %v", g)
 	}
@@ -175,7 +176,7 @@ func TestToGeminiSchema(t *testing.T) {
 	if item["type"] != "OBJECT" || item["additionalProperties"] != nil || item["properties"].(map[string]any)["type"].(map[string]any)["enum"] == nil {
 		t.Errorf("nested items: %v", item)
 	}
-	if sentenceAnalysisSchema["additionalProperties"] != false {
+	if schema["additionalProperties"] != false {
 		t.Error("original schema must not be mutated")
 	}
 }
