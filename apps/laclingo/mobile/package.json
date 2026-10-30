@@ -6,7 +6,7 @@
   "scripts": {
     "open:ios": "cap open ios",
     "open:android": "cap open android",
-    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#4f46e5' --splashBackgroundColorDark '#1e1b4b'"
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#4e3a14' --splashBackgroundColor '#fcf8ed' --splashBackgroundColorDark '#2c2009'"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "8.0.2",
