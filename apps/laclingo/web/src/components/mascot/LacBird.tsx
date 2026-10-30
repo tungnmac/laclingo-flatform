@@ -1,15 +1,18 @@
 import { Fragment, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/** Chim Lạc — biểu tượng hệ thống, tách từ logo (public/lac-bird.svg). Mặc định cao hơn cỡ chữ một chút để đặt lẫn trong dòng */
+/**
+ * Chim Lạc — biểu tượng hệ thống (public/lac-bird.svg). Không truyền className thì đặt lẫn trong dòng chữ, cao hơn cỡ
+ * chữ một chút; có className thì kích thước do nơi dùng quyết định (cn không gộp class Tailwind trùng nhau)
+ */
 export function LacBird({ className }: { className?: string }) {
   return (
     <img
       src="/lac-bird.svg"
       alt=""
-      width={130}
-      height={46}
-      className={cn('inline-block h-[1.25em] w-auto align-[-0.25em]', className)}
+      width={264}
+      height={70}
+      className={cn('w-auto', className ?? 'inline-block h-[1.25em] align-[-0.25em]')}
     />
   )
 }
