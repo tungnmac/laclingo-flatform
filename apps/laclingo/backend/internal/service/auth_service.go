@@ -56,6 +56,7 @@ type AuthRepository interface {
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
 	UpdateUserPassword(ctx context.Context, arg db.UpdateUserPasswordParams) error
+	ExpireUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
@@ -329,6 +330,10 @@ func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, req 
 		return AuthResponse{}, err
 	}
 	if err := s.repo.RevokeUserRefreshTokens(ctx, user.ID); err != nil {
+		return AuthResponse{}, err
+	}
+	// Link quên mật khẩu đang chờ (có thể do kẻ khác yêu cầu) hết hiệu lực
+	if err := s.repo.ExpireUserPasswordResets(ctx, user.ID); err != nil {
 		return AuthResponse{}, err
 	}
 	return s.issue(ctx, user, uuid.New())

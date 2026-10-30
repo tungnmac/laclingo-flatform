@@ -25,12 +25,16 @@ var ErrResetLinkInvalid = fmt.Errorf("%w: link đặt lại mật khẩu sai ho�
 
 type PasswordResetRepository interface {
 	GetUserByIdentifier(ctx context.Context, email string) (db.User, error)
-	InvalidateUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
+	CountRecentPasswordResets(ctx context.Context, userID pgtype.UUID) (int64, error)
+	ExpireUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
+	DeleteOldPasswordResets(ctx context.Context) error
 	CreatePasswordReset(ctx context.Context, arg db.CreatePasswordResetParams) error
-	UsePasswordReset(ctx context.Context, tokenHash string) (pgtype.UUID, error)
-	UpdateUserPassword(ctx context.Context, arg db.UpdateUserPasswordParams) error
-	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
+	ResetPasswordWithToken(ctx context.Context, arg db.ResetPasswordWithTokenParams) (pgtype.UUID, error)
 }
+
+// maxResetEmailsPerHour — mỗi tài khoản nhận tối đa bấy nhiêu email đặt lại / giờ; vượt thì im lặng không gửi (vẫn trả
+// thành công: kẻ xấu không spam được hộp thư nạn nhân, cũng không làm chính chủ bị chặn bằng lỗi 429)
+const maxResetEmailsPerHour = 3
 
 // ForgotPasswordRequest — email hoặc tên đăng nhập; link gửi tới email của tài khoản
 type ForgotPasswordRequest struct {
@@ -59,8 +63,9 @@ func NewPasswordResetService(repo PasswordResetRepository, mailer Mailer, webURL
 // Enabled — server đã cấu hình gửi email chưa
 func (s *PasswordResetService) Enabled() bool { return s.mailer != nil }
 
-// Forgot tạo mã đặt lại (mã cũ chưa dùng hết hiệu lực) và gửi link qua email. Không có tài khoản / tài khoản bị khoá cũng
-// trả nil như có — không để lộ email nào đã đăng ký; email gửi nền để thời gian phản hồi 2 trường hợp như nhau
+// Forgot gửi link đặt lại qua email (mã cũ chưa dùng hết hiệu lực). Không có tài khoản / tài khoản bị khoá / vượt giới
+// hạn gửi cũng trả nil như có — không lộ email nào đã đăng ký. Sau bước tra tài khoản, mọi việc (tạo mã, gửi email)
+// chạy nền nên thời gian phản hồi các trường hợp như nhau
 func (s *PasswordResetService) Forgot(ctx context.Context, req ForgotPasswordRequest, locale string) error {
 	identifier := strings.ToLower(strings.TrimSpace(req.Identifier))
 	if identifier == "" {
@@ -73,11 +78,37 @@ func (s *PasswordResetService) Forgot(ctx context.Context, req ForgotPasswordReq
 	if err != nil {
 		return err
 	}
+	s.background(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ quên mật khẩu: panic user=%x: %v", user.ID.Bytes, r)
+			}
+		}()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.sendResetLink(ctx, user, locale); err != nil {
+			log.Printf("❌ quên mật khẩu: user=%x: %v", user.ID.Bytes, err)
+		}
+	})
+	return nil
+}
+
+func (s *PasswordResetService) sendResetLink(ctx context.Context, user db.User, locale string) error {
+	recent, err := s.repo.CountRecentPasswordResets(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	if recent >= maxResetEmailsPerHour {
+		return nil
+	}
 	token, hash, err := newRefreshToken() // 256 bit ngẫu nhiên, DB chỉ lưu SHA-256
 	if err != nil {
 		return err
 	}
-	if err := s.repo.InvalidateUserPasswordResets(ctx, user.ID); err != nil {
+	if err := s.repo.ExpireUserPasswordResets(ctx, user.ID); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteOldPasswordResets(ctx); err != nil {
 		return err
 	}
 	if err := s.repo.CreatePasswordReset(ctx, db.CreatePasswordResetParams{
@@ -87,17 +118,11 @@ func (s *PasswordResetService) Forgot(ctx context.Context, req ForgotPasswordReq
 	}
 	link := s.webURL + "/reset-password?token=" + url.QueryEscape(token)
 	subject, htmlBody, text := resetEmail(locale, displayNameOf(user.FullName, user.Username), link)
-	s.background(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := s.mailer.Send(ctx, user.Email, subject, htmlBody, text); err != nil {
-			log.Printf("❌ quên mật khẩu: gửi email user=%x: %v", user.ID.Bytes, err)
-		}
-	})
-	return nil
+	return s.mailer.Send(ctx, user.Email, subject, htmlBody, text)
 }
 
-// Reset đặt mật khẩu mới bằng mã trong email (dùng 1 lần) rồi thu hồi mọi phiên đăng nhập — đăng nhập lại bằng mật khẩu mới
+// Reset đặt mật khẩu mới bằng mã trong email — 1 câu lệnh nguyên tử: đốt mã, lưu mật khẩu, thu hồi mọi phiên đăng nhập,
+// huỷ mã khác. Mã sai / hết hạn / đã dùng / tài khoản bị khoá → ErrResetLinkInvalid
 func (s *PasswordResetService) Reset(ctx context.Context, req ResetPasswordRequest) error {
 	if n := len(req.NewPassword); n < minPasswordLen || n > maxPasswordLen {
 		return fmt.Errorf("mật khẩu mới phải từ %d đến %d ký tự: %w", minPasswordLen, maxPasswordLen, ErrInvalidInput)
@@ -105,21 +130,15 @@ func (s *PasswordResetService) Reset(ctx context.Context, req ResetPasswordReque
 	if req.Token == "" {
 		return ErrResetLinkInvalid
 	}
-	userID, err := s.repo.UsePasswordReset(ctx, hashRefreshToken(req.Token))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrResetLinkInvalid
-	}
-	if err != nil {
-		return err
-	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	if err := s.repo.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{ID: userID, PasswordHash: string(hash)}); err != nil {
-		return err
+	_, err = s.repo.ResetPasswordWithToken(ctx, db.ResetPasswordWithTokenParams{TokenHash: hashRefreshToken(req.Token), PasswordHash: string(hash)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrResetLinkInvalid
 	}
-	return s.repo.RevokeUserRefreshTokens(ctx, userID)
+	return err
 }
 
 // resetEmail — nội dung email theo ngôn ngữ giao diện (vi; còn lại tiếng Anh)

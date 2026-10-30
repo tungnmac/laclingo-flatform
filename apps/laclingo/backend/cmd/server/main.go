@@ -166,6 +166,9 @@ func main() {
 	if cfg.BrevoAPIKey != "" && cfg.EmailFrom != "" {
 		mailer = service.NewBrevoMailer(cfg.BrevoAPIKey, cfg.EmailFrom, cfg.EmailFromName)
 		log.Println("✅ Email (Brevo) đã cấu hình — bật quên mật khẩu")
+		if !strings.HasPrefix(cfg.AppWebURL, "https://") {
+			log.Printf("⚠️  APP_WEB_URL=%s không phải https — link đặt lại mật khẩu trong email có thể sai", cfg.AppWebURL)
+		}
 	} else {
 		log.Println("⚠️  BREVO_API_KEY / EMAIL_FROM chưa cấu hình — tắt quên mật khẩu")
 	}

@@ -1044,3 +1044,4 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets (user_id);
+CREATE INDEX IF NOT EXISTS idx_password_resets_expires ON password_resets (expires_at);

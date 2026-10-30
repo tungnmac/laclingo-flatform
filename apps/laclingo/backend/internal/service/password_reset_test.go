@@ -29,33 +29,38 @@ func (r *resetRepo) GetUserByIdentifier(_ context.Context, id string) (db.User, 
 	}
 	return db.User{}, pgx.ErrNoRows
 }
-func (r *resetRepo) InvalidateUserPasswordResets(_ context.Context, userID pgtype.UUID) error {
-	for h, t := range r.resets {
+func (r *resetRepo) CountRecentPasswordResets(_ context.Context, userID pgtype.UUID) (int64, error) {
+	n := int64(0)
+	for _, t := range r.resets {
+		if t.UserID == userID && t.CreatedAt.Time.After(time.Now().Add(-time.Hour)) {
+			n++
+		}
+	}
+	return n, nil
+}
+func (r *resetRepo) ExpireUserPasswordResets(_ context.Context, userID pgtype.UUID) error {
+	for _, t := range r.resets {
 		if t.UserID == userID && !t.UsedAt.Valid {
-			delete(r.resets, h)
+			t.ExpiresAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
 		}
 	}
 	return nil
 }
+func (r *resetRepo) DeleteOldPasswordResets(context.Context) error { return nil }
 func (r *resetRepo) CreatePasswordReset(_ context.Context, a db.CreatePasswordResetParams) error {
-	r.resets[a.TokenHash] = &db.PasswordReset{UserID: a.UserID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt}
+	r.resets[a.TokenHash] = &db.PasswordReset{UserID: a.UserID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt,
+		CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}}
 	return nil
 }
-func (r *resetRepo) UsePasswordReset(_ context.Context, hash string) (pgtype.UUID, error) {
-	t, ok := r.resets[hash]
-	if !ok || t.UsedAt.Valid || !t.ExpiresAt.Time.After(time.Now()) {
+func (r *resetRepo) ResetPasswordWithToken(_ context.Context, a db.ResetPasswordWithTokenParams) (pgtype.UUID, error) {
+	t, ok := r.resets[a.TokenHash]
+	if !ok || t.UsedAt.Valid || !t.ExpiresAt.Time.After(time.Now()) || !r.user.IsActive {
 		return pgtype.UUID{}, pgx.ErrNoRows
 	}
 	t.UsedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
-	return t.UserID, nil
-}
-func (r *resetRepo) UpdateUserPassword(_ context.Context, a db.UpdateUserPasswordParams) error {
 	r.user.PasswordHash = a.PasswordHash
-	return nil
-}
-func (r *resetRepo) RevokeUserRefreshTokens(context.Context, pgtype.UUID) error {
 	r.revoked = true
-	return nil
+	return t.UserID, nil
 }
 
 type sentMail struct{ to, subject, text string }
@@ -117,6 +122,13 @@ func TestPasswordReset(t *testing.T) {
 	}
 	if err := svc.Reset(ctx, ResetPasswordRequest{Token: second, NewPassword: "matkhau-moi-3"}); !errors.Is(err, ErrResetLinkInvalid) {
 		t.Fatalf("link chỉ dùng 1 lần: %v", err)
+	}
+
+	// Đã gửi 2 email trong giờ: thêm 1 lần nữa vẫn gửi, quá 3 thì im lặng (vẫn trả nil)
+	_ = svc.Forgot(ctx, ForgotPasswordRequest{Identifier: "an"}, "vi")
+	sentBefore := len(mailer.sent)
+	if err := svc.Forgot(ctx, ForgotPasswordRequest{Identifier: "an"}, "vi"); err != nil || len(mailer.sent) != sentBefore {
+		t.Fatalf("quá %d email/giờ phải im lặng: err=%v gửi=%d→%d", maxResetEmailsPerHour, err, sentBefore, len(mailer.sent))
 	}
 
 	// Tài khoản bị khoá: không gửi

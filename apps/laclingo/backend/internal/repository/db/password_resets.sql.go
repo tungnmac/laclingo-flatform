@@ -11,6 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countRecentPasswordResets = `-- name: CountRecentPasswordResets :one
+
+SELECT COUNT(*) FROM password_resets WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'
+`
+
+// Quên mật khẩu (service/password_reset.go)
+// Số mã đã gửi cho tài khoản trong 1 giờ qua (kể cả mã đã dùng / đã hết hiệu lực) — vượt giới hạn thì im lặng không gửi
+func (q *Queries) CountRecentPasswordResets(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countRecentPasswordResets, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPasswordReset = `-- name: CreatePasswordReset :exec
 INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)
 `
@@ -26,29 +40,57 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 	return err
 }
 
-const invalidateUserPasswordResets = `-- name: InvalidateUserPasswordResets :exec
-
-DELETE FROM password_resets
-WHERE (user_id = $1 AND used_at IS NULL) OR expires_at < NOW() - INTERVAL '1 day'
+const deleteOldPasswordResets = `-- name: DeleteOldPasswordResets :exec
+DELETE FROM password_resets WHERE expires_at < NOW() - INTERVAL '1 day'
 `
 
-// Quên mật khẩu (service/password_reset.go)
-// Gửi mã mới: mã cũ chưa dùng hết hiệu lực (chỉ link mới nhất dùng được); dọn luôn mã quá hạn của mọi người
-func (q *Queries) InvalidateUserPasswordResets(ctx context.Context, userID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, invalidateUserPasswordResets, userID)
+// Dọn mã quá hạn 1 ngày (của mọi người)
+func (q *Queries) DeleteOldPasswordResets(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldPasswordResets)
 	return err
 }
 
-const usePasswordReset = `-- name: UsePasswordReset :one
-UPDATE password_resets SET used_at = NOW()
-WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-RETURNING user_id
+const expireUserPasswordResets = `-- name: ExpireUserPasswordResets :exec
+UPDATE password_resets pr SET expires_at = NOW()
+WHERE pr.user_id = $1 AND pr.used_at IS NULL AND pr.expires_at > NOW()
 `
 
-// Đánh dấu đã dùng trong 1 câu lệnh — 2 request cùng mã chỉ 1 request thành công; mã sai / hết hạn / đã dùng → không trả dòng
-func (q *Queries) UsePasswordReset(ctx context.Context, tokenHash string) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, usePasswordReset, tokenHash)
-	var user_id pgtype.UUID
-	err := row.Scan(&user_id)
-	return user_id, err
+// Mã chưa dùng của tài khoản hết hiệu lực (gửi mã mới / đã đổi mật khẩu) — giữ dòng để đếm giới hạn gửi
+func (q *Queries) ExpireUserPasswordResets(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, expireUserPasswordResets, userID)
+	return err
+}
+
+const resetPasswordWithToken = `-- name: ResetPasswordWithToken :one
+WITH used AS (
+    UPDATE password_resets pr SET used_at = NOW()
+    WHERE pr.token_hash = $1 AND pr.used_at IS NULL AND pr.expires_at > NOW()
+      AND EXISTS (SELECT 1 FROM users u WHERE u.id = pr.user_id AND u.is_active)
+    RETURNING pr.user_id
+), changed AS (
+    UPDATE users u SET password_hash = $2, updated_at = NOW()
+    WHERE u.id = (SELECT user_id FROM used)
+    RETURNING u.id
+), revoked AS (
+    UPDATE refresh_tokens rt SET revoked_at = NOW()
+    WHERE rt.user_id = (SELECT id FROM changed) AND rt.revoked_at IS NULL
+), others AS (
+    UPDATE password_resets o SET expires_at = NOW()
+    WHERE o.user_id = (SELECT id FROM changed) AND o.used_at IS NULL AND o.token_hash <> $1
+)
+SELECT id FROM changed
+`
+
+type ResetPasswordWithTokenParams struct {
+	TokenHash    string `json:"token_hash"`
+	PasswordHash string `json:"password_hash"`
+}
+
+// Đặt lại mật khẩu trong 1 câu lệnh (nguyên tử): đốt mã (đúng, chưa dùng, còn hạn, tài khoản chưa bị khoá) → lưu mật
+// khẩu mới → thu hồi mọi phiên đăng nhập → huỷ các mã chưa dùng khác. Mã không hợp lệ → không trả dòng
+func (q *Queries) ResetPasswordWithToken(ctx context.Context, arg ResetPasswordWithTokenParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, resetPasswordWithToken, arg.TokenHash, arg.PasswordHash)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }

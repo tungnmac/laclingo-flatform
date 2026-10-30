@@ -84,6 +84,9 @@ type Querier interface {
 	CountPushSubscriptionsForUser(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// Số thông báo tag mentioner đã gửi trong window_seconds gần nhất (giờ của DB — không lệch đồng hồ app)
 	CountRecentMentionNotices(ctx context.Context, arg CountRecentMentionNoticesParams) (int64, error)
+	// Quên mật khẩu (service/password_reset.go)
+	// Số mã đã gửi cho tài khoản trong 1 giờ qua (kể cả mã đã dùng / đã hết hiệu lực) — vượt giới hạn thì im lặng không gửi
+	CountRecentPasswordResets(ctx context.Context, userID pgtype.UUID) (int64, error)
 	CountTopicWords(ctx context.Context, arg CountTopicWordsParams) (int64, error)
 	CountUnreadNotifications(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountUserOpenLanguageSyncJobs(ctx context.Context, userID pgtype.UUID) (int64, error)
@@ -165,6 +168,8 @@ type Querier interface {
 	DeleteListeningQuestion(ctx context.Context, id pgtype.UUID) error
 	DeleteListeningTopic(ctx context.Context, arg DeleteListeningTopicParams) error
 	DeleteNotification(ctx context.Context, arg DeleteNotificationParams) (int64, error)
+	// Dọn mã quá hạn 1 ngày (của mọi người)
+	DeleteOldPasswordResets(ctx context.Context) error
 	DeletePushSubscription(ctx context.Context, arg DeletePushSubscriptionParams) error
 	// Push service báo subscription hết hạn (404/410) — xoá bất kể user.
 	DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint string) error
@@ -193,6 +198,8 @@ type Querier interface {
 	EnqueueLanguageSyncJob(ctx context.Context, arg EnqueueLanguageSyncJobParams) error
 	EnrollInClass(ctx context.Context, arg EnrollInClassParams) error
 	EnsureUserInventory(ctx context.Context, userID pgtype.UUID) error
+	// Mã chưa dùng của tài khoản hết hiệu lực (gửi mã mới / đã đổi mật khẩu) — giữ dòng để đếm giới hạn gửi
+	ExpireUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
 	// Ân hạn (grace period) khi store chưa trừ được tiền kỳ mới: giữ Pro tới hết ân hạn
 	ExtendStoreSubscription(ctx context.Context, arg ExtendStoreSubscriptionParams) error
 	FailLanguageSyncJob(ctx context.Context, arg FailLanguageSyncJobParams) error
@@ -312,9 +319,6 @@ type Querier interface {
 	InsertUserTargetLanguage(ctx context.Context, arg InsertUserTargetLanguageParams) error
 	// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error)
-	// Quên mật khẩu (service/password_reset.go)
-	// Gửi mã mới: mã cũ chưa dùng hết hiệu lực (chỉ link mới nhất dùng được); dọn luôn mã quá hạn của mọi người
-	InvalidateUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// blocker đã chặn blocked chưa (bỏ thông báo do người bị chặn gây ra)
 	IsUserBlocked(ctx context.Context, arg IsUserBlockedParams) (bool, error)
@@ -589,6 +593,9 @@ type Querier interface {
 	RescheduleLanguageSyncJob(ctx context.Context, arg RescheduleLanguageSyncJobParams) error
 	// Xoá việc con cuối của việc tích → bỏ trạng thái xong (trạng thái đó đến từ checklist, không phải người học tích)
 	ResetDailyTaskCompletionWithoutItems(ctx context.Context, id pgtype.UUID) error
+	// Đặt lại mật khẩu trong 1 câu lệnh (nguyên tử): đốt mã (đúng, chưa dùng, còn hạn, tài khoản chưa bị khoá) → lưu mật
+	// khẩu mới → thu hồi mọi phiên đăng nhập → huỷ các mã chưa dùng khác. Mã không hợp lệ → không trả dòng
+	ResetPasswordWithToken(ctx context.Context, arg ResetPasswordWithTokenParams) (pgtype.UUID, error)
 	// Admin xử lý 1 nội dung: đóng mọi báo cáo đang mở của nó (RESOLVED = đã xử lý, DISMISSED = không vi phạm)
 	ResolveContentReports(ctx context.Context, arg ResolveContentReportsParams) (int64, error)
 	RetryFailedLanguageSyncJobs(ctx context.Context, arg RetryFailedLanguageSyncJobsParams) (int64, error)
@@ -707,8 +714,6 @@ type Querier interface {
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 	// +1 lượt dùng của ngày; đã đủ daily_limit → không trả dòng nào (pgx.ErrNoRows) = hết lượt
 	UseFeatureQuota(ctx context.Context, arg UseFeatureQuotaParams) (int32, error)
-	// Đánh dấu đã dùng trong 1 câu lệnh — 2 request cùng mã chỉ 1 request thành công; mã sai / hết hạn / đã dùng → không trả dòng
-	UsePasswordReset(ctx context.Context, tokenHash string) (pgtype.UUID, error)
 	// Dùng n Streak Freeze bù các ngày nghỉ; không đủ → 0 dòng
 	UseStreakFreezes(ctx context.Context, arg UseStreakFreezesParams) (int64, error)
 }

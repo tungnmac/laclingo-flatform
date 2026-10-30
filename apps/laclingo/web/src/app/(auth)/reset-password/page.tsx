@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/Button'
 import { authService } from '@/features/auth/auth.service'
 import { inputClass } from '@/features/auth/components/AuthForm'
@@ -14,7 +14,11 @@ const MIN_PASSWORD = 8
 export default function ResetPasswordPage({ searchParams }: { searchParams: { token?: string } }) {
   const t = useTranslation()
   const p = t.passwordReset
-  const token = searchParams.token ?? ''
+  // Giữ mã trong state rồi bỏ khỏi thanh địa chỉ — không nằm lại trong lịch sử trình duyệt / Referer
+  const [token] = useState(searchParams.token ?? '')
+  useEffect(() => {
+    if (searchParams.token) window.history.replaceState(null, '', '/reset-password')
+  }, [searchParams.token])
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)

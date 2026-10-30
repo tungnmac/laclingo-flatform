@@ -8,6 +8,7 @@ import (
 	"laclingo-backend/internal/repository/db"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -15,6 +16,8 @@ import (
 type passwordRepo struct {
 	*refreshRepo
 }
+
+func (r passwordRepo) ExpireUserPasswordResets(context.Context, pgtype.UUID) error { return nil }
 
 func (r passwordRepo) UpdateUserPassword(_ context.Context, a db.UpdateUserPasswordParams) error {
 	r.user.PasswordHash = a.PasswordHash

@@ -19,13 +19,12 @@ func NewPasswordResetHandler(svc *service.PasswordResetService) *PasswordResetHa
 	return &PasswordResetHandler{svc: svc}
 }
 
-// RegisterRoutes — công khai (chưa đăng nhập). Giới hạn: 10 yêu cầu / giờ / IP, 3 email / giờ / tài khoản (chống spam
-// hộp thư người khác); đặt lại sai mã 20 lần / 15 phút / IP
+// RegisterRoutes — công khai (chưa đăng nhập). Giới hạn: 10 yêu cầu / giờ / IP; mỗi tài khoản nhận tối đa 3 email / giờ
+// (service im lặng bỏ qua, không trả 429 — kẻ xấu không chặn được chính chủ); đặt lại sai mã 20 lần / 15 phút / IP
 func (h *PasswordResetHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/auth")
 	api.Post("/forgot-password",
 		requestLimiter(10, time.Hour, keyByIP("forgot"), msgTooManyResets),
-		requestLimiter(3, time.Hour, func(c *fiber.Ctx) string { return "forgot-id:" + loginIdentifier(c) }, msgTooManyResets),
 		h.Forgot)
 	api.Post("/reset-password", append(failureLimiter(20, 15*time.Minute, keyByIP("reset"), msgTooManyResets), h.Reset)...)
 }
