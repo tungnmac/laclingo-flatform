@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chờ khởi động (layout/launch_overlay.xml) -->
+<resources>
+    <string name="launch_tagline">Learn a language every day with the Lạc bird</string>
+    <string name="launch_feature_srs">🧠 SRS review</string>
+    <string name="launch_feature_listening">🎧 Listening</string>
+    <string name="launch_feature_speaking">🎤 Speaking</string>
+    <string name="launch_feature_challenge">🏆 Challenges</string>
+    <string name="launch_loading">Loading…</string>
+</resources>

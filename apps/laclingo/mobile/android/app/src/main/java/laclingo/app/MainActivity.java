@@ -10,7 +10,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(LaunchOverlay.class);
         super.onCreate(savedInstanceState);
+        // Mở app (không phải tạo lại activity): hiện màn chờ giới thiệu + vòng tải tới khi web vẽ xong
+        if (savedInstanceState == null) LaunchOverlay.show(this);
         // Nút Back Android: lùi về trang trước trong WebView; hết trang → đưa app xuống nền (như nút Home, mở lại
         // không phải nạp lại web). Plugin App tắt bộ xử lý nút Back (capacitor.config.ts) nên xử lý ở native.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

@@ -18,7 +18,19 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <!-- Android 12+: màn khởi động hệ thống = icon app trên nền kem (giữ tới khi web vẽ xong — plugin SplashScreen) -->
+        <!-- Android 12+: màn khởi động hệ thống = icon app trên nền kem (cùng nền màn chờ LaunchOverlay hiện ngay sau) -->
         <item name="windowSplashScreenBackground">@color/laclingo_splash</item>
+    </style>
+
+    <!-- Nhãn tính năng trên màn chờ khởi động (layout/launch_overlay.xml) -->
+    <style name="LaunchChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginHorizontal">4dp</item>
+        <item name="android:background">@drawable/launch_chip_bg</item>
+        <item name="android:paddingHorizontal">14dp</item>
+        <item name="android:paddingVertical">7dp</item>
+        <item name="android:textColor">#6A4F13</item>
+        <item name="android:textSize">14sp</item>
     </style>
 </resources>

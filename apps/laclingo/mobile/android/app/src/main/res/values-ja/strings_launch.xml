@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chờ khởi động (layout/launch_overlay.xml) -->
+<resources>
+    <string name="launch_tagline">ラック鳥と毎日語学を学ぼう</string>
+    <string name="launch_feature_srs">🧠 SRS 復習</string>
+    <string name="launch_feature_listening">🎧 リスニング</string>
+    <string name="launch_feature_speaking">🎤 スピーキング</string>
+    <string name="launch_feature_challenge">🏆 チャレンジ</string>
+    <string name="launch_loading">読み込み中…</string>
+</resources>
