@@ -20,6 +20,8 @@ export interface User {
   birth_year?: number
   bio?: string
   onboarded_at?: string | null
+  // Tông màu chủ đạo giao diện (lib/themes.ts)
+  theme?: string
 }
 
 // Mã trình độ theo thang của ngôn ngữ (Language.level_scale): CEFR A1..C2, ja N5..N1, zh HSK1..6, ko TOPIK1..6
@@ -272,6 +274,7 @@ export interface AuthResponse {
 export interface UpdateProfileRequest {
   full_name?: string
   avatar_url?: string
+  theme?: string
 }
 
 export interface VocabularyReviewResponse {

@@ -32,7 +32,7 @@ export const commonTranslations: Partial<Record<BuiltinLocale, CommonDict>> = {
             : code === 'audio-busy' || code === 'audio-hardware'
               ? 'Thiết bị âm thanh đang bận hoặc lỗi — kiểm tra loa/tai nghe.'
               : code === 'voice-unavailable' || code === 'language-unavailable'
-                ? 'Máy chưa có giọng đọc cho ngôn ngữ này — chọn giọng khác ở trang Hồ sơ.'
+                ? 'Máy chưa có giọng đọc cho ngôn ngữ này — chọn giọng khác ở trang Cài đặt.'
                 : 'Bộ đọc của trình duyệt đang lỗi — hãy tắt hẳn trình duyệt rồi mở lại.'
         return `Không phát được giọng đọc (mã lỗi: ${code}). ${hint}`
       },
@@ -56,7 +56,7 @@ export const commonTranslations: Partial<Record<BuiltinLocale, CommonDict>> = {
             : code === 'audio-busy' || code === 'audio-hardware'
               ? 'The audio device is busy or failing — check your speakers/headphones.'
               : code === 'voice-unavailable' || code === 'language-unavailable'
-                ? 'No voice is installed for this language — pick another voice on the Profile page.'
+                ? 'No voice is installed for this language — pick another voice on the Settings page.'
                 : 'The browser speech engine is failing — fully quit and reopen the browser.'
         return `Could not play speech (error code: ${code}). ${hint}`
       },

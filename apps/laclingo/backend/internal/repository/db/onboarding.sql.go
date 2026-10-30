@@ -284,7 +284,7 @@ func (q *Queries) LockUserForUpdate(ctx context.Context, id pgtype.UUID) (pgtype
 const markUserOnboarded = `-- name: MarkUserOnboarded :one
 UPDATE users SET onboarded_at = COALESCE(onboarded_at, NOW()), updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date, country, native_language, birth_year, bio, onboarded_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date, country, native_language, birth_year, bio, onboarded_at, theme
 `
 
 // Hoàn tất hoặc "Để sau" — giữ mốc lần đầu
@@ -314,6 +314,7 @@ func (q *Queries) MarkUserOnboarded(ctx context.Context, id pgtype.UUID) (User, 
 		&i.BirthYear,
 		&i.Bio,
 		&i.OnboardedAt,
+		&i.Theme,
 	)
 	return i, err
 }
@@ -328,7 +329,7 @@ SET full_name       = $1,
     bio             = $6,
     updated_at      = NOW()
 WHERE id = $7
-RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date, country, native_language, birth_year, bio, onboarded_at
+RETURNING id, email, username, password_hash, full_name, avatar_url, streak_count, role, admin_modules, is_active, exp, level, points, last_studied_at, created_at, updated_at, streak_date, country, native_language, birth_year, bio, onboarded_at, theme
 `
 
 type UpdateUserOnboardingProfileParams struct {
@@ -376,6 +377,7 @@ func (q *Queries) UpdateUserOnboardingProfile(ctx context.Context, arg UpdateUse
 		&i.BirthYear,
 		&i.Bio,
 		&i.OnboardedAt,
+		&i.Theme,
 	)
 	return i, err
 }

@@ -1,6 +1,6 @@
 import type { BuiltinLocale } from '@/store/locale'
 
-// Namespace "reminders" (học viên — thẻ "Nhắc học" ở trang Hồ sơ) và
+// Namespace "reminders" (học viên — thẻ "Nhắc học" ở trang Cài đặt) và
 // "adminReminders" (admin — lịch nhắc mặc định). Chỉ vi+en — zh/ja/ko fallback về en.
 export interface RemindersDict {
   reminders: {
@@ -80,7 +80,7 @@ export const remindersTranslations: Partial<Record<BuiltinLocale, RemindersDict>
     },
     adminReminders: {
       pageTitle: 'Nhắc học',
-      pageDesc: 'Lịch nhắc mặc định — áp dụng cho mọi học viên chưa tự chỉnh lịch trong trang Hồ sơ.',
+      pageDesc: 'Lịch nhắc mặc định — áp dụng cho mọi học viên chưa tự chỉnh lịch trong trang Cài đặt.',
       timezoneFieldLabel: 'Múi giờ mặc định',
       timezoneFieldHint: 'Chỉ dùng cho học viên chưa bật thông báo trên trình duyệt nào (khi bật, hệ thống lấy múi giờ của trình duyệt).',
     },
@@ -120,7 +120,7 @@ export const remindersTranslations: Partial<Record<BuiltinLocale, RemindersDict>
     },
     adminReminders: {
       pageTitle: 'Study reminders',
-      pageDesc: 'Default reminder schedule — applies to every learner who has not customised their own on the Profile page.',
+      pageDesc: 'Default reminder schedule — applies to every learner who has not customised their own on the Settings page.',
       timezoneFieldLabel: 'Default time zone',
       timezoneFieldHint: 'Only used for learners who have never turned on notifications in a browser (turning them on uses the browser time zone).',
     },

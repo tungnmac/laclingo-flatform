@@ -217,6 +217,7 @@ const OFFLINE_PAGES = [
   '/challenges',
   '/leaderboard',
   '/profile',
+  '/settings',
   '/missions',
   '/daily',
   '/listening',

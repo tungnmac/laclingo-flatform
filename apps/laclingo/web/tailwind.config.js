@@ -3,23 +3,12 @@ module.exports = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
-      // Tông chủ đạo = vàng đồng của chim Lạc (logo). Ghi đè thang indigo vì toàn bộ giao diện dùng lớp indigo-* làm
-      // màu chủ đạo — đổi ở đây là đổi cả hệ thống. 500/600 lấy đúng sắc vàng trên thân chim; 600 (nút) đạt ~3.6:1 với chữ
-      // trắng (đủ cho chữ đậm/thành phần giao diện) — chữ thường trên nền trắng nên dùng 700 trở lên
+      // Màu chủ đạo: toàn giao diện dùng lớp indigo-* — thang indigo trỏ vào biến --brand-* để người dùng đổi tông màu
+      // (theme, lib/themes.ts). Mặc định vàng đồng chim Lạc khai báo ở globals.css
       colors: {
-        indigo: {
-          50: '#fcf8ed',
-          100: '#f8eed2',
-          200: '#f0dca3',
-          300: '#e9c35a',
-          400: '#d9ac3a',
-          500: '#c4952a',
-          600: '#b07d12',
-          700: '#8f6914',
-          800: '#6a4f13',
-          900: '#4e3a14',
-          950: '#2c2009',
-        },
+        indigo: Object.fromEntries(
+          ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'].map((s) => [s, `rgb(var(--brand-${s}) / <alpha-value>)`]),
+        ),
       },
       keyframes: {
         'pop-in': {

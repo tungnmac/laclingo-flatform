@@ -561,6 +561,7 @@ type User struct {
 	BirthYear      pgtype.Int2        `json:"birth_year"`
 	Bio            pgtype.Text        `json:"bio"`
 	OnboardedAt    pgtype.Timestamptz `json:"onboarded_at"`
+	Theme          string             `json:"theme"`
 }
 
 type UserAvatar struct {

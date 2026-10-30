@@ -38,6 +38,7 @@ const WALLET_ITEM = { href: '/wallet', key: 'wallet' as const, icon: '💎' }
 const LISTENING_ITEM = { href: '/listening', key: 'listening' as const, icon: '🎧' }
 const SPEAKING_ITEM = { href: '/speaking', key: 'speaking' as const, icon: '🎤' }
 const BLOG_ITEM = { href: '/blog', key: 'blog' as const, icon: '📝' }
+const SETTINGS_ITEM = { href: '/settings', key: 'settings' as const, icon: '⚙️' }
 const ADMIN_ITEM = { href: '/admin', key: 'admin' as const, icon: '🛠️' }
 
 function isActive(pathname: string, href: string) {
@@ -70,7 +71,7 @@ export function Sidebar({ user }: { user: User }) {
   const t = useTranslation()
   const rewardCount = useRewardsCount((s) => s.count) // quà gems chờ nhận
   const isAdmin = user.role === 'admin' || user.role === 'owner'
-  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+  const sidebarItems = [...SIDEBAR_NAV_ITEMS, LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, SETTINGS_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
   const toggleLabel = collapsed ? t.nav.expandMenu : t.nav.collapseMenu
 
   // Ctrl/⌘+B: chỉ khi sidebar đang hiện (md+), không đang gõ chữ (Ctrl+B = in đậm),
@@ -220,7 +221,7 @@ function MobileMenu({ user }: { user: User }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user.role === 'admin' || user.role === 'owner'
-  const items = [LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
+  const items = [LISTENING_ITEM, SPEAKING_ITEM, ANALYZE_ITEM, MISSIONS_ITEM, DAILY_ITEM, BLOG_ITEM, PRO_ITEM, WALLET_ITEM, SETTINGS_ITEM, ...(isAdmin ? [ADMIN_ITEM] : [])]
 
   // Đóng + trả focus về nút ☰ (Escape / nút ✕ / nền tối); chuyển trang thì chỉ đóng
   const close = () => {

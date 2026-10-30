@@ -4,8 +4,23 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
-  /* Checkbox, radio, thanh trượt của trình duyệt theo tông vàng đồng chim Lạc */
-  accent-color: theme('colors.indigo.600');
+  /* Checkbox, radio, thanh trượt của trình duyệt theo màu chủ đạo */
+  accent-color: rgb(var(--brand-600));
+}
+
+/* Màu chủ đạo mặc định = theme lac-gold (vàng đồng chim Lạc). Theme khác ghi đè biến trên <html> — xem lib/themes.ts */
+:root {
+  --brand-50: 252 248 237;
+  --brand-100: 248 238 210;
+  --brand-200: 240 220 163;
+  --brand-300: 233 195 90;
+  --brand-400: 217 172 58;
+  --brand-500: 196 149 42;
+  --brand-600: 176 125 18;
+  --brand-700: 143 105 20;
+  --brand-800: 106 79 19;
+  --brand-900: 78 58 20;
+  --brand-950: 44 32 9;
 }
 
 /* Vùng thanh trạng thái / thanh điều hướng hệ thống (viewport-fit=cover: web vẽ tràn dưới chúng). Android WebView cũ

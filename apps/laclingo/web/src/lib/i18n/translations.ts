@@ -5,6 +5,7 @@ import { accountsTranslations, type AccountsDict } from './dict/accounts'
 import { moderationTranslations, type ModerationDict } from './dict/moderation'
 import { appVersionTranslations, type AppVersionDict } from './dict/app-version'
 import { onboardingTranslations, type OnboardingDict } from './dict/onboarding'
+import { settingsTranslations, type SettingsDict } from './dict/settings'
 import { analyzeTranslations, type AnalyzeDict } from './dict/analyze'
 import { billingTranslations, type BillingDict } from './dict/billing'
 import { dailyTranslations, type DailyDict } from './dict/daily'
@@ -53,6 +54,7 @@ interface Dictionary {
     analyze: string
     pro: string
     wallet: string
+    settings: string
     blog: string
     admin: string
     logout: string
@@ -123,6 +125,7 @@ const base: Record<BuiltinLocale, Dictionary> = {
       analyze: 'Phân tích câu',
       pro: 'LacLingo Pro',
       wallet: 'Ví gems',
+      settings: 'Cài đặt',
       blog: 'Blog',
       admin: 'Quản trị',
       logout: 'Đăng xuất',
@@ -191,6 +194,7 @@ const base: Record<BuiltinLocale, Dictionary> = {
       analyze: 'Sentence check',
       pro: 'LacLingo Pro',
       wallet: 'Wallet',
+      settings: 'Settings',
       blog: 'Blog',
       admin: 'Admin',
       logout: 'Log out',
@@ -259,6 +263,7 @@ const base: Record<BuiltinLocale, Dictionary> = {
       analyze: '句子分析',
       pro: 'LacLingo Pro',
       wallet: '钱包',
+      settings: '设置',
       blog: '博客',
       admin: '管理',
       logout: '退出登录',
@@ -327,6 +332,7 @@ const base: Record<BuiltinLocale, Dictionary> = {
       analyze: '文の分析',
       pro: 'LacLingo Pro',
       wallet: 'ウォレット',
+      settings: '設定',
       blog: 'ブログ',
       admin: '管理',
       logout: 'ログアウト',
@@ -395,6 +401,7 @@ const base: Record<BuiltinLocale, Dictionary> = {
       analyze: '문장 분석',
       pro: 'LacLingo Pro',
       wallet: '지갑',
+      settings: '설정',
       blog: '블로그',
       admin: '관리',
       logout: '로그아웃',
@@ -479,7 +486,8 @@ type AllDicts = Dictionary &
   AccountsDict &
   ModerationDict &
   AppVersionDict &
-  OnboardingDict
+  OnboardingDict &
+  SettingsDict
 
 function build(locale: Locale): AllDicts {
   return {
@@ -510,6 +518,7 @@ function build(locale: Locale): AllDicts {
     ...pick(moderationTranslations, locale),
     ...pick(appVersionTranslations, locale),
     ...pick(onboardingTranslations, locale),
+    ...pick(settingsTranslations, locale),
   }
 }
 
