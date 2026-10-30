@@ -14,7 +14,7 @@ import { isTypingTarget } from '@/hooks/useKeypress'
 import { useTranslation } from '@/hooks/useTranslation'
 import { cn } from '@/lib/utils'
 import { useLayout } from '@/store/layout'
-import { LOCALES, useLocale } from '@/store/locale'
+import { useLocale, useLocales } from '@/store/locale'
 import type { User } from '@/types/api'
 
 // key tra vào t.nav (useTranslation) — label dịch theo ngôn ngữ giao diện,
@@ -66,6 +66,7 @@ export function Sidebar({ user }: { user: User }) {
   const toggleSidebar = useLayout((s) => s.toggleSidebar)
   const setSidebarCollapsed = useLayout((s) => s.setSidebarCollapsed)
   const locale = useLocale((s) => s.locale)
+  const currentLocale = useLocales((s) => s.locales.find((l) => l.value === locale))
   const t = useTranslation()
   const rewardCount = useRewardsCount((s) => s.count) // quà gems chờ nhận
   const isAdmin = user.role === 'admin' || user.role === 'owner'
@@ -157,10 +158,10 @@ export function Sidebar({ user }: { user: User }) {
             type="button"
             onClick={() => setSidebarCollapsed(false)}
             aria-label={t.nav.expandMenu}
-            title={LOCALES.find((l) => l.value === locale)?.label}
+            title={currentLocale?.label}
             className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-slate-100"
           >
-            <span aria-hidden>{LOCALES.find((l) => l.value === locale)?.flag}</span>
+            <span aria-hidden>{currentLocale?.flag ?? '🌐'}</span>
           </button>
         ) : (
           <LanguageSwitcher className="mb-3" />

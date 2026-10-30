@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale, Locale } from '@/store/locale'
 import { adminCommonTranslations, type AdminCommonDict } from './dict/admin-common'
 import { adminUsersTranslations, type AdminUsersDict } from './dict/admin-users'
 import { accountsTranslations, type AccountsDict } from './dict/accounts'
@@ -32,9 +32,11 @@ import { speakingTranslations, type SpeakingDict } from './dict/speaking'
 // sung sau — `pick` tự fallback về en rồi vi nếu namespace đó chưa có bản
 // dịch cho locale đang chọn, để không bao giờ hiện undefined. Lưu ý: message
 // lỗi trả về từ backend (ApiError) luôn là tiếng Việt — i18n phía BE là phạm
-// vi khác, chưa làm ở đây.
-function pick<T>(dict: Partial<Record<Locale, T>>, locale: Locale): T {
-  return (dict[locale] ?? dict.en ?? dict.vi) as T
+// vi khác, chưa làm ở đây. Ngôn ngữ giao diện mới cấu hình ở backend (UI_LOCALES) mà
+// chưa có từ điển ở đây → chữ giao diện hiện tiếng Anh; thêm bản dịch = thêm khoá
+// locale đó vào các dict (không cần sửa chỗ khác).
+function pick<T>(dict: Partial<Record<BuiltinLocale, T>>, locale: Locale): T {
+  return ((dict as Partial<Record<Locale, T>>)[locale] ?? dict.en ?? dict.vi) as T
 }
 
 interface Dictionary {
@@ -106,7 +108,7 @@ interface Dictionary {
   }
 }
 
-const base: Record<Locale, Dictionary> = {
+const base: Record<BuiltinLocale, Dictionary> = {
   vi: {
     nav: {
       learn: 'Học',
@@ -449,8 +451,6 @@ const base: Record<Locale, Dictionary> = {
   },
 }
 
-const LOCALE_LIST: Locale[] = ['vi', 'en', 'zh', 'ja', 'ko']
-
 // Gộp type 1 lần duy nhất ở đây — thêm namespace mới sau này chỉ cần thêm
 // vào type alias này + mảng spread bên dưới, không phải sửa 2 chỗ lặp lại.
 type AllDicts = Dictionary &
@@ -481,37 +481,46 @@ type AllDicts = Dictionary &
   AppVersionDict &
   OnboardingDict
 
-export const translations: Record<Locale, AllDicts> = Object.fromEntries(
-  LOCALE_LIST.map((locale) => [
-    locale,
-    {
-      ...base[locale],
-      ...pick(learnTranslations, locale),
-      ...pick(reviewTranslations, locale),
-      ...pick(practiceTranslations, locale),
-      ...pick(decksTranslations, locale),
-      ...pick(remindersTranslations, locale),
-      ...pick(notificationsTranslations, locale),
-      ...pick(speakingTranslations, locale),
-      ...pick(challengesTranslations, locale),
-      ...pick(listeningTranslations, locale),
-      ...pick(homeTranslations, locale),
-      ...pick(adminCommonTranslations, locale),
-      ...pick(adminUsersTranslations, locale),
-      ...pick(adminVocabularyTranslations, locale),
-      ...pick(adminGrammarTranslations, locale),
-      ...pick(adminChallengesMissionsTranslations, locale),
-      ...pick(adminListeningTranslations, locale),
-      ...pick(commonTranslations, locale),
-      ...pick(classesTranslations, locale),
-      ...pick(blogTranslations, locale),
-      ...pick(dailyTranslations, locale),
-      ...pick(analyzeTranslations, locale),
-      ...pick(accountsTranslations, locale),
-      ...pick(billingTranslations, locale),
-      ...pick(moderationTranslations, locale),
-      ...pick(appVersionTranslations, locale),
-      ...pick(onboardingTranslations, locale),
-    },
-  ]),
-) as Record<Locale, AllDicts>
+function build(locale: Locale): AllDicts {
+  return {
+    ...pick(base, locale),
+    ...pick(learnTranslations, locale),
+    ...pick(reviewTranslations, locale),
+    ...pick(practiceTranslations, locale),
+    ...pick(decksTranslations, locale),
+    ...pick(remindersTranslations, locale),
+    ...pick(notificationsTranslations, locale),
+    ...pick(speakingTranslations, locale),
+    ...pick(challengesTranslations, locale),
+    ...pick(listeningTranslations, locale),
+    ...pick(homeTranslations, locale),
+    ...pick(adminCommonTranslations, locale),
+    ...pick(adminUsersTranslations, locale),
+    ...pick(adminVocabularyTranslations, locale),
+    ...pick(adminGrammarTranslations, locale),
+    ...pick(adminChallengesMissionsTranslations, locale),
+    ...pick(adminListeningTranslations, locale),
+    ...pick(commonTranslations, locale),
+    ...pick(classesTranslations, locale),
+    ...pick(blogTranslations, locale),
+    ...pick(dailyTranslations, locale),
+    ...pick(analyzeTranslations, locale),
+    ...pick(accountsTranslations, locale),
+    ...pick(billingTranslations, locale),
+    ...pick(moderationTranslations, locale),
+    ...pick(appVersionTranslations, locale),
+    ...pick(onboardingTranslations, locale),
+  }
+}
+
+const cache = new Map<Locale, AllDicts>()
+
+/** Từ điển giao diện theo ngôn ngữ — mọi mã đều trả đủ khoá (thiếu bản dịch thì lấy tiếng Anh, rồi tiếng Việt) */
+export function getTranslations(locale: Locale): AllDicts {
+  let dict = cache.get(locale)
+  if (!dict) {
+    dict = build(locale)
+    cache.set(locale, dict)
+  }
+  return dict
+}

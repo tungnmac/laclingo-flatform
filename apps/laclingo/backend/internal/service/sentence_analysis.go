@@ -142,7 +142,7 @@ func normalizeSentence(s string) string { return strings.Join(strings.Fields(s),
 
 func (s *SentenceAnalyzer) Analyze(ctx context.Context, userID uuid.UUID, req SentenceAnalyzeRequest) (SentenceAnalysis, error) {
 	sentence := normalizeSentence(req.Sentence)
-	if _, ok := suggestLanguageNames[req.LanguageID]; !ok {
+	if !slices.Contains(sentenceAnalysisLanguages, req.LanguageID) {
 		return SentenceAnalysis{}, fmt.Errorf("chỉ phân tích được câu tiếng Anh hoặc tiếng Trung: %w", ErrInvalidInput)
 	}
 	if sentence == "" || utf8.RuneCountInString(sentence) > maxAnalyzeSentenceLen {
@@ -235,6 +235,10 @@ func (s *SentenceAnalyzer) store(key string, v SentenceAnalysis) {
 
 // ===== AI =====
 
+// sentenceAnalysisLanguages — ngôn ngữ phân tích câu được: prompt (analysisSystemPrompt) hướng dẫn riêng lỗi hay gặp /
+// phiên âm của tiếng Anh và tiếng Trung — mở thêm ngôn ngữ thì bổ sung hướng dẫn cho ngôn ngữ đó rồi thêm vào đây
+var sentenceAnalysisLanguages = []string{"en", "zh"}
+
 const analysisSystemPrompt = `You are a precise, encouraging language tutor for Vietnamese learners on LacLingo.
 Analyze ONE sentence written by a learner in the target language. Write every explanation, role, note and meaning in Vietnamese.
 - is_correct: true only if the sentence is grammatically correct and natural. If the sentence is not in the target language, set is_correct=false, corrected="", and add one error of type "other" saying so.
@@ -274,7 +278,7 @@ func (s *SentenceAnalyzer) askAI(ctx context.Context, languageID, sentence strin
 	text, err := s.ai.GenerateJSON(ctx, AIJSONRequest{
 		System: analysisSystemPrompt,
 		User: fmt.Sprintf("Target language: %s\nLevel scale (lowest to highest): %s\nSentence: %s",
-			suggestLanguageNames[languageID], strings.Join(LevelScale(languageID), ", "), sentence),
+			languageEnglishName(languageID, languageID), strings.Join(LevelScale(languageID), ", "), sentence),
 		Schema:    sentenceAnalysisSchema(languageID),
 		MaxTokens: 4096,
 	})

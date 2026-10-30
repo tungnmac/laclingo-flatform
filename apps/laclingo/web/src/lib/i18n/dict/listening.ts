@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "listening" (học viên: chọn ngôn ngữ/chủ đề/bài, nghe + trả lời
 // câu hỏi). Chỉ vi+en — zh/ja/ko fallback về en, bổ sung sau.
@@ -25,7 +25,7 @@ export interface ListeningDict {
   }
 }
 
-export const listeningTranslations: Partial<Record<Locale, ListeningDict>> = {
+export const listeningTranslations: Partial<Record<BuiltinLocale, ListeningDict>> = {
   vi: {
     listening: {
       pageTitle: '🎧 Luyện nghe',

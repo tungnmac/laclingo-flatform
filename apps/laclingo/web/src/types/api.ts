@@ -92,9 +92,20 @@ export interface LanguageSyncJob {
 export interface Language {
   id: string
   name: string
-  code: string
+  code: string // BCP-47 cho đọc phát âm / nhận dạng giọng nói (Web Speech API)
   created_at: string
   level_scale?: LevelCode[] // thang trình độ, thấp → cao (vd ja: N5..N1)
+  flag?: string // emoji cờ ("" = ngôn ngữ admin tự thêm chưa có cờ)
+  english_name?: string
+  preview_phrase?: string // câu "Nghe thử" giọng đọc
+  topic_count?: number // số chủ đề từ vựng (chỉ GET /languages)
+}
+
+/** Ngôn ngữ giao diện (GET /locales) */
+export interface UILocale {
+  code: string
+  native_name: string
+  flag: string
 }
 
 export interface GrammarLessonSummary {

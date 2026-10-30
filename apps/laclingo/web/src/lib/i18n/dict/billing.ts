@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { BillingFeature, CatalogItemId, GemReward, GemTransaction, PaymentOrder, RewardSettings, SubscriptionPlan } from '@/types/api'
 
 // Namespace "billing" — LacLingo Pro: bảng giá, màn nâng cấp, gói trong hồ sơ, admin cấp Pro. Chỉ vi+en.
@@ -115,7 +115,7 @@ const enFeatures: Record<BillingFeature, string> = { srs_review: 'Vocabulary rev
 const viFeaturePhrase: Record<BillingFeature, string> = { srs_review: 'ôn từ vựng', speaking: 'luyện nói', sentence_analysis: 'phân tích câu bằng AI' }
 const enFeaturePhrase: Record<BillingFeature, string> = { srs_review: 'vocabulary reviews', speaking: 'speaking attempts', sentence_analysis: 'AI sentence checks' }
 
-export const billingTranslations: Partial<Record<Locale, BillingDict>> = {
+export const billingTranslations: Partial<Record<BuiltinLocale, BillingDict>> = {
   vi: {
     billing: {
       pricingTitle: '⭐ LacLingo Pro',

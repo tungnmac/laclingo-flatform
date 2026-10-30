@@ -14,6 +14,7 @@ import (
 type LanguageRepository interface {
 	GetLanguageByID(ctx context.Context, id string) (db.Language, error)
 	ListLanguages(ctx context.Context) ([]db.Language, error)
+	ListLanguageTopicCounts(ctx context.Context) ([]db.ListLanguageTopicCountsRow, error)
 }
 
 // LanguageResponse là dữ liệu ngôn ngữ trả ra API
@@ -24,15 +25,20 @@ type LanguageResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	// LevelScale — thang trình độ của ngôn ngữ, thấp → cao (vd ja: N5..N1) — web vẽ ô chọn trình độ theo đây
 	LevelScale []string `json:"level_scale" example:"A1,A2,B1,B2,C1,C2"`
+	LanguageInfo
+	// TopicCount — số chủ đề từ vựng (chỉ có ở GET /languages): web lấy kho nhiều chủ đề nhất làm danh sách chủ đề mặc
+	// định khi dựng ngôn ngữ mới
+	TopicCount int32 `json:"topic_count,omitempty" example:"42"`
 }
 
 func toLanguageResponse(l db.Language) LanguageResponse {
 	return LanguageResponse{
-		ID:         l.ID,
-		Name:       l.Name,
-		Code:       l.Code,
-		CreatedAt:  l.CreatedAt.Time,
-		LevelScale: LevelScale(l.ID),
+		ID:           l.ID,
+		Name:         l.Name,
+		Code:         l.Code,
+		CreatedAt:    l.CreatedAt.Time,
+		LevelScale:   LevelScale(l.ID),
+		LanguageInfo: languageInfo(l.ID, l.Name),
 	}
 }
 
@@ -62,9 +68,19 @@ func (s *LanguageService) List(ctx context.Context) ([]LanguageResponse, error) 
 	if err != nil {
 		return nil, err
 	}
+	counts, err := s.repo.ListLanguageTopicCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	topics := make(map[string]int32, len(counts))
+	for _, c := range counts {
+		topics[c.LanguageID] = c.TopicCount
+	}
 	results := make([]LanguageResponse, 0, len(langs))
 	for _, l := range langs {
-		results = append(results, toLanguageResponse(l))
+		r := toLanguageResponse(l)
+		r.TopicCount = topics[l.ID]
+		results = append(results, r)
 	}
 	return results, nil
 }

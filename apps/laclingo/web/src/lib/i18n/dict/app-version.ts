@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "appVersion" — kiểm tra phiên bản app iOS/Android (bắt buộc / nhắc cập nhật) + trang admin. Chỉ vi+en.
 export interface AppVersionDict {
@@ -29,7 +29,7 @@ export interface AppVersionDict {
   }
 }
 
-export const appVersionTranslations: Partial<Record<Locale, AppVersionDict>> = {
+export const appVersionTranslations: Partial<Record<BuiltinLocale, AppVersionDict>> = {
   vi: {
     appVersion: {
       forceTitle: 'Cần cập nhật ứng dụng',

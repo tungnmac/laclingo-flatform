@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "accounts" — chuyển giữa các tài khoản đã đăng nhập. Chỉ vi+en — zh/ja/ko fallback về en.
 export interface AccountsDict {
@@ -29,7 +29,7 @@ export interface AccountsDict {
   }
 }
 
-export const accountsTranslations: Partial<Record<Locale, AccountsDict>> = {
+export const accountsTranslations: Partial<Record<BuiltinLocale, AccountsDict>> = {
   vi: {
     accounts: {
       menu: (n) => `Tài khoản ${n}: hồ sơ, chuyển tài khoản`,

@@ -1,44 +1,10 @@
 import Link from 'next/link'
+import { languageFlag } from '@/lib/languageMeta'
 import { useLanguageName } from '@/hooks/useLanguageName'
 import type { Language } from '@/types/api'
 
-// Gồm cả danh mục ngôn ngữ phổ biến ở "Học ngôn ngữ mới" (backend service/language_catalog.go)
-const flags: Record<string, string> = {
-  en: '🇬🇧', ja: '🇯🇵', ko: '🇰🇷', zh: '🇨🇳', fr: '🇫🇷', de: '🇩🇪', vi: '🇻🇳', es: '🇪🇸', it: '🇮🇹', pt: '🇧🇷', ru: '🇷🇺',
-  th: '🇹🇭', id: '🇮🇩', ms: '🇲🇾', hi: '🇮🇳', ar: '🇸🇦', tr: '🇹🇷', nl: '🇳🇱', pl: '🇵🇱', sv: '🇸🇪', km: '🇰🇭',
-}
-
-export function languageFlag(id: string) {
-  return flags[id] ?? '🌐'
-}
-
-// Mã BCP-47 cho Web Speech API (SpeechSynthesisUtterance.lang) — khớp cột
-// `code` của từng ngôn ngữ trong DB, liệt kê riêng ở đây để AudioButton dùng
-// được mà không cần fetch thêm.
-const speechLangs: Record<string, string> = {
-  en: 'en-US', ja: 'ja-JP', ko: 'ko-KR', zh: 'zh-CN', fr: 'fr-FR', de: 'de-DE', vi: 'vi-VN', es: 'es-ES', it: 'it-IT', pt: 'pt-BR',
-  ru: 'ru-RU', th: 'th-TH', id: 'id-ID', ms: 'ms-MY', hi: 'hi-IN', ar: 'ar-SA', tr: 'tr-TR', nl: 'nl-NL', pl: 'pl-PL', sv: 'sv-SE',
-  km: 'km-KH',
-}
-
-export function speechLang(id: string) {
-  return speechLangs[id] ?? 'en-US'
-}
-
-// Câu mẫu để "Nghe thử" giọng đã chọn ở trang Hồ sơ.
-const previewPhrases: Record<string, string> = {
-  en: 'Hello, nice to meet you.',
-  ja: 'こんにちは、はじめまして。',
-  ko: '안녕하세요, 반갑습니다.',
-  zh: '你好，很高兴认识你。',
-  fr: 'Bonjour, ravi de vous rencontrer.',
-  de: 'Hallo, schön dich kennenzulernen.',
-  vi: 'Xin chào, rất vui được gặp bạn.',
-}
-
-export function previewPhrase(id: string) {
-  return previewPhrases[id] ?? 'Hello!'
-}
+// Cờ / mã đọc phát âm / câu nghe thử lấy từ thông tin backend trả (lib/languageMeta) — giữ export ở đây cho các nơi đang dùng
+export { languageFlag, previewPhrase, speechLang } from '@/lib/languageMeta'
 
 export function LanguageCard({ language }: { language: Language }) {
   const languageName = useLanguageName()

@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminChallengeQuestions" + "adminMissions". Chỉ vi+en.
 export interface AdminChallengesMissionsDict {
@@ -62,7 +62,7 @@ export interface AdminChallengesMissionsDict {
   }
 }
 
-export const adminChallengesMissionsTranslations: Partial<Record<Locale, AdminChallengesMissionsDict>> = {
+export const adminChallengesMissionsTranslations: Partial<Record<BuiltinLocale, AdminChallengesMissionsDict>> = {
   vi: {
     adminChallengeQuestions: {
       pageTitle: 'Câu hỏi thách đấu',

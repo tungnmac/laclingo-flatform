@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "challenges" (tạo/tham gia phòng, lobby, câu hỏi, kết quả, chat),
 // "leaderboard" và "missions". Chỉ vi+en — zh/ja/ko fallback về en, bổ sung sau.
@@ -88,7 +88,7 @@ export interface ChallengesDict {
   }
 }
 
-export const challengesTranslations: Partial<Record<Locale, ChallengesDict>> = {
+export const challengesTranslations: Partial<Record<BuiltinLocale, ChallengesDict>> = {
   vi: {
     challenges: {
       pageTitle: 'Thách đấu',

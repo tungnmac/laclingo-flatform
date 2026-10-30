@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "classes" (learner — danh sách lớp + chi tiết giáo án) và
 // "adminClasses" (quản trị lớp học). Chỉ vi+en.
@@ -37,7 +37,7 @@ export interface ClassesDict {
   }
 }
 
-export const classesTranslations: Partial<Record<Locale, ClassesDict>> = {
+export const classesTranslations: Partial<Record<BuiltinLocale, ClassesDict>> = {
   vi: {
     classes: {
       sectionTitle: '📋 Lớp học',

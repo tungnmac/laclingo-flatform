@@ -6,33 +6,38 @@ import "context"
 // khi user đầu tiên chọn, nội dung dựng từ chủ đề nguồn — xem LanguageContentService). Không có tiếng Việt: nghĩa từ
 // vựng đều là tiếng Việt.
 type CatalogLanguage struct {
-	ID          string `json:"id" example:"ja"`
-	Name        string `json:"name" example:"日本語 (Tiếng Nhật)"`
-	Code        string `json:"code" example:"ja-JP"` // BCP-47 cho đọc phát âm (Web Speech API)
-	englishName string // tên ngôn ngữ trong prompt AI
+	ID   string `json:"id" example:"ja"`
+	Name string `json:"name" example:"日本語 (Tiếng Nhật)"`
+	Code string `json:"code" example:"ja-JP"` // BCP-47 cho đọc phát âm (Web Speech API)
+	LanguageInfo
+}
+
+// catalogLanguage — cờ / tên tiếng Anh / câu nghe thử lấy từ languageMetas (language_meta.go)
+func catalogLanguage(id, name, code string) CatalogLanguage {
+	return CatalogLanguage{ID: id, Name: name, Code: code, LanguageInfo: languageInfo(id, name)}
 }
 
 var languageCatalog = []CatalogLanguage{
-	{"en", "English", "en-US", "English"},
-	{"zh", "中文 (Tiếng Trung)", "zh-CN", "Chinese (Mandarin, simplified characters)"},
-	{"ja", "日本語 (Tiếng Nhật)", "ja-JP", "Japanese"},
-	{"ko", "한국어 (Tiếng Hàn)", "ko-KR", "Korean"},
-	{"fr", "Français (Tiếng Pháp)", "fr-FR", "French"},
-	{"de", "Deutsch (Tiếng Đức)", "de-DE", "German"},
-	{"es", "Español (Tiếng Tây Ban Nha)", "es-ES", "Spanish"},
-	{"it", "Italiano (Tiếng Ý)", "it-IT", "Italian"},
-	{"pt", "Português (Tiếng Bồ Đào Nha)", "pt-BR", "Portuguese (Brazilian)"},
-	{"ru", "Русский (Tiếng Nga)", "ru-RU", "Russian"},
-	{"th", "ไทย (Tiếng Thái)", "th-TH", "Thai"},
-	{"id", "Bahasa Indonesia (Tiếng Indonesia)", "id-ID", "Indonesian"},
-	{"ms", "Bahasa Melayu (Tiếng Mã Lai)", "ms-MY", "Malay"},
-	{"hi", "हिन्दी (Tiếng Hindi)", "hi-IN", "Hindi"},
-	{"ar", "العربية (Tiếng Ả Rập)", "ar-SA", "Arabic (Modern Standard)"},
-	{"tr", "Türkçe (Tiếng Thổ Nhĩ Kỳ)", "tr-TR", "Turkish"},
-	{"nl", "Nederlands (Tiếng Hà Lan)", "nl-NL", "Dutch"},
-	{"pl", "Polski (Tiếng Ba Lan)", "pl-PL", "Polish"},
-	{"sv", "Svenska (Tiếng Thụy Điển)", "sv-SE", "Swedish"},
-	{"km", "ខ្មែរ (Tiếng Khmer)", "km-KH", "Khmer"},
+	catalogLanguage("en", "English", "en-US"),
+	catalogLanguage("zh", "中文 (Tiếng Trung)", "zh-CN"),
+	catalogLanguage("ja", "日本語 (Tiếng Nhật)", "ja-JP"),
+	catalogLanguage("ko", "한국어 (Tiếng Hàn)", "ko-KR"),
+	catalogLanguage("fr", "Français (Tiếng Pháp)", "fr-FR"),
+	catalogLanguage("de", "Deutsch (Tiếng Đức)", "de-DE"),
+	catalogLanguage("es", "Español (Tiếng Tây Ban Nha)", "es-ES"),
+	catalogLanguage("it", "Italiano (Tiếng Ý)", "it-IT"),
+	catalogLanguage("pt", "Português (Tiếng Bồ Đào Nha)", "pt-BR"),
+	catalogLanguage("ru", "Русский (Tiếng Nga)", "ru-RU"),
+	catalogLanguage("th", "ไทย (Tiếng Thái)", "th-TH"),
+	catalogLanguage("id", "Bahasa Indonesia (Tiếng Indonesia)", "id-ID"),
+	catalogLanguage("ms", "Bahasa Melayu (Tiếng Mã Lai)", "ms-MY"),
+	catalogLanguage("hi", "हिन्दी (Tiếng Hindi)", "hi-IN"),
+	catalogLanguage("ar", "العربية (Tiếng Ả Rập)", "ar-SA"),
+	catalogLanguage("tr", "Türkçe (Tiếng Thổ Nhĩ Kỳ)", "tr-TR"),
+	catalogLanguage("nl", "Nederlands (Tiếng Hà Lan)", "nl-NL"),
+	catalogLanguage("pl", "Polski (Tiếng Ba Lan)", "pl-PL"),
+	catalogLanguage("sv", "Svenska (Tiếng Thụy Điển)", "sv-SE"),
+	catalogLanguage("km", "ខ្មែរ (Tiếng Khmer)", "km-KH"),
 }
 
 // CatalogLanguageResponse — ngôn ngữ trong danh mục kèm thang trình độ (web vẽ ô chọn trình độ theo đây)
@@ -53,14 +58,6 @@ func findCatalogLanguage(id string) (CatalogLanguage, bool) {
 	return CatalogLanguage{}, false
 }
 
-// languageEnglishName — tên ngôn ngữ cho prompt AI (ngôn ngữ admin tự thêm ngoài danh mục thì dùng tên trong DB)
-func languageEnglishName(id, fallback string) string {
-	if l, ok := findCatalogLanguage(id); ok {
-		return l.englishName
-	}
-	return fallback
-}
-
 // Catalog — ngôn ngữ chọn được ở "Học ngôn ngữ mới": các ngôn ngữ đã có trong kho trước, rồi tới danh mục phổ biến
 func (s *LanguageService) Catalog(ctx context.Context) ([]CatalogLanguageResponse, error) {
 	langs, err := s.repo.ListLanguages(ctx)
@@ -74,7 +71,7 @@ func (s *LanguageService) Catalog(ctx context.Context) ([]CatalogLanguageRespons
 		if l.ID == nativeLanguageID {
 			continue
 		}
-		results = append(results, CatalogLanguageResponse{CatalogLanguage{ID: l.ID, Name: l.Name, Code: l.Code}, LevelScale(l.ID)})
+		results = append(results, CatalogLanguageResponse{catalogLanguage(l.ID, l.Name, l.Code), LevelScale(l.ID)})
 	}
 	for _, l := range languageCatalog {
 		if !seen[l.ID] {

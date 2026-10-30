@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminCommon" — dùng chung bởi AdminSubNav, trang hub /admin,
 // Pagination, ExportButton, BulkImportPanel, UserAdminControls, phần không
@@ -84,7 +84,7 @@ export interface AdminCommonDict {
   }
 }
 
-export const adminCommonTranslations: Partial<Record<Locale, AdminCommonDict>> = {
+export const adminCommonTranslations: Partial<Record<BuiltinLocale, AdminCommonDict>> = {
   vi: {
     adminCommon: {
       overviewTab: '🏠 Tổng quan',

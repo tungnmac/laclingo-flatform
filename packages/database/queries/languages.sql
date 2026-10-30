@@ -13,3 +13,10 @@ ORDER BY l.name;
 -- "Học ngôn ngữ mới": ngôn ngữ trong danh mục (service/language_catalog.go) chưa có dòng thì tạo khi user chọn
 INSERT INTO languages (id, name, code) VALUES ($1, $2, $3)
 ON CONFLICT (id) DO NOTHING;
+
+-- name: ListLanguageTopicCounts :many
+-- Số chủ đề từ vựng của từng ngôn ngữ — web chọn kho nhiều chủ đề nhất làm danh sách chủ đề mặc định khi dựng ngôn ngữ mới
+SELECT language_id, COUNT(DISTINCT topic)::int AS topic_count
+FROM vocabularies
+WHERE topic IS NOT NULL AND topic <> ''
+GROUP BY language_id;

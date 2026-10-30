@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "decks" — danh sách ôn tập do user tự quản lý (hộp "Thêm vào ôn
 // tập", trang danh sách, chi tiết list). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -57,7 +57,7 @@ export interface DecksDict {
   }
 }
 
-export const decksTranslations: Partial<Record<Locale, DecksDict>> = {
+export const decksTranslations: Partial<Record<BuiltinLocale, DecksDict>> = {
   vi: {
     decks: {
       pageTitle: 'Danh sách ôn tập',

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // dữ liệu múi giờ nhúng sẵn — Nhật ký học tính "hôm nay" theo múi giờ học viên
@@ -41,6 +42,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Không thể load config: %v", err)
 	}
+	// Ngôn ngữ giao diện (UI_LOCALES): GET /locales, Accept-Language được nhận, worker dịch nội dung học
+	service.SetUILocales(cfg.UILocales)
+	log.Printf("🌐 Ngôn ngữ giao diện: %s", strings.Join(cfg.UILocales, ", "))
 
 	// Migrate trước khi nhận request — lỗi thì thoát, Render giữ bản đang chạy (bản mới không qua health check).
 	// DB mới hơn bản này (rollback / bản mới migrate lỗi) thì chỉ cảnh báo, vẫn chạy.

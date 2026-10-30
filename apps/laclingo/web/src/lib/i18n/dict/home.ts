@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "home" — landing page công khai (trước đăng nhập). Chỉ vi+en.
 export interface HomeDict {
@@ -17,7 +17,7 @@ export interface HomeDict {
   }
 }
 
-export const homeTranslations: Partial<Record<Locale, HomeDict>> = {
+export const homeTranslations: Partial<Record<BuiltinLocale, HomeDict>> = {
   vi: {
     home: {
       login: 'Đăng nhập',

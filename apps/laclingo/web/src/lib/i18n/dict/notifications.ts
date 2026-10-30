@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "notifications" (chuông thông báo — sidebar/header) và
 // "adminAnnouncements" (admin gửi thông báo chung). Chỉ vi+en — zh/ja/ko fallback về en.
@@ -37,7 +37,7 @@ export interface NotificationsDict {
   }
 }
 
-export const notificationsTranslations: Partial<Record<Locale, NotificationsDict>> = {
+export const notificationsTranslations: Partial<Record<BuiltinLocale, NotificationsDict>> = {
   vi: {
     notifications: {
       bellLabel: 'Thông báo',

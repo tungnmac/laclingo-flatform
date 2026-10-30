@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminListening" — CRUD bài luyện nghe + chủ đề + audio + câu hỏi. Chỉ vi+en.
 export interface AdminListeningDict {
@@ -59,7 +59,7 @@ export interface AdminListeningDict {
   }
 }
 
-export const adminListeningTranslations: Partial<Record<Locale, AdminListeningDict>> = {
+export const adminListeningTranslations: Partial<Record<BuiltinLocale, AdminListeningDict>> = {
   vi: {
     adminListening: {
       pageTitle: 'Luyện nghe',

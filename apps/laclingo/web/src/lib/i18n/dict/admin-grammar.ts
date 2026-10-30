@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 
 // Namespace "adminGrammar" — CRUD chủ đề/bài học/bài tập ngữ pháp. Chỉ vi+en.
 export interface AdminGrammarDict {
@@ -56,7 +56,7 @@ export interface AdminGrammarDict {
   }
 }
 
-export const adminGrammarTranslations: Partial<Record<Locale, AdminGrammarDict>> = {
+export const adminGrammarTranslations: Partial<Record<BuiltinLocale, AdminGrammarDict>> = {
   vi: {
     adminGrammar: {
       pageTitle: 'Ngữ pháp',

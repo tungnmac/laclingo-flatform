@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { LocaleSync } from '@/components/layout/LocaleSync'
 import { NativeAppBridge } from '@/components/pwa/NativeAppBridge'
 import { AppUpdateGate } from '@/features/app-version/AppUpdateGate'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
@@ -30,6 +31,7 @@ export default function RootLayout({
         {children}
         <ServiceWorkerRegister />
         <NativeAppBridge />
+        <LocaleSync />
         <AppUpdateGate />
       </body>
     </html>

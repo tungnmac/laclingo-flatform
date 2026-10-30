@@ -17,7 +17,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { levelScale } from '@/lib/levels'
 import { cn, displayName } from '@/lib/utils'
-import { LOCALES, useLocale, type Locale } from '@/store/locale'
+import { useLocale, useLocales, type Locale } from '@/store/locale'
 import { useSession } from '@/store/session'
 import type { LevelCode, OnboardingData, PreferredTopic, SaveOnboardingRequest, TargetLanguage } from '@/types/api'
 import { onboardingService } from '../onboarding.service'
@@ -116,7 +116,7 @@ function Wizard({ initial, title }: { initial: OnboardingData; title: string }) 
       await onboardingService.save({ ...form, complete: true })
       // Lần đầu hoàn tất: ngôn ngữ mẹ đẻ có bản dịch giao diện → đổi giao diện sang ngôn ngữ đó (mở lại từ Hồ sơ thì giữ
       // ngôn ngữ giao diện người dùng đang chọn)
-      const native = LOCALES.find((l) => l.value === form.native_language)
+      const native = useLocales.getState().locales.find((l) => l.value === form.native_language)
       if (!initial.user.onboarded_at && native && native.value !== locale) setLocale(native.value)
     })
 

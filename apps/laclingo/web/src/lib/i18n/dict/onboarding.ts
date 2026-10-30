@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { LevelCode } from '@/types/api'
 
 // Namespace "onboarding" — các bước thiết lập lần đầu đăng nhập (/onboarding). Chỉ vi+en.
@@ -71,7 +71,7 @@ export interface OnboardingDict {
   }
 }
 
-export const onboardingTranslations: Partial<Record<Locale, OnboardingDict>> = {
+export const onboardingTranslations: Partial<Record<BuiltinLocale, OnboardingDict>> = {
   vi: {
     onboarding: {
       title: 'Thiết lập lộ trình học',

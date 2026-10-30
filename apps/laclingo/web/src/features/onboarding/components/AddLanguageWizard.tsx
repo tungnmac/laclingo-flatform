@@ -226,6 +226,20 @@ type TopicsStepProps = {
   onError: (msg: string | null) => void
 }
 
+/** Kho làm danh sách chủ đề mặc định khi dựng ngôn ngữ mới: ngôn ngữ nhiều chủ đề nhất (GET /languages có topic_count),
+ * trừ chính ngôn ngữ đó và tiếng Việt (ngôn ngữ của nghĩa). Chưa có số liệu / lỗi → tiếng Anh (thêm tiếng Anh thì tiếng Trung). */
+async function referenceLanguage(languageId: string): Promise<string> {
+  const fallback = languageId === 'en' ? 'zh' : 'en'
+  try {
+    const best = (await courseService.list())
+      .filter((l) => l.id !== languageId && l.id !== 'vi' && (l.topic_count ?? 0) > 0)
+      .reduce<Language | null>((a, b) => (!a || (b.topic_count ?? 0) > (a.topic_count ?? 0) ? b : a), null)
+    return best?.id ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 /** Tải chủ đề của ngôn ngữ mới mỗi lần vào bước chủ đề (ngôn ngữ có thể vừa đổi) rồi mới hiện TopicsStep */
 function TopicsLoader({ onLoaded, ...props }: Omit<TopicsStepProps, 'available'> & { onLoaded: (hasTopics: boolean) => void }) {
   const { data, error, loading, reload } = useApi(() => vocabularyService.listTopics(props.languageId), [props.languageId])
@@ -285,8 +299,9 @@ function TopicsStep({
         onTopicsChange(picked)
         onBuildChange(res.missing.slice(0, MAX_TOPICS - picked.length))
       } else {
-        // Mặc định + ngôn ngữ mới chưa có nội dung: danh sách chủ đề mặc định (kho tiếng Anh) để dựng
-        const reference = languageId === 'en' ? 'zh' : 'en'
+        // Mặc định + ngôn ngữ mới chưa có nội dung: danh sách chủ đề mặc định (kho nhiều chủ đề nhất) để dựng
+        const reference = await referenceLanguage(languageId)
+        if (latest.current !== run) return
         const list = await vocabularyService.listTopics(reference)
         if (latest.current !== run) return
         onSourceChange({ from: '', buildFrom: reference, candidates: list.map((x) => ({ name: x.name, label: x.label, icon: x.icon })), synced: null })

@@ -1,4 +1,4 @@
-import type { Locale } from '@/store/locale'
+import type { BuiltinLocale } from '@/store/locale'
 import type { SpeakingTip } from '@/types/api'
 
 // Namespace "speaking" (học viên — luyện nói) và "adminSpeaking" (quản lý chủ
@@ -92,7 +92,7 @@ export interface SpeakingDict {
   }
 }
 
-export const speakingTranslations: Partial<Record<Locale, SpeakingDict>> = {
+export const speakingTranslations: Partial<Record<BuiltinLocale, SpeakingDict>> = {
   vi: {
     speaking: {
       pageTitle: 'Luyện nói',
