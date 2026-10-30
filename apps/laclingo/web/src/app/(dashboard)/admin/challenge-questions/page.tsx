@@ -18,6 +18,7 @@ import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cn } from '@/lib/utils'
 import type { ChallengeQuestionAdmin, ChallengeQuestionRequest } from '@/types/api'
+import { LanguageOptions } from '@/features/course/components/LanguageOptions'
 
 const PAGE_SIZE = 20
 
@@ -133,8 +134,7 @@ export default function AdminChallengeQuestionsPage() {
             }}
             className={cn(inputClass, 'max-w-xs')}
           >
-            <option value="en">🇬🇧 English</option>
-            <option value="zh">🇨🇳 中文</option>
+            <LanguageOptions />
           </select>
         </label>
         <label className="block text-sm font-medium text-slate-700">

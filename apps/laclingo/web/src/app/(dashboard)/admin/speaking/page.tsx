@@ -17,6 +17,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { SpeakingItemAdmin, SpeakingItemRequest, SpeakingKind, SpeakingTopicAdmin } from '@/types/api'
+import { LanguageOptions } from '@/features/course/components/LanguageOptions'
 
 const PAGE_SIZE = 20
 
@@ -32,8 +33,7 @@ export default function AdminSpeakingPage() {
       <label className="mb-6 block text-sm font-medium text-slate-700">
         {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
+          <LanguageOptions />
         </select>
       </label>
       <div className="flex flex-col gap-8">
