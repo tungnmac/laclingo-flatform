@@ -77,6 +77,16 @@ const config: CapacitorConfig = {
     NativePurchases: {
       autoFinishTransactions: false,
     },
+    // Màn khởi động (logo) giữ tới khi web vẽ xong — web gọi SplashScreen.hide() lúc mount (NativeAppBridge), trang lỗi
+    // gọi khi hiện nội dung; tối đa 8 giây thì tự ẩn (mạng quá chậm / web bản cũ chưa gọi hide). Thay cho màn trắng của
+    // WebView trong lúc chờ tải web
+    SplashScreen: {
+      launchShowDuration: 8000,
+      launchAutoHide: true,
+      launchFadeOutDuration: 200,
+      backgroundColor: '#fcf8ed',
+      showSpinner: false,
+    },
   },
 }
 

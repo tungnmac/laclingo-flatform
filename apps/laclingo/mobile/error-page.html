@@ -40,7 +40,11 @@
     var KEY = 'laclingo-auto-retry'
     var last = 0
     try { last = Number(sessionStorage.getItem(KEY)) || 0 } catch (e) {}
-    function show() { document.getElementById('content').hidden = false }
+    function show() {
+      document.getElementById('content').hidden = false
+      // Ẩn màn khởi động (logo) để thấy trang này — plugin SplashScreen, xem capacitor.config.ts
+      try { window.Capacitor.Plugins.SplashScreen.hide() } catch (e) {}
+    }
     if (window.LACLINGO_URL && Date.now() - last > 15000) {
       try { sessionStorage.setItem(KEY, String(Date.now())) } catch (e) {}
       setTimeout(retry, 500)

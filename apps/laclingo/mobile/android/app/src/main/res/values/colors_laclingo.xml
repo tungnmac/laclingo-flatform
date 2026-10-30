@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="laclingo_splash">#FCF8ED</color>
     <color name="laclingo_primary">#B07D12</color>
 </resources>
