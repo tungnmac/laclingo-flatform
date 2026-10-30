@@ -35,6 +35,8 @@ interface SessionState {
   logoutAll: () => void
   /** Đổi tài khoản đang dùng (chỉ khi phiên còn hạn) — nơi gọi tự tải lại trang để xoá dữ liệu của tài khoản cũ */
   activate: (userId: string) => boolean
+  /** Offline (không tới được máy chủ): dùng lại tài khoản gần nhất trên máy dù phiên đã hết hạn — chỉ xem dữ liệu đã lưu */
+  resumeOffline: () => boolean
   /** Bỏ phiên đang dùng nhưng GIỮ trong danh sách (phiên hết hạn — hiện "đăng nhập lại") */
   deactivate: () => void
   /**
@@ -143,6 +145,11 @@ export const useSession = create<SessionState>()(
         return true
       },
       deactivate: () => set(emptyActive),
+      resumeOffline: () => {
+        const acc = get().user ? undefined : get().accounts[0]
+        if (acc) set({ ...activeOf(acc), accounts: promote(get().accounts, acc) })
+        return !!get().user
+      },
       expireToken: (token) => {
         if (get().token !== token) return 'ignored'
         const expired = new Date(0).toISOString()
