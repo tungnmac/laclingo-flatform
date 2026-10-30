@@ -674,6 +674,8 @@ type Querier interface {
 	UpdateUserModules(ctx context.Context, arg UpdateUserModulesParams) (User, error)
 	// Bước "thông tin cơ bản" + ảnh đại diện của onboarding — ghi thẳng (NULL = xoá), khác UpdateUserProfile (COALESCE).
 	UpdateUserOnboardingProfile(ctx context.Context, arg UpdateUserOnboardingProfileParams) (User, error)
+	// Đổi mật khẩu (đã kiểm mật khẩu cũ ở service) — kèm thu hồi mọi phiên đăng nhập (RevokeUserRefreshTokens)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
 	// Hạ role về 'user' thì xoá luôn admin_modules — role='user' không còn ý
 	// nghĩa giữ module cũ (RequireModule chặn từ role trước khi xét module).
