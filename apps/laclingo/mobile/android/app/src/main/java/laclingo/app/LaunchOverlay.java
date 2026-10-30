@@ -23,11 +23,19 @@ public class LaunchOverlay extends Plugin {
     private static View overlay;
 
     static void show(Activity activity) {
-        if (overlay != null) return;
         ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-        overlay = activity.getLayoutInflater().inflate(R.layout.launch_overlay, root, false);
-        root.addView(overlay);
-        new Handler(Looper.getMainLooper()).postDelayed(LaunchOverlay::dismiss, MAX_SHOW_MS);
+        View view = activity.getLayoutInflater().inflate(R.layout.launch_overlay, root, false);
+        root.addView(view);
+        overlay = view;
+        // Hẹn giờ gắn với đúng màn chờ này — không ẩn nhầm màn chờ của lần mở app sau
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (overlay == view) dismiss();
+        }, MAX_SHOW_MS);
+    }
+
+    /** Activity bị huỷ khi màn chờ còn hiện (thoát app lúc đang tải) — bỏ tham chiếu tới view của activity cũ */
+    static void forget() {
+        overlay = null;
     }
 
     private static void dismiss() {

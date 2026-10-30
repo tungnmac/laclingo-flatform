@@ -43,6 +43,12 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    @Override
+    public void onDestroy() {
+        LaunchOverlay.forget();
+        super.onDestroy();
+    }
+
     /**
      * Trang lỗi là file local Capacitor phục vụ ở host cục bộ (vd https://localhost/index.html — server.hostname +
      * errorPath), KHÔNG cùng host với web; so khớp đúng URL đó vì getLocalUrl() khi có server.url lại là origin của web
