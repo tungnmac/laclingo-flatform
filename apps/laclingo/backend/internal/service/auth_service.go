@@ -54,6 +54,7 @@ type AuthRepository interface {
 	RotateRefreshToken(ctx context.Context, arg db.RotateRefreshTokenParams) (db.RefreshToken, error)
 	RevokeRefreshFamily(ctx context.Context, familyID pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	DeleteUser(ctx context.Context, id pgtype.UUID) (int64, error)
@@ -80,6 +81,10 @@ type TokenIssuer interface {
 // refreshReuseGrace — token vừa đổi xong mà bị dùng lại trong khoảng này (2 tab làm mới cùng lúc) chỉ bị từ chối;
 // quá khoảng này mới coi là bị đánh cắp và thu hồi cả họ token. Trong 1 tab app đã gom các lần làm mới làm 1.
 const refreshReuseGrace = 30 * time.Second
+
+// refreshFamilyMaxAge — tuổi tối đa của 1 phiên đăng nhập (tính từ lúc đăng nhập, không gia hạn khi xoay token): refresh
+// token bị đánh cắp mà kẻ gian cứ xoay đều trước khi chủ dùng lại thì vẫn hết hạn, phải đăng nhập lại bằng mật khẩu
+const refreshFamilyMaxAge = 90 * 24 * time.Hour
 
 // refreshCleanupEvery — dọn bảng refresh_tokens khoảng 1 / N lần đăng nhập (không quét bảng mỗi lần)
 const refreshCleanupEvery = 50
@@ -243,6 +248,12 @@ func (s *AuthService) Refresh(ctx context.Context, token string) (AuthResponse, 
 	if !rt.ExpiresAt.Time.After(now) {
 		return AuthResponse{}, ErrSessionExpired
 	}
+	if rt.FamilyCreatedAt.Valid && now.Sub(rt.FamilyCreatedAt.Time) > refreshFamilyMaxAge {
+		if err := s.repo.RevokeRefreshFamily(ctx, rt.FamilyID); err != nil {
+			return AuthResponse{}, err
+		}
+		return AuthResponse{}, ErrSessionExpired
+	}
 	user, err := s.repo.GetUserByID(ctx, rt.UserID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AuthResponse{}, ErrSessionExpired
@@ -276,6 +287,12 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 		return nil
 	}
 	return s.repo.RevokeRefreshToken(ctx, hashRefreshToken(token))
+}
+
+// LogoutAll — "đăng xuất mọi thiết bị": thu hồi mọi refresh token của học viên (nghi bị lộ phiên / mất máy). Access
+// token đang dùng ở máy khác tự hết hạn trong JWT_TTL
+func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.RevokeUserRefreshTokens(ctx, toPgUUID(userID))
 }
 
 // DeleteAccount — học viên tự xoá vĩnh viễn tài khoản và dữ liệu của mình. Owner không tự xoá được (hệ thống

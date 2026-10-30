@@ -591,7 +591,7 @@ type Querier interface {
 	RevokeRefreshFamily(ctx context.Context, familyID pgtype.UUID) error
 	// Đăng xuất: thu hồi cả họ token của phiên này
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
-	// Khoá tài khoản: thu hồi mọi phiên đăng nhập (mở khoá lại phải đăng nhập lại)
+	// Khoá tài khoản / học viên chọn "đăng xuất mọi thiết bị": thu hồi mọi phiên đăng nhập
 	RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error
 	// Đổi token cũ lấy token mới (cùng họ) trong 1 câu lệnh: đánh dấu đã đổi + tạo token mới cùng thành công / thất bại.
 	// Token cũ đã đổi / thu hồi (2 request làm mới cùng lúc) → không trả dòng (pgx.ErrNoRows)

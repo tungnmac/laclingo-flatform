@@ -15,7 +15,7 @@ const createRefreshToken = `-- name: CreateRefreshToken :one
 
 INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at
+RETURNING id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at, family_created_at
 `
 
 type CreateRefreshTokenParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.ReplacedAt,
+		&i.FamilyCreatedAt,
 	)
 	return i, err
 }
@@ -63,7 +64,7 @@ func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context) (int64, error)
 }
 
 const getRefreshTokenByHash = `-- name: GetRefreshTokenByHash :one
-SELECT id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at FROM refresh_tokens WHERE token_hash = $1
+SELECT id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at, family_created_at FROM refresh_tokens WHERE token_hash = $1
 `
 
 func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error) {
@@ -78,6 +79,7 @@ func (q *Queries) GetRefreshTokenByHash(ctx context.Context, tokenHash string) (
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.ReplacedAt,
+		&i.FamilyCreatedAt,
 	)
 	return i, err
 }
@@ -107,7 +109,7 @@ const revokeUserRefreshTokens = `-- name: RevokeUserRefreshTokens :exec
 UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL
 `
 
-// Khoá tài khoản: thu hồi mọi phiên đăng nhập (mở khoá lại phải đăng nhập lại)
+// Khoá tài khoản / học viên chọn "đăng xuất mọi thiết bị": thu hồi mọi phiên đăng nhập
 func (q *Queries) RevokeUserRefreshTokens(ctx context.Context, userID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, revokeUserRefreshTokens, userID)
 	return err
@@ -117,11 +119,11 @@ const rotateRefreshToken = `-- name: RotateRefreshToken :one
 WITH old AS (
     UPDATE refresh_tokens o SET revoked_at = NOW(), replaced_at = NOW()
     WHERE o.id = $3 AND o.revoked_at IS NULL
-    RETURNING o.user_id, o.family_id
+    RETURNING o.user_id, o.family_id, o.family_created_at
 )
-INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
-SELECT old.user_id, old.family_id, $1, $2 FROM old
-RETURNING id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at
+INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, family_created_at)
+SELECT old.user_id, old.family_id, $1, $2, old.family_created_at FROM old
+RETURNING id, user_id, family_id, token_hash, expires_at, created_at, revoked_at, replaced_at, family_created_at
 `
 
 type RotateRefreshTokenParams struct {
@@ -144,6 +146,7 @@ func (q *Queries) RotateRefreshToken(ctx context.Context, arg RotateRefreshToken
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.ReplacedAt,
+		&i.FamilyCreatedAt,
 	)
 	return i, err
 }

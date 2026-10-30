@@ -23,11 +23,10 @@ func NewUserHandler(svc *service.UserService, plans *service.PlanService) *UserH
 
 func (h *UserHandler) RegisterRoutes(router fiber.Router) {
 	api := router.Group("/users")
-	api.Get("", h.List)
-	// /me phải đăng ký trước /:id để không bị match nhầm
+	// Không có danh sách / tra cứu user theo id cho học viên — UserResponse chứa email, role, quyền admin (lộ cho mọi
+	// tài khoản → nhắm dò mật khẩu admin); thông tin công khai của người khác đi qua leaderboard / blog / phòng thách đấu
 	api.Get("/me", h.GetMe)
 	api.Patch("/me", h.UpdateMe)
-	api.Get("/:id", h.GetByID)
 	router.Get("/leaderboard", h.GetLeaderboard)
 }
 
@@ -230,50 +229,6 @@ func (h *UserHandler) UpdateMe(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(result)
-}
-
-// GetByID godoc
-// @Summary      Lấy thông tin user
-// @Tags         users
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id   path      string  true  "User ID (UUID)"  format(uuid)
-// @Success      200  {object}  service.UserResponse
-// @Failure      400  {object}  ErrorResponse
-// @Failure      401  {object}  ErrorResponse
-// @Failure      404  {object}  ErrorResponse
-// @Failure      500  {object}  ErrorResponse
-// @Router       /users/{id} [get]
-func (h *UserHandler) GetByID(c *fiber.Ctx) error {
-	id, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "ID không hợp lệ")
-	}
-
-	result, err := h.svc.GetByID(c.UserContext(), id)
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(result)
-}
-
-// List godoc
-// @Summary      Danh sách user
-// @Tags         users
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200  {array}   service.UserResponse
-// @Failure      401  {object}  ErrorResponse
-// @Failure      500  {object}  ErrorResponse
-// @Router       /users [get]
-func (h *UserHandler) List(c *fiber.Ctx) error {
-	results, err := h.svc.List(c.UserContext())
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(results)
 }
 
 // GetLeaderboard godoc

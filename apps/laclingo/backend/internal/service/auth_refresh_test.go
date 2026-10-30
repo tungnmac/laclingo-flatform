@@ -22,7 +22,8 @@ type refreshRepo struct {
 
 func (r *refreshRepo) GetUserByID(context.Context, pgtype.UUID) (db.User, error) { return r.user, nil }
 func (r *refreshRepo) CreateRefreshToken(_ context.Context, a db.CreateRefreshTokenParams) (db.RefreshToken, error) {
-	t := &db.RefreshToken{ID: toPgUUID(uuid.New()), UserID: a.UserID, FamilyID: a.FamilyID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt}
+	t := &db.RefreshToken{ID: toPgUUID(uuid.New()), UserID: a.UserID, FamilyID: a.FamilyID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt,
+		FamilyCreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}}
 	r.tokens[a.TokenHash] = t
 	return *t, nil
 }
@@ -37,7 +38,10 @@ func (r *refreshRepo) RotateRefreshToken(ctx context.Context, a db.RotateRefresh
 		if t.ID == a.OldID && !t.RevokedAt.Valid {
 			now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
 			t.RevokedAt, t.ReplacedAt = now, now
-			return r.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{UserID: t.UserID, FamilyID: t.FamilyID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt})
+			next, _ := r.CreateRefreshToken(ctx, db.CreateRefreshTokenParams{UserID: t.UserID, FamilyID: t.FamilyID, TokenHash: a.TokenHash, ExpiresAt: a.ExpiresAt})
+			r.tokens[a.TokenHash].FamilyCreatedAt = t.FamilyCreatedAt // xoay giữ nguyên lúc đăng nhập của cả họ
+			next.FamilyCreatedAt = t.FamilyCreatedAt
+			return next, nil
 		}
 	}
 	return db.RefreshToken{}, pgx.ErrNoRows
@@ -121,5 +125,60 @@ func TestRefreshRotation(t *testing.T) {
 	}
 	if _, err := svc.Refresh(ctx, out.RefreshToken); !errors.Is(err, ErrSessionExpired) {
 		t.Errorf("đã đăng xuất: %v", err)
+	}
+}
+
+func (r *refreshRepo) RevokeUserRefreshTokens(_ context.Context, userID pgtype.UUID) error {
+	for _, t := range r.tokens {
+		if t.UserID == userID && !t.RevokedAt.Valid {
+			t.RevokedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+		}
+	}
+	return nil
+}
+
+// Phiên đăng nhập quá refreshFamilyMaxAge: xoay token đều đặn cũng không kéo dài được — từ chối và thu hồi cả họ
+func TestRefreshFamilyMaxAge(t *testing.T) {
+	ctx := context.Background()
+	repo := &refreshRepo{user: db.User{ID: toPgUUID(uuid.New()), IsActive: true}, tokens: map[string]*db.RefreshToken{}}
+	svc := NewAuthService(repo, &fakeTokens{}, nil, nil)
+
+	first, err := svc.issue(ctx, repo.user, uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.Refresh(ctx, first.RefreshToken)
+	if err != nil {
+		t.Fatalf("phiên mới phải làm mới được: %v", err)
+	}
+	// Đăng nhập từ quá 90 ngày trước (token vẫn còn hạn trượt vì vừa xoay)
+	for _, tk := range repo.tokens {
+		tk.FamilyCreatedAt = pgtype.Timestamptz{Time: time.Now().Add(-refreshFamilyMaxAge - time.Hour), Valid: true}
+	}
+	if _, err := svc.Refresh(ctx, second.RefreshToken); !errors.Is(err, ErrSessionExpired) {
+		t.Fatalf("phiên quá tuổi phải bị từ chối, err=%v", err)
+	}
+	for _, tk := range repo.tokens {
+		if !tk.RevokedAt.Valid {
+			t.Fatal("phiên quá tuổi phải bị thu hồi cả họ")
+		}
+	}
+}
+
+// Đăng xuất mọi thiết bị: mọi refresh token của học viên không dùng được nữa
+func TestLogoutAll(t *testing.T) {
+	ctx := context.Background()
+	repo := &refreshRepo{user: db.User{ID: toPgUUID(uuid.New()), IsActive: true}, tokens: map[string]*db.RefreshToken{}}
+	svc := NewAuthService(repo, &fakeTokens{}, nil, nil)
+	phone, _ := svc.issue(ctx, repo.user, uuid.New())
+	laptop, _ := svc.issue(ctx, repo.user, uuid.New())
+
+	if err := svc.LogoutAll(ctx, uuid.UUID(repo.user.ID.Bytes)); err != nil {
+		t.Fatal(err)
+	}
+	for _, rt := range []string{phone.RefreshToken, laptop.RefreshToken} {
+		if _, err := svc.Refresh(ctx, rt); !errors.Is(err, ErrSessionExpired) {
+			t.Fatalf("sau đăng xuất mọi thiết bị, refresh phải bị từ chối: %v", err)
+		}
 	}
 }

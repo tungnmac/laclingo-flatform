@@ -914,7 +914,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     revoked_at TIMESTAMPTZ,
-    replaced_at TIMESTAMPTZ -- đã đổi sang token mới (khác thu hồi do đăng xuất / bị đánh cắp)
+    replaced_at TIMESTAMPTZ, -- đã đổi sang token mới (khác thu hồi do đăng xuất / bị đánh cắp)
+    family_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() -- 000059: lúc đăng nhập của cả họ (giới hạn tuổi phiên)
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens (user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens (family_id);
