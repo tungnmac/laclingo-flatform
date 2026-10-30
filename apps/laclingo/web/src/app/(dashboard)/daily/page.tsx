@@ -91,8 +91,8 @@ export default function DailyNotePage() {
       </Card>
 
       {note.editable && note.yesterday_unfinished.length > 0 && (
-        <Card className="space-y-2 border-l-4 border-amber-400">
-          <h2 className="text-sm font-semibold text-amber-800">{t.daily.unfinishedTitle(note.yesterday_unfinished.length)}</h2>
+        <Card className="space-y-2 border-l-4 border-orange-400">
+          <h2 className="text-sm font-semibold text-orange-800">{t.daily.unfinishedTitle(note.yesterday_unfinished.length)}</h2>
           <ul className="space-y-2">
             {note.yesterday_unfinished.map((task) => (
               <TaskRow key={task.id} task={task} editable={false} isFirst isLast canCarry onChanged={refresh} onCarry={carry} />

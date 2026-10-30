@@ -42,7 +42,7 @@ export function DeleteAccountCard({ user }: { user: User }) {
     <Card>
       <h3 className="text-lg font-semibold text-rose-700">{a.deleteTitle}</h3>
       <p className="mt-1 text-sm text-slate-500">{a.deleteDesc}</p>
-      {appleRenewing && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{a.deleteAppleWarning}</p>}
+      {appleRenewing && <p className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-800">{a.deleteAppleWarning}</p>}
       {user.role === 'owner' ? (
         <p className="mt-3 text-sm font-medium text-slate-600">{a.deleteOwner}</p>
       ) : (

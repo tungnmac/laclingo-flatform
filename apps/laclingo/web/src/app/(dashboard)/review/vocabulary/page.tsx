@@ -183,7 +183,7 @@ function VocabularyReview() {
                     {formatDate(r.response.next_review_at)}
                   </span>
                 ) : (
-                  <span className="shrink-0 text-right text-xs font-medium text-amber-600">⏳ {t.review.pendingSync}</span>
+                  <span className="shrink-0 text-right text-xs font-medium text-orange-600">⏳ {t.review.pendingSync}</span>
                 )}
               </li>
             ))}
@@ -257,5 +257,5 @@ function VocabularyReview() {
 }
 
 function OfflineBanner({ text }: { text: string }) {
-  return <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">📴 {text}</p>
+  return <p className="rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-800">📴 {text}</p>
 }

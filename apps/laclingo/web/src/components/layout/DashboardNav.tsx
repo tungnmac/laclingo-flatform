@@ -139,12 +139,12 @@ export function Sidebar({ user }: { user: User }) {
               {item.icon}
               {/* Thu gọn: chấm vàng trên icon Ví khi có quà gems chờ nhận */}
               {collapsed && item.key === 'wallet' && rewardCount > 0 && (
-                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
               )}
             </span>
             {!collapsed && t.nav[item.key]}
             {!collapsed && item.key === 'wallet' && rewardCount > 0 && (
-              <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
+              <span className="ml-auto rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
             )}
           </Link>
         ))}
@@ -254,7 +254,7 @@ function MobileMenu({ user }: { user: User }) {
         className="relative flex h-9 w-9 items-center justify-center rounded-lg text-xl text-slate-600 hover:bg-slate-100"
       >
         <span aria-hidden>☰</span>
-        {rewardCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white" />}
+        {rewardCount > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />}
       </button>
       {open && createPortal(
         <div role="presentation" className="fixed inset-0 z-50 bg-slate-900/40 md:hidden" onClick={close}>
@@ -294,7 +294,7 @@ function MobileMenu({ user }: { user: User }) {
                   </span>
                   {t.nav[item.key]}
                   {item.key === 'wallet' && rewardCount > 0 && (
-                    <span className="ml-auto rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
+                    <span className="ml-auto rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white">{rewardCount}</span>
                   )}
                 </Link>
               ))}

@@ -125,7 +125,7 @@ export default function AnalyzePage({ searchParams }: { searchParams: { text?: s
               {a.charCount(text.length, MAX_LEN)}
               {quota && quota.ai && <span className="ml-3 font-medium text-indigo-600">{a.quota(quota.remaining, quota.limit)}</span>}
               {quota && quota.ai && !quota.pro && (
-                <Link href="/pricing" className="ml-2 font-semibold text-amber-600 hover:underline">
+                <Link href="/pricing" className="ml-2 font-semibold text-orange-600 hover:underline">
                   ⭐ {t.billing.analyzeUpgradeHint}
                 </Link>
               )}
@@ -134,8 +134,8 @@ export default function AnalyzePage({ searchParams }: { searchParams: { text?: s
               {busy ? a.analyzing : a.analyzeBtn}
             </Button>
           </div>
-          {quota?.ai === false && <p className="text-sm text-amber-700">{a.noAI}</p>}
-          {quota?.ai && quota.remaining === 0 && !error && <p className="text-sm text-amber-700">{a.quotaOut}</p>}
+          {quota?.ai === false && <p className="text-sm text-orange-700">{a.noAI}</p>}
+          {quota?.ai && quota.remaining === 0 && !error && <p className="text-sm text-orange-700">{a.quotaOut}</p>}
           {error && <p className="text-sm text-rose-600">{error}</p>}
         </form>
       </Card>

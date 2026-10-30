@@ -70,7 +70,7 @@ export function AccountList({ onDone }: { onDone?: () => void }) {
                 <Avatar name={displayName(acc.user)} src={acc.user.avatar_url || undefined} className={cn('h-8 w-8 shrink-0 text-xs', !valid && 'opacity-50')} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-slate-900">{displayName(acc.user)}</span>
-                  <span className={cn('block truncate text-xs', valid ? 'text-slate-500' : 'text-amber-600')}>
+                  <span className={cn('block truncate text-xs', valid ? 'text-slate-500' : 'text-orange-600')}>
                     {valid ? acc.user.email : a.expired}
                   </span>
                 </span>

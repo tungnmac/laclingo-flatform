@@ -41,7 +41,7 @@ export default function PricingPage() {
       <PageHeader title={b.pricingTitle} description={b.pricingSubtitle} />
 
       {status && (
-        <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium', status.is_pro ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700')}>
+        <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium', status.is_pro ? 'bg-orange-50 text-orange-800' : 'bg-slate-100 text-slate-700')}>
           <span>
             {b.yourPlan}: {status.is_pro && '⭐ '}
             {planLabel(status, t)}
@@ -54,7 +54,7 @@ export default function PricingPage() {
       )}
 
       {lifetime ? (
-        <p className="rounded-xl bg-amber-50 px-4 py-6 text-center text-lg font-semibold text-amber-800">{b.haveLifetime}</p>
+        <p className="rounded-xl bg-orange-50 px-4 py-6 text-center text-lg font-semibold text-orange-800">{b.haveLifetime}</p>
       ) : (
         catalog && (
           <>
@@ -64,9 +64,9 @@ export default function PricingPage() {
                 if (!item) return null
                 const popular = plan === 'YEARLY'
                 return (
-                  <Card key={plan} className={cn('relative flex flex-col gap-2 text-center', popular && 'ring-2 ring-amber-400')}>
+                  <Card key={plan} className={cn('relative flex flex-col gap-2 text-center', popular && 'ring-2 ring-orange-400')}>
                     {popular && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-3 py-0.5 text-xs font-semibold text-white">
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 px-3 py-0.5 text-xs font-semibold text-white">
                         {b.popular}
                       </span>
                     )}
@@ -116,7 +116,7 @@ export default function PricingPage() {
             <tr className="border-b border-slate-100 text-slate-500">
               <th className="px-4 py-3 font-medium sm:px-6" />
               <th className="px-4 py-3 text-center font-semibold">{b.freeName}</th>
-              <th className="px-4 py-3 text-center font-semibold text-amber-600">⭐ {b.proName}</th>
+              <th className="px-4 py-3 text-center font-semibold text-orange-600">⭐ {b.proName}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

@@ -75,7 +75,7 @@ function ProGrantDialog({ user, onClose }: { user: User; onClose: () => void }) 
         <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm">
           <span className="text-slate-500">{a.current}: </span>
           {loading ? '…' : sub ? (
-            <span className="font-semibold text-amber-700">
+            <span className="font-semibold text-orange-700">
               ⭐ {t.billing.plans[sub.plan]} · {sub.expires_at ? a.expires(formatDate(sub.expires_at)) : a.lifetime}
               {sub.note && <span className="block text-xs font-normal text-slate-500">{sub.note}</span>}
             </span>
