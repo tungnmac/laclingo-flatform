@@ -14,6 +14,9 @@ export const reminderService = {
   unsubscribe: (endpoint: string) =>
     apiFetch<void>('/notifications/push/subscriptions', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
   sendTest: () => apiFetch<{ sent: number }>('/notifications/push/test', { method: 'POST' }),
+  /** Hẹn server gửi thử sau N giây — kịp thoát app để thấy thông báo hiện trên thanh thông báo như nhắc học thật */
+  sendTestLater: (seconds: number) =>
+    apiFetch<{ sent: number; delay_seconds: number }>(`/notifications/push/test?delay_seconds=${seconds}`, { method: 'POST' }),
 
   getMine: () => apiFetch<MyReminderSettings>('/reminder-settings'),
   updateMine: (body: ReminderSchedule) =>

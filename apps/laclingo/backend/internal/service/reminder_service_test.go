@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"laclingo-backend/internal/repository/db"
 
@@ -256,5 +257,36 @@ func TestSendToUserRoutesByKind(t *testing.T) {
 	}
 	if err := fcmOnly.SubscribeNative(context.Background(), uuid.New(), NativePushRequest{Token: "a b"}); !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("token có khoảng trắng phải bị từ chối: %v", err)
+	}
+}
+
+// Gửi thử hẹn giờ: trả số thiết bị ngay, gửi sau đúng khoảng hẹn; kiểm tra giới hạn hẹn và trường hợp chưa có thiết bị
+func TestSendTestLater(t *testing.T) {
+	ctx := context.Background()
+	repo := &fakeReminderRepo{subs: []db.PushSubscription{{Endpoint: "fcm-token", Kind: pushKindFCM}, {Endpoint: "https://web", Kind: pushKindWeb}}}
+	native := &fakeSender{}
+	svc := NewReminderService(repo, nil, "", &fakeNotifier{}) // chỉ FCM: subscription web chưa có kênh → không tính
+	svc.SetNativeSender(native)
+	var scheduled time.Duration
+	var run func()
+	svc.after = func(d time.Duration, f func()) { scheduled, run = d, f }
+
+	devices, err := svc.SendTestLater(ctx, uuid.New(), 10*time.Second)
+	if err != nil || devices != 1 || scheduled != 10*time.Second || len(native.payloads) != 0 {
+		t.Fatalf("hẹn 10s: devices=%d err=%v hẹn=%v đã gửi=%d", devices, err, scheduled, len(native.payloads))
+	}
+	run() // tới giờ
+	if len(native.payloads) != 1 || native.payloads[0].Tag != "laclingo-test" {
+		t.Fatalf("tới giờ phải gửi thông báo thử: %+v", native.payloads)
+	}
+
+	for _, d := range []time.Duration{0, MaxTestPushDelay + time.Second} {
+		if _, err := svc.SendTestLater(ctx, uuid.New(), d); !errors.Is(err, ErrInvalidInput) {
+			t.Errorf("hẹn %v phải bị từ chối: %v", d, err)
+		}
+	}
+	repo.subs = nil
+	if _, err := svc.SendTestLater(ctx, uuid.New(), 5*time.Second); !errors.Is(err, ErrNotFound) {
+		t.Errorf("chưa có thiết bị: %v", err)
 	}
 }

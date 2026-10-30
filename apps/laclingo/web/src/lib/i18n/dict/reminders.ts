@@ -17,6 +17,8 @@ export interface RemindersDict {
     disableBtn: string
     testBtn: string
     testSent: (n: number) => string
+    testLaterBtn: (s: number) => string
+    testScheduled: (n: number, s: number) => string
     deviceCount: (n: number) => string
     // Lịch nhắc
     followingDefault: string
@@ -60,6 +62,8 @@ export const remindersTranslations: Partial<Record<BuiltinLocale, RemindersDict>
       disableBtn: 'Tắt trên thiết bị này',
       testBtn: 'Gửi thử',
       testSent: (n) => `Đã gửi thông báo thử tới ${n} thiết bị`,
+      testLaterBtn: (s) => `Gửi thử sau ${s} giây`,
+      testScheduled: (n, s) => `Sẽ gửi tới ${n} thiết bị sau ${s} giây — thoát app ngay để xem thông báo hiện ra`,
       deviceCount: (n) => `Đang nhận thông báo trên ${n} thiết bị`,
       followingDefault: 'Đang theo lịch mặc định',
       customized: 'Lịch do bạn tự chỉnh',
@@ -100,6 +104,8 @@ export const remindersTranslations: Partial<Record<BuiltinLocale, RemindersDict>
       disableBtn: 'Turn off on this device',
       testBtn: 'Send test',
       testSent: (n) => `Test notification sent to ${n} device${n === 1 ? '' : 's'}`,
+      testLaterBtn: (s) => `Send test in ${s}s`,
+      testScheduled: (n, s) => `Sending to ${n} device${n === 1 ? '' : 's'} in ${s}s — leave the app now to see it appear`,
       deviceCount: (n) => `Receiving notifications on ${n} device${n === 1 ? '' : 's'}`,
       followingDefault: 'Using the default schedule',
       customized: 'Your own schedule',
