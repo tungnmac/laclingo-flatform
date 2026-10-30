@@ -22,6 +22,7 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
+import { LanguageOptions } from '@/features/course/components/LanguageOptions'
 
 const PAGE_SIZE = 20
 // Dropdown "chọn chủ đề" lúc tạo bài học cần THẤY HẾT chủ đề, không bị cắt bởi
@@ -62,8 +63,7 @@ export default function AdminGrammarPage() {
       <label className="mb-6 block text-sm font-medium text-slate-700">
         {t.adminCommon.languageLabel}
         <select value={languageId} onChange={(e) => setLanguageId(e.target.value)} className={cn(inputClass, 'max-w-xs')}>
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
+          <LanguageOptions />
         </select>
       </label>
 

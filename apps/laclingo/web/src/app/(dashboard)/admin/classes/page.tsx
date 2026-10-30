@@ -17,6 +17,7 @@ import { inlineError } from '@/lib/api'
 import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { ClassAdmin, ClassRequest } from '@/types/api'
+import { LanguageOptions } from '@/features/course/components/LanguageOptions'
 
 // Số lớp/ngôn ngữ ít (giống Missions admin) — không cần phân trang thật.
 const ALL_CLASSES_PAGE_SIZE = 100
@@ -104,8 +105,7 @@ export default function AdminClassesPage() {
           }}
           className={cn(inputClass, 'max-w-xs')}
         >
-          <option value="en">🇬🇧 English</option>
-          <option value="zh">🇨🇳 中文</option>
+          <LanguageOptions />
         </select>
       </label>
 
