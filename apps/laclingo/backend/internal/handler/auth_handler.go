@@ -41,7 +41,8 @@ func (h *AuthHandler) RegisterRoutes(router fiber.Router) {
 func (h *AuthHandler) RegisterProtectedRoutes(router fiber.Router) {
 	// Xoá tài khoản cần mật khẩu — token bị lộ cũng không dò được mật khẩu qua đây
 	router.Delete("/users/me", append(failureLimiter(5, 15*time.Minute, keyByUser("delete-account"), msgTooManyLogins), h.DeleteAccount)...)
-	router.Post("/auth/logout-all", h.LogoutAll)
+	// Không đặt dưới /auth/: web coi /auth/* là route công khai (không gửi Authorization) — xem web/src/lib/api.ts
+	router.Post("/users/me/logout-all", h.LogoutAll)
 }
 
 // LogoutAll godoc
@@ -50,7 +51,7 @@ func (h *AuthHandler) RegisterProtectedRoutes(router fiber.Router) {
 // @Security     BearerAuth
 // @Success      204
 // @Failure      401  {object}  ErrorResponse
-// @Router       /auth/logout-all [post]
+// @Router       /users/me/logout-all [post]
 func (h *AuthHandler) LogoutAll(c *fiber.Ctx) error {
 	if err := h.svc.LogoutAll(c.UserContext(), currentUserID(c)); err != nil {
 		return err
