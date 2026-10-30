@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import { LocaleSync } from '@/components/layout/LocaleSync'
 import { ThemeSync } from '@/components/layout/ThemeSync'
 import { NativeAppBridge } from '@/components/pwa/NativeAppBridge'
@@ -27,11 +28,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Nonce CSP của request (src/middleware.ts) — script nội tuyến không có nonce bị trình duyệt chặn
+  const nonce = headers().get('x-nonce') ?? undefined
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>
         {/* Áp tông màu đã chọn trước khi vẽ trang (style trên <html> khác bản server → suppressHydrationWarning) */}
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
         {children}
