@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chờ khởi động (layout/launch_overlay.xml) -->
+<resources>
+    <string name="launch_tagline">락새와 함께 매일 언어 공부</string>
+    <string name="launch_feature_srs">🧠 SRS 복습</string>
+    <string name="launch_feature_listening">🎧 듣기 연습</string>
+    <string name="launch_feature_speaking">🎤 말하기 연습</string>
+    <string name="launch_feature_challenge">🏆 도전</string>
+    <string name="launch_loading">불러오는 중…</string>
+</resources>

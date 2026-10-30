@@ -42,8 +42,8 @@
     try { last = Number(sessionStorage.getItem(KEY)) || 0 } catch (e) {}
     function show() {
       document.getElementById('content').hidden = false
-      // Ẩn màn khởi động (logo) để thấy trang này — plugin SplashScreen, xem capacitor.config.ts
-      try { window.Capacitor.Plugins.SplashScreen.hide() } catch (e) {}
+      // Ẩn màn chờ khởi động để thấy trang này — plugin LaunchOverlay (android/.../LaunchOverlay.java)
+      try { window.Capacitor.Plugins.LaunchOverlay.hide() } catch (e) {}
     }
     if (window.LACLINGO_URL && Date.now() - last > 15000) {
       try { sessionStorage.setItem(KEY, String(Date.now())) } catch (e) {}
