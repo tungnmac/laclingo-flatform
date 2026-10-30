@@ -28,14 +28,14 @@ export function PlanSummary() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{t.billing.yourPlan}</p>
-          <p className={cn('text-lg font-bold', status.is_pro ? 'text-amber-600' : 'text-slate-900')}>
+          <p className={cn('text-lg font-bold', status.is_pro ? 'text-orange-600' : 'text-slate-900')}>
             {status.is_pro && '⭐ '}
             {planLabel(status, t)}
           </p>
           {status.staff && !status.subscription && <p className="text-xs text-slate-500">{t.billing.staffNote}</p>}
         </div>
         {!status.is_pro && (
-          <Link href="/pricing" className="rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-400">
+          <Link href="/pricing" className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400">
             {t.billing.upgradeCta}
           </Link>
         )}

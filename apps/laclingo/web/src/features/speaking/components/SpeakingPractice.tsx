@@ -113,7 +113,7 @@ export function SpeakingPractice({
 
       {!result && (
         <div className="flex flex-col gap-3">
-          {!rec.supported && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{t.speaking.notSupported}</p>}
+          {!rec.supported && <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{t.speaking.notSupported}</p>}
           {rec.error && <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{t.speaking.micError(rec.error)}</p>}
 
           {rec.supported && !typing && (

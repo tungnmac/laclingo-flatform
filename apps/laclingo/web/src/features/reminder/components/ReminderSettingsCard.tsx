@@ -103,9 +103,9 @@ export function ReminderSettingsCard() {
       ) : data && form ? (
         <div className="mt-4 space-y-4">
           {!pushConfigured(data) ? (
-            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{t.reminders.notConfigured}</p>
+            <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{t.reminders.notConfigured}</p>
           ) : !supported ? (
-            <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{t.reminders.notSupported}</p>
+            <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{t.reminders.notSupported}</p>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
               <div className="text-sm">

@@ -42,7 +42,7 @@ export function PendingRewards({ onClaimed }: { onClaimed: (wallet: WalletRespon
 
   if (!data) return null
   return (
-    <Card className="space-y-3 ring-1 ring-amber-200">
+    <Card className="space-y-3 ring-1 ring-orange-200">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-slate-900">{b.rewardsTitle}</h2>
         {data.count > 0 && (

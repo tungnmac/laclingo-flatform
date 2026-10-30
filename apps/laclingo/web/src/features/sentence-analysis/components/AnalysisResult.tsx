@@ -71,9 +71,9 @@ export function AnalysisResult({ result }: { result: SentenceAnalysis }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className={cn('space-y-3 ring-1', needsFix ? 'ring-amber-200' : 'ring-emerald-200')}>
+      <Card className={cn('space-y-3 ring-1', needsFix ? 'ring-orange-200' : 'ring-emerald-200')}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className={cn('text-lg font-bold', needsFix ? 'text-amber-700' : 'text-emerald-700')}>
+          <p className={cn('text-lg font-bold', needsFix ? 'text-orange-700' : 'text-emerald-700')}>
             {hasErrors ? a.incorrectTitle(result.errors.length) : needsFix ? a.notNaturalTitle : a.correctTitle}
           </p>
           {result.cached && <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">{a.cached}</span>}
@@ -111,7 +111,7 @@ export function AnalysisResult({ result }: { result: SentenceAnalysis }) {
             {result.errors.map((e, i) => (
               <li key={i} className="rounded-xl bg-slate-50 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{a.errorTypes[e.type] ?? e.type}</span>
+                  <span className="rounded-md bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800">{a.errorTypes[e.type] ?? e.type}</span>
                   <span className="text-sm">
                     <span className="text-rose-600 line-through">{e.original || a.missing}</span>
                     <span className="mx-1.5 text-slate-400">→</span>

@@ -23,5 +23,5 @@ export function OfflineBanner() {
   }, [])
 
   if (!offline || pathname === OFFLINE_REVIEW_PATH) return null
-  return <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">📴 {t.common.offlineBanner}</p>
+  return <p className="mb-4 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-800">📴 {t.common.offlineBanner}</p>
 }
