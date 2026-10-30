@@ -76,7 +76,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (onboarding)
     return (
       <ToastProvider>
-        <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-slate-50 px-4 pb-10 pt-[calc(2rem+var(--safe-top))] sm:px-6">
+        <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-slate-50 px-4 pb-[calc(2.5rem+var(--safe-bottom))] pt-[calc(2rem+var(--safe-top))] sm:px-6">
           {children}
         </main>
       </ToastProvider>

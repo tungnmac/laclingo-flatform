@@ -29,7 +29,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-16 pt-10 text-center sm:px-6 sm:pt-20">
+      <main className="mx-auto flex max-w-6xl flex-col items-center px-4 pb-[calc(4rem+var(--safe-bottom))] pt-10 text-center sm:px-6 sm:pt-20">
         <img src="/logo.svg" alt="Chim Lạc — linh vật LacLingo" className="mb-6 h-24 w-24 rounded-3xl shadow-lg sm:h-28 sm:w-28" />
         <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
           {t.home.greeting} <span className="text-indigo-600">LacLingo</span>
