@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">
             <TopBar user={user} />
-            <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-10">
+            <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-[calc(6rem+var(--safe-bottom))] pt-6 sm:px-6 md:pb-10 lg:px-8 lg:pt-10">
               <OfflineBanner />
               <LanguageSyncBanner />
               {children}
