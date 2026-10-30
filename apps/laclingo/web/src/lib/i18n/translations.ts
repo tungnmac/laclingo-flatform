@@ -6,6 +6,7 @@ import { moderationTranslations, type ModerationDict } from './dict/moderation'
 import { appVersionTranslations, type AppVersionDict } from './dict/app-version'
 import { onboardingTranslations, type OnboardingDict } from './dict/onboarding'
 import { settingsTranslations, type SettingsDict } from './dict/settings'
+import { passwordResetTranslations, type PasswordResetDict } from './dict/password-reset'
 import { analyzeTranslations, type AnalyzeDict } from './dict/analyze'
 import { billingTranslations, type BillingDict } from './dict/billing'
 import { dailyTranslations, type DailyDict } from './dict/daily'
@@ -487,7 +488,8 @@ type AllDicts = Dictionary &
   ModerationDict &
   AppVersionDict &
   OnboardingDict &
-  SettingsDict
+  SettingsDict &
+  PasswordResetDict
 
 function build(locale: Locale): AllDicts {
   return {
@@ -519,6 +521,7 @@ function build(locale: Locale): AllDicts {
     ...pick(appVersionTranslations, locale),
     ...pick(onboardingTranslations, locale),
     ...pick(settingsTranslations, locale),
+    ...pick(passwordResetTranslations, locale),
   }
 }
 

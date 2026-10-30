@@ -124,6 +124,7 @@ type Querier interface {
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) error
 	// Gói mua qua cổng thanh toán (khác CreateSubscription: admin cấp tay)
 	CreatePaidSubscription(ctx context.Context, arg CreatePaidSubscriptionParams) (Subscription, error)
+	CreatePasswordReset(ctx context.Context, arg CreatePasswordResetParams) error
 	// Thanh toán (VNPay, Stripe) + ví gems
 	CreatePaymentOrder(ctx context.Context, arg CreatePaymentOrderParams) (PaymentOrder, error)
 	// Refresh token (xoay vòng, lưu hash)
@@ -311,6 +312,9 @@ type Querier interface {
 	InsertUserTargetLanguage(ctx context.Context, arg InsertUserTargetLanguageParams) error
 	// Chỉ tạo mới (form "Thêm chủ đề", nhập hàng loạt) — trùng tên báo lỗi thay vì ghi đè chủ đề cũ
 	InsertVocabularyTopic(ctx context.Context, arg InsertVocabularyTopicParams) (VocabularyTopic, error)
+	// Quên mật khẩu (service/password_reset.go)
+	// Gửi mã mới: mã cũ chưa dùng hết hiệu lực (chỉ link mới nhất dùng được); dọn luôn mã quá hạn của mọi người
+	InvalidateUserPasswordResets(ctx context.Context, userID pgtype.UUID) error
 	IsGameRoomBanned(ctx context.Context, arg IsGameRoomBannedParams) (bool, error)
 	// blocker đã chặn blocked chưa (bỏ thông báo do người bị chặn gây ra)
 	IsUserBlocked(ctx context.Context, arg IsUserBlockedParams) (bool, error)
@@ -703,6 +707,8 @@ type Querier interface {
 	UpsertVocabularyReview(ctx context.Context, arg UpsertVocabularyReviewParams) (UserVocabularyReview, error)
 	// +1 lượt dùng của ngày; đã đủ daily_limit → không trả dòng nào (pgx.ErrNoRows) = hết lượt
 	UseFeatureQuota(ctx context.Context, arg UseFeatureQuotaParams) (int32, error)
+	// Đánh dấu đã dùng trong 1 câu lệnh — 2 request cùng mã chỉ 1 request thành công; mã sai / hết hạn / đã dùng → không trả dòng
+	UsePasswordReset(ctx context.Context, tokenHash string) (pgtype.UUID, error)
 	// Dùng n Streak Freeze bù các ngày nghỉ; không đủ → 0 dòng
 	UseStreakFreezes(ctx context.Context, arg UseStreakFreezesParams) (int64, error)
 }

@@ -162,7 +162,15 @@ func main() {
 
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 	tokens.SetRefreshTTL(cfg.RefreshTTL)
-	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, languageContent, analyzer, plans, newPaymentService(cfg, repo, notificationService), translator)
+	var mailer service.Mailer // nil interface (không phải *BrevoMailer nil) khi chưa cấu hình
+	if cfg.BrevoAPIKey != "" && cfg.EmailFrom != "" {
+		mailer = service.NewBrevoMailer(cfg.BrevoAPIKey, cfg.EmailFrom, cfg.EmailFromName)
+		log.Println("✅ Email (Brevo) đã cấu hình — bật quên mật khẩu")
+	} else {
+		log.Println("⚠️  BREVO_API_KEY / EMAIL_FROM chưa cấu hình — tắt quên mật khẩu")
+	}
+	passwordReset := service.NewPasswordResetService(repo, mailer, cfg.AppWebURL)
+	handler.RegisterRoutes(app, repo, tokens, hub, missionService, r2, reminderService, notificationService, suggester, languageContent, analyzer, plans, newPaymentService(cfg, repo, notificationService), translator, passwordReset)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
