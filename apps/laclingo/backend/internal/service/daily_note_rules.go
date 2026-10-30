@@ -13,7 +13,7 @@ const (
 	defaultDailyTimezone  = "Asia/Ho_Chi_Minh"
 	maxDailyTasks         = 20
 	maxDailyTaskTitleLen  = 200
-	maxDailyTaskMemoLen   = 500
+	maxDailyTaskMemoLen   = 100_000 // ghi chú rich text (HTML) — coi như không giới hạn, chỉ chặn request khổng lồ
 	maxDailyJournalLen    = 5000
 	maxDailyTaskTarget    = 1000
 	dailyDateLayout       = "2006-01-02"

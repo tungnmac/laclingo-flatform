@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
+import { RichTextEditor } from '@/features/blog/components/RichTextEditor'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -205,7 +206,10 @@ export function TaskRow({
                 {t.daily.addItem}
               </button>
             ))}
-          {task.memo && !open && <p className="mt-1 text-sm text-slate-500">{task.memo}</p>}
+          {task.memo && !open && (
+            // HTML đã được backend lọc (UGCPolicy) — ghi chú cũ dạng chữ thường cũng được chuyển sang HTML an toàn
+            <div className="prose prose-sm prose-slate mt-1 max-w-none text-slate-600 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:mb-1 prose-headings:mt-2" dangerouslySetInnerHTML={{ __html: task.memo }} />
+          )}
         </div>
         {editable && link && !task.done && (
           <Link href={link} className="shrink-0 text-xs font-semibold text-indigo-600 hover:underline">
@@ -233,7 +237,7 @@ export function TaskRow({
             <input type="number" min={1} max={1000} value={target} onChange={(e) => setTarget(e.target.value)} placeholder={t.daily.targetPlaceholder} className={inputClass} />
           </div>
           {kind !== 'free' && <p className="text-xs text-slate-500">⚡ {t.daily.autoHints[kind]}</p>}
-          <textarea value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={500} rows={2} placeholder={t.daily.memoPlaceholder} className={inputClass} />
+          <RichTextEditor content={memo} onChange={setMemo} placeholder={t.daily.memoPlaceholder} media={false} minHeight="min-h-[96px]" />
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="checkbox" checked={task.repeat} disabled={busy} onChange={() => void quick({ repeat: !task.repeat })} className="h-4 w-4 accent-indigo-600" />
             {t.daily.repeatLabel}

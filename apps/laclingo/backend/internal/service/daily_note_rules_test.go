@@ -94,7 +94,7 @@ func TestValidateTaskInput(t *testing.T) {
 		{Title: "x", Kind: "challenge_win"},
 		{Title: "x", Kind: "free", Target: i32(0)},
 		{Title: "x", Kind: "free", Target: i32(1001)},
-		{Title: "x", Kind: "free", Memo: strings.Repeat("m", 501)},
+		{Title: "x", Kind: "free", Memo: strings.Repeat("m", maxDailyTaskMemoLen+1)},
 	}
 	for _, b := range bad {
 		if err := validateTaskInput(b); !errors.Is(err, ErrInvalidInput) {
