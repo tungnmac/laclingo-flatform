@@ -11,12 +11,14 @@
 // - Request khác (API ở domain khác, RSC của Next...) đi mạng như bình thường
 
 // Đổi hậu tố khi đổi cách lưu / sửa offline.html — activate xoá cache cũ cùng tiền tố
-const OFFLINE_CACHE = 'laclingo-offline-v3'
+const OFFLINE_CACHE = 'laclingo-offline-v4'
 const STATIC_CACHE = 'laclingo-static-v1'
 const PAGES_CACHE = 'laclingo-pages-v1'
 const CACHES = [OFFLINE_CACHE, STATIC_CACHE, PAGES_CACHE]
 // Chỉ dọn cache của các họ trên (bản cũ) — cache laclingo-* khác không phải của SW này
 const OFFLINE_URL = '/offline.html'
+// Logo + chim Lạc (linh vật, icon trong dòng chữ) — lưu sẵn để trang offline / trang đã lưu vẫn hiện đủ hình
+const BRAND_ASSETS = ['/logo.svg', '/lac-bird.svg']
 // Giới hạn số trang giữ lại — bỏ trang lưu lâu nhất trước
 const MAX_PAGES = 80
 // Trang học / ôn chính — không bao giờ bị dọn khi vượt MAX_PAGES (nhiều list / trang blog không đẩy được chúng ra)
@@ -28,7 +30,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(OFFLINE_CACHE)
-      .then((cache) => cache.addAll([OFFLINE_URL, '/logo.svg']))
+      .then((cache) => cache.addAll([OFFLINE_URL, ...BRAND_ASSETS]))
       // Không cache được trang offline vẫn phải cài SW — nhắc học (push) phụ thuộc vào nó
       .catch(() => {})
       // Kiểm soát ngay các tab đang mở (kể cả tab vừa đăng ký SW) để notificationclick điều hướng được
@@ -60,10 +62,25 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(navigate(event, request, url))
   } else if (isHashedAsset(url.pathname)) {
     event.respondWith(staticAsset(event, request))
-  } else if (url.pathname === '/logo.svg') {
-    event.respondWith(fetch(request).catch(() => caches.match('/logo.svg').then((r) => r || Response.error())))
+  } else if (BRAND_ASSETS.includes(url.pathname)) {
+    event.respondWith(brandAsset(event, request, url.pathname))
   }
 })
+
+// Logo / chim Lạc: mạng trước, tải được thì cập nhật bản lưu (đổi logo thì lần mất mạng sau hiện logo mới); mất mạng
+// dùng bản lưu
+async function brandAsset(event, request, pathname) {
+  try {
+    const response = await fetch(request)
+    if (response.ok) {
+      const copy = response.clone() // clone ngay — trang đọc xong body thì không clone được nữa
+      event.waitUntil(caches.open(OFFLINE_CACHE).then((cache) => cache.put(pathname, copy)))
+    }
+    return response
+  } catch {
+    return (await caches.match(pathname)) || Response.error()
+  }
+}
 
 // Trang lưu được để dùng offline: mọi trang trừ quản trị (cần mạng, dữ liệu không nên để lại trên máy)
 function isOfflinePage(pathname) {
