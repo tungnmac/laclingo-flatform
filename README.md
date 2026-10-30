@@ -1,4 +1,4 @@
-# 🦩 LacLingo — Smart SRS Language Learning Platform
+# LacLingo — Smart SRS Language Learning Platform
 
 Nền tảng học từ vựng tiếng Anh ứng dụng thuật toán lặp lại ngắt quãng SRS (SM-2 Algorithm) và linh vật Chim Lạc đồng hành.
 
