@@ -99,7 +99,7 @@ func main() {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status":  "success",
 			"message": "LacLingo API đang hoạt động!",
-			"mascot":  "Chim Lạc cất cánh!",
+			"mascot":  "🦩 Chim Lạc cất cánh!",
 		})
 	})
 

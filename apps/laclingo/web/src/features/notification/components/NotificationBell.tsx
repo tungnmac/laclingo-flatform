@@ -201,8 +201,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
               <li key={n.id} className={cn('group relative flex gap-3 px-4 py-3', !n.read_at && 'bg-indigo-50/60')}>
                 <button type="button" onClick={() => open(n)} className="flex min-w-0 flex-1 gap-3 text-left">
                   <span className="text-xl leading-6" aria-hidden>
-                    {/* Nhắc học do Chim Lạc gửi — hiện logo (bản ghi cũ còn lưu icon 🦩) */}
-                    {n.type === 'study_reminder' ? <img src="/logo.svg" alt="" className="mt-0.5 h-5 w-5 rounded-md" /> : n.icon}
+                    {n.icon}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn('block text-sm text-slate-900', !n.read_at && 'font-semibold')}>{n.title}</span>

@@ -73,7 +73,7 @@ func TestFCMSender(t *testing.T) {
 		t.Fatal(err)
 	}
 	sender.(*fcmSender).apiBase = srv.URL
-	payload, _ := json.Marshal(pushPayload{Title: "Đến giờ học rồi!", Body: "Ôn bài nhé", URL: "/review", Tag: "laclingo-reminder"})
+	payload, _ := json.Marshal(pushPayload{Title: "🦩 Đến giờ học rồi!", Body: "Ôn bài nhé", URL: "/review", Tag: "laclingo-reminder"})
 	ctx := context.Background()
 
 	cases := []struct {
@@ -92,7 +92,7 @@ func TestFCMSender(t *testing.T) {
 		t.Errorf("access token phải được cache, gọi %d lần", tokenCalls)
 	}
 	msg := lastMsg["message"].(map[string]any)
-	if n := msg["notification"].(map[string]any); n["title"] != "Đến giờ học rồi!" || msg["data"].(map[string]any)["url"] != "/review" {
+	if n := msg["notification"].(map[string]any); n["title"] != "🦩 Đến giờ học rồi!" || msg["data"].(map[string]any)["url"] != "/review" {
 		t.Errorf("nội dung message sai: %v", msg)
 	}
 

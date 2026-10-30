@@ -329,7 +329,7 @@ func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, 
 		return 0, ErrPushNotConfigured
 	}
 	sent, total, err := s.sendToUser(ctx, userID, pushPayload{
-		Title: "LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/profile", Tag: "laclingo-test",
+		Title: "🦩 LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/profile", Tag: "laclingo-test",
 	})
 	switch {
 	case err != nil:
@@ -353,7 +353,7 @@ func (s *ReminderService) RunDue(ctx context.Context) error {
 		userID := uuid.UUID(r.UserID.Bytes)
 		p := reminderPayload(r)
 		s.notifier.Notify(ctx, userID, NotificationInput{
-			Type: NotificationStudyReminder, Icon: "🔔", Title: p.Title, Body: p.Body, URL: p.URL,
+			Type: NotificationStudyReminder, Icon: "🦩", Title: strings.TrimPrefix(p.Title, "🦩 "), Body: p.Body, URL: p.URL,
 			ReplaceUnread: true,
 		})
 		if !s.pushEnabled() || !r.HasPush {
@@ -385,13 +385,13 @@ func (s *ReminderService) Start(ctx context.Context) {
 func reminderPayload(r db.ClaimDueRemindersRow) pushPayload {
 	if r.IsInactive {
 		return pushPayload{
-			Title: "Lâu rồi không gặp bạn!",
+			Title: "🦩 Lâu rồi không gặp bạn!",
 			Body:  fmt.Sprintf("Bạn đã nghỉ học %d ngày. Quay lại ôn vài từ để không quên bài nhé!", r.DaysInactive),
 			URL:   "/review", Tag: "laclingo-reminder",
 		}
 	}
 	return pushPayload{
-		Title: "Đến giờ học rồi!",
+		Title: "🦩 Đến giờ học rồi!",
 		Body:  "Hôm nay bạn chưa học. Dành vài phút ôn tập để giữ chuỗi ngày học nhé!",
 		URL:   "/review", Tag: "laclingo-reminder",
 	}
