@@ -31,7 +31,7 @@ export function ReactionOverlay({ reactions, participants }: { reactions: Reacti
   if (reactions.length === 0) return null
 
   return (
-    <div className="pointer-events-none fixed bottom-20 right-4 z-30 flex flex-col items-end gap-1 sm:bottom-4">
+    <div className="pointer-events-none fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-30 flex flex-col items-end gap-1 md:bottom-4">
       {reactions.slice(-5).map((r) => {
         const p = participants.find((x) => x.user_id === r.userId)
         return (

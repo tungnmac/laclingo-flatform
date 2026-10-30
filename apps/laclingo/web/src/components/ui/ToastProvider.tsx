@@ -44,7 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       <ToastSeqContext.Provider value={seq}>{children}</ToastSeqContext.Provider>
-      <div className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2 sm:bottom-4 sm:left-auto sm:right-4 sm:translate-x-0">
+      <div className="fixed bottom-[calc(5rem+var(--safe-bottom))] left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2 sm:left-auto sm:right-4 sm:translate-x-0 md:bottom-4">
         {toasts.map((t) => (
           <div
             key={t.id}

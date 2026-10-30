@@ -4,7 +4,7 @@ import { PrivacyLink } from '@/components/legal/PrivacyLink'
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-indigo-50 to-slate-50 px-4 pb-10 pt-[calc(2.5rem+var(--safe-top))]">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-indigo-50 to-slate-50 px-4 pb-[calc(2.5rem+var(--safe-bottom))] pt-[calc(2.5rem+var(--safe-top))]">
       <Link href="/" className="mb-6 flex items-center gap-2 text-2xl font-bold text-indigo-600">
         <img src="/logo.svg" alt="" className="h-9 w-9 rounded-xl" /> LacLingo
       </Link>

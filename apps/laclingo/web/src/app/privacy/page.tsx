@@ -128,7 +128,7 @@ export default function PrivacyPage() {
   const locale = useLocale((s) => s.locale)
   const c = content[locale === 'vi' ? 'vi' : 'en']
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
+    <main className="mx-auto max-w-3xl px-4 pb-[calc(2.5rem+var(--safe-bottom))] pt-[calc(2.5rem+var(--safe-top))] sm:pb-14 sm:pt-14">
       <Link href="/" className="flex items-center gap-2 text-xl font-bold text-indigo-600">
         <img src="/logo.svg" alt="" className="h-8 w-8 rounded-lg" /> LacLingo
       </Link>
