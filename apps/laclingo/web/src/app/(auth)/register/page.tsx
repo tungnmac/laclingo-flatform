@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { withLacBird } from '@/components/mascot/LacBird'
 import { AuthForm } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
 
@@ -9,7 +10,7 @@ export default function RegisterPage() {
   return (
     <>
       <h1 className="text-2xl font-bold text-slate-900">{t.auth.registerTitle}</h1>
-      <p className="mt-1 text-sm text-slate-500">{t.auth.registerSubtitle}</p>
+      <p className="mt-1 text-sm text-slate-500">{withLacBird(t.auth.registerSubtitle)}</p>
 
       <AuthForm mode="register" />
 

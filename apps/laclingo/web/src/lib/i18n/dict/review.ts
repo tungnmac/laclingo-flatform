@@ -140,7 +140,7 @@ export const reviewTranslations: Partial<Record<BuiltinLocale, ReviewDict>> = {
       favoritesTitle: 'Từ yêu thích',
       favoritesDesc: 'Xem lại những từ bạn đã đánh dấu yêu thích khi học.',
       viewFavoritesBtn: 'Xem từ yêu thích',
-      mascotHub: 'Mỗi ngày một chút, chữ sẽ tự ở lại trong đầu! 🦩',
+      mascotHub: 'Mỗi ngày một chút, chữ sẽ tự ở lại trong đầu!',
 
       reviewTypesLabel: 'Các dạng ôn tập',
       loadingTopics: 'Đang lấy chủ đề...',
@@ -265,7 +265,7 @@ export const reviewTranslations: Partial<Record<BuiltinLocale, ReviewDict>> = {
       favoritesTitle: 'Favorite words',
       favoritesDesc: 'Look back at the words you marked as favorites while learning.',
       viewFavoritesBtn: 'View favorites',
-      mascotHub: 'A little each day — the words will stick! 🦩',
+      mascotHub: 'A little each day — the words will stick!',
 
       reviewTypesLabel: 'Review modes',
       loadingTopics: 'Loading topics...',

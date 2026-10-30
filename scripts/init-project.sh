@@ -75,7 +75,7 @@ func main() {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"status":  "success",
 			"message": "LacLingo API đang hoạt động!",
-			"mascot":  "🦩 Chim Lạc cất cánh!",
+			"mascot":  "Chim Lạc cất cánh!",
 		})
 	})
 
@@ -323,7 +323,7 @@ cat << 'EOF' > apps/web/src/app/page.tsx
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24 text-center">
-      <div className="text-6xl mb-4">🦩</div>
+      <img src="/lac-bird.svg" alt="Chim Lạc" className="mb-4 h-16 w-auto" />
       <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-6xl">
         Chào mừng sếp đến với <span className="text-indigo-600">LacLingo</span>
       </h1>

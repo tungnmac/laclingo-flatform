@@ -1,4 +1,4 @@
-# 🦩 LacLingo — Smart SRS Language Learning Platform
+# <img src="apps/laclingo/web/public/lac-bird.svg" alt="Chim Lạc" height="28" /> LacLingo — Smart SRS Language Learning Platform
 
 Nền tảng học từ vựng tiếng Anh ứng dụng thuật toán lặp lại ngắt quãng SRS (SM-2 Algorithm) và linh vật Chim Lạc đồng hành.
 

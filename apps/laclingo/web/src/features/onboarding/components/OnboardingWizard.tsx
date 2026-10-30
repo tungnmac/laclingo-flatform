@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { withLacBird } from '@/components/mascot/LacBird'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -161,7 +162,7 @@ function Wizard({ initial, title }: { initial: OnboardingData; title: string }) 
             <div className="mx-auto mb-4 w-fit">
               <Avatar name={displayName({ full_name: form.full_name, email: initial.user.email })} src={form.avatar_url || undefined} className="h-20 w-20 text-2xl" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900">{t.onboarding.doneTitle}</h2>
+            <h2 className="text-xl font-bold text-slate-900">{withLacBird(t.onboarding.doneTitle)}</h2>
             <p className="mt-2 text-sm text-slate-500">{t.onboarding.doneSubtitle}</p>
             <p className="mt-4 text-2xl">{form.target_languages.map((l) => languageFlag(l.language_id)).join(' ')}</p>
           </div>

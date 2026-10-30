@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { withLacBird } from '@/components/mascot/LacBird'
 import { AuthForm } from '@/features/auth/components/AuthForm'
 import { useTranslation } from '@/hooks/useTranslation'
 import { isSessionValid, useSession } from '@/store/session'
@@ -17,7 +18,7 @@ export default function LoginPage({ searchParams }: { searchParams: { add?: stri
   return (
     <>
       <h1 className="text-2xl font-bold text-slate-900">{adding ? t.accounts.addTitle : t.auth.loginTitle}</h1>
-      <p className="mt-1 text-sm text-slate-500">{adding ? t.accounts.addSubtitle : t.auth.loginSubtitle}</p>
+      <p className="mt-1 text-sm text-slate-500">{adding ? t.accounts.addSubtitle : withLacBird(t.auth.loginSubtitle)}</p>
 
       <AuthForm mode="login" defaultIdentifier={searchParams.relogin} prefillRemembered={!searchParams.add} />
 
