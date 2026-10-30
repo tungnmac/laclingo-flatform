@@ -9,7 +9,7 @@ import { useApi } from '@/hooks/useApi'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function LearnPage() {
-  const { data, error, loading, reload } = useApi(courseService.list, [])
+  const { data, error, loading, reload } = useApi(courseService.mine, [])
   const t = useTranslation()
 
   return (

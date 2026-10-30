@@ -489,6 +489,9 @@ type Querier interface {
 	ListUserBlogImageKeys(ctx context.Context, authorID pgtype.UUID) ([]string, error)
 	// Tiến độ: job đang chờ / đang chạy, và job xong / lỗi trong 24 giờ qua (language_id NULL = mọi ngôn ngữ)
 	ListUserLanguageSyncJobs(ctx context.Context, arg ListUserLanguageSyncJobsParams) ([]LanguageSyncJob, error)
+	// Ngôn ngữ học viên đang học: đã chọn (onboarding / "Học ngôn ngữ mới") hoặc đã có từ trong hàng đợi ôn (học từ trước khi
+	// có onboarding) — trang Học / Luyện nghe / Luyện nói chỉ hiện các ngôn ngữ này, không phải mọi ngôn ngữ trong hệ thống
+	ListUserLearningLanguageIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	ListUserPreferredTopics(ctx context.Context, userID pgtype.UUID) ([]ListUserPreferredTopicsRow, error)
 	// Chủ đề user đã chọn (yêu thích) hoặc đã học (có từ trong hàng đợi SRS) ở 1 ngôn ngữ — nguồn đồng bộ sang ngôn ngữ mới
 	ListUserSourceTopics(ctx context.Context, arg ListUserSourceTopicsParams) ([]string, error)

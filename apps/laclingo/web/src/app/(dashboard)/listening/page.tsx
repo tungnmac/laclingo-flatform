@@ -10,7 +10,7 @@ import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ListeningLanguagePage() {
-  const { data, error, loading, reload } = useApi(courseService.list, [])
+  const { data, error, loading, reload } = useApi(courseService.mine, [])
   const t = useTranslation()
   const languageName = useLanguageName()
 

@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"laclingo-backend/internal/repository/db"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // LanguageRepository định nghĩa Interface tiếp xúc với cơ sở dữ liệu
@@ -15,6 +18,7 @@ type LanguageRepository interface {
 	GetLanguageByID(ctx context.Context, id string) (db.Language, error)
 	ListLanguages(ctx context.Context) ([]db.Language, error)
 	ListLanguageTopicCounts(ctx context.Context) ([]db.ListLanguageTopicCountsRow, error)
+	ListUserLearningLanguageIDs(ctx context.Context, userID pgtype.UUID) ([]string, error)
 }
 
 // LanguageResponse là dữ liệu ngôn ngữ trả ra API
@@ -83,4 +87,24 @@ func (s *LanguageService) List(ctx context.Context) ([]LanguageResponse, error) 
 		results = append(results, r)
 	}
 	return results, nil
+}
+
+// Mine — ngôn ngữ học viên đang học (đã chọn hoặc đã có từ trong hàng đợi ôn), theo thứ tự như List. Mỗi tài khoản có
+// danh sách riêng: ngôn ngữ người khác thêm vào hệ thống không hiện ở đây
+func (s *LanguageService) Mine(ctx context.Context, userID uuid.UUID) ([]LanguageResponse, error) {
+	ids, err := s.repo.ListUserLearningLanguageIDs(ctx, toPgUUID(userID))
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	mine := make([]LanguageResponse, 0, len(ids))
+	for _, l := range all {
+		if slices.Contains(ids, l.ID) {
+			mine = append(mine, l)
+		}
+	}
+	return mine, nil
 }

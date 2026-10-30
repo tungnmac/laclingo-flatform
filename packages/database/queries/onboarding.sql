@@ -80,3 +80,12 @@ UNION
 SELECT DISTINCT v.topic::varchar, NULL::varchar FROM vocabularies v
 WHERE v.language_id = $1 AND v.topic IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM vocabulary_topics t WHERE t.language_id = v.language_id AND t.name = v.topic);
+
+-- name: ListUserLearningLanguageIDs :many
+-- Ngôn ngữ học viên đang học: đã chọn (onboarding / "Học ngôn ngữ mới") hoặc đã có từ trong hàng đợi ôn (học từ trước khi
+-- có onboarding) — trang Học / Luyện nghe / Luyện nói chỉ hiện các ngôn ngữ này, không phải mọi ngôn ngữ trong hệ thống
+SELECT t.language_id::varchar AS language_id FROM user_target_languages t WHERE t.user_id = sqlc.arg('user_id')
+UNION
+SELECT DISTINCT v.language_id::varchar FROM user_vocabulary_reviews r
+JOIN vocabularies v ON v.id = r.vocabulary_id
+WHERE r.user_id = sqlc.arg('user_id');

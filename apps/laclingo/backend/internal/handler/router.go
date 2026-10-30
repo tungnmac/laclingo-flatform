@@ -34,7 +34,8 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	}
 	authHandler := NewAuthHandler(service.NewAuthService(repo, tokens, payments, files))
 	authHandler.RegisterRoutes(api)
-	NewLanguageHandler(service.NewLanguageService(repo)).RegisterRoutes(api)
+	languageHandler := NewLanguageHandler(service.NewLanguageService(repo))
+	languageHandler.RegisterRoutes(api)
 	RegisterLocaleRoutes(api)
 	grammarHandler := NewGrammarHandler(service.NewGrammarService(repo, missions, translator))
 	grammarHandler.RegisterRoutes(api)
@@ -69,6 +70,7 @@ func RegisterRoutes(app *fiber.App, repo *repository.PostgresRepository, tokens 
 	protected := api.Group("", RequireAuth(tokens))
 	// Trước userHandler: /users/me/onboarding không bị /users/:id bắt nhầm (khác số đoạn nhưng giữ thứ tự cho chắc)
 	onboardingHandler.RegisterRoutes(protected)
+	languageHandler.RegisterProtectedRoutes(protected)
 	userHandler.RegisterRoutes(protected)
 	authHandler.RegisterProtectedRoutes(protected)
 	srsService := service.NewSRSService(repo, missions, plans, translator)
