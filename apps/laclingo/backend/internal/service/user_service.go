@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -67,6 +68,8 @@ type UserResponse struct {
 	BirthYear      *int       `json:"birth_year,omitempty"`
 	Bio            string     `json:"bio,omitempty"`
 	OnboardedAt    *time.Time `json:"onboarded_at"`
+	// Tông màu chủ đạo giao diện (000058) — 1 trong UserThemes
+	Theme string `json:"theme" example:"lac-gold"`
 }
 
 // LeaderboardEntry — 1 dòng trong bảng xếp hạng, đã kèm thứ hạng (rank =
@@ -88,7 +91,11 @@ type LeaderboardEntry struct {
 type UpdateProfileRequest struct {
 	FullName  *string `json:"full_name" maxLength:"100" example:"Nguyễn Văn A"`
 	AvatarURL *string `json:"avatar_url" example:"https://example.com/avatar.png"`
+	Theme     *string `json:"theme" example:"lac-gold"`
 }
+
+// UserThemes — các tông màu chủ đạo web dựng sẵn (web/src/lib/themes.ts phải khớp)
+var UserThemes = []string{"lac-gold", "patina", "indigo", "cinnabar", "green", "cyan"}
 
 func toUserResponse(u db.User) UserResponse {
 	res := UserResponse{
@@ -108,6 +115,7 @@ func toUserResponse(u db.User) UserResponse {
 		Country:        u.Country.String,
 		NativeLanguage: u.NativeLanguage.String,
 		Bio:            u.Bio.String,
+		Theme:          u.Theme,
 	}
 	if u.BirthYear.Valid {
 		year := int(u.BirthYear.Int16)
@@ -181,6 +189,12 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, req Updat
 			return UserResponse{}, ErrInvalidInput
 		}
 		params.AvatarUrl = pgtype.Text{String: avatar, Valid: true}
+	}
+	if req.Theme != nil {
+		if !slices.Contains(UserThemes, *req.Theme) {
+			return UserResponse{}, ErrInvalidInput
+		}
+		params.Theme = pgtype.Text{String: *req.Theme, Valid: true}
 	}
 
 	u, err := s.repo.UpdateUserProfile(ctx, params)
@@ -271,7 +285,7 @@ func (s *UserService) ListUsersAdmin(ctx context.Context, search, role, module s
 		results = append(results, toUserResponse(db.User{
 			ID: r.ID, Email: r.Email, Username: r.Username, FullName: r.FullName, AvatarUrl: r.AvatarUrl,
 			StreakCount: r.StreakCount, Role: r.Role, AdminModules: r.AdminModules, IsActive: r.IsActive, Exp: r.Exp, Level: r.Level,
-			Points: r.Points, CreatedAt: r.CreatedAt,
+			Points: r.Points, CreatedAt: r.CreatedAt, Theme: r.Theme,
 		}))
 	}
 	return PageResult[UserResponse]{Items: results, Total: total}, nil

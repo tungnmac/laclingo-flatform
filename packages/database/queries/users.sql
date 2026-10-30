@@ -27,6 +27,7 @@ RETURNING *;
 UPDATE users
 SET full_name  = COALESCE(sqlc.narg('full_name'), full_name),
     avatar_url = COALESCE(sqlc.narg('avatar_url'), avatar_url),
+    theme      = COALESCE(sqlc.narg('theme'), theme),
     updated_at = NOW()
 WHERE id = sqlc.arg('id')
 RETURNING *;

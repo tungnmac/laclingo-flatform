@@ -329,7 +329,7 @@ func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, 
 		return 0, ErrPushNotConfigured
 	}
 	sent, total, err := s.sendToUser(ctx, userID, pushPayload{
-		Title: "LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/profile", Tag: "laclingo-test",
+		Title: "LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/settings", Tag: "laclingo-test",
 	})
 	switch {
 	case err != nil:
