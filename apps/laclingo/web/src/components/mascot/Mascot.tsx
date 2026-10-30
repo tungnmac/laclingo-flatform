@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils'
+import { LacBird } from './LacBird'
 
 export type MascotMood = 'idle' | 'happy' | 'sad' | 'cheer'
 
-// Chim Lạc lấy từ logo (public/lac-bird.svg), biểu cảm thể hiện bằng huy hiệu nhỏ cạnh chim
+// Biểu cảm của chim Lạc thể hiện bằng huy hiệu nhỏ cạnh chim
 const faces: Record<MascotMood, { badge: string; label: string }> = {
   idle: { badge: '', label: 'Chim Lạc' },
   happy: { badge: '✨', label: 'Chim Lạc vui vẻ' },
@@ -16,7 +17,7 @@ export function Mascot({ mood = 'idle', message, className }: { mood?: MascotMoo
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <span role="img" aria-label={face.label} className="relative shrink-0">
-        <img src="/lac-bird.svg" alt="" width={130} height={46} className="block h-8 w-auto sm:h-10" />
+        <LacBird className="block h-8 sm:h-10" />
         {face.badge && <span className="absolute -right-2 -top-3 text-lg sm:text-xl">{face.badge}</span>}
       </span>
       {message && (

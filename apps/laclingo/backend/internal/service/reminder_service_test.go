@@ -223,8 +223,8 @@ func TestRunDueSkipsPushForUsersWithoutSubscription(t *testing.T) {
 	if len(sender.payloads) != 0 {
 		t.Errorf("user chưa đăng ký push thì không được gọi gửi push, đã gửi %d", len(sender.payloads))
 	}
-	if len(notifier.sent) != 1 || !notifier.sent[0].ReplaceUnread || strings.HasPrefix(notifier.sent[0].Title, "🦩") {
-		t.Errorf("nhắc trong chuông phải thay bản chưa đọc cũ và không lặp emoji ở tiêu đề: %+v", notifier.sent)
+	if len(notifier.sent) != 1 || !notifier.sent[0].ReplaceUnread || notifier.sent[0].Icon != "lac" || notifier.sent[0].Title != "Đến giờ học rồi!" {
+		t.Errorf("nhắc trong chuông phải thay bản chưa đọc cũ, icon chim Lạc, tiêu đề không emoji: %+v", notifier.sent)
 	}
 }
 
