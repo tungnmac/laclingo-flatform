@@ -1,12 +1,28 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { ButtonLink } from '@/components/ui/Button'
+import { Spinner } from '@/components/ui/States'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
+import { useHydrated } from '@/hooks/useHydrated'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useSession } from '@/store/session'
 
 export default function HomePage() {
   const t = useTranslation()
+  const router = useRouter()
+  const hydrated = useHydrated()
+  // Đã từng đăng nhập trên máy này → vào thẳng trang Học. Phiên hết hạn thì layout dashboard tự chuyển sang tài khoản
+  // khác còn phiên hoặc về trang đăng nhập (điền sẵn tên) — chỉ người chưa đăng nhập mới thấy màn chào mừng
+  const signedIn = useSession((s) => !!s.user || s.accounts.length > 0)
+  const redirecting = hydrated && signedIn
+  useEffect(() => {
+    if (redirecting) router.replace('/learn')
+  }, [redirecting, router])
+
+  if (redirecting) return <Spinner />
   const features = [
     { icon: '🧠', title: t.home.featureSrsTitle, text: t.home.featureSrsText },
     { icon: '🔊', title: t.home.featureAudioTitle, text: t.home.featureAudioText },
