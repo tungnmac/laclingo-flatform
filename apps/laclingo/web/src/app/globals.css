@@ -4,8 +4,8 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
-  /* Checkbox, radio, thanh trượt của trình duyệt theo tông vàng đồng chim Lạc (indigo-600) */
-  accent-color: #8f6914;
+  /* Checkbox, radio, thanh trượt của trình duyệt theo tông vàng đồng chim Lạc */
+  accent-color: theme('colors.indigo.600');
 }
 
 /* Vùng thanh trạng thái / thanh điều hướng hệ thống (viewport-fit=cover: web vẽ tràn dưới chúng). Android WebView cũ
