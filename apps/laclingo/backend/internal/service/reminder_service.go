@@ -125,12 +125,14 @@ type ReminderService struct {
 	native    PushSender // nil = chưa cấu hình FCM — app iOS/Android không nhận được thông báo đẩy
 	publicKey string
 	notifier  Notifier
+	after     func(time.Duration, func()) // hẹn giờ gửi thử (test thay bằng chạy ngay)
 }
 
 // NewReminderService — sender/publicKey rỗng khi chưa cấu hình VAPID: vẫn
 // đọc/sửa được lịch và nhắc trong chuông thông báo, chỉ không đăng ký/gửi được push.
 func NewReminderService(repo ReminderRepository, sender PushSender, publicKey string, notifier Notifier) *ReminderService {
-	return &ReminderService{repo: repo, sender: sender, publicKey: publicKey, notifier: notifier}
+	return &ReminderService{repo: repo, sender: sender, publicKey: publicKey, notifier: notifier,
+		after: func(d time.Duration, f func()) { time.AfterFunc(d, f) }}
 }
 
 // SetNativeSender bật thông báo đẩy cho app iOS/Android (FCM)
@@ -328,9 +330,7 @@ func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, 
 	if !s.pushEnabled() {
 		return 0, ErrPushNotConfigured
 	}
-	sent, total, err := s.sendToUser(ctx, userID, pushPayload{
-		Title: "LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/settings", Tag: "laclingo-test",
-	})
+	sent, total, err := s.sendToUser(ctx, userID, testPushPayload)
 	switch {
 	case err != nil:
 		return 0, err
@@ -340,6 +340,44 @@ func (s *ReminderService) SendTest(ctx context.Context, userID uuid.UUID) (int, 
 		return 0, errors.New("không gửi được thông báo tới thiết bị nào, vui lòng tắt rồi bật lại thông báo")
 	}
 	return sent, nil
+}
+
+var testPushPayload = pushPayload{
+	Title: "LacLingo", Body: "Thông báo nhắc học đã hoạt động trên thiết bị này!", URL: "/settings", Tag: "laclingo-test",
+}
+
+// MaxTestPushDelay — hẹn gửi thử tối đa bấy nhiêu
+const MaxTestPushDelay = 30 * time.Second
+
+// SendTestLater hẹn gửi thông báo thử sau delay: người dùng kịp thoát app để thấy thông báo hiện trên thanh thông báo
+// như lúc nhắc học thật (app đang mở thì Android giao tin cho app, không hiện lên thanh). Trả số thiết bị sẽ nhận;
+// lỗi lúc gửi chỉ ghi log (request đã trả về)
+func (s *ReminderService) SendTestLater(ctx context.Context, userID uuid.UUID, delay time.Duration) (int, error) {
+	if !s.pushEnabled() {
+		return 0, ErrPushNotConfigured
+	}
+	if delay <= 0 || delay > MaxTestPushDelay {
+		return 0, ErrInvalidInput
+	}
+	subs, err := s.repo.ListPushSubscriptionsForUser(ctx, toPgUUID(userID))
+	if err != nil {
+		return 0, err
+	}
+	devices := 0
+	for _, sub := range subs {
+		if s.senderFor(sub) != nil {
+			devices++
+		}
+	}
+	if devices == 0 {
+		return 0, fmt.Errorf("chưa có thiết bị nào bật nhận thông báo: %w", ErrNotFound)
+	}
+	s.after(delay, func() {
+		if _, _, err := s.sendToUser(context.Background(), userID, testPushPayload); err != nil {
+			log.Printf("❌ reminder: gửi thử hẹn giờ user=%s: %v", userID, err)
+		}
+	})
+	return devices, nil
 }
 
 // RunDue nhắc mọi học viên đến giờ nhắc (1 lượt của bộ lập lịch): luôn tạo

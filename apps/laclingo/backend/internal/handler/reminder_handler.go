@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"time"
+
 	"laclingo-backend/internal/service"
 
 	"github.com/gofiber/fiber/v2"
@@ -119,6 +121,8 @@ func (h *ReminderHandler) Unsubscribe(c *fiber.Ctx) error {
 
 type sendTestResponse struct {
 	Sent int `json:"sent"`
+	// Hẹn gửi sau bấy nhiêu giây (gửi thử có ?delay_seconds=) — sent là số thiết bị sẽ nhận
+	DelaySeconds int `json:"delay_seconds,omitempty"`
 }
 
 // SendTest godoc
@@ -126,10 +130,18 @@ type sendTestResponse struct {
 // @Tags         reminders
 // @Produce      json
 // @Security     BearerAuth
+// @Param        delay_seconds  query  int  false  "Hẹn gửi sau N giây (1-30) — để kịp thoát app xem thông báo hiện ra"
 // @Success      200  {object}  sendTestResponse
 // @Failure      404  {object}  ErrorResponse
 // @Router       /notifications/push/test [post]
 func (h *ReminderHandler) SendTest(c *fiber.Ctx) error {
+	if delay := c.QueryInt("delay_seconds"); delay > 0 {
+		devices, err := h.svc.SendTestLater(c.UserContext(), currentUserID(c), time.Duration(delay)*time.Second)
+		if err != nil {
+			return err
+		}
+		return c.JSON(sendTestResponse{Sent: devices, DelaySeconds: delay})
+	}
 	sent, err := h.svc.SendTest(c.UserContext(), currentUserID(c))
 	if err != nil {
 		return err

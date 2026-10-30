@@ -12,7 +12,11 @@ import { browserTimezone, disablePush, enablePush, isPushSupported, NativePushUn
 import { reminderService } from '../reminder.service'
 import { ReminderScheduleFields } from './ReminderScheduleFields'
 
-/** Thẻ "Nhắc học" ở trang Hồ sơ: bật/tắt web push trên thiết bị này + chỉnh lịch nhắc (hoặc theo mặc định admin). */
+// Gửi thử hẹn giờ: đủ để thoát app (server cho tối đa 30 giây)
+const TEST_DELAY_SECONDS = 10
+
+/** Thẻ "Nhắc học" ở trang Cài đặt: bật/tắt web push trên thiết bị này + chỉnh lịch nhắc (hoặc theo mặc định admin). */
+
 export function ReminderSettingsCard() {
   const t = useTranslation()
   const toast = useToast()
@@ -75,6 +79,13 @@ export function ReminderSettingsCard() {
       toast(t.reminders.testSent(sent))
     })
 
+  // App đang mở thì Android không hiện thông báo lên thanh — hẹn gửi sau ít giây để người dùng thoát app xem thử
+  const sendTestLater = () =>
+    run('test', async () => {
+      const { sent } = await reminderService.sendTestLater(TEST_DELAY_SECONDS)
+      toast(t.reminders.testScheduled(sent, TEST_DELAY_SECONDS))
+    })
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!form) return
@@ -112,11 +123,16 @@ export function ReminderSettingsCard() {
                 <p className="font-medium text-slate-800">{onDevice ? t.reminders.enabledOnDevice : t.reminders.disabledOnDevice}</p>
                 {data.subscription_count > 0 && <p className="text-xs text-slate-500">{t.reminders.deviceCount(data.subscription_count)}</p>}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {data.subscription_count > 0 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={sendTest} disabled={busy !== null}>
-                    {t.reminders.testBtn}
-                  </Button>
+                  <>
+                    <Button type="button" variant="ghost" size="sm" onClick={sendTest} disabled={busy !== null}>
+                      {t.reminders.testBtn}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={sendTestLater} disabled={busy !== null}>
+                      {t.reminders.testLaterBtn(TEST_DELAY_SECONDS)}
+                    </Button>
+                  </>
                 )}
                 <Button
                   type="button"

@@ -20,7 +20,15 @@ interface FirebaseMessagingPlugin {
     event: 'notificationActionPerformed',
     cb: (e: { notification: { data?: Record<string, unknown> } }) => void,
   ): Promise<PluginListenerHandle>
+  addListener(
+    event: 'notificationReceived',
+    cb: (e: { notification: { title?: string; body?: string } }) => void,
+  ): Promise<PluginListenerHandle>
 }
+
+/** Sự kiện cửa sổ khi app đang mở mà nhận thông báo đẩy — PushReceivedToaster hiện toast (Android không hiện lên thanh) */
+export const PUSH_RECEIVED_EVENT = 'laclingo:push-received'
+export type PushReceived = { title?: string; body?: string }
 
 const FirebaseMessaging = registerPlugin<FirebaseMessagingPlugin>('FirebaseMessaging')
 
@@ -124,6 +132,11 @@ export function initNativePush(navigate: (url: string) => void) {
   FirebaseMessaging.addListener('notificationActionPerformed', (e) => {
     const url = e.notification.data?.url
     if (typeof url === 'string' && /^\/(?!\/)/.test(url)) navigate(url) // chỉ đường dẫn trong app (không "//host")
+  }).catch(() => {})
+  // App đang mở: hệ điều hành không hiện thông báo — báo cho giao diện tự hiện
+  FirebaseMessaging.addListener('notificationReceived', (e) => {
+    const { title, body } = e.notification
+    window.dispatchEvent(new CustomEvent<PushReceived>(PUSH_RECEIVED_EVENT, { detail: { title, body } }))
   }).catch(() => {})
   FirebaseMessaging.addListener('tokenReceived', (e) => {
     if (storedNativeToken() && e.token) void subscribeNativeToken(e.token).catch(() => {})

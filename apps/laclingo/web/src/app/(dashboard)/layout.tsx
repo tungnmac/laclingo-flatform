@@ -17,6 +17,7 @@ import { AchievementDialog } from '@/features/notification/components/Achievemen
 import { useAchievementAlerts } from '@/features/notification/useAchievementAlerts'
 import { initStoreTransactions } from '@/features/billing/iap'
 import { browserTimezone } from '@/features/reminder/push'
+import { PushReceivedToaster } from '@/features/reminder/components/PushReceivedToaster'
 import { reminderService } from '@/features/reminder/reminder.service'
 import { LanguageSyncBanner } from '@/features/onboarding/components/LanguageSyncBanner'
 import { useOfflineReviewSync } from '@/features/srs-review/offline'
@@ -90,6 +91,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <PaywallDialog />
         <AchievementDialog />
         <MutationToaster />
+        <PushReceivedToaster />
         <div className="flex min-h-screen">
           <Sidebar user={user} />
           <div className="flex min-w-0 flex-1 flex-col">
