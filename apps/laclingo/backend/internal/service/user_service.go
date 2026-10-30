@@ -285,7 +285,7 @@ func (s *UserService) ListUsersAdmin(ctx context.Context, search, role, module s
 		results = append(results, toUserResponse(db.User{
 			ID: r.ID, Email: r.Email, Username: r.Username, FullName: r.FullName, AvatarUrl: r.AvatarUrl,
 			StreakCount: r.StreakCount, Role: r.Role, AdminModules: r.AdminModules, IsActive: r.IsActive, Exp: r.Exp, Level: r.Level,
-			Points: r.Points, CreatedAt: r.CreatedAt,
+			Points: r.Points, CreatedAt: r.CreatedAt, Theme: r.Theme,
 		}))
 	}
 	return PageResult[UserResponse]{Items: results, Total: total}, nil

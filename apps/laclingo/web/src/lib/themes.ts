@@ -64,4 +64,4 @@ export function applyTheme(id: ThemeId) {
 }
 
 /** Script chạy trong <head> trước khi vẽ trang: áp theme đã nhớ trên máy, tránh nháy màu mặc định khi tải lại */
-export const themeBootScript = `(function(){try{var v=${JSON.stringify(Object.fromEntries(THEMES.map((t) => [t.id, themeVars(t.id)])))};var id=localStorage.getItem('${THEME_STORAGE_KEY}');var m=v[id];if(!m)return;var s=document.documentElement.style;for(var k in m)s.setProperty(k,m[k]);document.documentElement.dataset.theme=id}catch(e){}})()`
+export const themeBootScript = `(function(){try{var v=${JSON.stringify(Object.fromEntries(THEMES.map((t) => [t.id, themeVars(t.id)])))};var c=${JSON.stringify(Object.fromEntries(THEMES.map((t) => [t.id, t.palette[600]])))};var id=localStorage.getItem('${THEME_STORAGE_KEY}');var m=v[id];if(!m)return;var s=document.documentElement.style;for(var k in m)s.setProperty(k,m[k]);document.documentElement.dataset.theme=id;var f=function(){var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute('content',c[id])};f();document.addEventListener('DOMContentLoaded',f)}catch(e){}})()`
