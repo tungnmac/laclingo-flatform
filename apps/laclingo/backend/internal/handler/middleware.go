@@ -106,6 +106,10 @@ func RequireModule(svc *service.UserService) fiber.Handler {
 		if err != nil {
 			return err
 		}
+		// Bị khoá → mất quyền quản trị ngay, không chờ access token hết hạn (khoá chỉ thu hồi refresh token)
+		if !user.IsActive {
+			return fiber.NewError(fiber.StatusForbidden, "tài khoản đã bị khoá")
+		}
 		// owner luôn có mọi module — bỏ qua kiểm tra admin_modules.
 		if user.Role == "owner" {
 			return c.Next()

@@ -14,14 +14,14 @@ SELECT * FROM refresh_tokens WHERE token_hash = $1;
 WITH old AS (
     UPDATE refresh_tokens o SET revoked_at = NOW(), replaced_at = NOW()
     WHERE o.id = sqlc.arg('old_id') AND o.revoked_at IS NULL
-    RETURNING o.user_id, o.family_id
+    RETURNING o.user_id, o.family_id, o.family_created_at
 )
-INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at)
-SELECT old.user_id, old.family_id, sqlc.arg('token_hash'), sqlc.arg('expires_at') FROM old
+INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, family_created_at)
+SELECT old.user_id, old.family_id, sqlc.arg('token_hash'), sqlc.arg('expires_at'), old.family_created_at FROM old
 RETURNING *;
 
 -- name: RevokeUserRefreshTokens :exec
--- Khoá tài khoản: thu hồi mọi phiên đăng nhập (mở khoá lại phải đăng nhập lại)
+-- Khoá tài khoản / học viên chọn "đăng xuất mọi thiết bị": thu hồi mọi phiên đăng nhập
 UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL;
 
 -- name: RevokeRefreshFamily :exec

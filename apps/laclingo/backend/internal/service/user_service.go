@@ -21,7 +21,6 @@ import (
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (db.User, error)
 	GetUserByUsername(ctx context.Context, username string) (db.User, error)
-	ListUsers(ctx context.Context) ([]db.User, error)
 	UpdateUserProfile(ctx context.Context, arg db.UpdateUserProfileParams) (db.User, error)
 	ListUsersByStreak(ctx context.Context, arg db.ListUsersByStreakParams) ([]db.ListUsersByStreakRow, error)
 	ListUsersByLevel(ctx context.Context, arg db.ListUsersByLevelParams) ([]db.ListUsersByLevelRow, error)
@@ -159,18 +158,6 @@ func (s *UserService) GetByUsername(ctx context.Context, username string) (UserR
 		return UserResponse{}, err
 	}
 	return toUserResponse(u), nil
-}
-
-func (s *UserService) List(ctx context.Context) ([]UserResponse, error) {
-	users, err := s.repo.ListUsers(ctx)
-	if err != nil {
-		return nil, err
-	}
-	results := make([]UserResponse, 0, len(users))
-	for _, u := range users {
-		results = append(results, toUserResponse(u))
-	}
-	return results, nil
 }
 
 func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, req UpdateProfileRequest) (UserResponse, error) {

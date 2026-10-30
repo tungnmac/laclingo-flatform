@@ -469,14 +469,15 @@ type PushSubscription struct {
 }
 
 type RefreshToken struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	FamilyID   pgtype.UUID        `json:"family_id"`
-	TokenHash  string             `json:"token_hash"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
-	ReplacedAt pgtype.Timestamptz `json:"replaced_at"`
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	FamilyID        pgtype.UUID        `json:"family_id"`
+	TokenHash       string             `json:"token_hash"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	ReplacedAt      pgtype.Timestamptz `json:"replaced_at"`
+	FamilyCreatedAt pgtype.Timestamptz `json:"family_created_at"`
 }
 
 type ReminderDefault struct {

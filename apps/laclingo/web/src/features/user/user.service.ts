@@ -3,10 +3,11 @@ import { buildQuery } from '@/lib/query'
 import type { PageResult, UpdateProfileRequest, User } from '@/types/api'
 
 export const userService = {
-  list: () => apiFetch<User[]>('/users'),
   me: () => apiFetch<User>('/users/me'),
   updateMe: (body: UpdateProfileRequest) =>
     apiFetch<User>('/users/me', { method: 'PATCH', body: JSON.stringify(body) }),
+  /** Thu hồi mọi phiên đăng nhập của tài khoản (mọi thiết bị) — thiết bị khác bị đăng xuất khi phiên hiện tại hết hạn */
+  logoutAll: () => apiFetch<void>('/auth/logout-all', { method: 'POST' }),
   /** Xoá vĩnh viễn tài khoản đang đăng nhập — cần mật khẩu hiện tại */
   deleteMe: (password: string) =>
     apiFetch<void>('/users/me', { method: 'DELETE', body: JSON.stringify({ password }) }),
