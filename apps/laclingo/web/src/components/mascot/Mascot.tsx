@@ -17,7 +17,7 @@ export function Mascot({ mood = 'idle', message, className }: { mood?: MascotMoo
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <span role="img" aria-label={face.label} className="relative shrink-0">
-        <LacBird className="block h-7 sm:h-9" />
+        <LacBird className="block h-10 sm:h-12" />
         {face.badge && <span className="absolute -right-2 -top-3 text-lg sm:text-xl">{face.badge}</span>}
       </span>
       {message && (

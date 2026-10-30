@@ -10,9 +10,9 @@ export function LacBird({ className }: { className?: string }) {
     <img
       src="/lac-bird.svg"
       alt=""
-      width={264}
-      height={70}
-      className={cn('w-auto', className ?? 'inline-block h-[1.25em] align-[-0.25em]')}
+      width={189}
+      height={100}
+      className={cn('w-auto', className ?? 'inline-block h-[1.5em] align-[-0.4em]')}
     />
   )
 }

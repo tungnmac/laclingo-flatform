@@ -203,7 +203,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
                 <button type="button" onClick={() => open(n)} className="flex min-w-0 flex-1 gap-3 text-left">
                   <span className="text-xl leading-6" aria-hidden>
                     {/* Nhắc học của Chim Lạc (icon "lac"; bản ghi cũ lưu 🦩) hiện bằng biểu tượng hệ thống */}
-                    {n.icon === 'lac' || n.icon === '🦩' ? <LacBird className="mt-1.5 h-3" /> : n.icon}
+                    {n.icon === 'lac' || n.icon === '🦩' ? <LacBird className="mt-0.5 h-5" /> : n.icon}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn('block text-sm text-slate-900', !n.read_at && 'font-semibold')}>{n.title}</span>
