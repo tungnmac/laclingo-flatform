@@ -31,6 +31,8 @@ type GrammarRepository interface {
 	CreateGrammarLesson(ctx context.Context, arg db.CreateGrammarLessonParams) (db.GrammarLesson, error)
 	UpdateGrammarLesson(ctx context.Context, arg db.UpdateGrammarLessonParams) (db.GrammarLesson, error)
 	DeleteGrammarLesson(ctx context.Context, id pgtype.UUID) error
+	GetGrammarTopicByID(ctx context.Context, id pgtype.UUID) (db.GrammarTopic, error)
+	GetGrammarLessonLanguageID(ctx context.Context, id pgtype.UUID) (string, error)
 	CreateGrammarExercise(ctx context.Context, arg db.CreateGrammarExerciseParams) (db.GrammarExercise, error)
 	UpdateGrammarExercise(ctx context.Context, arg db.UpdateGrammarExerciseParams) (db.GrammarExercise, error)
 	DeleteGrammarExercise(ctx context.Context, id pgtype.UUID) error
@@ -591,6 +593,18 @@ func (s *GrammarService) CreateLesson(ctx context.Context, req GrammarLessonRequ
 	if req.TopicID == uuid.Nil || req.Code == "" || req.Title == "" || len(req.Content) == 0 {
 		return GrammarLessonAdminResponse{}, ErrInvalidInput
 	}
+	if req.Level = strings.TrimSpace(req.Level); req.Level != "" { // trình độ theo thang của ngôn ngữ của chủ đề
+		topic, err := s.repo.GetGrammarTopicByID(ctx, toPgUUID(req.TopicID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return GrammarLessonAdminResponse{}, fmt.Errorf("không tìm thấy chủ đề: %w", ErrInvalidInput)
+		}
+		if err != nil {
+			return GrammarLessonAdminResponse{}, err
+		}
+		if err := normalizeLevel(topic.LanguageID, &req.Level); err != nil {
+			return GrammarLessonAdminResponse{}, err
+		}
+	}
 	l, err := s.repo.CreateGrammarLesson(ctx, db.CreateGrammarLessonParams{
 		TopicID:    toPgUUID(req.TopicID),
 		Code:       req.Code,
@@ -651,6 +665,18 @@ func (s *GrammarService) ListLessonsAdmin(ctx context.Context, languageID, topic
 func (s *GrammarService) UpdateLesson(ctx context.Context, id uuid.UUID, req GrammarLessonRequest) (GrammarLessonAdminResponse, error) {
 	if req.Title == "" || len(req.Content) == 0 {
 		return GrammarLessonAdminResponse{}, ErrInvalidInput
+	}
+	if req.Level = strings.TrimSpace(req.Level); req.Level != "" { // trình độ theo thang của ngôn ngữ của bài (qua chủ đề)
+		languageID, err := s.repo.GetGrammarLessonLanguageID(ctx, toPgUUID(id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return GrammarLessonAdminResponse{}, ErrNotFound
+		}
+		if err != nil {
+			return GrammarLessonAdminResponse{}, err
+		}
+		if err := normalizeLevel(languageID, &req.Level); err != nil {
+			return GrammarLessonAdminResponse{}, err
+		}
 	}
 	l, err := s.repo.UpdateGrammarLesson(ctx, db.UpdateGrammarLessonParams{
 		ID:         toPgUUID(id),

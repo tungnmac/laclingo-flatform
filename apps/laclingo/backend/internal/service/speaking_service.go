@@ -33,8 +33,6 @@ const (
 	speakingMissionMinScore = 60
 )
 
-var speakingLevels = map[string]bool{"A1": true, "A2": true, "B1": true, "B2": true, "C1": true, "C2": true}
-
 type SpeakingRepository interface {
 	ListSpeakingTopics(ctx context.Context, arg db.ListSpeakingTopicsParams) ([]db.ListSpeakingTopicsRow, error)
 	ListSpeakingItemsByTopic(ctx context.Context, arg db.ListSpeakingItemsByTopicParams) ([]db.ListSpeakingItemsByTopicRow, error)
@@ -391,8 +389,9 @@ func (s *SpeakingService) DeleteItem(ctx context.Context, id uuid.UUID) error {
 func validateSpeakingItem(req *SpeakingItemRequest) error {
 	req.Topic, req.Prompt = strings.TrimSpace(req.Topic), strings.TrimSpace(req.Prompt)
 	req.PromptMeaning, req.SampleAnswer = strings.TrimSpace(req.PromptMeaning), strings.TrimSpace(req.SampleAnswer)
+	levelErr := normalizeLevel(req.LanguageID, &req.Level)
 	if req.Level == "" {
-		req.Level = "B1"
+		req.Level = levelForRank(req.LanguageID, 3) // mặc định trung cấp: B1 / N3 / HSK3 / TOPIK3
 	}
 	switch {
 	case req.LanguageID == "" || req.Topic == "" || req.Prompt == "":
@@ -403,8 +402,8 @@ func validateSpeakingItem(req *SpeakingItemRequest) error {
 		return fmt.Errorf("nội dung/nghĩa tối đa %d ký tự: %w", maxSpeakingPromptLen, ErrInvalidInput)
 	case utf8.RuneCountInString(req.SampleAnswer) > maxSpeakingSampleAnswerLen:
 		return fmt.Errorf("câu trả lời mẫu tối đa %d ký tự: %w", maxSpeakingSampleAnswerLen, ErrInvalidInput)
-	case !speakingLevels[req.Level]:
-		return fmt.Errorf("trình độ phải là A1-C2: %w", ErrInvalidInput)
+	case levelErr != nil:
+		return levelErr
 	}
 	keywords := make([]string, 0, len(req.Keywords))
 	for _, k := range req.Keywords {

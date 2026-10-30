@@ -15,16 +15,15 @@ import { useApi } from '@/hooks/useApi'
 import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
+import { levelScale } from '@/lib/levels'
 import { cn, displayName } from '@/lib/utils'
 import { LOCALES, useLocale, type Locale } from '@/store/locale'
 import { useSession } from '@/store/session'
-import type { CefrLevel, OnboardingData, PreferredTopic, SaveOnboardingRequest, TargetLanguage } from '@/types/api'
+import type { LevelCode, OnboardingData, PreferredTopic, SaveOnboardingRequest, TargetLanguage } from '@/types/api'
 import { onboardingService } from '../onboarding.service'
 
 const STEPS = ['basic', 'avatar', 'languages', 'topics', 'done'] as const
 type Step = (typeof STEPS)[number]
-
-const LEVELS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
 const PRESET_AVATARS = ['lac', 'owl', 'fox', 'panda', 'cat', 'dog', 'tiger', 'bear', 'rabbit', 'penguin', 'koala', 'dragon']
 
@@ -345,6 +344,7 @@ function LanguagesStep({ form, update }: StepProps) {
   if (!languages) return <ErrorState error={error ?? new Error()} onRetry={reload} />
 
   const selected = new Map(form.target_languages.map((l) => [l.language_id, l]))
+  const scaleOf = (id: string) => levelScale(id, languages.find((l) => l.id === id)?.level_scale)
   const toggle = (id: string) => {
     if (selected.has(id)) {
       update({
@@ -353,10 +353,11 @@ function LanguagesStep({ form, update }: StepProps) {
         preferred_topics: form.preferred_topics.filter((p) => p.language_id !== id),
       })
     } else {
-      update({ target_languages: [...form.target_languages, { language_id: id, level: 'A1' }] })
+      // Mặc định bậc thấp nhất trong thang của ngôn ngữ (A1 / N5 / HSK1 / TOPIK1)
+      update({ target_languages: [...form.target_languages, { language_id: id, level: scaleOf(id)[0] }] })
     }
   }
-  const setLevel = (id: string, level: CefrLevel) =>
+  const setLevel = (id: string, level: LevelCode) =>
     update({ target_languages: form.target_languages.map((l): TargetLanguage => (l.language_id === id ? { ...l, level } : l)) })
 
   return (
@@ -382,7 +383,7 @@ function LanguagesStep({ form, update }: StepProps) {
               {target && (
                 <div className="border-t border-indigo-100 px-4 pb-4 pt-3">
                   <p className="mb-2 text-xs font-medium text-slate-500">{t.onboarding.levelLabel}</p>
-                  <LevelPicker value={target.level} onChange={(level) => setLevel(lang.id, level)} />
+                  <LevelPicker scale={scaleOf(lang.id)} value={target.level} onChange={(level) => setLevel(lang.id, level)} />
                 </div>
               )}
             </div>
@@ -393,12 +394,13 @@ function LanguagesStep({ form, update }: StepProps) {
   )
 }
 
-/** Lưới chọn trình độ CEFR — dùng chung cho onboarding và luồng "Học ngôn ngữ mới" */
-export function LevelPicker({ value, onChange }: { value: CefrLevel; onChange: (level: CefrLevel) => void }) {
+/** Lưới chọn trình độ theo thang của ngôn ngữ (CEFR / JLPT / HSK / TOPIK) — dùng chung cho onboarding và luồng "Học
+ * ngôn ngữ mới" */
+export function LevelPicker({ scale, value, onChange }: { scale: LevelCode[]; value: LevelCode; onChange: (level: LevelCode) => void }) {
   const t = useTranslation()
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      {LEVELS.map((level) => (
+      {scale.map((level) => (
         <button
           key={level}
           type="button"
@@ -409,8 +411,8 @@ export function LevelPicker({ value, onChange }: { value: CefrLevel; onChange: (
             value === level ? 'bg-white ring-2 ring-indigo-600' : 'bg-white/70 ring-slate-200 hover:ring-slate-300',
           )}
         >
-          <span className="block text-sm font-semibold text-slate-800">{t.onboarding.levels[level].name}</span>
-          <span className="block text-xs text-slate-500">{t.onboarding.levels[level].desc}</span>
+          <span className="block text-sm font-semibold text-slate-800">{t.onboarding.levels[level]?.name ?? level}</span>
+          <span className="block text-xs text-slate-500">{t.onboarding.levels[level]?.desc}</span>
         </button>
       ))}
     </div>

@@ -244,9 +244,10 @@ Analyze ONE sentence written by a learner in the target language. Write every ex
 - translation: a natural Vietnamese translation of the corrected sentence.
 - structure: the main constituents of the corrected sentence in order; text is the exact fragment, role is its grammatical role in Vietnamese (e.g. "Chủ ngữ", "Động từ chính", "Tân ngữ", "Trạng ngữ thời gian", "Cụm giới từ", "Bổ ngữ", "Trợ từ"), note is a short optional remark ("" if none).
 - grammar_points: 1–4 key grammar structures used in the corrected sentence, with the pattern and when to use it.
-- vocabulary: up to 10 notable words or phrases of the corrected sentence (skip trivial function words unless they matter here), each in dictionary form, with phonetic (English: American IPA without slashes; Chinese: pinyin with tone marks), a short Vietnamese meaning for this context, a part_of_speech code and a CEFR level.`
+- vocabulary: up to 10 notable words or phrases of the corrected sentence (skip trivial function words unless they matter here), each in dictionary form, with phonetic (English: American IPA without slashes; Chinese: pinyin with tone marks), a short Vietnamese meaning for this context, a part_of_speech code and a level code from the given level scale.`
 
-var sentenceAnalysisSchema = func() map[string]any {
+// sentenceAnalysisSchema — schema JSON của bài phân tích, enum trình độ theo thang của ngôn ngữ
+func sentenceAnalysisSchema(languageID string) map[string]any {
 	str := map[string]any{"type": "string"}
 	obj := func(props map[string]any, required ...string) map[string]any {
 		return map[string]any{"type": "object", "properties": props, "required": required, "additionalProperties": false}
@@ -264,16 +265,17 @@ var sentenceAnalysisSchema = func() map[string]any {
 		"vocabulary": arr(obj(map[string]any{
 			"term": str, "phonetic": str, "meaning": str,
 			"part_of_speech": map[string]any{"type": "string", "enum": suggestPartsOfSpeechEnum},
-			"level":          map[string]any{"type": "string", "enum": suggestLevelsEnum},
+			"level":          map[string]any{"type": "string", "enum": LevelScale(languageID)},
 		}, "term", "phonetic", "meaning", "part_of_speech", "level")),
 	}, "is_correct", "corrected", "errors", "translation", "structure", "grammar_points", "vocabulary")
-}()
+}
 
 func (s *SentenceAnalyzer) askAI(ctx context.Context, languageID, sentence string) (SentenceAnalysis, error) {
 	text, err := s.ai.GenerateJSON(ctx, AIJSONRequest{
-		System:    analysisSystemPrompt,
-		User:      fmt.Sprintf("Target language: %s\nSentence: %s", suggestLanguageNames[languageID], sentence),
-		Schema:    sentenceAnalysisSchema,
+		System: analysisSystemPrompt,
+		User: fmt.Sprintf("Target language: %s\nLevel scale (lowest to highest): %s\nSentence: %s",
+			suggestLanguageNames[languageID], strings.Join(LevelScale(languageID), ", "), sentence),
+		Schema:    sentenceAnalysisSchema(languageID),
 		MaxTokens: 4096,
 	})
 	if err != nil {
@@ -283,12 +285,12 @@ func (s *SentenceAnalyzer) askAI(ctx context.Context, languageID, sentence strin
 	if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &out); err != nil {
 		return SentenceAnalysis{}, errAIBadFormat(err)
 	}
-	sanitizeAnalysis(&out)
+	sanitizeAnalysis(&out, languageID)
 	return out, nil
 }
 
 // sanitizeAnalysis — giới hạn độ dài danh sách, bỏ mã không hợp lệ (enum trong schema chỉ là "cố gắng" với một số model)
-func sanitizeAnalysis(a *SentenceAnalysis) {
+func sanitizeAnalysis(a *SentenceAnalysis, languageID string) {
 	a.Errors = firstN(a.Errors, maxAnalysisErrors)
 	for i := range a.Errors {
 		if !slices.Contains(sentenceErrorTypes, a.Errors[i].Type) {
@@ -305,7 +307,8 @@ func sanitizeAnalysis(a *SentenceAnalysis) {
 		if !partsOfSpeech[a.Vocabulary[i].PartOfSpeech] {
 			a.Vocabulary[i].PartOfSpeech = ""
 		}
-		if !slices.Contains(suggestLevelsEnum, a.Vocabulary[i].Level) {
+		a.Vocabulary[i].Level = strings.ToUpper(strings.TrimSpace(a.Vocabulary[i].Level))
+		if !isValidLevel(languageID, a.Vocabulary[i].Level) {
 			a.Vocabulary[i].Level = ""
 		}
 		a.Vocabulary[i].Phonetic = strings.Trim(a.Vocabulary[i].Phonetic, "/[] ")

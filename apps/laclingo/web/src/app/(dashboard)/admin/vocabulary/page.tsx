@@ -16,7 +16,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { DeckPicker } from '@/features/deck/components/DeckPicker'
 import { deckService } from '@/features/deck/deck.service'
-import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { PartOfSpeechBadge } from '@/features/vocabulary/components/PartOfSpeechBadge'
 import { VocabularyImageInput } from '@/features/vocabulary/components/VocabularyImageInput'
 import { PART_OF_SPEECH_ABBR, PARTS_OF_SPEECH } from '@/features/vocabulary/partOfSpeech'
@@ -26,6 +26,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError, resolveMediaUrl } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { DeckSummary, VocabularyAdmin, VocabularyRequest, VocabularyTopicAdmin, VocabularyTopicRequest } from '@/types/api'
 
@@ -77,7 +78,7 @@ export default function AdminVocabularyPage() {
       {tab === 'topics' && (
         <TopicsSection languageId={languageId} allTopics={allTopicsApi.data?.items ?? []} onChanged={allTopicsApi.reload} />
       )}
-      {tab === 'words' && <VocabularySection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
+      {tab === 'words' && <VocabularySection key={languageId} languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
@@ -439,7 +440,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       }
       let filled = 0
       // Chỉ điền ô còn trống hoặc ô lần gợi ý trước tự điền (admin chưa sửa) — không ghi đè thứ admin đã nhập.
-      // Trình độ: "A1" mặc định của form mới coi như trống.
+      // Trình độ: bậc thấp nhất (mặc định của form mới) coi như trống.
       const fill = (name: string, value: string | undefined, isEmpty = (v: string) => !v.trim()) => {
         const el = field(name)
         if (!el) return
@@ -467,7 +468,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       fill('meaning', s.meaning)
       fill('example', s.example)
       fill('example_meaning', s.example_meaning)
-      fill('level', s.level, (v) => !v.trim() || (!editing && v === 'A1'))
+      fill('level', s.level, (v) => !v.trim() || (!editing && v === levelScale(languageId)[0]))
       fill('image_emoji', s.image_emoji)
       if (s.audio_url && !editing?.audio_url) {
         if (suggestedAudio?.url !== s.audio_url) filled++
@@ -589,7 +590,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
       example: String(form.get('example') ?? '').trim() || undefined,
       example_meaning: String(form.get('example_meaning') ?? '').trim() || undefined,
       topic: String(form.get('topic') ?? '').trim() || undefined,
-      level: String(form.get('level') ?? 'A1'),
+      level: String(form.get('level') ?? ''),
       image_emoji: String(form.get('image_emoji') ?? '').trim() || undefined,
       image_url: String(form.get('image_url') ?? '').trim() || undefined,
       // Form không có ô audio — giữ nguyên giá trị cũ (không để lần sửa xoá mất), hoặc audio từ điển vừa gợi ý
@@ -711,7 +712,7 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             className={cn(inputClass, 'max-w-[8rem]')}
           >
             <option value="">{t.adminCommon.allLabel}</option>
-            {CEFR_LEVELS.map((lvl) => (
+            {levelScale(languageId).map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
               </option>
@@ -831,7 +832,14 @@ function VocabularySection({ languageId, topics }: { languageId: string; topics:
             )}
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.levelFilterLabel}
-              <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
+              <select name="level" defaultValue={editing ? (editing.level ?? '') : levelScale(languageId)[0]} className={inputClass}>
+                <option value="">—</option>
+                {levelOptions(languageId, editing?.level).map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    {lvl}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block text-sm font-medium text-slate-700">
               {t.adminVocabulary.illustrationEmojiLabel}

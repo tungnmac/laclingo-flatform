@@ -22,11 +22,12 @@ export interface User {
   onboarded_at?: string | null
 }
 
-export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+// Mã trình độ theo thang của ngôn ngữ (Language.level_scale): CEFR A1..C2, ja N5..N1, zh HSK1..6, ko TOPIK1..6
+export type LevelCode = string
 
 export interface TargetLanguage {
   language_id: string
-  level: CefrLevel
+  level: LevelCode
 }
 
 export interface PreferredTopic {
@@ -54,7 +55,7 @@ export interface SaveOnboardingRequest {
 
 // PUT /users/me/languages/{id} — "Học ngôn ngữ mới": trình độ + chủ đề yêu thích của riêng ngôn ngữ đó
 export interface AddLanguageRequest {
-  level: CefrLevel
+  level: LevelCode
   topics: string[]
 }
 
@@ -93,6 +94,7 @@ export interface Language {
   name: string
   code: string
   created_at: string
+  level_scale?: LevelCode[] // thang trình độ, thấp → cao (vd ja: N5..N1)
 }
 
 export interface GrammarLessonSummary {

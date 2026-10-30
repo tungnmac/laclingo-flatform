@@ -357,6 +357,9 @@ func (s *ListeningService) CreatePassage(ctx context.Context, req ListeningPassa
 	if req.LanguageID == "" || req.Title == "" || req.Script == "" {
 		return ListeningPassageAdminResponse{}, ErrInvalidInput
 	}
+	if err := normalizeLevel(req.LanguageID, &req.Level); err != nil {
+		return ListeningPassageAdminResponse{}, err
+	}
 	p, err := s.repo.CreateListeningPassage(ctx, db.CreateListeningPassageParams{
 		LanguageID: req.LanguageID,
 		Title:      req.Title,
@@ -405,6 +408,18 @@ func (s *ListeningService) ListPassagesAdmin(ctx context.Context, languageID, se
 func (s *ListeningService) UpdatePassage(ctx context.Context, id uuid.UUID, req ListeningPassageRequest) (ListeningPassageAdminResponse, error) {
 	if req.Title == "" || req.Script == "" {
 		return ListeningPassageAdminResponse{}, ErrInvalidInput
+	}
+	if req.Level = strings.TrimSpace(req.Level); req.Level != "" { // trình độ theo thang của ngôn ngữ của bài (không đổi language_id)
+		current, err := s.repo.GetListeningPassageByID(ctx, toPgUUID(id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ListeningPassageAdminResponse{}, ErrNotFound
+		}
+		if err != nil {
+			return ListeningPassageAdminResponse{}, err
+		}
+		if err := normalizeLevel(current.LanguageID, &req.Level); err != nil {
+			return ListeningPassageAdminResponse{}, err
+		}
 	}
 	p, err := s.repo.UpdateListeningPassage(ctx, db.UpdateListeningPassageParams{
 		ID:         toPgUUID(id),

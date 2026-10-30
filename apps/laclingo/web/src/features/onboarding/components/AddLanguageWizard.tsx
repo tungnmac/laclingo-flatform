@@ -13,8 +13,9 @@ import { useApi } from '@/hooks/useApi'
 import { useLanguageName } from '@/hooks/useLanguageName'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
+import { levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
-import type { CefrLevel, Language, TargetLanguage, VocabularyTopic } from '@/types/api'
+import type { Language, LevelCode, TargetLanguage, VocabularyTopic } from '@/types/api'
 import { onboardingService } from '../onboarding.service'
 import { LevelPicker } from './OnboardingWizard'
 
@@ -54,7 +55,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   const router = useRouter()
   const [step, setStep] = useState<Step>('language')
   const [languageId, setLanguageId] = useState('')
-  const [level, setLevel] = useState<CefrLevel>('A1')
+  const [level, setLevel] = useState<LevelCode>('')
   const [topics, setTopics] = useState<string[]>([]) // chủ đề có sẵn của ngôn ngữ mới
   const [build, setBuild] = useState<string[]>([]) // chủ đề nguồn sẽ dựng (tên ở source.buildFrom)
   const [source, setSource] = useState<TopicSource>(DEFAULT_SOURCE)
@@ -67,6 +68,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
   const learningIds = new Set(learning.map((l) => l.language_id))
   const choices = languages.filter((l) => !learningIds.has(l.id))
   const nameOf = (id: string) => languageName(id, languages.find((l) => l.id === id)?.name)
+  const scale = levelScale(languageId, languages.find((l) => l.id === languageId)?.level_scale)
 
   const next = () => {
     if (step === 'language' && !languageId) return setErr(t.addLanguage.needLanguage)
@@ -82,7 +84,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
       // Lưu ngôn ngữ + chủ đề có sẵn trước (lỗi, vd quá số ngôn ngữ, thì không đưa gì vào hàng đợi); chủ đề cần dựng → hàng
       // đợi (backend dựng dần ở chế độ nền, banner đầu trang hiện tiến độ, xong thì tự thêm vào chủ đề yêu thích) — vào học
       // ngay không chờ
-      await onboardingService.addLanguage(languageId, { level, topics })
+      await onboardingService.addLanguage(languageId, { level: level || scale[0], topics })
       if (build.length > 0) await onboardingService.sync(languageId, { from: source.buildFrom, topics: build })
       router.push(`/learn/${languageId}`)
     } catch (e) {
@@ -115,6 +117,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
                 setBuild([])
                 setSource(DEFAULT_SOURCE)
                 setHasTopics(null)
+                setLevel(levelScale(id, languages.find((l) => l.id === id)?.level_scale)[0]) // bậc thấp nhất của thang mới
               }
               setLanguageId(id)
             }}
@@ -125,7 +128,7 @@ function Wizard({ languages, learning }: { languages: Language[]; learning: Targ
             <p className="mb-3 text-sm text-slate-500">
               <span aria-hidden>{languageFlag(languageId)}</span> {nameOf(languageId)}
             </p>
-            <LevelPicker value={level} onChange={setLevel} />
+            <LevelPicker scale={scale} value={level} onChange={setLevel} />
           </div>
         )}
         {step === 'topics' && (

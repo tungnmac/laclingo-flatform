@@ -9,11 +9,12 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { useToast } from '@/components/ui/ToastProvider'
 import { inputClass } from '@/features/auth/components/AuthForm'
-import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { speakingService } from '@/features/speaking/speaking.service'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
+import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { SpeakingItemAdmin, SpeakingItemRequest, SpeakingKind, SpeakingTopicAdmin } from '@/types/api'
 
@@ -312,7 +313,7 @@ function ItemForm({
               .map((k) => k.trim())
               .filter(Boolean)
           : [],
-      level: String(form.get('level') ?? 'B1'),
+      level: String(form.get('level') ?? ''), // rỗng → backend đặt bậc trung cấp của thang
       order_index: Number(form.get('order_index') ?? 0),
     }
     setSaving(true)
@@ -371,8 +372,9 @@ function ItemForm({
         )}
         <label className="block text-sm font-medium text-slate-700">
           {t.adminSpeaking.levelLabel}
-          <select name="level" defaultValue={editing?.level ?? 'B1'} className={inputClass}>
-            {CEFR_LEVELS.map((lvl) => (
+          {/* Mặc định bậc trung cấp của thang: B1 / N3 / HSK3 / TOPIK3 */}
+          <select name="level" defaultValue={editing?.level || levelScale(languageId)[2]} className={inputClass}>
+            {levelOptions(languageId, editing?.level).map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
               </option>

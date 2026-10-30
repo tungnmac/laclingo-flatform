@@ -35,6 +35,12 @@ var languageCatalog = []CatalogLanguage{
 	{"km", "ខ្មែរ (Tiếng Khmer)", "km-KH", "Khmer"},
 }
 
+// CatalogLanguageResponse — ngôn ngữ trong danh mục kèm thang trình độ (web vẽ ô chọn trình độ theo đây)
+type CatalogLanguageResponse struct {
+	CatalogLanguage
+	LevelScale []string `json:"level_scale" example:"N5,N4,N3,N2,N1"`
+}
+
 // nativeLanguageID — ngôn ngữ của nghĩa từ vựng: không học / dựng nội dung cho nó
 const nativeLanguageID = "vi"
 
@@ -56,23 +62,23 @@ func languageEnglishName(id, fallback string) string {
 }
 
 // Catalog — ngôn ngữ chọn được ở "Học ngôn ngữ mới": các ngôn ngữ đã có trong kho trước, rồi tới danh mục phổ biến
-func (s *LanguageService) Catalog(ctx context.Context) ([]CatalogLanguage, error) {
+func (s *LanguageService) Catalog(ctx context.Context) ([]CatalogLanguageResponse, error) {
 	langs, err := s.repo.ListLanguages(ctx)
 	if err != nil {
 		return nil, err
 	}
 	seen := make(map[string]bool, len(langs))
-	results := make([]CatalogLanguage, 0, len(langs)+len(languageCatalog))
+	results := make([]CatalogLanguageResponse, 0, len(langs)+len(languageCatalog))
 	for _, l := range langs {
 		seen[l.ID] = true
 		if l.ID == nativeLanguageID {
 			continue
 		}
-		results = append(results, CatalogLanguage{ID: l.ID, Name: l.Name, Code: l.Code})
+		results = append(results, CatalogLanguageResponse{CatalogLanguage{ID: l.ID, Name: l.Name, Code: l.Code}, LevelScale(l.ID)})
 	}
 	for _, l := range languageCatalog {
 		if !seen[l.ID] {
-			results = append(results, l)
+			results = append(results, CatalogLanguageResponse{l, LevelScale(l.ID)})
 		}
 	}
 	return results, nil

@@ -147,9 +147,10 @@ func (s *LanguageContentService) saveDerived(ctx context.Context, target db.Lang
 			continue // AI bỏ sót / trả không hợp lệ
 		}
 		w := words[i]
-		level := w.Level
-		if !level.Valid {
-			level = pgtype.Text{String: "A1", Valid: true}
+		// Trình độ của từ gốc quy sang thang của ngôn ngữ đích (vd B1 → N3 / HSK3); không rõ thì bậc thấp nhất
+		level := pgtype.Text{String: convertLevel(w.Level.String, target.ID), Valid: true}
+		if level.String == "" {
+			level.String = LevelScale(target.ID)[0]
 		}
 		n, err := q.InsertDerivedVocabulary(ctx, db.InsertDerivedVocabularyParams{
 			LanguageID: target.ID, Term: e.Term, Phonetic: optionalPgText(e.Phonetic), Meaning: e.Meaning,

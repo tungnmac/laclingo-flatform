@@ -59,6 +59,10 @@ DELETE FROM grammar_lessons WHERE id = $1;
 -- name: GetGrammarLessonByID :one
 SELECT * FROM grammar_lessons WHERE id = $1;
 
+-- name: GetGrammarLessonLanguageID :one
+-- Ngôn ngữ của bài học (qua chủ đề) — kiểm trình độ theo thang của ngôn ngữ khi admin sửa bài
+SELECT t.language_id FROM grammar_lessons l JOIN grammar_topics t ON t.id = l.topic_id WHERE l.id = $1;
+
 -- name: CreateGrammarExercise :one
 INSERT INTO grammar_exercises (lesson_id, type, question, options, correct_answer, explanation, order_index, level, hint, xp_reward)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

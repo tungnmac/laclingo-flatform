@@ -31,6 +31,7 @@ type VocabularyRepository interface {
 	CreateVocabulary(ctx context.Context, arg db.CreateVocabularyParams) (db.Vocabulary, error)
 	ListVocabulariesByLanguageAdmin(ctx context.Context, arg db.ListVocabulariesByLanguageAdminParams) ([]db.ListVocabulariesByLanguageAdminRow, error)
 	UpdateVocabulary(ctx context.Context, arg db.UpdateVocabularyParams) (db.Vocabulary, error)
+	GetVocabularyLanguageID(ctx context.Context, id pgtype.UUID) (string, error)
 	DeleteVocabulary(ctx context.Context, id pgtype.UUID) error
 	CreateVocabularyTopic(ctx context.Context, arg db.CreateVocabularyTopicParams) (db.VocabularyTopic, error)
 	InsertVocabularyTopic(ctx context.Context, arg db.InsertVocabularyTopicParams) (db.VocabularyTopic, error)
@@ -479,6 +480,9 @@ func (s *VocabularyService) CreateVocabulary(ctx context.Context, req Vocabulary
 	if req.LanguageID == "" || req.Term == "" || req.Meaning == "" || !normalizePartOfSpeech(&req.PartOfSpeech) {
 		return VocabularyAdminResponse{}, ErrInvalidInput
 	}
+	if err := normalizeLevel(req.LanguageID, &req.Level); err != nil {
+		return VocabularyAdminResponse{}, err
+	}
 	v, err := s.repo.CreateVocabulary(ctx, db.CreateVocabularyParams{
 		LanguageID:     req.LanguageID,
 		Term:           req.Term,
@@ -537,6 +541,18 @@ func (s *VocabularyService) ListVocabulariesAdmin(ctx context.Context, languageI
 func (s *VocabularyService) UpdateVocabulary(ctx context.Context, id uuid.UUID, req VocabularyRequest) (VocabularyAdminResponse, error) {
 	if req.Term == "" || req.Meaning == "" || !normalizePartOfSpeech(&req.PartOfSpeech) {
 		return VocabularyAdminResponse{}, ErrInvalidInput
+	}
+	if req.Level = strings.TrimSpace(req.Level); req.Level != "" { // trình độ theo thang của ngôn ngữ của từ (không đổi language_id)
+		languageID, err := s.repo.GetVocabularyLanguageID(ctx, toPgUUID(id))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VocabularyAdminResponse{}, ErrNotFound
+		}
+		if err != nil {
+			return VocabularyAdminResponse{}, err
+		}
+		if err := normalizeLevel(languageID, &req.Level); err != nil {
+			return VocabularyAdminResponse{}, err
+		}
 	}
 	v, err := s.repo.UpdateVocabulary(ctx, db.UpdateVocabularyParams{
 		ID:             toPgUUID(id),

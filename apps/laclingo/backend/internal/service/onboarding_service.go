@@ -49,7 +49,6 @@ const (
 var (
 	countryCodeRe  = regexp.MustCompile(`^[A-Z]{2}$`)
 	languageCodeRe = regexp.MustCompile(`^[a-z]{2,3}(-[A-Za-z]{2,4})?$`)
-	validCEFR      = map[string]bool{"A1": true, "A2": true, "B1": true, "B2": true, "C1": true, "C2": true}
 	// Ảnh tải lên qua POST /users/me/avatar → avatar_url tương đối "/users/avatars/<uuid>" (web ghép địa chỉ API)
 	uploadedAvatarRe = regexp.MustCompile(`^/users/avatars/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )
@@ -61,7 +60,7 @@ func isAvatarURL(raw string) bool {
 
 type TargetLanguage struct {
 	LanguageID string `json:"language_id" example:"en"`
-	Level      string `json:"level" example:"A1" enums:"A1,A2,B1,B2,C1,C2"`
+	Level      string `json:"level" example:"A1"` // mã theo thang của ngôn ngữ (LevelScale): CEFR / N5..N1 / HSK1..6 / TOPIK1..6
 }
 
 type PreferredTopic struct {
@@ -92,7 +91,7 @@ type SaveOnboardingRequest struct {
 // AddLanguageRequest — luồng "Học ngôn ngữ mới": trình độ + chủ đề yêu thích của RIÊNG ngôn ngữ đó (ghi đè chủ đề cũ
 // của ngôn ngữ này, không đụng ngôn ngữ khác)
 type AddLanguageRequest struct {
-	Level  string   `json:"level" example:"A1" enums:"A1,A2,B1,B2,C1,C2"`
+	Level  string   `json:"level" example:"A1"` // mã theo thang của ngôn ngữ (LevelScale)
 	Topics []string `json:"topics" example:"Gia đình"`
 }
 
@@ -191,8 +190,9 @@ func (s *OnboardingService) validate(req *SaveOnboardingRequest) error {
 	for i, t := range req.TargetLanguages {
 		t.LanguageID = strings.TrimSpace(t.LanguageID)
 		t.Level = strings.ToUpper(strings.TrimSpace(t.Level))
-		if t.LanguageID == "" || targets[t.LanguageID] || !validCEFR[t.Level] {
-			return fmt.Errorf("ngôn ngữ học / trình độ không hợp lệ: %w", ErrInvalidInput)
+		if t.LanguageID == "" || targets[t.LanguageID] || !isValidLevel(t.LanguageID, t.Level) {
+			return fmt.Errorf("ngôn ngữ học / trình độ không hợp lệ (trình độ của %q: %s): %w",
+				t.LanguageID, strings.Join(LevelScale(t.LanguageID), ", "), ErrInvalidInput)
 		}
 		targets[t.LanguageID] = true
 		req.TargetLanguages[i] = t
@@ -307,8 +307,9 @@ func normalizeTopics(topics []string) ([]string, error) {
 func (s *OnboardingService) AddLanguage(ctx context.Context, userID uuid.UUID, languageID string, req AddLanguageRequest) (OnboardingResponse, error) {
 	languageID = strings.TrimSpace(languageID)
 	level := strings.ToUpper(strings.TrimSpace(req.Level))
-	if languageID == "" || !validCEFR[level] {
-		return OnboardingResponse{}, fmt.Errorf("ngôn ngữ học / trình độ không hợp lệ: %w", ErrInvalidInput)
+	if languageID == "" || !isValidLevel(languageID, level) {
+		return OnboardingResponse{}, fmt.Errorf("ngôn ngữ học / trình độ không hợp lệ (trình độ của %q: %s): %w",
+			languageID, strings.Join(LevelScale(languageID), ", "), ErrInvalidInput)
 	}
 	topics, err := normalizeTopics(req.Topics)
 	if err != nil {

@@ -27,7 +27,7 @@ func (h *LanguageHandler) RegisterRoutes(router fiber.Router) {
 // @Summary      Ngôn ngữ chọn được ở "Học ngôn ngữ mới" — đã có trong kho + danh mục ngôn ngữ phổ biến (chưa có thì tạo khi chọn)
 // @Tags         languages
 // @Produce      json
-// @Success      200  {array}   service.CatalogLanguage
+// @Success      200  {array}   service.CatalogLanguageResponse
 // @Router       /languages/catalog [get]
 func (h *LanguageHandler) Catalog(c *fiber.Ctx) error {
 	result, err := h.svc.Catalog(c.UserContext())

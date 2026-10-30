@@ -13,12 +13,13 @@ import { useConfirm } from '@/components/ui/ConfirmDialogProvider'
 import { EmptyState, ErrorState, Spinner } from '@/components/ui/States'
 import { inputClass } from '@/features/auth/components/AuthForm'
 import { grammarService } from '@/features/grammar/grammar.service'
-import { CEFR_LEVELS, LevelBadge } from '@/features/grammar/components/LevelBadge'
+import { LevelBadge } from '@/features/grammar/components/LevelBadge'
 import { useApi } from '@/hooks/useApi'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useTranslation } from '@/hooks/useTranslation'
 import { inlineError } from '@/lib/api'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { levelOptions, levelScale } from '@/lib/levels'
 import { cn } from '@/lib/utils'
 import type { GrammarLessonAdmin, GrammarLessonRequest, GrammarTopicAdmin, GrammarTopicRequest } from '@/types/api'
 
@@ -76,7 +77,7 @@ export default function AdminGrammarPage() {
       />
 
       {tab === 'topics' && <TopicsSection languageId={languageId} onChanged={allTopicsApi.reload} />}
-      {tab === 'lessons' && <LessonsSection languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
+      {tab === 'lessons' && <LessonsSection key={languageId} languageId={languageId} topics={allTopicsApi.data?.items ?? []} />}
     </>
   )
 }
@@ -298,7 +299,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
       topic_id: editing ? editing.topic_id : String(form.get('topic_id') ?? ''),
       code: String(form.get('code') ?? '').trim(),
       title: String(form.get('title') ?? '').trim(),
-      level: String(form.get('level') ?? 'A1'),
+      level: String(form.get('level') ?? ''),
       order_index: Number(form.get('order_index')),
       content,
     }
@@ -383,7 +384,7 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
             className={cn(inputClass, 'max-w-[8rem]')}
           >
             <option value="">{t.adminCommon.allLabel}</option>
-            {CEFR_LEVELS.map((lvl) => (
+            {levelScale(languageId).map((lvl) => (
               <option key={lvl} value={lvl}>
                 {lvl}
               </option>
@@ -424,7 +425,14 @@ function LessonsSection({ languageId, topics }: { languageId: string; topics: Gr
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminGrammar.levelFilterLabel}
-                <input name="level" type="text" defaultValue={editing?.level ?? 'A1'} className={inputClass} />
+                <select name="level" defaultValue={editing ? (editing.level ?? '') : levelScale(languageId)[0]} className={inputClass}>
+                  <option value="">—</option>
+                  {levelOptions(languageId, editing?.level).map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      {lvl}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block text-sm font-medium text-slate-700">
                 {t.adminGrammar.orderLabel}
