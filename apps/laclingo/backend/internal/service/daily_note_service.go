@@ -142,7 +142,7 @@ func (s *DailyNoteService) today(ctx context.Context, userID uuid.UUID) (string,
 
 func toDailyTask(t db.DailyNoteTask) DailyTask {
 	out := DailyTask{
-		ID: uuid.UUID(t.ID.Bytes), Title: t.Title, Kind: t.Kind, Progress: t.Progress, Memo: t.Memo,
+		ID: uuid.UUID(t.ID.Bytes), Title: t.Title, Kind: t.Kind, Progress: t.Progress, Memo: taskMemoHTML(t.Memo),
 		Repeat: t.IsRepeat, Carried: t.CarriedAt.Valid, CarriedIn: t.CarriedFrom.Valid,
 		Done: t.CompletedAt.Valid, Items: []DailyTaskItem{},
 	}
@@ -415,7 +415,7 @@ func (s *DailyNoteService) checkTemplateLimit(ctx context.Context, userID uuid.U
 
 // CreateTask — thêm việc vào note hôm nay (repeat → lưu thành việc lặp lại hằng ngày)
 func (s *DailyNoteService) CreateTask(ctx context.Context, userID uuid.UUID, req DailyTaskCreateRequest) (DailyTask, error) {
-	req.Title, req.Memo = strings.TrimSpace(req.Title), strings.TrimSpace(req.Memo)
+	req.Title, req.Memo = strings.TrimSpace(req.Title), sanitizeTaskMemo(req.Memo)
 	if err := validateTaskInput(dailyTaskInput{Title: req.Title, Kind: req.Kind, Target: req.Target, Memo: req.Memo}); err != nil {
 		return DailyTask{}, err
 	}
@@ -504,7 +504,7 @@ func (s *DailyNoteService) UpdateTask(ctx context.Context, userID, taskID uuid.U
 		title = strings.TrimSpace(*req.Title)
 	}
 	if req.Memo != nil {
-		memo = strings.TrimSpace(*req.Memo)
+		memo = sanitizeTaskMemo(*req.Memo)
 	}
 	var target *int32
 	if t.Target.Valid {

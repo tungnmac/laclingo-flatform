@@ -14,15 +14,20 @@ import { cn } from '@/lib/utils'
 /** Rich text editor đầy đủ công cụ (Tiptap) — ảnh/video YouTube chèn NGAY
  * TRONG content (như Notion/Medium), không có gallery/danh sách link riêng.
  * Ảnh upload KHÔNG cần postId (xem blogService.uploadImage) nên dùng được cả
- * khi đang soạn bài MỚI. Chỉ render phía client — Tiptap cần DOM. */
+ * khi đang soạn bài MỚI. Chỉ render phía client — Tiptap cần DOM.
+ * media=false: ẩn nút chèn ảnh / YouTube (ghi chú Nhật ký — ảnh blog gắn với bài viết). */
 export function RichTextEditor({
   content,
   onChange,
   placeholder,
+  media = true,
+  minHeight = 'min-h-[200px]',
 }: {
   content: string
   onChange: (html: string) => void
   placeholder?: string
+  media?: boolean
+  minHeight?: string
 }) {
   const t = useTranslation()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -40,7 +45,7 @@ export function RichTextEditor({
     content,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
-      attributes: { class: 'prose prose-slate max-w-none focus:outline-none min-h-[200px] px-3 py-2.5' },
+      attributes: { class: cn('prose prose-slate max-w-none focus:outline-none px-3 py-2.5', minHeight) },
     },
   })
 
@@ -123,12 +128,16 @@ export function RichTextEditor({
         <ToolbarButton label={t.blog.linkPrompt} onClick={onAddLink}>
           🔗
         </ToolbarButton>
-        <ToolbarButton label={t.blog.insertImageLabel} disabled={uploading} onClick={() => fileInput.current?.click()}>
-          {uploading ? '…' : '🖼️'}
-        </ToolbarButton>
-        <ToolbarButton label={t.blog.insertYoutubeLabel} onClick={onAddYoutube}>
-          ▶️
-        </ToolbarButton>
+        {media && (
+          <>
+            <ToolbarButton label={t.blog.insertImageLabel} disabled={uploading} onClick={() => fileInput.current?.click()}>
+              {uploading ? '…' : '🖼️'}
+            </ToolbarButton>
+            <ToolbarButton label={t.blog.insertYoutubeLabel} onClick={onAddYoutube}>
+              ▶️
+            </ToolbarButton>
+          </>
+        )}
         <Divider />
         <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
           ↶
