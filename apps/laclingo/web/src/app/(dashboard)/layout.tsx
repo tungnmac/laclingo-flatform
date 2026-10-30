@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SpeechErrorToaster } from '@/components/audio/SpeechErrorToaster'
 import { BottomNav, Sidebar, TopBar } from '@/components/layout/DashboardNav'
@@ -24,6 +24,7 @@ import { useOfflineReviewSync } from '@/features/srs-review/offline'
 import { userService } from '@/features/user/user.service'
 import { useHydrated } from '@/hooks/useHydrated'
 import { isSessionValid, useSession } from '@/store/session'
+import { API_URL } from '@/lib/api'
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const hydrated = useHydrated()
@@ -40,17 +41,40 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // Access token hết hạn mà refresh token còn hạn vẫn là phiên hợp lệ — request đầu tiên tự làm mới (xem apiFetch)
   const valid = isSessionValid({ token, expiresAt, refreshToken, refreshExpiresAt }) && !!user
 
+  // Phiên hết hạn mà máy đang offline (không tới được máy chủ): vẫn cho vào app với dữ liệu đã lưu — offline không đăng
+  // nhập lại được. Có mạng lại (sự kiện online) thì kiểm tra lại: lúc đó mới xử lý hết phiên như bình thường
+  const [offlineSession, setOfflineSession] = useState(false)
+  const [onlineTick, setOnlineTick] = useState(0)
+  useEffect(() => {
+    const onOnline = () => setOnlineTick((n) => n + 1)
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
+
   useEffect(() => {
     if (!hydrated || valid) return
-    // Phiên đang dùng hết hạn / chưa đăng nhập: còn tài khoản khác còn phiên → chuyển sang (tải lại trang như mọi lần
-    // chuyển tài khoản); không thì về đăng nhập — tài khoản hết hạn vẫn giữ trong danh sách để đăng nhập lại (điền sẵn tên).
-    // Đọc store trực tiếp + chỉ chạy theo hydrated/valid: deactivate() xoá user thì effect không chạy lại làm mất ?relogin
-    const { accounts, user: current, activate, deactivate } = useSession.getState()
-    const other = accounts.find((a) => a.user.id !== current?.id && isSessionValid(a))
-    if (other && activate(other.user.id)) return reloadAsActiveAccount()
-    deactivate()
-    router.replace(current ? `/login?relogin=${encodeURIComponent(current.username)}` : '/login')
-  }, [hydrated, valid, router])
+    let cancelled = false
+    void (async () => {
+      // Kể cả đã bị đưa về trang đăng nhập (user rỗng) lúc mất mạng: còn tài khoản trên máy thì dùng lại tài khoản gần nhất
+      if (useSession.getState().accounts.length > 0 && !(await serverReachable())) {
+        if (!cancelled && useSession.getState().resumeOffline()) setOfflineSession(true)
+        return
+      }
+      if (cancelled) return
+      setOfflineSession(false)
+      // Phiên đang dùng hết hạn / chưa đăng nhập: còn tài khoản khác còn phiên → chuyển sang (tải lại trang như mọi lần
+      // chuyển tài khoản); không thì về đăng nhập — tài khoản hết hạn vẫn giữ trong danh sách để đăng nhập lại (điền sẵn
+      // tên). Đọc store trực tiếp + chỉ chạy theo hydrated/valid: deactivate() xoá user thì không làm mất ?relogin
+      const { accounts, user: current, activate, deactivate } = useSession.getState()
+      const other = accounts.find((a) => a.user.id !== current?.id && isSessionValid(a))
+      if (other && activate(other.user.id)) return reloadAsActiveAccount()
+      deactivate()
+      router.replace(current ? `/login?relogin=${encodeURIComponent(current.username)}` : '/login')
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [hydrated, valid, router, onlineTick])
 
   useEffect(() => {
     if (!valid) return
@@ -71,7 +95,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valid])
 
-  if (!hydrated || !valid || !user) return <Spinner />
+  if (!hydrated || !(valid || offlineSession) || !user) return <Spinner />
 
   // Onboarding: toàn màn hình, không sidebar / menu
   if (onboarding)
@@ -132,4 +156,15 @@ function BackgroundSync() {
     }
   }, [])
   return null
+}
+
+/** Tới được máy chủ API không — mất mạng / Wi-Fi không có Internet (navigator.onLine vẫn true) đều coi là offline */
+async function serverReachable(): Promise<boolean> {
+  if (!navigator.onLine) return false
+  try {
+    await fetch(`${API_URL}/locales`, { signal: AbortSignal.timeout(5000), cache: 'no-store' })
+    return true
+  } catch {
+    return false
+  }
 }
