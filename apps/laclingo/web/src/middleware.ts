@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 // chunk Next tự nạp) — có lỗi XSS thì script chèn vào cũng không chạy, không đọc được token trong localStorage. Kết nối
 // chỉ tới API (+ WebSocket thách đấu) nên script lạ có lọt cũng khó gửi dữ liệu ra ngoài. Next tự gắn nonce cho script
 // của framework khi request mang header CSP; script riêng (theme ở app/layout.tsx) đọc nonce qua header x-nonce.
-const api = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1')
+// Base phòng khi NEXT_PUBLIC_API_URL là đường dẫn tương đối — không thì new URL lỗi làm mọi trang trả 500
+const api = new URL(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080/api/v1', 'http://localhost')
 const wsOrigin = `${api.protocol === 'https:' ? 'wss' : 'ws'}://${api.host}`
 const dev = process.env.NODE_ENV === 'development'
 
@@ -15,9 +16,10 @@ function contentSecurityPolicy(nonce: string) {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
     // style={{...}} của React, thư viện chèn style — rủi ro thấp, giữ unsafe-inline
     "style-src 'self' 'unsafe-inline'",
-    // Ảnh từ vựng / avatar / blog / audio bài nghe có thể ở domain ngoài (R2 presigned, link admin nhập)
-    "img-src 'self' https: data: blob:",
-    "media-src 'self' https: data: blob:",
+    // Ảnh từ vựng / avatar / blog / audio bài nghe có thể ở domain ngoài (R2 presigned, link admin nhập); avatar / ảnh
+    // blog đi qua API trước (API http khi chạy dev / thử app qua IP LAN)
+    `img-src 'self' https: data: blob: ${api.origin}`,
+    `media-src 'self' https: data: blob: ${api.origin}`,
     "font-src 'self' data:",
     `connect-src 'self' ${api.origin} ${wsOrigin}`,
     // Video YouTube nhúng trong bài blog (bluemonday chỉ cho iframe YouTube)
